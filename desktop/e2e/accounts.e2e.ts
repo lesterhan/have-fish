@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, BACK, cellsOf, launch, PANE, rows, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -20,7 +20,7 @@ const accounts = (page: Page) =>
       items.map((li) => [...li.children].map((c) => c.textContent?.trim() ?? '').join(' | ')),
     )
 const selected = (page: Page) =>
-  page.locator(`${LIST} li[aria-selected=true] .name`).allTextContents()
+  cellsOf(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([name]) => name))
 const current = (page: Page) => page.locator(`${NAV} [aria-current=page]`).innerText()
 const focused = (page: Page) =>
   page.evaluate(() => {
@@ -31,7 +31,7 @@ const focused = (page: Page) =>
 
 /** Add account, a name, a kind and maybe a currency, Enter: as a person does it. */
 async function add(page: Page, name: string, kind: string, currency?: string) {
-  await page.click(`main.accounts button.add`)
+  await page.click(ADD_ACCOUNT)
   await page.locator(NAME).focus()
   await page.keyboard.type(name)
   await page.selectOption(KIND, kind)
@@ -105,7 +105,7 @@ describe('adding an account', () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
 
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.selectOption(KIND, 'loan')
     expect(await page.locator(`${ADDING} #kind-hint`).innerText()).toContain('Money you owe')
 
@@ -118,7 +118,7 @@ describe('adding an account', () => {
   test('a bank account, a card or a loan holds the one currency I pick, unless I say any', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
 
     for (const kind of ['bank', 'card', 'loan']) {
       await page.selectOption(KIND, kind)
@@ -144,7 +144,7 @@ describe('adding an account', () => {
   test('cash can hold any currency', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
 
     await page.selectOption(KIND, 'cash')
     expect(await page.inputValue(CURRENCY)).toBe('')
@@ -158,7 +158,7 @@ describe('adding an account', () => {
   test('a currency I picked stays picked when I change the kind', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
 
     await page.selectOption(CURRENCY, 'JPY')
     await page.selectOption(KIND, 'cash')
@@ -191,7 +191,7 @@ describe('adding an account', () => {
   test('with no name, it asks for one', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.locator(NAME).focus()
     await page.keyboard.press('Enter')
 
@@ -204,7 +204,7 @@ describe('adding an account', () => {
   test('Escape puts the pane away and adds nothing', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.locator(NAME).focus()
     await page.keyboard.type('visa')
     await page.keyboard.press('Escape')
@@ -230,11 +230,11 @@ describe('adding an account', () => {
     const pane = page.locator(ACCOUNT)
     await expect.poll(() => pane.isVisible()).toBe(false)
 
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await expect.poll(() => pane.isVisible()).toBe(true)
     expect(await focused(page)).toBe('Add an account name')
 
-    await page.click(`${ACCOUNT} button.back`)
+    await page.click(`${ACCOUNT} >> ${BACK}`)
     await expect.poll(() => pane.isVisible()).toBe(false)
     expect(await accounts(page)).toEqual([])
 

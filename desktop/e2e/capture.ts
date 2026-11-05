@@ -7,7 +7,7 @@ import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { Page } from 'playwright-core'
 import { expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, BACK, launch, PANE, rows, WRITE, writeDown } from './app'
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
@@ -78,7 +78,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.click(`${ACCOUNTS} li:has-text("chequing")`)
   await shot.take('accounts-selected')
   await shot.dark('accounts-selected')
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await shot.take('accounts-adding')
   await page.press('section[aria-label="The account"] input[name=name]', 'Enter')
   await page.waitForSelector('#account-name-error')
@@ -106,7 +106,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.press(SPENDS, 'Enter')
   await page.waitForTimeout(300)
   await shot.take('narrow-spends-pane')
-  await page.click(`${PANE} button.back`)
+  await page.click(`${PANE} >> ${BACK}`)
   await go(page, 'Accounts')
   await shot.take('narrow-accounts')
   await go(page, 'Reports')

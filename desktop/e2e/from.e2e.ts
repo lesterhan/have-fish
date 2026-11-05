@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, cellsOf, fromLine, launch, rows, WRITE, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -15,7 +15,7 @@ const today = () => new Date().toLocaleDateString('en-CA')
 /** Adds an account on the Accounts place, then comes back to Spends. */
 async function addAccount(page: Page, name: string, kind: string, currency?: string) {
   await page.click(`${NAV} button:has-text("Accounts")`)
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
@@ -37,12 +37,11 @@ async function upToFrom(page: Page, amount: string, description: string) {
 }
 
 const offered = (page: Page) =>
-  page.locator(`${OPTIONS} [role=option] span:first-child`).allInnerTexts()
+  cellsOf(page.locator(`${OPTIONS} [role=option]`)).then((rows) => rows.map(([name]) => name))
 const from = (page: Page) => page.inputValue(FROM)
 /** The account the selected spend came out of, as the pane says it. */
 const paidFrom = (page: Page) =>
-  page
-    .locator(`${PANE} .from`)
+  fromLine(page)
     .innerText()
     .then((t) => t.replace(/^From\s+/, ''))
 
@@ -60,7 +59,7 @@ describe('picking the account that paid', () => {
 
     await page.keyboard.press('Enter')
     await expect.poll(() => rows(page)).toEqual([`${today()} | Dinner | 30.00 CAD`])
-    expect(await page.locator(`${PANE} .from`).innerText()).toMatch(/^From\s+visa$/)
+    expect(await fromLine(page).innerText()).toMatch(/^From\s+visa$/)
   })
 
   test('accounts I have added are offered, never a category', async () => {

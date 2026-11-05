@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, launch, PANE, rows, WRITE } from './app'
 
 const CATEGORY = `${WRITE} input[name=to]`
 const OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories and accounts"]`
@@ -137,7 +137,7 @@ describe('changing the category in the pane', () => {
   test('a starting balance has no category to change', async () => {
     const { page } = await launch(aHome())
     await page.click('nav button:has-text("Accounts")')
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     const adding = 'section[aria-label="The account"] form[aria-label="Add an account"]'
     await page.fill(`${adding} input[name=name]`, 'chequing')
     await page.click(`${adding} details summary`)

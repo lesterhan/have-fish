@@ -3,18 +3,18 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, cellsOf, launch, PANE, rows, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
 const LIST = 'ol[aria-label=Spends]'
 const P_AMOUNT = `${PANE} input[name=amount]`
 const P_DESCRIPTION = `${PANE} input[name=description]`
-const REMOVE = `${PANE} button.remove`
+const REMOVE = `${PANE} >> role=button[name="Remove"s]`
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const selected = (page: Page) =>
-  page.locator(`${LIST} li[aria-selected=true] .description`).allTextContents()
+  cellsOf(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([, d]) => d))
 const focused = (page: Page) =>
   page.evaluate(() => {
     const el = document.activeElement

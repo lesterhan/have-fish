@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, cellsOf, launch, rows, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -17,7 +17,7 @@ async function addAccount(
   start?: string,
 ) {
   await page.click(`${NAV} button:has-text("Accounts")`)
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
@@ -106,8 +106,11 @@ describe('see how much is in each account', () => {
         'cad | Bank account | CAD | 100.00 CAD',
         'eur | Bank account | EUR | 50.00 EUR',
       ])
-    const selected = () => page.locator(`${LIST} li[aria-selected=true] .name`).allTextContents()
-    expect(await page.getAttribute(`${LIST} li:first-child`, 'aria-disabled')).toBe('true')
+    const selected = () =>
+      cellsOf(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([n]) => n))
+    // wise is there for its children's total: a row, but not one to select.
+    const parent = `${LIST} >> role=option[disabled=true]`
+    expect(await page.innerText(parent)).toMatch(/^wise/)
 
     await page.locator(LIST).focus()
     await page.keyboard.press('Home')
@@ -117,7 +120,7 @@ describe('see how much is in each account', () => {
     await page.keyboard.press('ArrowUp')
     await page.keyboard.press('ArrowUp')
     expect(await selected()).toEqual(['cad'])
-    await page.click(`${LIST} li:first-child`, { force: true })
+    await page.click(parent, { force: true })
     expect(await selected()).toEqual(['cad'])
   })
 
