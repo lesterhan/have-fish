@@ -96,20 +96,24 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
 
 /** Real key presses on the app's X window: xdotool, under xvfb-run. */
 function pressKeys(child: ChildProcess, keys: string): void {
-  const xdotool = (...args: string[]) =>
-    execFileSync('xdotool', args, { encoding: 'utf8', timeout: 10_000 })
+  const xdotool = (args: string[], timeout = 10_000) =>
+    execFileSync('xdotool', args, { encoding: 'utf8', timeout })
   let window: string | undefined
   try {
-    // `--sync` waits for it: the page can be ready before the window shows (see #582).
-    window = xdotool('search', '--sync', '--onlyvisible', '--pid', String(child.pid)).split('\n')[0]
+    // `--sync` waits for it: the page can be ready before the window shows (see #582). The first
+    // launch on a cold CI runner can take over 10 s to show it, so the wait gets longer.
+    window = xdotool(
+      ['search', '--sync', '--onlyvisible', '--pid', String(child.pid)],
+      30_000,
+    ).split('\n')[0]
   } catch (e) {
     throw new Error('pressing keys needs xdotool, and the app on an X display (xvfb-run -a)', {
       cause: e,
     })
   }
   if (!window) throw new Error('the app has no window on this X display')
-  xdotool('windowfocus', '--sync', window)
-  xdotool('key', '--clearmodifiers', keys)
+  xdotool(['windowfocus', '--sync', window])
+  xdotool(['key', '--clearmodifiers', keys])
 }
 
 /** Chromium prints where its DevTools listen, once they do. */
