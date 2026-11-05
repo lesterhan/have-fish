@@ -17,7 +17,8 @@
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
     "db:generate": "drizzle-kit generate",
     "db:bundle": "bun tools/bundle-migrations.ts",
-    "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts"
+    "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts",
+    "capture": "electron-vite build && vitest run --config vitest.capture.config.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"
