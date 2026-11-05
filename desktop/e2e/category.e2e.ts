@@ -129,7 +129,7 @@ describe('changing the category in the pane', () => {
     await expect.poll(async () => (await rows(page))[0]).not.toContain('●')
     expect(await categoryOfSelected(page)).toBe('fun')
 
-    await page.locator('ol[aria-label=Spends]').focus()
+    await page.locator('ol[aria-label=Ledger]').focus()
     press('ctrl+z')
     await expect.poll(() => categoryOfSelected(page)).toBe('food')
   })
@@ -145,8 +145,8 @@ describe('changing the category in the pane', () => {
     await page.locator(`${adding} input[name=name]`).press('Enter')
     await page.waitForSelector('ol[aria-label=Accounts] li:has-text("chequing")')
 
-    await page.click('nav button:has-text("Spends")')
-    await page.click('ol[aria-label=Spends] li')
+    await page.click('nav button:has-text("Ledger")')
+    await page.click('ol[aria-label=Ledger] li')
 
     await expect.poll(() => page.locator(`${PANE} input[name=amount]`).isVisible()).toBe(true)
     expect(await page.locator(PANE_CATEGORY).count()).toBe(0)

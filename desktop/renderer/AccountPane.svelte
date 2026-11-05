@@ -12,6 +12,8 @@
     startCurrency,
     startingCurrency,
   } from './accounts'
+  import Button from './parts/Button.svelte'
+  import Empty from './parts/Empty.svelte'
 
   type Props = {
     account: ListedAccount | undefined
@@ -106,7 +108,7 @@
 </script>
 
 <section class="pane" class:open aria-label={copy.accounts.pane.label}>
-  <button type="button" class="back" onclick={onback}>{copy.accounts.pane.back}</button>
+  <span class="back"><Button variant="quiet" onclick={onback}>{copy.accounts.pane.back}</Button></span>
 
   {#if adding}
     <!-- Escape bubbles up from the fields inside; the form itself never takes focus. -->
@@ -162,15 +164,15 @@
 
       <span class="buttons">
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
-        <button type="submit" aria-disabled={saving}>{copy.accounts.pane.save}</button>
-        <button type="button" onclick={oncancel}>{copy.accounts.pane.cancel}</button>
+        <Button type="submit" aria-disabled={saving}>{copy.accounts.pane.save}</Button>
+        <Button onclick={oncancel}>{copy.accounts.pane.cancel}</Button>
       </span>
       {#if error?.field === 'form'}
         <p class="error" role="alert">{error.words}</p>
       {/if}
     </form>
   {:else if account === undefined}
-    <p class="quiet">{copy.accounts.pane.nothing}</p>
+    <Empty>{copy.accounts.pane.nothing}</Empty>
     {#if error?.field === 'form'}
       <p class="error" role="alert">{error.words}</p>
     {/if}
@@ -199,7 +201,7 @@
         {@render question(owes(account.kind), startCurrency(account.currency))}
         {#if startOpen}
           <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
-          <button type="submit" aria-disabled={saving}>{copy.accounts.pane.saveStart}</button>
+          <Button type="submit" aria-disabled={saving}>{copy.accounts.pane.saveStart}</Button>
         {/if}
       </form>
     {/if}
@@ -287,7 +289,6 @@
     font-family: var(--font-serif);
   }
 
-  .quiet,
   .hint {
     color: var(--color-muted);
   }
@@ -333,8 +334,7 @@
   }
 
   input,
-  select,
-  button {
+  select {
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
@@ -392,16 +392,6 @@
   .buttons {
     display: flex;
     gap: var(--space-2);
-  }
-
-  button {
-    justify-self: start;
-    cursor: pointer;
-  }
-
-  button[aria-disabled='true'] {
-    color: var(--color-muted);
-    cursor: default;
   }
 
   .error {

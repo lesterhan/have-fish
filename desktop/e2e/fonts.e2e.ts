@@ -4,7 +4,7 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
 
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 
 const SANS = 'IBM Plex Sans Variable'
 const SERIF = 'Source Serif 4 Variable'

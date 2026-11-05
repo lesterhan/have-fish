@@ -8,7 +8,7 @@ import { aHome, launch, PANE, rows, unsavedInPane, WRITE, writeDown } from './ap
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`
 

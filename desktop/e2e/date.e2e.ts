@@ -15,7 +15,7 @@ const today = () => daysAgo(0)
 
 const WRITE_DATE = `${WRITE} input[name=date]`
 const PANE_DATE = `${PANE} input[name=date]`
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const focusedName = (page: Page) =>
   page.evaluate(() => document.activeElement?.getAttribute('name'))

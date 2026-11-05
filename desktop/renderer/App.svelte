@@ -6,22 +6,23 @@
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
   import { ledgerStore } from './ledger'
-  import { type DraftsView, PLACES, type Place, type PlaceView, SHOW, shownBy } from './places'
+  import Sidebar from './parts/Sidebar.svelte'
+  import { type DraftsView, type Place, type PlaceView, shownBy } from './places'
   import { wordsFor } from './refusals'
   import Reports from './Reports.svelte'
-  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
+  import { MAC } from './shortcuts'
   import Spends from './Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
 
   // Every place stays mounted, hidden while another shows, so its drafts and typing stay too.
-  let place = $state<Place>('spends')
+  let place = $state<Place>('ledger')
   let spends: Spends
   let accounts: Accounts
   let reports: Reports
 
   // Typed, so a place that stops doing what App asks of it fails the check.
-  const view = (p: Place): PlaceView => ({ spends, accounts, reports })[p]
-  const drafts = (p: Exclude<Place, 'accounts'>): DraftsView => ({ spends, reports })[p]
+  const view = (p: Place): PlaceView => ({ ledger: spends, accounts, reports })[p]
+  const drafts = (p: Exclude<Place, 'accounts'>): DraftsView => ({ ledger: spends, reports })[p]
 
   // One copy of the ledger's lists for every place, loaded once per change.
   const lists = ledgerStore(window.haveFish)
@@ -36,14 +37,14 @@
         newSpend,
         addAccount,
         // Each place's drafts are its own: Save all saves the ones where I am.
-        saveAll: () => drafts(place === 'reports' ? 'reports' : 'spends').saveAll(),
+        saveAll: () => drafts(place === 'reports' ? 'reports' : 'ledger').saveAll(),
         undo,
         redo,
         // Remove spend means nothing where spends aren't showing.
         remove: () => {
           if (place !== 'accounts') void drafts(place).remove()
         },
-        showSpends: () => void go('spends'),
+        showLedger: () => void go('ledger'),
         showAccounts: () => void go('accounts'),
         showReports: () => void go('reports'),
         // Main remembers it and repaints; the stylesheet already holds both schemes.
@@ -66,7 +67,7 @@
 
   /** Ctrl+N: the amount field, from anywhere. */
   async function newSpend() {
-    place = 'spends'
+    place = 'ledger'
     await tick()
     spends.newSpend()
   }
@@ -172,21 +173,8 @@
 </svelte:head>
 
 <div class="app">
-  <nav aria-label={copy.app.places.label}>
-    {#each PLACES as p (p)}
-      <button
-        type="button"
-        aria-current={place === p ? 'page' : undefined}
-        aria-keyshortcuts={ariaShortcut(SHOW[p], MAC)}
-        onclick={() => void go(p)}
-      >
-        {copy.app.places[p]}
-        <kbd aria-hidden="true">{shortcutText(SHOW[p], MAC)}</kbd>
-      </button>
-    {/each}
-  </nav>
-
-  <Spends bind:this={spends} hidden={place !== 'spends'} ledger={lists} {forgetTyping} />
+  <Sidebar current={place} ongo={(p) => void go(p)} />
+  <Spends bind:this={spends} hidden={place !== 'ledger'} ledger={lists} {forgetTyping} />
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
   <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {forgetTyping} />
 </div>
@@ -200,50 +188,11 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
-  nav {
-    display: grid;
-    align-content: start;
-    gap: var(--space-1);
-    padding: var(--space-4) var(--space-2);
-    border-inline-end: var(--border-width) solid var(--color-rule);
-  }
-
   /* NARROW in narrow.ts: the places go across the top. */
   @media (max-width: 44rem) {
     .app {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
     }
-
-    nav {
-      grid-auto-flow: column;
-      justify-content: start;
-      padding: var(--space-2) var(--space-4) 0;
-      border-inline-end: none;
-    }
-  }
-
-  button {
-    font: inherit;
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-2) var(--space-3);
-    border: none;
-    border-radius: var(--radius-control);
-    color: inherit;
-    background: transparent;
-    text-align: start;
-    cursor: pointer;
-  }
-
-  button[aria-current='page'] {
-    background: var(--color-selected);
-  }
-
-  kbd {
-    font: inherit;
-    font-size: var(--text-key);
-    color: var(--color-muted);
   }
 </style>

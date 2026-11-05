@@ -7,7 +7,7 @@ import { aHome, BACK, launch, PANE, rows, unsavedInPane, writeDown } from './app
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 const SELECTED = `${LIST} li[aria-selected=true]`
 const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`

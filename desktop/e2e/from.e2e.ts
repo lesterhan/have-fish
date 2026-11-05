@@ -12,7 +12,7 @@ const OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
-/** Adds an account on the Accounts place, then comes back to Spends. */
+/** Adds an account on the Accounts place, then comes back to the ledger. */
 async function addAccount(page: Page, name: string, kind: string, currency?: string) {
   await page.click(`${NAV} button:has-text("Accounts")`)
   await page.click(ADD_ACCOUNT)
@@ -21,7 +21,7 @@ async function addAccount(page: Page, name: string, kind: string, currency?: str
   if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
   await page.waitForSelector(`ol[aria-label=Accounts] li:has-text("${name}")`)
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
 }
 
 /** Amount, Tab, what for, Tab past To, Tab: the cursor in From, emptied. */

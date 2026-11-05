@@ -180,7 +180,7 @@ export async function writeDown(page: Page, amount: string, description: string)
 /** The list as text, one row per entry: date, description, amount, and ● for a draft. */
 export const rows = (page: Page) =>
   page
-    .locator('ol[aria-label=Spends] li')
+    .locator('ol[aria-label=Ledger] li')
     .evaluateAll((items) =>
       items.map((li) => [...li.children].map((c) => c.textContent?.trim() ?? '').join(' | ')),
     )

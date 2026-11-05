@@ -1,7 +1,18 @@
 <script lang="ts">
+  import { copy } from '../copy'
+  import Button from '../renderer/parts/Button.svelte'
+  import Empty from '../renderer/parts/Empty.svelte'
+  import Header from '../renderer/parts/Header.svelte'
+  import Keys from '../renderer/parts/Keys.svelte'
+  import Notice from '../renderer/parts/Notice.svelte'
+  import Sidebar from '../renderer/parts/Sidebar.svelte'
+  import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
-  // Each part's states go here as it's built, under Parts.
+  // Each part in each of its states. Hover, focus and pressed can't be drawn at rest: the capture
+  // script shoots the Button section with each.
+  let place = $state<Place>('ledger')
+  const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
 </script>
@@ -9,9 +20,52 @@
 <main>
   <h1>Parts</h1>
 
-  <section aria-label="Parts">
-    <h2>Parts</h2>
-    <p class="quiet">None yet: each arrives with the first screen that needs it.</p>
+  <section aria-label="Keys">
+    <h2>Keys</h2>
+    <div class="line">
+      <Keys action="newSpend" />
+      <Keys action="saveAll" />
+      <Keys action="addAccount" />
+      <Keys action="remove" />
+    </div>
+  </section>
+
+  <section aria-label="Button">
+    <h2>Button: rest, then disabled; with and without keys</h2>
+    {#each VARIANTS as variant (variant)}
+      <div class="line">
+        <Button {variant}>{copy.spends.write.submit}</Button>
+        <Button {variant} action="addAccount">{copy.accounts.add}</Button>
+        <Button {variant} disabled>{copy.spends.write.submit}</Button>
+        <Button {variant} aria-disabled="true" action="saveAll">{copy.spends.pane.save}</Button>
+      </div>
+    {/each}
+  </section>
+
+  <section aria-label="Header">
+    <h2>Header: title, a quiet line, one primary</h2>
+    <div class="frame">
+      <Header title={copy.app.places.accounts} line="4 accounts">
+        <Button variant="primary" action="addAccount">{copy.accounts.add}</Button>
+      </Header>
+    </div>
+  </section>
+
+  <section aria-label="Notice">
+    <h2>Notice</h2>
+    <div class="frame">
+      <Notice words={copy.errors.codes.UNEXPECTED} ondismiss={() => {}} />
+    </div>
+  </section>
+
+  <section aria-label="Empty">
+    <h2>Empty</h2>
+    <div class="frame"><Empty>{copy.spends.pane.nothing}</Empty></div>
+  </section>
+
+  <section aria-label="Sidebar">
+    <h2>Sidebar, a place current</h2>
+    <div class="sidebar"><Sidebar current={place} ongo={(p) => (place = p)} /></div>
   </section>
 
   <section aria-label="Type">
@@ -95,9 +149,23 @@
     color: var(--color-muted);
   }
 
-  .quiet {
-    margin: 0;
-    color: var(--color-muted);
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-block-end: var(--space-2);
+  }
+
+  .frame {
+    max-inline-size: 40rem;
+    padding: var(--space-3);
+    border: var(--border-width) dashed var(--color-rule);
+  }
+
+  .sidebar {
+    display: flex;
+    block-size: 9rem;
   }
 
   .row {

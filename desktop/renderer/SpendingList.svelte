@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SpendingLine } from '@have-fish/core/spending'
   import { copy } from '../copy'
+  import Empty from './parts/Empty.svelte'
   import { lineLabel, moneyText } from './report'
   import { movedBy } from './selection'
 
@@ -81,7 +82,7 @@
     {/each}
   </ol>
   {#if lines.length === 0}
-    <p class="quiet">{copy.reports.breakdown.nothing}</p>
+    <Empty>{copy.reports.breakdown.nothing}</Empty>
   {:else}
     <p class="total">
       <span>{copy.reports.breakdown.total}</span>
@@ -128,8 +129,7 @@
   }
 
   .unsorted .name,
-  .opens,
-  .quiet {
+  .opens {
     color: var(--color-muted);
   }
 

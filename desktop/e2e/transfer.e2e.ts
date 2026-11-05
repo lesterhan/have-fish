@@ -12,7 +12,7 @@ const PANE_TO = `${PANE} input[name=to]`
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
-/** Adds an account on the Accounts place, then comes back to Spends. */
+/** Adds an account on the Accounts place, then comes back to the ledger. */
 async function addAccount(page: Page, name: string, kind: string) {
   await page.click(`${NAV} button:has-text("Accounts")`)
   await page.click(ADD_ACCOUNT)
@@ -20,7 +20,7 @@ async function addAccount(page: Page, name: string, kind: string) {
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
   await page.waitForSelector(`ol[aria-label=Accounts] li:has-text("${name}")`)
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
 }
 
 /** The wallet, from a first spend, and a bank account. */
@@ -131,7 +131,7 @@ describe('changing where it went, in the pane', () => {
     await expect.poll(async () => (await rows(page))[0]).toBe(`${today()} | Coffee | 5.00 CAD`)
     expect(await page.inputValue(PANE_TO)).toBe('chequing')
 
-    await page.locator('ol[aria-label=Spends]').focus()
+    await page.locator('ol[aria-label=Ledger]').focus()
     press('ctrl+z')
     press('ctrl+z')
     await expect.poll(() => page.inputValue(PANE_TO)).toBe('unsorted')

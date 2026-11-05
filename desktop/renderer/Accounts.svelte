@@ -9,7 +9,9 @@
   import { NARROW } from './narrow'
   import { wordsFor } from './refusals'
   import { kept } from './selection'
-  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
+  import Button from './parts/Button.svelte'
+  import Header from './parts/Header.svelte'
+  import Notice from './parts/Notice.svelte'
 
   type Props = {
     hidden: boolean
@@ -29,7 +31,7 @@
   let open = $state(false)
   let list: AccountList
   let pane: AccountPane
-  let addButton: HTMLButtonElement
+  let addButton: Button
 
   const selected = $derived(accounts.find((a) => a.id === selectedId))
   /** The list as a tree, parents rolled up; and the accounts in it, in the order it shows them. */
@@ -37,9 +39,12 @@
   const ordered = $derived(rows.flatMap((r) => (r.account ? [r.account] : [])))
 
   /** Why the list couldn't load, until it next does. */
-  const unloaded = $derived(
-    $ledger.failure && { field: 'form' as const, words: wordsFor($ledger.failure) },
-  )
+  const unloaded = $derived($ledger.failure && wordsFor($ledger.failure))
+  /** An undo or redo refused here, until I put it away. */
+  let refusal = $state<string | null>(null)
+  /** The load failure I put away; a different one shows again. */
+  let dismissed = $state<string | null>(null)
+  const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
 
   // Each load: the selection stays where it can.
   $effect(() => {
@@ -73,7 +78,12 @@
 
   /** An undo or redo refused while this place is showing. */
   export function refused(words: string) {
-    error = { field: 'form', words }
+    refusal = words
+  }
+
+  function dismiss() {
+    if (refusal !== null) refusal = null
+    else dismissed = unloaded
   }
 
   /** An empty pane to add one in: Name, Kind, Currency. */
@@ -152,16 +162,19 @@
 </script>
 
 <main class="accounts" {hidden}>
-  <button
-    bind:this={addButton}
-    type="button"
-    class="add"
-    aria-keyshortcuts={ariaShortcut('addAccount', MAC)}
-    onclick={() => void startAdding()}
-  >
-    {copy.accounts.add}
-    <kbd aria-hidden="true">{shortcutText('addAccount', MAC)}</kbd>
-  </button>
+  <div class="top">
+    <Header title={copy.app.places.accounts}>
+      <Button
+        bind:this={addButton}
+        variant="primary"
+        action="addAccount"
+        onclick={() => void startAdding()}
+      >
+        {copy.accounts.add}
+      </Button>
+    </Header>
+    {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
+  </div>
 
   <AccountList
     bind:this={list}
@@ -177,7 +190,7 @@
     account={selected}
     {adding}
     {saving}
-    error={error ?? unloaded}
+    {error}
     {open}
     onadd={(fields) => void add(fields)}
     onstart={(amount) => void start(amount)}
@@ -193,9 +206,9 @@
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
-      'add pane'
+      'top top'
       'list pane';
-    gap: var(--space-6);
+    gap: var(--space-4) var(--space-6);
     padding: var(--space-4);
   }
 
@@ -203,32 +216,20 @@
     display: none;
   }
 
+  .top {
+    grid-area: top;
+    display: grid;
+    gap: var(--space-3);
+  }
+
   /* NARROW in narrow.ts. */
   @media (max-width: 44rem) {
     main {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas:
-        'add'
+        'top'
         'list';
+      padding: var(--space-3);
     }
-  }
-
-  .add {
-    grid-area: add;
-    justify-self: start;
-    font: inherit;
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-control);
-    color: inherit;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  kbd {
-    font: inherit;
-    font-size: var(--text-key);
-    color: var(--color-muted);
-    margin-inline-start: var(--space-2);
   }
 </style>

@@ -2,5 +2,7 @@
 
 export const app = {
   name: 'have-fish',
-  places: { label: 'Places', spends: 'Spends', accounts: 'Accounts', reports: 'Reports' },
+  places: { label: 'Places', ledger: 'Ledger', accounts: 'Accounts', reports: 'Reports' },
+  /** What stopped something, under a place's header. */
+  notice: { dismiss: 'Dismiss' },
 }

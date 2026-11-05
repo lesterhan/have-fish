@@ -31,7 +31,7 @@ async function addAccount(
 
 /** A spend written from one account to a category or another account, by name. */
 async function spend(page: Page, amount: string, from: string, to = '') {
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
   const before = (await rows(page)).length
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=to]`, to)
@@ -131,8 +131,8 @@ describe('see how much is in each account', () => {
     await toAccounts(page)
     await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | CAD | 60.00 CAD'])
 
-    await page.click(`${NAV} button:has-text("Spends")`)
-    await page.locator('ol[aria-label=Spends]').focus()
+    await page.click(`${NAV} button:has-text("Ledger")`)
+    await page.locator('ol[aria-label=Ledger]').focus()
     press('ctrl+z')
     await expect.poll(() => rows(page)).toHaveLength(1)
     await toAccounts(page)
