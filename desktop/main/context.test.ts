@@ -23,7 +23,7 @@ describe('changesOf', () => {
   })
 })
 
-describe('contextFor, apply', () => {
+describe('contextFor, apply and flush', () => {
   function setup() {
     const ledger = tempLedger()
     const announced: Changed[][] = []
@@ -34,7 +34,7 @@ describe('contextFor, apply', () => {
     return { ctx, announced }
   }
 
-  test('announces a batch once, after it commits', () => {
+  test('announces what a batch wrote at the flush, each document once', () => {
     const { ctx, announced } = setup()
     const cash = anAccount()
     const food = anAccount({ path: 'expenses:food', kind: 'category' })
@@ -43,6 +43,7 @@ describe('contextFor, apply', () => {
     const applied = ctx.apply([cash, food, spend], NOW)
 
     expect(applied.ok).toBe(true)
+    ctx.flush()
     expect(announced).toEqual([
       [
         { type: 'account', id: cash.id },
@@ -59,6 +60,28 @@ describe('contextFor, apply', () => {
     const applied = ctx.apply([spend], NOW)
 
     expect(applied.ok).toBe(false)
+    ctx.flush()
     expect(announced).toEqual([])
+  })
+
+  test('two batches, then a flush: one notice, each document once, and nothing at the next', () => {
+    const { ctx, announced } = setup()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const spend = aSpend(cash.id, food.id)
+
+    ctx.apply([cash, food, spend], NOW)
+    ctx.apply([{ ...spend, description: 'Edited' }], NOW + 1)
+    expect(announced).toEqual([])
+    ctx.flush()
+    ctx.flush()
+
+    expect(announced).toEqual([
+      [
+        { type: 'account', id: cash.id },
+        { type: 'account', id: food.id },
+        { type: 'transaction', id: spend.id },
+      ],
+    ])
   })
 })

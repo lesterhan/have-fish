@@ -1,13 +1,7 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import { copy } from '../copy'
-  import type {
-    ListedAccount,
-    ListedCategory,
-    ListedTransaction,
-    To,
-    WireFailure,
-  } from '../shared/commands'
+  import type { To, WireFailure } from '../shared/commands'
   import {
     afterSaves,
     type Drafts,
@@ -20,6 +14,7 @@
     without,
   } from './drafts'
   import { dayOf, todayIn, understood } from './format'
+  import type { LedgerStore } from './ledger'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf, fromOptions, toOf, toOptions } from './picker'
@@ -31,10 +26,12 @@
 
   type Props = {
     hidden: boolean
+    /** Every list this place shows, shared with the others. */
+    ledger: LedgerStore
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, forgetTyping }: Props = $props()
+  let { hidden, ledger, forgetTyping }: Props = $props()
 
   let amount = $state('')
   let description = $state('')
@@ -48,17 +45,17 @@
   let dateInput: HTMLInputElement
 
   /** The accounts that can pay, and the one a spend comes out of when From is left alone. */
-  let payers = $state.raw<ListedAccount[]>([])
-  let assumed = $state<string | null>(null)
+  const payers = $derived($ledger.accounts)
+  const assumed = $derived($ledger.assumedFrom)
   let fromText = $state('')
   /** Whether From holds my choice: until a spend is written, a refresh leaves it alone. */
   let fromChosen = false
   let fromPicker: Picker
 
   /** The categories in use, most used first; what To holds as typed. */
-  let categories = $state.raw<ListedCategory[]>([])
+  const categories = $derived($ledger.categories)
   /** The income sources money has come from, most used first. */
-  let income = $state.raw<ListedCategory[]>([])
+  const income = $derived($ledger.income)
   let toText = $state('')
   let toPicker: Picker
 
@@ -71,7 +68,9 @@
   /** Categories, then my accounts: one of mine makes it a transfer. */
   const toChoices = $derived(toOptions(categories, accountOptions))
 
-  let transactions = $state.raw<ListedTransaction[]>([])
+  const transactions = $derived($ledger.transactions)
+  /** Why the lists couldn't load, until they next do. */
+  const unloaded = $derived($ledger.failure && wordsFor($ledger.failure))
   let selectedId = $state<string | null>(null)
   let drafts = $state.raw<Drafts>(new Map())
   let savingDraft = $state(false)
@@ -82,38 +81,18 @@
 
   const selected = $derived(transactions.find((t) => t.id === selectedId))
 
-  // Drafts are left alone: a draft is the window's until it is saved or put back.
-  async function refresh() {
-    if (!dateChosen) date = todayIn()
-    const [listed, accounts, from, used, sources] = await Promise.all([
-      window.haveFish.invoke('transaction.list', {}),
-      window.haveFish.invoke('account.list', {}),
-      window.haveFish.invoke('spend.assumedFrom', {}),
-      window.haveFish.invoke('category.list', {}),
-      window.haveFish.invoke('income.list', {}),
-    ])
-    if (used.ok) categories = used.value
-    else error = { field: 'form', words: wordsFor(used) }
-    if (sources.ok) income = sources.value
-    else error = { field: 'form', words: wordsFor(sources) }
-    if (listed.ok) {
-      transactions = listed.value
+  // Each load: Date follows the calendar and From the account used last, unless I chose them,
+  // and the selection stays where it can. Drafts are left alone: they're the window's.
+  $effect(() => {
+    const { transactions, accounts, assumedFrom } = $ledger
+    untrack(() => {
+      if (!dateChosen) date = todayIn()
       selectedId = kept(transactions, selectedId)
-    } else error = { field: 'form', words: wordsFor(listed) }
-    if (accounts.ok && from.ok) {
-      payers = accounts.value
-      assumed = from.value.id
-      if (!fromChosen) fromText = payers.find((a) => a.id === assumed)?.name ?? ''
-    } else if (!accounts.ok) error = { field: 'form', words: wordsFor(accounts) }
-    else if (!from.ok) error = { field: 'form', words: wordsFor(from) }
-  }
-
-  // Main says when a batch changed the ledger; the list asks again rather than guessing.
-  onMount(() => {
-    amountInput.focus()
-    void refresh()
-    return window.haveFish.onChanged(() => void refresh())
+      if (!fromChosen) fromText = accounts.find((a) => a.id === assumedFrom)?.name ?? ''
+    })
   })
+
+  onMount(() => amountInput.focus())
 
   // A wide window shows the pane beside the list, so there's nothing left open to cover it.
   onMount(() => {
@@ -133,8 +112,8 @@
 
   /** After an undo or redo: the list as it is now, with the spend that came back selected. */
   export async function show(id: string) {
-    await refresh()
-    if (transactions.some((t) => t.id === id)) selectedId = id
+    await ledger.caughtUp()
+    if (ledger.current().transactions.some((t) => t.id === id)) selectedId = id
   }
 
   /** An undo or redo refused while this place is showing. */
@@ -167,7 +146,7 @@
       // From stays on the account that paid: it's the one used last now.
       fromChosen = false
       forgetTyping()
-      await refresh()
+      await ledger.caughtUp()
       selectedId = written.value.id
     } else {
       error = { field: fieldOf(written, to), words: spendWordsFor(written) }
@@ -197,7 +176,7 @@
     // The list first, so the pane never shows the old values in between.
     if (saves.some((s) => s.error === null)) {
       forgetTyping()
-      await refresh()
+      await ledger.caughtUp()
     }
     drafts = afterSaves(drafts, saves)
     savingDraft = false
@@ -259,7 +238,7 @@
     drafts = without(drafts, id)
     selectedId = next
     forgetTyping()
-    await refresh()
+    await ledger.caughtUp()
     // With nothing left to show, the pane's button is gone, and the cursor with it.
     if (selectedId === null) amountInput.focus()
   }
@@ -383,6 +362,8 @@
     <button type="submit" disabled={saving}>{copy.spends.write.submit}</button>
     {#if error?.field === 'form'}
       <p class="error" role="alert">{error.words}</p>
+    {:else if unloaded}
+      <p class="error" role="alert">{unloaded}</p>
     {/if}
   </form>
 

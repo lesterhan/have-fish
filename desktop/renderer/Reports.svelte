@@ -2,13 +2,7 @@
   import { levelAbove, spendingAt, trailTo } from '@have-fish/core/spending'
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
-  import type {
-    ListedAccount,
-    ListedCategory,
-    ListedTransaction,
-    Values as Returned,
-    WireFailure,
-  } from '../shared/commands'
+  import type { Values as Returned, WireFailure } from '../shared/commands'
   import {
     afterSaves,
     type Drafts,
@@ -21,6 +15,7 @@
     without,
   } from './drafts'
   import { todayIn } from './format'
+  import type { LedgerState, LedgerStore } from './ledger'
   import { NARROW } from './narrow'
   import { toOf, toOptions } from './picker'
   import { fieldOf, spendWordsFor, wordsFor } from './refusals'
@@ -32,10 +27,12 @@
 
   type Props = {
     hidden: boolean
+    /** Every list this place shows, shared with the others. */
+    ledger: LedgerStore
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, forgetTyping }: Props = $props()
+  let { hidden, ledger, forgetTyping }: Props = $props()
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
   let report = $state.raw<Returned['report.spending'] | null>(null)
@@ -45,9 +42,15 @@
   let error = $state<string | null>(null)
 
   // For the pane: every spend, and what its To offers.
-  let transactions = $state.raw<ListedTransaction[]>([])
-  let payers = $state.raw<ListedAccount[]>([])
-  let categories = $state.raw<ListedCategory[]>([])
+  const transactions = $derived($ledger.transactions)
+  const payers = $derived($ledger.accounts)
+  const categories = $derived($ledger.categories)
+  /** Why the lists or the report couldn't load, until they next do. */
+  let reportFailure = $state<WireFailure | null>(null)
+  const unloaded = $derived.by(() => {
+    const failure = $ledger.failure ?? reportFailure
+    return failure && wordsFor(failure)
+  })
   let selectedId = $state<string | null>(null)
   let drafts = $state.raw<Drafts>(new Map())
   let savingDraft = $state(false)
@@ -73,29 +76,44 @@
   )
   const toChoices = $derived(toOptions(categories, fromOptions))
 
-  // Drafts are left alone: a draft is the window's until it is saved or put back.
-  async function refresh() {
+  /** The store load the report was last asked for, and that ask. */
+  let reportedFor: LedgerState | null = null
+  let reporting: Promise<void> = Promise.resolve()
+
+  /** The shown week's spending, asked of main. A week moved on meanwhile wins. */
+  async function loadReport() {
     const shownWeek = week
-    const [spending, listed, accounts, used] = await Promise.all([
-      window.haveFish.invoke('report.spending', { start: shownWeek.start, end: shownWeek.end }),
-      window.haveFish.invoke('transaction.list', {}),
-      window.haveFish.invoke('account.list', {}),
-      window.haveFish.invoke('category.list', {}),
-    ])
-    // A week moved on while this was on its way: that one's answer is the one to show.
+    const spending = await window.haveFish.invoke('report.spending', {
+      start: shownWeek.start,
+      end: shownWeek.end,
+    })
     if (shownWeek !== week) return
-    const refusal = [spending, listed, accounts, used].find((r) => !r.ok)
-    error = refusal === undefined || refusal.ok ? null : wordsFor(refusal)
-    if (spending.ok) report = spending.value
-    if (listed.ok) transactions = listed.value
-    if (accounts.ok) payers = accounts.value
-    if (used.ok) categories = used.value
+    if (spending.ok) {
+      report = spending.value
+      reportFailure = null
+      error = null
+    } else reportFailure = spending
   }
 
-  onMount(() => {
-    void refresh()
-    return window.haveFish.onChanged(() => void refresh())
+  function reportFor(state: LedgerState): Promise<void> {
+    reportedFor = state
+    reporting = loadReport()
+    return reporting
+  }
+
+  // Showing, with a ledger the report hasn't seen: ask again. Hidden, it waits until it shows.
+  // Drafts are left alone: a draft is the window's until it is saved or put back.
+  $effect(() => {
+    const state = $ledger
+    if (!hidden && state !== reportedFor) void reportFor(state)
   })
+
+  /** After a write: the lists, then the report, as they are now; one ask for each. */
+  async function caughtUp() {
+    await ledger.caughtUp()
+    const state = ledger.current()
+    await (state === reportedFor ? reporting : reportFor(state))
+  }
 
   // A wide window shows the pane beside the list, so there's nothing left open to cover it.
   onMount(() => {
@@ -114,7 +132,7 @@
 
   /** After an undo or redo: the report as it is now, with the spend that came back selected. */
   export async function show(id: string) {
-    await refresh()
+    await caughtUp()
     if (shown.some((t) => t.id === id)) selectedId = id
   }
 
@@ -125,7 +143,7 @@
 
   function goWeek(by: number) {
     week = weekAfter(week, by)
-    void refresh()
+    void reportFor(ledger.current())
   }
 
   function into(category: string) {
@@ -184,7 +202,7 @@
     // The report first, so the pane never shows the old values in between.
     if (saves.some((s) => s.error === null)) {
       forgetTyping()
-      await refresh()
+      await caughtUp()
     }
     drafts = afterSaves(drafts, saves)
     savingDraft = false
@@ -215,7 +233,7 @@
     drafts = without(drafts, id)
     selectedId = next
     forgetTyping()
-    await refresh()
+    await caughtUp()
   }
 
   async function openPane(focus: boolean) {
@@ -263,8 +281,8 @@
     {/if}
   </nav>
 
-  {#if error !== null}
-    <p class="error" role="alert">{error}</p>
+  {#if (error ?? unloaded) !== null}
+    <p class="error" role="alert">{error ?? unloaded}</p>
   {/if}
 
   <div class="left">

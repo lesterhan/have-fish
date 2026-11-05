@@ -1,15 +1,20 @@
 import { describe, expect, test } from 'vitest'
+import type { Changed } from '../../shared/commands'
 import { contextFor } from '../context'
 import { NOW, tempLedger } from '../ledger/fixtures'
 import { type Log, runCommand } from './run'
 
 function setup() {
   const ledger = tempLedger()
-  const ctx = contextFor(ledger, () => {}, { now: () => NOW, timeZone: () => 'UTC' })
+  const announced: Changed[][] = []
+  const ctx = contextFor(ledger, (changed) => announced.push(changed), {
+    now: () => NOW,
+    timeZone: () => 'UTC',
+  })
   const lines: string[] = []
   const errors: unknown[] = []
   const log: Log = { info: (line) => lines.push(line), error: (_, e) => errors.push(e) }
-  return { ledger, ctx, log, lines, errors }
+  return { ledger, ctx, log, lines, errors, announced }
 }
 
 describe('runCommand', () => {
@@ -172,6 +177,28 @@ describe('runCommand', () => {
       ok: true,
       value: { spends: [id], accounts: [] },
     })
+  })
+
+  test('the window hears once per command, however many batches it wrote', () => {
+    const { ctx, log, announced } = setup()
+    const ids = ['Coffee', 'Tea', 'Lunch'].map((description) => {
+      const written = runCommand(ctx, 'spend.write', { amount: '4.50', description }, log)
+      if (!written.ok) throw new Error('not written')
+      return written.value.id
+    })
+    announced.length = 0
+
+    const edits = ids.map((id) => ({ id, amount: '5', description: 'Edited' }))
+    runCommand(ctx, 'spend.saveAll', { edits }, log)
+
+    expect(announced).toEqual([ids.map((id) => ({ type: 'transaction', id }))])
+  })
+
+  test('a command that writes nothing says nothing', () => {
+    const { ctx, log, announced } = setup()
+    runCommand(ctx, 'transaction.list', {}, log)
+    runCommand(ctx, 'spend.write', { amount: 'abc', description: '' }, log)
+    expect(announced).toEqual([])
   })
 
   test('save all takes at least one edit, and no more than a thousand', () => {

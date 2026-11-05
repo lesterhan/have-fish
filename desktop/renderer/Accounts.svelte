@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedAccount } from '../shared/commands'
   import AccountList from './AccountList.svelte'
   import AccountPane from './AccountPane.svelte'
   import { type AccountField, accountFieldOf, type Adding, lockOf } from './accounts'
   import { accountRows } from './balances'
+  import type { LedgerStore } from './ledger'
   import { NARROW } from './narrow'
   import { wordsFor } from './refusals'
   import { kept } from './selection'
@@ -13,12 +13,14 @@
 
   type Props = {
     hidden: boolean
+    /** Every list this place shows, shared with the others. */
+    ledger: LedgerStore
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, forgetTyping }: Props = $props()
+  let { hidden, ledger, forgetTyping }: Props = $props()
 
-  let accounts = $state.raw<ListedAccount[]>([])
+  const accounts = $derived($ledger.accounts)
   let selectedId = $state<string | null>(null)
   let adding = $state(false)
   let saving = $state(false)
@@ -34,17 +36,17 @@
   const rows = $derived(accountRows(accounts))
   const ordered = $derived(rows.flatMap((r) => (r.account ? [r.account] : [])))
 
-  async function refresh() {
-    const listed = await window.haveFish.invoke('account.list', {})
-    if (listed.ok) {
-      accounts = listed.value
-      selectedId = kept(ordered, selectedId)
-    } else error = { field: 'form', words: wordsFor(listed) }
-  }
+  /** Why the list couldn't load, until it next does. */
+  const unloaded = $derived(
+    $ledger.failure && { field: 'form' as const, words: wordsFor($ledger.failure) },
+  )
 
-  onMount(() => {
-    void refresh()
-    return window.haveFish.onChanged(() => void refresh())
+  // Each load: the selection stays where it can.
+  $effect(() => {
+    const now = ordered
+    untrack(() => {
+      selectedId = kept(now, selectedId)
+    })
   })
 
   onMount(() => {
@@ -65,8 +67,8 @@
 
   /** After an undo or redo: the list as it is now, with the account that came back selected. */
   export async function show(id: string) {
-    await refresh()
-    if (accounts.some((a) => a.id === id)) selectedId = id
+    await ledger.caughtUp()
+    if (ledger.current().accounts.some((a) => a.id === id)) selectedId = id
   }
 
   /** An undo or redo refused while this place is showing. */
@@ -102,7 +104,7 @@
     error = null
     open = false
     forgetTyping()
-    await refresh()
+    await ledger.caughtUp()
     selectedId = added.value.id
     list.focus()
   }
@@ -121,7 +123,7 @@
     }
     error = null
     forgetTyping()
-    await refresh()
+    await ledger.caughtUp()
     list.focus()
   }
 
@@ -175,7 +177,7 @@
     account={selected}
     {adding}
     {saving}
-    {error}
+    error={error ?? unloaded}
     {open}
     onadd={(fields) => void add(fields)}
     onstart={(amount) => void start(amount)}

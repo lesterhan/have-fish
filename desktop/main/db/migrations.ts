@@ -47,5 +47,12 @@ export const MIGRATIONS: readonly Migration[] = [
       "CREATE TABLE `outbox` (\n\t`rowId` text PRIMARY KEY NOT NULL,\n\t`docType` text NOT NULL,\n\t`docId` text NOT NULL,\n\t`version` text NOT NULL,\n\t`body` text NOT NULL\n);",
       "CREATE UNIQUE INDEX `outbox_doc` ON `outbox` (`docType`,`docId`);"
     ]
+  },
+  {
+    "tag": "0005_balances-index",
+    "statements": [
+      "DROP INDEX `postings_account_id`;",
+      "CREATE INDEX `postings_account_balance` ON `postings` (`accountId`,`currency`,`amountCents`);"
+    ]
   }
 ]

@@ -158,6 +158,7 @@ describe('writeSpend', () => {
       expect(count(ledger, 'transactions')).toBe(0)
       expect(count(ledger, 'accounts')).toBe(0)
       expect(loadClock(ledger.db)).toEqual({ wallMs: 0, counter: 0 })
+      ctx.flush()
       expect(announced).toEqual([])
     },
   )
@@ -193,6 +194,7 @@ describe('writeSpend', () => {
 
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
 
+    ctx.flush()
     expect(announced).toEqual([
       [
         { type: 'account', id: accountAt(ledger, 'assets:cash').id },
@@ -368,6 +370,7 @@ describe('editSpend', () => {
     const { id } = ok(writeSpend(setup_.ctx, { amount: '4.50', description: 'Coffee' }))
     const before = getDocument(setup_.ledger.db, 'transaction', id)
     if (before === null) throw new Error('not written')
+    setup_.ctx.flush()
     setup_.announced.length = 0
     return { ...setup_, id, before }
   }
@@ -430,6 +433,7 @@ describe('editSpend', () => {
 
     ok(editSpend(ctx, { id, amount: '5', description: 'Coffee' }))
 
+    ctx.flush()
     expect(announced).toEqual([[{ type: 'transaction', id }]])
   })
 
@@ -444,6 +448,7 @@ describe('editSpend', () => {
 
     expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
     expect(loadClock(ledger.db)).toEqual(clock)
+    ctx.flush()
     expect(announced).toEqual([])
   })
 
@@ -460,6 +465,7 @@ describe('editSpend', () => {
       failure: { code, details: { amount } },
     })
     expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+    ctx.flush()
     expect(announced).toEqual([])
   })
 
@@ -578,6 +584,7 @@ describe('a spend from another day', () => {
       expect(outcome).toEqual({ ok: false, failure: { code: 'DATE_INVALID', details: { date } } })
       expect(count(ledger, 'transactions')).toBe(0)
       expect(count(ledger, 'accounts')).toBe(0)
+      ctx.flush()
       expect(announced).toEqual([])
       expect(ctx.machine.lastFrom()).toBeNull()
     },
@@ -598,6 +605,7 @@ describe('moving a spend to another day', () => {
     const { id } = ok(writeSpend(setup_.ctx, { amount: '4.50', description: 'Coffee' }))
     const before = getDocument(setup_.ledger.db, 'transaction', id)
     if (before === null) throw new Error('not written')
+    setup_.ctx.flush()
     setup_.announced.length = 0
     return { ...setup_, id, before }
   }
@@ -615,6 +623,7 @@ describe('moving a spend to another day', () => {
 
     ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', date: before.doc.date }))
     expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+    ctx.flush()
     expect(announced).toEqual([])
 
     ok(editSpend(ctx, { id, amount: '5', description: 'Coffee' }))
@@ -650,6 +659,7 @@ describe('moving a spend to another day', () => {
       failure: { code: 'DATE_INVALID', details: { date } },
     })
     expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+    ctx.flush()
     expect(announced).toEqual([])
   })
 })
@@ -849,6 +859,7 @@ describe('a spend’s category', () => {
     expect(food).toMatchObject({ kind: 'category', currency: null, origin: { source: 'manual' } })
     expect(spendOf(ledger, id).postings[0]?.accountId).toBe(food.id)
     expect(listTransactions(ledger.db)[0]?.to).toBe('food')
+    ctx.flush()
     expect(announced.at(-1)?.map((c) => c.type)).toEqual(['account', 'account', 'transaction'])
   })
 

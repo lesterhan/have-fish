@@ -1,7 +1,13 @@
 // Adding an account on purpose, and the list of the ones I have and owe.
 
 import { randomUUID } from 'node:crypto'
-import { ADDABLE_KINDS, type AddableKind, classOf, isAddable } from '@have-fish/core/account-kind'
+import {
+  ADDABLE_KINDS,
+  type AddableKind,
+  classOf,
+  isAddable,
+  rootOf,
+} from '@have-fish/core/account-kind'
 import { nameOf, pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
@@ -9,6 +15,7 @@ import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import type Database from 'better-sqlite3'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { alias } from 'drizzle-orm/sqlite-core'
 import { copy } from '../../copy'
 import type { InputOf, ListedAccount, Money } from '../../shared/commands'
@@ -16,7 +23,7 @@ import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
-import { getDocument } from '../ledger/store'
+import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, record } from '../undo/steps'
 import { accountFor, idOf } from './applied'
 
@@ -25,6 +32,22 @@ const OPENING = { path: 'equity:opening', kind: 'opening' } as const
 
 type Made = { createdAt: number; deviceId: string }
 
+/** The roots an account I add can sit under: `assets` and `liabilities`. */
+const ADDABLE_ROOTS = [...new Set(ADDABLE_KINDS.map(rootOf))]
+
+/**
+ * The name of a live account I have or owe that `name` matches without regard to case, as it
+ * was typed. Only those roots hold accounts I add, so one indexed lookup under each answers it.
+ */
+function nameTaken(db: Database.Database, name: string): string | undefined {
+  for (const root of ADDABLE_ROOTS) {
+    const id = liveAccountAt(db, `${root}:${name}`)
+    const found = id === undefined ? null : getDocument(db, 'account', id)
+    if (found?.doc.type === 'account') return nameOf(found.doc.path)
+  }
+  return undefined
+}
+
 /**
  * An account under its kind's root, named as typed, in a batch of its own. A name I already
  * have is refused whatever its kind, since the list shows names without their roots.
@@ -32,8 +55,8 @@ type Made = { createdAt: number; deviceId: string }
 export function addAccount(ctx: Context, input: InputOf<'account.add'>): Outcome<{ id: string }> {
   const name = input.name.trim()
   if (name === '') return failure('ACCOUNT_NAME_EMPTY')
-  const taken = listAccounts(ctx.ledger.db).find((a) => same(a.name, name))
-  if (taken !== undefined) return failure('ACCOUNT_NAME_TAKEN', { name: taken.name })
+  const taken = nameTaken(ctx.ledger.db, name)
+  if (taken !== undefined) return failure('ACCOUNT_NAME_TAKEN', { name: taken })
 
   const now = ctx.now()
   const made: Made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
@@ -125,6 +148,21 @@ function startOf(
   return { ok: true, value: { docs: [...opening.made, transaction], kept: [transaction] } }
 }
 
+/**
+ * What each account's postings sum to, per currency. No join to `transactions`: a removed one
+ * keeps no postings. One covering index answers it, in order (see the plan test).
+ */
+export const balancesQuery = (orm: BetterSQLite3Database) =>
+  orm
+    .select({
+      accountId: postings.accountId,
+      currency: postings.currency,
+      cents: sql<number>`sum(${postings.amountCents})`,
+    })
+    .from(postings)
+    .groupBy(postings.accountId, postings.currency)
+    .orderBy(postings.accountId, postings.currency)
+
 const openingLeg = alias(postings, 'opening_leg')
 const openingAccount = alias(accounts, 'opening_account')
 
@@ -157,19 +195,7 @@ const statements = perConnection((orm) => ({
     .where(and(isNull(transactions.deletedAt), ne(postings.accountId, openingLeg.accountId)))
     .orderBy(transactions.date, transactions.originCreatedAt, transactions.id)
     .prepare(),
-  // What each account's live postings sum to, per currency.
-  balances: orm
-    .select({
-      accountId: postings.accountId,
-      currency: postings.currency,
-      cents: sql<number>`sum(${postings.amountCents})`,
-    })
-    .from(postings)
-    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
-    .where(isNull(transactions.deletedAt))
-    .groupBy(postings.accountId, postings.currency)
-    .orderBy(postings.accountId, postings.currency)
-    .prepare(),
+  balances: balancesQuery(orm).prepare(),
 }))
 
 /** Each account's balance by id, in currency order, leaving out what sums to zero. */
@@ -222,4 +248,3 @@ export function listAccounts(db: Database.Database): ListedAccount[] {
 
 const byName = new Intl.Collator('en', { sensitivity: 'accent' })
 /** Without regard to case, as the ledger matches paths. */
-const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()

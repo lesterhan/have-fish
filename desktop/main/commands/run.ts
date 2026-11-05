@@ -27,6 +27,8 @@ export function runCommand(ctx: Context, name: unknown, input: unknown, log: Log
   const started = performance.now()
   const command = isCommand(name) ? name : undefined
   const outcome = run(ctx, command, name, input, log)
+  // Once per command, after all its batches: a save of three edits is one notice.
+  ctx.flush()
   const ms = Math.round(performance.now() - started)
   // Never the input: it holds what you spent and on what.
   log.info(`${command ?? '(unknown)'} ${ms}ms ${outcome.ok ? 'ok' : outcome.failure.code}`)
