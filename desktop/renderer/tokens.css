@@ -12,19 +12,81 @@
   --font-figures: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
   /* Account paths and a bank's own text. */
   --font-code: 'Fira Code Variable', ui-monospace, monospace;
-  --font-size: 1rem;
-  --font-size-small: 0.875rem;
+  /* Type, by job (DESIGN.md, "Type"). Each step is the base plus or minus, so density, which
+     sets the base, moves them all. */
+  --text-base: 14px;
+  --text-key: calc(var(--text-base) - 3px);
+  --text-small: calc(var(--text-base) - 2px);
+  --text-quiet: calc(var(--text-base) - 1px);
+  --text-sentence: calc(var(--text-base) + 1px);
+  --text-title: calc(var(--text-base) + 6px);
+  --weight-regular: 400;
+  /* Labels, and a path's last part. */
+  --weight-label: 500;
+  /* Titles and totals. */
+  --weight-strong: 600;
+  --line-height: 1.4;
 
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
+  /* Density: Regular. The setting that changes these is its own story. */
+  --row: 33px;
 
-  --radius: 4px;
+  /* Space steps by 4px. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* A chip and a keycap; a field or a button; a lifted card and the composer. */
+  --radius-chip: 4px;
+  --radius-control: 6px;
+  --radius-card: 9px;
+  --radius-pill: 999px;
   --border-width: 1px;
 
+  /* What floats. Pop: pickers, the date list, tooltips. Lift: a card raised with its row, a hard
+     offset in the accent. Compose: the composer's ring and a soft drop. Palette: Ctrl+K's panel. */
+  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.18);
+  --shadow-lift:
+    0 0 0 1.5px var(--color-accent),
+    6px 6px 0 0 color-mix(in oklab, var(--color-accent) 40%, transparent);
+  --shadow-compose: 0 0 0 2px var(--color-accent), 0 8px 22px rgb(0 0 0 / 0.1);
+  --shadow-palette: 0 16px 40px rgb(0 0 0 / 0.25);
+  --scrim: rgb(0 0 0 / 0.18);
+
+  /* Motion (DESIGN.md, "Motion"). Moves are short; washes and tints last. */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-pop: 120ms;
+  --duration-open: 160ms;
   --duration-slide: 150ms;
+  --duration-slide-in: 220ms;
+  --duration-fade: 250ms;
+  --duration-drop: 420ms;
+  --duration-confirm: 500ms;
+  --duration-wash: 900ms;
+  --duration-flash: 1.4s;
+  --duration-land: 2.4s;
+}
+
+/* Reduced motion: nothing moves, and what would have washed is a one-second tint. The one rule
+   for it, since every component reads its timings from here. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-pop: 0ms;
+    --duration-open: 0ms;
+    --duration-slide: 0ms;
+    --duration-slide-in: 0ms;
+    --duration-fade: 0ms;
+    --duration-drop: 0ms;
+    --duration-confirm: 0ms;
+    --duration-wash: 1s;
+    --duration-flash: 1s;
+    --duration-land: 1s;
+  }
 }
 
 /* The colours, from the built-in themes: `bun run themes` writes them. Never by hand. */
@@ -76,7 +138,8 @@
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: var(--font-size);
+  font-size: var(--text-base);
+  line-height: var(--line-height);
   /* A bank's `->` stays two characters. */
   font-variant-ligatures: none;
   color: var(--color-text);

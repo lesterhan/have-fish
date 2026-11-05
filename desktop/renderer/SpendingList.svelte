@@ -139,7 +139,7 @@
     grid-row: 2;
     block-size: 0.375rem;
     background: var(--color-rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-chip);
     overflow: hidden;
   }
 
@@ -163,6 +163,6 @@
     display: flex;
     justify-content: space-between;
     padding: var(--space-2);
-    font-weight: 600;
+    font-weight: var(--weight-strong);
   }
 </style>

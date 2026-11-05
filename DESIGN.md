@@ -142,8 +142,8 @@ screen that needs it, not copied until a third copy forces it out.
    `aria-activedescendant` only in `Listbox`, a `<kbd>` only in `Keys`, money and days only
    through `Money` and `Day`, a media query's width only the narrow one, a size only a type token.
 6. **Every part shows on one sheet** in each of its states, light and dark, which the capture
-   script shoots, so a change to a part is seen everywhere it lands. The sheet is built for tests
-   only and never packaged.
+   script shoots, so a change to a part is seen everywhere it lands. The sheet (`desktop/sheet/`)
+   is built for tests only, into `sheet-out/`, opened by its own entry, and never packaged.
 
 | Part | States | Used by |
 |---|---|---|

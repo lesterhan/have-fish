@@ -432,7 +432,7 @@
 
   label span,
   .field label {
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 
@@ -451,7 +451,7 @@
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     color: inherit;
     background: transparent;
   }
@@ -474,13 +474,13 @@
   .understood {
     margin: 0;
     min-height: 1lh;
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 
   .error {
     margin: 0;
-    font-size: var(--font-size-small);
+    font-size: var(--text-small);
     color: var(--color-error);
   }
 </style>

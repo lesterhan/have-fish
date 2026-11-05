@@ -219,7 +219,7 @@
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     color: inherit;
     background: transparent;
     cursor: pointer;
@@ -227,7 +227,7 @@
 
   kbd {
     font: inherit;
-    font-size: var(--font-size-small);
+    font-size: var(--text-key);
     color: var(--color-muted);
     margin-inline-start: var(--space-2);
   }

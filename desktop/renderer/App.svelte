@@ -230,7 +230,7 @@
     gap: var(--space-4);
     padding: var(--space-2) var(--space-3);
     border: none;
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     color: inherit;
     background: transparent;
     text-align: start;
@@ -243,7 +243,7 @@
 
   kbd {
     font: inherit;
-    font-size: var(--font-size-small);
+    font-size: var(--text-key);
     color: var(--color-muted);
   }
 </style>

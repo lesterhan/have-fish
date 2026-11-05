@@ -157,7 +157,7 @@
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     color: inherit;
     background: transparent;
   }
@@ -177,7 +177,7 @@
     padding: var(--space-1) 0;
     list-style: none;
     border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     background: var(--color-background);
   }
 
@@ -198,7 +198,7 @@
   }
 
   .hint {
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 
