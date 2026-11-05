@@ -86,6 +86,12 @@ fallback. Since version 13, better-sqlite3 is N-API too and carries its prebuilt
 package, so the one binary loads under the system's Node and Electron's alike: no rebuild per
 Electron version, and no header download at install.
 
+Electron was weighed again on 2026-11-05, against Tauri and a native rebuild in Rust, and kept.
+Chromium's start-up and memory are a fixed cost, measured with the rest of the budget
+("Performance"); what makes a ledger slow is its own work, which the budget catches. A native
+shell would also split the TypeScript ledger the phone is to share. If the budget can't be met
+for reasons that are Electron's own, the question opens again.
+
 ### Layout, as it will grow
 
 ```
@@ -123,6 +129,24 @@ This comes with the first story, not later:
 
 No web page can reach IPC, so the localhost defences the current local build needs (launch
 token, Host and Origin checks, the lockfile handshake) have nothing to guard.
+
+### Performance
+
+The yardstick is a ledger ten years old: about 50,000 transactions, 100,000 postings and 46
+accounts. Measured on Electron's Node, 2026-11-04:
+
+| What | Measured |
+|---|---|
+| Apply one spend | 1.1 ms |
+| Reopen the file | 1.8 ms |
+| Spends list, every transaction | 490 ms |
+| Balances | 310 ms |
+| Categories | 54 ms |
+| Report, one week · one year | 0.3 ms · 20 ms |
+| File size | 70 MB |
+
+The list and balances both run after every change. Budgets come with the benchmark that holds
+the app to them; until then, a PR that touches a hot path says what it costs at ten years.
 
 ### The data model
 
