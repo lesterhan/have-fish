@@ -3,7 +3,7 @@
   import { copy } from '../copy'
   import Empty from './parts/Empty.svelte'
   import { lineLabel, moneyText } from './report'
-  import { movedBy } from './selection'
+  import Listbox from './parts/Listbox.svelte'
 
   type Props = {
     lines: SpendingLine[]
@@ -19,36 +19,29 @@
   }
   let { lines, total, currency, pickedKey, onpick, oninto, onup }: Props = $props()
 
-  let list: HTMLOListElement
+  let listbox: ReturnType<typeof Listbox<SpendingLine>>
 
   export function focus() {
-    list.focus()
+    listbox.focus()
   }
 
-  const optionId = (key: string) => `spending-${key}`
-  const keyed = $derived(lines.map((l) => ({ ...l, id: l.key })))
-
-  function onkeydown(event: KeyboardEvent) {
+  function onkey(event: KeyboardEvent): boolean {
     const picked = lines.find((l) => l.key === pickedKey)
     if ((event.key === 'Enter' || event.key === 'ArrowRight') && picked?.opens) {
       event.preventDefault()
       oninto(picked.category)
-      return
+      return true
     }
     if (event.key === 'ArrowLeft' || event.key === 'Backspace') {
       event.preventDefault()
       onup()
-      return
+      return true
     }
-    const to = movedBy(keyed, pickedKey, event.key)
-    if (to === undefined) return
-    event.preventDefault()
-    if (to !== null) onpick(to)
+    return false
   }
 
   // Picking a category with categories under it goes in: one level's numbers at a time.
-  function onclick(event: MouseEvent) {
-    const key = (event.target as Element).closest<HTMLElement>('[role=option]')?.dataset.key
+  function onpicked(key: string) {
     const line = lines.find((l) => l.key === key)
     if (line === undefined) return
     if (line.opens) oninto(line.category)
@@ -57,30 +50,26 @@
 </script>
 
 <div class="breakdown">
-  <ol
-    bind:this={list}
-    role="listbox"
-    aria-label={copy.reports.breakdown.label}
-    tabindex="0"
-    aria-activedescendant={pickedKey === null ? undefined : optionId(pickedKey)}
-    {onkeydown}
-    {onclick}
+  <Listbox
+    bind:this={listbox}
+    items={lines}
+    idOf={(l) => l.key}
+    active={pickedKey}
+    label={copy.reports.breakdown.label}
+    idPrefix="spending"
+    columns="minmax(0, 1fr) 1em auto"
+    height={(_, rowHeight) => rowHeight + 12}
+    onactive={onpick}
+    onpick={onpicked}
+    {onkey}
   >
-    {#each lines as line (line.key)}
-      <li
-        id={optionId(line.key)}
-        role="option"
-        aria-selected={line.key === pickedKey}
-        data-key={line.key}
-        class:unsorted={line.kind !== 'category'}
-      >
-        <span class="name">{lineLabel(line)}</span>
-        <span class="opens" aria-hidden="true">{line.opens ? copy.reports.breakdown.opens : ''}</span>
-        <span class="bar" aria-hidden="true"><span style:inline-size="{line.share * 100}%"></span></span>
-        <span class="amount">{moneyText(line.cents, currency)}</span>
-      </li>
-    {/each}
-  </ol>
+    {#snippet row(line)}
+      <span class="name" class:unsorted={line.kind !== 'category'}>{lineLabel(line)}</span>
+      <span class="opens" aria-hidden="true">{line.opens ? copy.reports.breakdown.opens : ''}</span>
+      <span class="bar" aria-hidden="true"><span style:inline-size="{line.share * 100}%"></span></span>
+      <span class="amount">{moneyText(line.cents, currency)}</span>
+    {/snippet}
+  </Listbox>
   {#if lines.length === 0}
     <Empty>{copy.reports.breakdown.nothing}</Empty>
   {:else}
@@ -98,37 +87,13 @@
     gap: var(--space-2);
   }
 
-  ol {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 1em auto;
-  }
-
-  li {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: subgrid;
-    align-items: center;
-    column-gap: var(--space-3);
-    row-gap: var(--space-1);
-    padding: var(--space-2);
-    border-bottom: var(--border-width) solid var(--color-rule);
-    cursor: default;
-  }
-
-  li[aria-selected='true'] {
-    background: var(--color-selected);
-  }
-
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .unsorted .name,
+  .name.unsorted,
   .opens {
     color: var(--color-muted);
   }

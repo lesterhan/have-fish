@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { kbdsIn, lookIn, otherWidthsIn } from '../../tools/layout'
+import { kbdsIn, listboxesIn, lookIn, otherWidthsIn } from '../../tools/layout'
 
 const RENDERER = join(import.meta.dirname, '..')
 const read = (file: string) => readFileSync(join(RENDERER, file), 'utf8')
@@ -28,6 +28,13 @@ describe('parts own what they draw', () => {
   test('a keycap is drawn only by Keys', () => {
     const elsewhere = files.filter((f) => f !== 'parts/Keys.svelte' && kbdsIn(read(f)) > 0)
     expect(elsewhere, 'Use <Keys action=…>').toEqual([])
+  })
+
+  test('a listbox, its options and its active descendant are only in Listbox', () => {
+    const elsewhere = files.filter(
+      (f) => f !== 'parts/Listbox.svelte' && listboxesIn(read(f)).length > 0,
+    )
+    expect(elsewhere, 'Use <Listbox>').toEqual([])
   })
 
   test('the one narrow width is the only one', () => {

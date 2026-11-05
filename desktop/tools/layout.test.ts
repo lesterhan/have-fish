@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kbdsIn, lookIn, otherWidthsIn } from './layout'
+import { kbdsIn, listboxesIn, lookIn, otherWidthsIn } from './layout'
 
 describe('kbdsIn', () => {
   it('counts each keycap in markup', () => {
@@ -8,6 +8,18 @@ describe('kbdsIn', () => {
 
   it('ignores one in a comment', () => {
     expect(kbdsIn('<!-- <kbd>x</kbd> -->')).toBe(0)
+  })
+})
+
+describe('listboxesIn', () => {
+  it('catches a hand-rolled listbox', () => {
+    expect(
+      listboxesIn('<ol role="listbox" aria-activedescendant={id}><li role="option"></li></ol>'),
+    ).toEqual(['role="listbox"', 'aria-activedescendant', 'role="option"'])
+  })
+
+  it('passes a combobox, which owns no list', () => {
+    expect(listboxesIn('<input role="combobox" aria-controls="x" />')).toEqual([])
   })
 })
 

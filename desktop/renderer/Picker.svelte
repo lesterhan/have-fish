@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { named, type Offer, type Option, offered, stepped } from './picker'
+  import Listbox from './parts/Listbox.svelte'
+  import { named, type Offer, type Option, offered } from './picker'
 
   type Props = {
     /** The field's id, for its label; the list's is built from it. */
@@ -31,28 +32,36 @@
     newOption,
   }: Props = $props()
 
-  let input: HTMLInputElement
+  let input = $state<HTMLInputElement>()
+  let listbox: ReturnType<typeof Listbox<Offer<Option>>>
   let open = $state(false)
   /** What the list is filtered by: what I typed, or nothing when the arrows opened it. */
   let filter = $state('')
-  let active = $state(0)
+  /** The highlighted offer's key. */
+  let active = $state<string | null>(null)
   /** What Escape puts back: the text when the field was entered, or last picked. */
   let kept = ''
 
-  const listId = $derived(`${id}-options`)
+  const listId = $derived(`${id}-option-list`)
   const shown = $derived(open ? offered(options, filter, newOption !== undefined) : [])
   const nameOf = (offer: Offer<Option>) => (offer.kind === 'mine' ? offer.option.name : offer.name)
+  // An element id can't hold a space, and a new name may.
   const keyOf = (offer: Offer<Option>) =>
-    offer.kind === 'mine' ? offer.option.id : `new:${offer.name}`
-  const optionId = (i: number) => `${id}-option-${i}`
+    offer.kind === 'mine' ? offer.option.id : `new-${encodeURIComponent(offer.name)}`
+
+  // The first offer is highlighted until the arrows move: Enter picks it.
+  $effect(() => {
+    const keys = shown.map(keyOf)
+    if (active === null || !keys.includes(active)) active = keys[0] ?? null
+  })
 
   export function focus() {
-    input.focus()
+    input?.focus()
   }
 
   function oninput() {
     filter = text
-    active = 0
+    active = null
     // Emptied, Enter sends the form: nothing typed is nothing to pick from. Down still lists all.
     open = text.trim() !== ''
     onchoose(text)
@@ -69,20 +78,16 @@
     if (!open && event.key === 'ArrowDown') {
       event.preventDefault()
       filter = ''
-      active = Math.max(
-        0,
-        options.findIndex((o) => o === named(options, text)),
-      )
+      const current = named(options, text)
+      active = current === undefined ? null : current.id
       open = true
       return
     }
     if (!open) return
-    const to = stepped(active, event.key, shown.length)
-    const option = shown[active]
-    if (to !== undefined) {
-      event.preventDefault()
-      active = to
-    } else if (event.key === 'Enter' && option !== undefined) {
+    // Up and Down only: Home and End move the cursor in the field.
+    if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && listbox.press(event)) return
+    const option = shown.find((o) => keyOf(o) === active)
+    if (event.key === 'Enter' && option !== undefined) {
       // Picks, and doesn't send the form.
       event.preventDefault()
       pick(option)
@@ -96,10 +101,6 @@
     }
   }
 
-  // Keeps the active option in view as the arrows move it.
-  $effect(() => {
-    if (open) document.getElementById(optionId(active))?.scrollIntoView({ block: 'nearest' })
-  })
 </script>
 
 <span class="picker">
@@ -113,7 +114,6 @@
     aria-autocomplete="list"
     aria-expanded={open}
     aria-controls={listId}
-    aria-activedescendant={shown[active] === undefined ? undefined : optionId(active)}
     aria-invalid={invalid}
     aria-describedby={describedby}
     autocomplete="off"
@@ -123,28 +123,34 @@
     {oninput}
     {onkeydown}
   />
-  <ul id={listId} role="listbox" aria-label={listLabel} hidden={shown.length === 0}>
-    {#each shown as offer, i (keyOf(offer))}
-      <!-- Picked on mousedown, before the field loses the cursor and closes the list. -->
-      <li
-        id={optionId(i)}
-        role="option"
-        aria-selected={i === active}
-        class:new={offer.kind === 'new'}
-        onmousedown={(e) => {
-          e.preventDefault()
-          pick(offer)
-        }}
-      >
+  <span class="options" class:empty={shown.length === 0}>
+    <Listbox
+      bind:this={listbox}
+      items={shown}
+      idOf={keyOf}
+      {active}
+      label={listLabel}
+      idPrefix={`${id}-option`}
+      columns="minmax(0, 1fr) auto"
+      owner={input}
+      wrap
+      hidden={shown.length === 0}
+      onactive={(key) => (active = key)}
+      onpick={(key) => {
+        const offer = shown.find((o) => keyOf(o) === key)
+        if (offer !== undefined) pick(offer)
+      }}
+    >
+      {#snippet row(offer)}
         {#if offer.kind === 'mine'}
           <span>{offer.option.name}</span>
           <span class="hint">{(offer.option as Option & { hint?: string }).hint ?? ''}</span>
         {:else}
-          <span>{newOption?.(offer.name)}</span>
+          <span class="new">{newOption?.(offer.name)}</span>
         {/if}
-      </li>
-    {/each}
-  </ul>
+      {/snippet}
+    </Listbox>
+  </span>
 </span>
 
 <style>
@@ -166,35 +172,22 @@
     border-color: var(--color-error);
   }
 
-  ul {
+  .options {
     position: absolute;
     inset-inline: 0;
     top: calc(100% + var(--space-1));
     z-index: 1;
+    display: grid;
     max-height: 12rem;
-    overflow-y: auto;
-    margin: 0;
-    padding: var(--space-1) 0;
-    list-style: none;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-control);
     background: var(--color-background);
+    box-shadow: var(--shadow-pop);
+    overflow: hidden;
   }
 
-  ul[hidden] {
+  .options.empty {
     display: none;
-  }
-
-  li {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-1) var(--space-2);
-    cursor: default;
-  }
-
-  li[aria-selected='true'] {
-    background: var(--color-selected);
   }
 
   .hint {

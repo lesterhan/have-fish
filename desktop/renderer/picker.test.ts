@@ -1,15 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-  finds,
-  fromOf,
-  fromOptions,
-  matching,
-  named,
-  offered,
-  stepped,
-  toOf,
-  toOptions,
-} from './picker'
+import { finds, fromOf, fromOptions, matching, named, offered, toOf, toOptions } from './picker'
 
 const cash = { id: 'c', name: 'cash' }
 const chequing = { id: 'q', name: 'Chequing' }
@@ -75,19 +65,6 @@ describe('named', () => {
 
   test('a part of a name names nothing', () => {
     expect(named(MINE, 'vis')).toBeUndefined()
-  })
-})
-
-describe('stepped', () => {
-  test('down and up, wrapping at the ends', () => {
-    expect(stepped(0, 'ArrowDown', 3)).toBe(1)
-    expect(stepped(2, 'ArrowDown', 3)).toBe(0)
-    expect(stepped(0, 'ArrowUp', 3)).toBe(2)
-  })
-
-  test('nowhere for other keys, or with nothing shown', () => {
-    expect(stepped(0, 'Enter', 3)).toBeUndefined()
-    expect(stepped(0, 'ArrowDown', 0)).toBeUndefined()
   })
 })
 
