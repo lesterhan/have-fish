@@ -1,5 +1,5 @@
-/* Every visual value the window uses. Plain until the rewrite's design system replaces this
-   file (DESIGN.md, "Until the system lands"). The only file that declares a colour: which
+/* Every visual value the window uses. Plain until it takes the values in DESIGN.md, "The
+   system". The only file that declares a colour: which
    colour sits on which is in theme/contract.ts, and tokens.test.ts holds both schemes to it. */
 
 :root {
