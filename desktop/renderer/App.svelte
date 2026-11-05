@@ -4,7 +4,7 @@
   import type { Typing } from '../shared/commands'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
-  import { PLACES, type Place, SHOW, shownBy } from './places'
+  import { type DraftsView, PLACES, type Place, type PlaceView, SHOW, shownBy } from './places'
   import { wordsFor } from './refusals'
   import Reports from './Reports.svelte'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
@@ -17,7 +17,9 @@
   let accounts: Accounts
   let reports: Reports
 
-  const view = (p: Place) => ({ spends, accounts, reports })[p]
+  // Typed, so a place that stops doing what App asks of it fails the check.
+  const view = (p: Place): PlaceView => ({ spends, accounts, reports })[p]
+  const drafts = (p: Exclude<Place, 'accounts'>): DraftsView => ({ spends, reports })[p]
 
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
@@ -28,13 +30,12 @@
         newSpend,
         addAccount,
         // Each place's drafts are its own: Save all saves the ones where I am.
-        saveAll: () => (place === 'reports' ? reports : spends).saveAll(),
+        saveAll: () => drafts(place === 'reports' ? 'reports' : 'spends').saveAll(),
         undo,
         redo,
         // Remove spend means nothing where spends aren't showing.
         remove: () => {
-          if (place === 'spends') void spends.remove()
-          else if (place === 'reports') void reports.remove()
+          if (place !== 'accounts') void drafts(place).remove()
         },
         showSpends: () => void go('spends'),
         showAccounts: () => void go('accounts'),

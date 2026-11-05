@@ -6,6 +6,22 @@ import type { Moved } from '../shared/commands'
 export const PLACES = ['spends', 'accounts', 'reports'] as const
 export type Place = (typeof PLACES)[number]
 
+/** What App asks of every place. */
+export type PlaceView = {
+  /** Puts the cursor in it. */
+  focus(): void
+  /** Selects the item with this id. */
+  show(id: string): Promise<void>
+  /** Says why an undo or redo changed nothing. */
+  refused(words: string): void
+}
+
+/** A place that keeps drafts of spends: Save all and Remove spend act there. */
+export type DraftsView = PlaceView & {
+  saveAll(): void
+  remove(): Promise<void>
+}
+
 /** The action that goes to each place, so the sidebar can show its shortcut. */
 export const SHOW: Record<Place, WindowActionId> = {
   spends: 'showSpends',

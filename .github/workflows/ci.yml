@@ -312,6 +312,12 @@ jobs:
       - name: Run tests
         run: bun run test
 
+      # Core's own job runs them on Bun's engine; the app runs the core on Electron's V8, whose
+      # Intl is the one that formats and sorts. Same tests, the runtime that ships.
+      - name: Core's tests, on Electron's Node
+        run: bun run test:core
+
+      # tsc for the .ts files, then svelte-check for the components, warnings included.
       - name: Type check
         run: bun run check
 
