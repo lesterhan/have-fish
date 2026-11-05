@@ -42,6 +42,7 @@ describe('addAccount', () => {
       deletedAt: null,
       origin: { source: 'manual', createdAt: NOW, deviceId: ctx.ledger.meta.deviceId },
     })
+    ctx.flush()
     expect(announced).toEqual([[{ type: 'account', id }]])
   })
 
@@ -331,6 +332,7 @@ describe('a starting balance, said when adding', () => {
 
     ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }))
 
+    ctx.flush()
     expect(announced).toHaveLength(1)
     expect(announced[0]?.map((c) => c.type)).toEqual(['account', 'account', 'transaction'])
   })

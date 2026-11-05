@@ -21,8 +21,10 @@ export const systemTime: Time = {
 
 export type Context = Time & {
   ledger: Ledger
-  /** `applyLocal`, then the window hears what changed: once per batch that wrote anything. */
+  /** `applyLocal`, keeping what it wrote for the next `flush`. */
   apply(docs: unknown[], now: number): BatchOutcome
+  /** Tells the window what changed since the last flush, each document once; nothing if nothing did. */
+  flush(): void
   /** What this session can undo and redo. It starts empty each time the ledger opens. */
   history: History<Step>
   /** What this machine remembers between runs: never in the ledger. */
@@ -35,16 +37,21 @@ export function contextFor(
   time: Time = systemTime,
   machine: Machine = forgetful(),
 ): Context {
+  let written: Written[] = []
   return {
     ledger,
     now: () => time.now(),
     timeZone: () => time.timeZone(),
     apply(docs, now) {
       const applied = applyLocal(ledger, docs, now)
-      if (applied.ok && applied.value.written.length > 0) {
-        announce(changesOf(applied.value.written))
-      }
+      if (applied.ok) written.push(...applied.value.written)
       return applied
+    },
+    flush() {
+      if (written.length === 0) return
+      const changed = changesOf(written)
+      written = []
+      announce(changed)
     },
     history: new History(),
     machine,
