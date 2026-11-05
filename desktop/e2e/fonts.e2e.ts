@@ -65,12 +65,12 @@ describe('fonts', () => {
     expect(await familyOf(page, `${WRITE} input[name=description]`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${WRITE} input[name=date]`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} .date`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} .amount`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} .description`)).toBe(SERIF)
+    expect(await familyOf(page, `${LIST} >> text=/^\\d{4}-\\d{2}-\\d{2}$/`)).toBe(FIGURES)
+    expect(await familyOf(page, `${LIST} >> text="4.50 CAD"`)).toBe(FIGURES)
+    expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SERIF)
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
-    expect(await familyOf(page, `${PANE} .currency`)).toBe(FIGURES)
+    expect(await familyOf(page, `${PANE} >> text="CAD"`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} input[name=description]`)).toBe(SANS)
   })
 
@@ -78,7 +78,7 @@ describe('fonts', () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
-    const points = await page.$$eval(`${LIST} .amount`, (amounts) =>
+    const points = await page.$$eval(`${LIST} >> text=/^\\d+\\.\\d{2} CAD$/`, (amounts) =>
       amounts.map((el) => {
         const text = el.firstChild as Text
         const range = document.createRange()
@@ -98,7 +98,7 @@ describe('fonts', () => {
 
     const ligatures = (selector: string) =>
       page.$eval(selector, (el) => getComputedStyle(el).fontVariantLigatures)
-    const lunch = `${LIST} li:nth-child(2) .description`
+    const lunch = `${LIST} >> text="Lunch -> Sam"`
     expect(await page.textContent(lunch)).toBe('Lunch -> Sam')
     expect(await ligatures(lunch)).toBe('none')
     expect(await ligatures(`${PANE} input[name=description]`)).toBe('none')

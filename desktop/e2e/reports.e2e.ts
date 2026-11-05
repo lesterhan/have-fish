@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, cellsOf, launch, rows, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
@@ -39,7 +39,7 @@ async function spend(
 
 async function addAccount(page: Page, name: string, kind: string) {
   await page.click(`${NAV} button:has-text("Accounts")`)
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
@@ -58,13 +58,15 @@ const breakdown = (page: Page) =>
         .filter((t) => t !== '')
         .join(' | '),
     )
-    const total = ol?.parentElement?.querySelector('.total')?.textContent?.replace(/\s+/g, ' ')
+    const total = [...(ol?.parentElement?.querySelectorAll('p') ?? [])]
+      .map((p) => p.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+      .find((t) => t.startsWith('Spent'))
     return [...lines, total?.trim() ?? '']
   }, BREAKDOWN)
 
 /** Each bar's width, as a share of its track, rounded to a percent. */
 const bars = (page: Page) =>
-  page.locator(`${BREAKDOWN} .bar span`).evaluateAll((spans) =>
+  page.locator(`${BREAKDOWN} [aria-hidden=true] > span`).evaluateAll((spans) =>
     spans.map((s) => {
       const track = s.parentElement?.getBoundingClientRect().width ?? 1
       return Math.round((s.getBoundingClientRect().width / track) * 100)
@@ -72,7 +74,8 @@ const bars = (page: Page) =>
   )
 
 /** What the list beside the breakdown shows: the spends' descriptions. */
-const behind = (page: Page) => page.locator(`${BEHIND} li .description`).allTextContents()
+const behind = (page: Page) =>
+  cellsOf(page.locator(`${BEHIND} li`)).then((rows) => rows.map(([, description]) => description))
 const trail = (page: Page) => page.locator(TRAIL).innerText()
 
 describe('see what I spent this week, by category', () => {
@@ -129,7 +132,8 @@ describe('see what I spent this week, by category', () => {
     await page.locator(BREAKDOWN).focus()
     await page.keyboard.press('ArrowLeft')
     await expect.poll(() => trail(page)).toBe('All spending')
-    expect(await page.locator(`${BREAKDOWN} [aria-selected=true] .name`).innerText()).toBe('food')
+    const [picked] = await cellsOf(page.locator(`${BREAKDOWN} [aria-selected=true]`))
+    expect(picked?.[0]).toBe('food')
     await page.keyboard.press('Enter')
     await expect.poll(() => trail(page)).toMatch(/food$/)
     await page.click(`${TRAIL} button:has-text("All spending")`)
@@ -186,7 +190,7 @@ describe('see what I spent this week, by category', () => {
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
     await expect.poll(() => breakdown(page)).toEqual([''])
-    expect(await page.innerText('main.reports')).toContain('No spending in this week.')
+    expect(await page.innerText('role=main')).toContain('No spending in this week.')
 
     await page.click(`${WEEK} button[aria-label="The week after"]`)
     await page.click(`${WEEK} button[aria-label="The week after"]`)

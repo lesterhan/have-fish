@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, rows, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, launch, rows, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -15,7 +15,7 @@ const today = () => new Date().toLocaleDateString('en-CA')
 
 /** A name, a kind, and maybe what's in it today, typed in the opened question; then Enter. */
 async function add(page: Page, name: string, kind: string, start?: string) {
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   if (start !== undefined) {
@@ -62,7 +62,7 @@ describe('a starting balance, said when adding', () => {
   test('on a card or a loan, it asks what I owe, and shows it as owed', async () => {
     const { page } = await launch(aHome())
     await toAccounts(page)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.selectOption(`${ADDING} select[name=kind]`, 'card')
     expect(await page.locator(QUESTION).innerText()).toBe('How much do you owe on it today?')
     await page.selectOption(`${ADDING} select[name=kind]`, 'bank')
@@ -77,7 +77,7 @@ describe('a starting balance, said when adding', () => {
   test('the question opens from the keyboard, with the cursor in it', async () => {
     const { page } = await launch(aHome())
     await toAccounts(page)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
 
     await page.locator(QUESTION).focus()
     await page.keyboard.press('Enter')
@@ -103,7 +103,7 @@ describe('a starting balance, said when adding', () => {
   test('typed, then folded away again, is skipped too', async () => {
     const { page } = await launch(aHome())
     await toAccounts(page)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.fill(`${ADDING} input[name=name]`, 'chequing')
     await page.click(QUESTION)
     await page.keyboard.type('100')
@@ -132,7 +132,7 @@ describe('a starting balance, said when adding', () => {
   test('an amount sent before the question has said it opened is still kept', async () => {
     const { page } = await launch(aHome())
     await toAccounts(page)
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.fill(`${ADDING} input[name=name]`, 'chequing')
 
     // One task: open, type, send. The details element's toggle event comes after it (#592).
@@ -158,7 +158,7 @@ describe('a starting balance, said when adding', () => {
     await add(page, 'cash', 'cash')
     await expect.poll(() => page.locator(`${LIST} li`).count()).toBe(1)
 
-    await page.click('main.accounts button.add')
+    await page.click(ADD_ACCOUNT)
     await page.fill(`${ADDING} input[name=name]`, 'chequing')
     await ask(page)
     await page.keyboard.type('250')

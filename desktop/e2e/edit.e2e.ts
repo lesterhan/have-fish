@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, writeDown } from './app'
+import { aHome, BACK, launch, PANE, rows, unsavedInPane, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -11,7 +11,6 @@ const LIST = 'ol[aria-label=Spends]'
 const SELECTED = `${LIST} li[aria-selected=true]`
 const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`
-const DOT = `${PANE} .heading`
 
 /** Lunch, then Coffee: Coffee is newest, at the top, and selected. */
 async function twoSpends(page: Page) {
@@ -52,7 +51,7 @@ describe('fix a spend', () => {
       .poll(() => rows(page))
       .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch with Sam | 15.00 CAD`])
     expect(await page.inputValue(AMOUNT)).toBe('15.00')
-    expect(await page.textContent(DOT)).not.toContain('●')
+    expect(await unsavedInPane(page)).toBe(0)
     expect(await page.textContent(SELECTED)).toContain('Lunch with Sam')
   })
 
@@ -76,7 +75,7 @@ describe('fix a spend', () => {
 
     expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
     expect(await page.inputValue(AMOUNT)).toBe('4.50')
-    expect(await page.textContent(DOT)).not.toContain('●')
+    expect(await unsavedInPane(page)).toBe(0)
     expect(await rows(page)).toEqual([
       `${today()} | Coffee | 4.50 CAD`,
       `${today()} | Lunch | 12.00 CAD`,
@@ -90,8 +89,7 @@ describe('fix a spend', () => {
     await row(page, 'Lunch').click()
     await page.fill(AMOUNT, '15')
 
-    expect(await page.textContent(DOT)).toContain('●')
-    expect(await page.textContent(DOT)).toContain('unsaved changes')
+    expect(await unsavedInPane(page)).toBe(1)
     expect(await rows(page)).toEqual([
       `${today()} | Coffee | 4.50 CAD`,
       `${today()} | Lunch | 12.00 CAD | ●unsaved changes`,
@@ -99,14 +97,14 @@ describe('fix a spend', () => {
 
     await row(page, 'Coffee').click()
     expect(await page.inputValue(AMOUNT)).toBe('4.50')
-    expect(await page.textContent(DOT)).not.toContain('●')
+    expect(await unsavedInPane(page)).toBe(0)
 
     // A write refreshes the list; the draft stays.
     await writeDown(page, '3', 'Tea')
     await expect.poll(async () => (await rows(page))[0]).toContain('Tea')
     await row(page, 'Lunch').click()
     expect(await page.inputValue(AMOUNT)).toBe('15')
-    expect(await page.textContent(DOT)).toContain('●')
+    expect(await unsavedInPane(page)).toBe(1)
   })
 
   test('something that is not an amount: nothing is saved, and the field says why', async () => {
@@ -121,7 +119,7 @@ describe('fix a spend', () => {
     expect(await page.getAttribute(AMOUNT, 'aria-invalid')).toBe('true')
     expect(await page.getAttribute(AMOUNT, 'aria-describedby')).toBe('pane-amount-error')
     expect(await page.inputValue(AMOUNT)).toBe('abc')
-    expect(await page.textContent(DOT)).toContain('●')
+    expect(await unsavedInPane(page)).toBe(1)
     expect(await rows(page)).toEqual([
       `${today()} | Coffee | 4.50 CAD | ●unsaved changes`,
       `${today()} | Lunch | 12.00 CAD`,
@@ -154,7 +152,7 @@ describe('fix a spend', () => {
     await expect.poll(() => pane.isVisible()).toBe(true)
     expect(await page.inputValue(DESCRIPTION)).toBe('Lunch')
 
-    await page.click(`${PANE} .back`)
+    await page.click(`${PANE} >> ${BACK}`)
     await expect.poll(() => pane.isVisible()).toBe(false)
     expect(await focusedName(page)).toBe('OL')
   })

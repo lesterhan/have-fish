@@ -5,7 +5,7 @@ import { dateFrom } from '@have-fish/core/typed-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { understood } from '../renderer/format'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, unsavedInPane, WRITE, writeDown } from './app'
 
 const DAY = 86_400_000
 const here = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -80,13 +80,13 @@ describe('move a spend to another day', () => {
     await row(page, 'Lunch').click()
     expect(await page.inputValue(PANE_DATE)).toBe(today())
     await page.fill(PANE_DATE, daysAgo(1))
-    expect(await page.textContent(`${PANE} .heading`)).toContain('●')
+    expect(await unsavedInPane(page)).toBe(1)
     await page.press(PANE_DATE, 'Enter')
 
     await expect
       .poll(() => rows(page))
       .toEqual([`${today()} | Coffee | 4.50 CAD`, `${daysAgo(1)} | Lunch | 12.00 CAD`])
-    expect(await page.textContent(`${PANE} .heading`)).not.toContain('●')
+    expect(await unsavedInPane(page)).toBe(0)
     expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
   })
 
