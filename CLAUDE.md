@@ -14,6 +14,30 @@ Three guiding principles that should inform every feature decision:
 
 3. **Multi-currency as a first-class concern** — the user travels and holds balances in multiple currencies. Currency, exchange rates, and cross-currency reporting are core workflows, not edge cases.
 
+## Held to on every change
+
+Two requirements come before any feature. A change that costs either one says so in its PR,
+with the reason, and every review checks both. They are written for the rewrite; a fix to the
+current app keeps to them too.
+
+1. **Performance.** The app stays fast with ten years of ledger in it: about 50,000
+   transactions and 100,000 postings. Speed is judged on that ledger, never on an empty one;
+   the numbers are in `planning/desktop-rewrite.md`, "Performance". Electron was kept on this
+   condition. Review watches for:
+   - work that grows with the ledger on a path that runs per change or per keystroke: a query
+     with no limit, a whole list reloaded, a sum or sort in TypeScript that SQL could do;
+   - a query without its index (a full scan or `USE TEMP B-TREE` in `EXPLAIN QUERY PLAN`);
+   - a long list drawn whole instead of windowed;
+   - slow work on Electron's main process, which every command and the window wait behind;
+   - weight added to start-up: a dependency, or work done before the window shows.
+2. **Security.** The baseline in `planning/desktop-rewrite.md`, "Security baseline", holds on
+   every change, and the tests that pin it stay. Review watches for:
+   - text from a bank file or the ledger reaching the page as HTML (`{@html}`, `innerHTML`);
+   - a way into main other than a command, or a command whose input skips its schema;
+   - anything that reaches the network;
+   - an input, an amount or a description in a log line;
+   - a new dependency, which runs with the ledger in reach.
+
 ## Two apps, one repository
 
 The app is being rebuilt as a desktop app beside the current one: Electron, a TypeScript core
