@@ -109,6 +109,8 @@
   <button type="button" class="back" onclick={onback}>{copy.accounts.pane.back}</button>
 
   {#if adding}
+    <!-- Escape bubbles up from the fields inside; the form itself never takes focus. -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <form aria-label={copy.accounts.pane.adding} {onsubmit} {onkeydown} novalidate>
       <p class="heading">{copy.accounts.pane.adding}</p>
 

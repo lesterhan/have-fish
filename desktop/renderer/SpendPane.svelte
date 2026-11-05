@@ -84,6 +84,8 @@
     {/if}
 
     {#if values}
+      <!-- Escape bubbles up from the fields inside; the form itself never takes focus. -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <form {onsubmit} {onkeydown} novalidate>
         <label>
           <span>{copy.spends.pane.description}</span>
