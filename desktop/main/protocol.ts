@@ -28,6 +28,14 @@ export function fileFor(root: string, url: string): string | null {
   return file.startsWith(root + sep) ? file : null
 }
 
+/** The dev server `electron-vite dev` names, which only a development run may load. */
+export function devServerFor(
+  isPackaged: boolean,
+  env: Record<string, string | undefined>,
+): string | undefined {
+  return isPackaged ? undefined : env.ELECTRON_RENDERER_URL
+}
+
 /** A page of this app: `app://have-fish/`, or the dev server in a development run. */
 export function isAppUrl(url: string, devServer?: string): boolean {
   if (url.startsWith(APP_URL)) return true

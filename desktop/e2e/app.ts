@@ -30,8 +30,8 @@ export function aHome(): string {
 export const ledgerDirIn = (home: string) =>
   join(home, 'data', packaged ? 'have-fish' : 'have-fish-dev')
 
-/** How to start the app as a person would, for `home`. */
-export function commandFor(home: string) {
+/** How to start the app as a person would, for `home`, with any `extra` environment. */
+export function commandFor(home: string, extra: Record<string, string> = {}) {
   return {
     exe: packaged ? resolve(packaged) : (electron as unknown as string),
     args: [
@@ -44,6 +44,7 @@ export function commandFor(home: string) {
       XDG_CONFIG_HOME: join(home, 'config'),
       XDG_DATA_HOME: join(home, 'data'),
       NODE_OPTIONS: '',
+      ...extra,
     },
   }
 }
@@ -61,8 +62,8 @@ export type Running = {
   quit(): Promise<void>
 }
 
-export async function launch(home: string): Promise<Running> {
-  const { exe, args, env } = commandFor(home)
+export async function launch(home: string, extra?: Record<string, string>): Promise<Running> {
+  const { exe, args, env } = commandFor(home, extra)
   const child = spawn(exe, [...args, '--remote-debugging-port=0'], {
     env,
     stdio: ['ignore', 'ignore', 'pipe'],
