@@ -16,11 +16,36 @@ Three guiding principles that should inform every feature decision:
 
 ## Held to on every change
 
-Two requirements come before any feature. A change that costs either one says so in its PR,
-with the reason, and every review checks both. They are written for the rewrite; a fix to the
-current app keeps to them too.
+Four requirements come before any feature. A change that costs one says so in its PR, with the
+reason, and every review checks all four. When two pull against each other, the earlier one
+wins: a slow screen can be fixed later, a lost transaction can't. They are written for the
+rewrite; a fix to the current app keeps to them too.
 
-1. **Performance.** The app stays fast with ten years of ledger in it: about 50,000
+1. **Data integrity.** A transaction once saved is never lost, half-written or quietly changed.
+   The file is crash-safe (WAL, `synchronous = FULL`), a document is applied whole in one
+   transaction, a file with data is copied before it is migrated, and a file the app didn't
+   write, or a newer build did, is refused and left as it was. Tests pin each of these. Review
+   watches for:
+   - a write outside a transaction, or a document written in parts;
+   - a pragma relaxed, or the ledger copied with `fs` rather than through SQLite;
+   - a migration that no test runs against a file with data in it;
+   - a write to a document's rows that skips `desktop/main/ledger/`, which keeps the versions,
+     tombstones and outbox;
+   - a rule the ledger relies on that only the window checks.
+2. **Security.** The baseline in `planning/desktop-rewrite.md`, "Security baseline", holds on
+   every change, and the tests that pin it stay. Review watches for:
+   - text from a bank file or the ledger reaching the page as HTML (`{@html}`, `innerHTML`);
+   - a way into main other than a command, or a command whose input skips its schema;
+   - anything loaded from the network;
+   - a new dependency, which runs with the ledger in reach.
+3. **Privacy.** The ledger is the user's alone. Nothing leaves the machine unless they send it:
+   no telemetry, analytics or crash reports, and the app works with the network off. The app's
+   folders and files are readable by the user alone. Review watches for:
+   - a request the user didn't ask for, or a dependency that makes one;
+   - an input, an amount or a description in a log line or a file name;
+   - a file written outside the app's folders, or without owner-only permissions;
+   - a temporary copy of ledger data left behind.
+4. **Performance.** The app stays fast with ten years of ledger in it: about 50,000
    transactions and 100,000 postings. Speed is judged on that ledger, never on an empty one;
    the numbers are in `planning/desktop-rewrite.md`, "Performance". Electron was kept on this
    condition. Review watches for:
@@ -30,13 +55,6 @@ current app keeps to them too.
    - a long list drawn whole instead of windowed;
    - slow work on Electron's main process, which every command and the window wait behind;
    - weight added to start-up: a dependency, or work done before the window shows.
-2. **Security.** The baseline in `planning/desktop-rewrite.md`, "Security baseline", holds on
-   every change, and the tests that pin it stay. Review watches for:
-   - text from a bank file or the ledger reaching the page as HTML (`{@html}`, `innerHTML`);
-   - a way into main other than a command, or a command whose input skips its schema;
-   - anything that reaches the network;
-   - an input, an amount or a description in a log line;
-   - a new dependency, which runs with the ledger in reach.
 
 ## Two apps, one repository
 
