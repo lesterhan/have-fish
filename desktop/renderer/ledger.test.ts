@@ -15,11 +15,14 @@ type Call = { name: CommandName; answer(value: Wire<unknown>): void }
 
 /** A bridge whose replies wait until the test gives them, so a load can be caught mid-way. */
 function fakeBridge() {
-  const calls: Call[] = []
+  const waiting: Call[] = []
+  const asked: CommandName[] = []
   let notify: (changed: Changed[]) => void = () => {}
   const bridge = {
-    invoke: (name: CommandName) =>
-      new Promise((resolve) => calls.push({ name, answer: resolve })),
+    invoke(name: CommandName) {
+      asked.push(name)
+      return new Promise((resolve) => waiting.push({ name, answer: resolve }))
+    },
     onChanged(listener: (changed: Changed[]) => void) {
       notify = listener
       return () => {
@@ -34,23 +37,19 @@ function fakeBridge() {
     'income.list': [],
     'spend.assumedFrom': { id: 'a1' },
   }
-  /** Answers every call still waiting, as main would. */
-  async function answerAll(override: Partial<Record<CommandName, Wire<unknown>>> = {}) {
-    for (const call of calls.splice(0)) {
-      call.answer(override[call.name] ?? { ok: true, value: VALUES[call.name] })
-    }
-    await new Promise((resolve) => setTimeout(resolve))
-  }
-  const count = (name: CommandName) => names.filter((n) => n === name).length
-  const names: CommandName[] = []
-  const tracked = {
-    ...bridge,
-    invoke: (name: CommandName, input: unknown) => {
-      names.push(name)
-      return (bridge.invoke as (n: CommandName, i: unknown) => unknown)(name, input)
+  return {
+    bridge,
+    notify: () => notify([]),
+    /** How many times the store asked for `name`. */
+    count: (name: CommandName) => asked.filter((n) => n === name).length,
+    /** Answers every call still waiting, as main would, then lets the store take them. */
+    async answerAll(override: Partial<Record<CommandName, Wire<unknown>>> = {}) {
+      for (const call of waiting.splice(0)) {
+        call.answer(override[call.name] ?? { ok: true, value: VALUES[call.name] })
+      }
+      await new Promise((resolve) => setTimeout(resolve))
     },
-  } as unknown as Bridge
-  return { bridge: tracked, notify: (c: Changed[] = []) => notify(c), answerAll, count, calls }
+  }
 }
 
 describe('the ledger store', () => {

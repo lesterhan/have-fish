@@ -4,6 +4,7 @@
   import type { Typing } from '../shared/commands'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
+  import { ledgerStore } from './ledger'
   import { type DraftsView, PLACES, type Place, type PlaceView, SHOW, shownBy } from './places'
   import { wordsFor } from './refusals'
   import Reports from './Reports.svelte'
@@ -20,6 +21,10 @@
   // Typed, so a place that stops doing what App asks of it fails the check.
   const view = (p: Place): PlaceView => ({ spends, accounts, reports })[p]
   const drafts = (p: Exclude<Place, 'accounts'>): DraftsView => ({ spends, reports })[p]
+
+  // One copy of the ledger's lists for every place, loaded once per change.
+  const lists = ledgerStore(window.haveFish)
+  onMount(() => lists.start())
 
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
@@ -174,9 +179,9 @@
     {/each}
   </nav>
 
-  <Spends bind:this={spends} hidden={place !== 'spends'} {forgetTyping} />
-  <Accounts bind:this={accounts} hidden={place !== 'accounts'} {forgetTyping} />
-  <Reports bind:this={reports} hidden={place !== 'reports'} {forgetTyping} />
+  <Spends bind:this={spends} hidden={place !== 'spends'} ledger={lists} {forgetTyping} />
+  <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
+  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {forgetTyping} />
 </div>
 
 <style>

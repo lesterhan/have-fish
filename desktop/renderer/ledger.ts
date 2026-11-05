@@ -11,13 +11,13 @@ import type {
 } from '../shared/commands'
 
 export type LedgerState = {
-  transactions: readonly ListedTransaction[]
+  transactions: ListedTransaction[]
   /** My accounts, which can pay or be paid into. */
-  accounts: readonly ListedAccount[]
+  accounts: ListedAccount[]
   /** The categories in use, most used first. */
-  categories: readonly ListedCategory[]
+  categories: ListedCategory[]
   /** The income sources money has come from, most used first. */
-  income: readonly ListedCategory[]
+  income: ListedCategory[]
   /** The account a spend comes out of when From is left alone. */
   assumedFrom: string | null
   /** Why the last load didn't get every list; null once one does. */
