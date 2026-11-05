@@ -79,7 +79,9 @@ for amounts and dates, the code mono for account paths and a bank's own text.
 
 - **The sidebar** is 176px on the deepest rung and holds places only, each with its keycap.
 - **A place** is a header (its title, one quiet line, at most one primary button), a notice under
-  the header when something was refused, and its list at full width. Nothing sits beside the list.
+  the header when something was refused, and its list at full width. Nothing persistent sits
+  beside the list. Reports is the one place with two lists side by side: the tree, and the spends
+  of what's selected in it.
 - **Details open in place**, under their row. Pickers open under their field, and the palette
   opens near the top of the window over a scrim.
 - **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
@@ -137,7 +139,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Keys` | A keycap, or several | Buttons, places, rows, the composer, the palette |
 | `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet | Everywhere; one primary per place at most |
 | `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
-| `Path` | The root as its initial in a square tinted by kind of account, colons kept and quiet, the last part at 500 | Rows, chips, pickers, the trail, Accounts, Reports |
+| `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`); colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
 | `Listbox` | Windowed, keyboard, active option; empty | The ledger, Accounts, Reports, pickers, the palette |
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
 | `Band` | A day or a group, with its net; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
