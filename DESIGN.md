@@ -11,9 +11,7 @@ app.
 
 ## Three priorities
 
-The rewrite has no UI system or template yet; one is being worked on. What it has is three
-priorities, high-level on purpose and refined as the rewrite progresses, and the rules below for
-being a desktop app and for themes.
+High-level on purpose, and refined as the rewrite progresses. The system below serves them.
 
 ### Speed and reliability
 
@@ -30,17 +28,176 @@ that matters to them quickly, and everything else steps back.
 have-fish has personality: the spirit of the weird JavaScript websites and small video games
 its owner grew up making. It is not a bank app's careful neutrality.
 
-## Until the system lands
+## Show, don't tell
 
-- **Rewrite screens stay plain.** Semantic HTML, the system font, and every visual value from
-  one tokens file, so the system can be dropped in when it exists. Claude does not invent an
-  aesthetic in the meantime, and nothing is ported from the current app's look.
-- **Plain is not slow or muddy.** Speed and clarity don't wait for a palette: a plain screen
-  still has a short path and an obvious number.
-- **Nothing in the current app's design binds the rewrite.** That is `frontend/DESIGN.md`. A
-  story may adopt one of its principles by naming it, as the undo story does with P4 ("undo
-  beats confirm"). Adopting one is a choice the story makes, not a default, and the principle
-  comes here, rewritten short, with a test where it can have one.
+The app shows how it works through what is on the screen rather than sentences about it: a
+keycap beside the action it starts, a part that shows the word it wants, an example in the format
+to type, the options you can pick, state you can see. On a screen full of numbers every word is a
+cost. Every screen is reviewed with one question: what here is a sentence explaining something the
+screen could show?
+
+## The system
+
+What the screens are built from. They move onto it one at a time; a screen that hasn't yet stays
+plain, with every visual value from `tokens.css`. Nothing is ported from the current app's look.
+
+### Type
+
+Four faces, each by its job: the sans for the interface, the serif for titles, the figures mono
+for amounts and dates, the code mono for account paths and a bank's own text.
+
+| Step | Regular | For |
+|---|---|---|
+| `--text-key` | 11px | Keycaps, tags, pills |
+| `--text-small` | 12px | Day bands, where a transaction came from, a refusal's reason |
+| `--text-quiet` | 13px | The From column, options in a picker, the sidebar |
+| `--text-base` | 14px | Rows, fields, buttons |
+| `--text-sentence` | 15px | The details card's sentence, the palette's input |
+| `--text-title` | 20px | A place's title |
+
+- Weights are 400, 500 for labels and a path's last part, 600 for titles and totals.
+- Every amount, date, count and total is in the figures mono with `tabular-nums`, right-aligned in
+  its column, so a column of amounts lines up on the decimal point.
+- A size in a component is a type token, never a number.
+
+### Space and density
+
+- Space steps by 4px: `--space-1` 4px to `--space-8` 32px. A place's content sits 16px in, 12px
+  below the narrow width.
+- **Density is a setting**, in the View menu and the palette beside zoom. It sets the row height
+  and the base type size, and the other type steps move with the base; the layout keeps its
+  shape. Zoom scales everything.
+
+| Density | Row | Base type |
+|---|---|---|
+| Compact | 30px | 13px |
+| Regular (default) | 33px | 14px |
+| Comfortable | 40px | 14px |
+| Large | 46px | 16px |
+
+### Layout
+
+- **The sidebar** is 176px on the deepest rung and holds places only, each with its keycap.
+- **A place** is a header (its title, one quiet line, at most one primary button), a notice under
+  the header when something was refused, and its list at full width. Nothing sits beside the list.
+- **Details open in place**, under their row. Pickers open under their field, and the palette
+  opens near the top of the window over a scrim.
+- **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
+  Description. Day bands carry their date and the day's net.
+- **One narrow width, 44rem.** Below it the places go across the top as a strip, the ledger drops
+  its From column (the details still show it), and content sits 12px in. A half-screen window at
+  200% lands here, and the 360px minimum is a layout, not a clipping.
+
+### Surfaces
+
+A surface sits on the same rung of the lightness ladder in every theme (Themes, below). OKLCH
+lightness, light / dark:
+
+| Rung | Light | Dark | What sits on it |
+|---|---|---|---|
+| Sidebar | 0.90 | 0.15 | The places |
+| Background | 0.99 | 0.215 | The work: rows, the card, the composer, pickers, the palette |
+| Band | 0.948 | 0.262 | Day bands, the card's foot, chips, a filled part of the composer |
+| Selected | 0.918 | 0.30 | The selected row, the active option |
+| Rule | 0.895 | 0.312 | The line under each row |
+
+- **Floating layers are opaque where you read from them** (the card, pickers, the date list, the
+  palette's panel, tooltips) and lift with a shadow from `tokens.css`.
+- **Glass is where things pass under**: a band header rows scroll beneath is frosted, and the
+  palette's scrim blurs and dims the ledger. The contract checks ink on glass against the darkest
+  surface that can show through it. `prefers-reduced-transparency` makes it opaque.
+- **Stepping back:** while the composer is open the rest of the ledger is at 42%, and while a card
+  is open the rest of the list is at 50%. What steps back isn't for reading; reaching for it
+  closes what's open.
+
+### Parts
+
+Every screen is built from parts, and each part is built once. The design is known before the
+screens are rebuilt, so a part that several screens will use is built as a part by the first
+screen that needs it, not copied until a third copy forces it out.
+
+1. **A part lives in `desktop/renderer/parts/`**, one per file. Its rules are in a `.ts` module
+   beside it, tested without a DOM, as `picker.ts` and `selection.ts` already are.
+2. **A place's style is layout only**: grid, widths, gaps, order. Colour, type, borders, radius,
+   shadow and motion belong to parts and to `tokens.css`.
+3. **Use, extend, or replace.** Use a part that does the job. Extend it with a prop only when the
+   prop names a variant of the same thing; a boolean that changes what it is makes a second part.
+   A part past about 250 lines, or growing a third mode, is asking to be two.
+4. **Replacing means deleting.** The change that brings a part moves every caller onto it and
+   deletes what it replaces. There are never two ways to do one thing.
+5. **What a part owns can't be hand-rolled elsewhere**, and a guard says so: a listbox's role and
+   `aria-activedescendant` only in `Listbox`, a `<kbd>` only in `Keys`, money and days only
+   through `Money` and `Day`, a media query's width only the narrow one, a size only a type token.
+6. **Every part shows on one sheet** in each of its states, light and dark, which the capture
+   script shoots, so a change to a part is seen everywhere it lands. The sheet is built for tests
+   only and never packaged.
+
+| Part | States | Used by |
+|---|---|---|
+| `Keys` | A keycap, or several | Buttons, places, rows, the composer, the palette |
+| `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet | Everywhere; one primary per place at most |
+| `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
+| `Path` | The root as its initial in a square tinted by kind of account, colons kept and quiet, the last part at 500 | Rows, chips, pickers, the trail, Accounts, Reports |
+| `Listbox` | Windowed, keyboard, active option; empty | The ledger, Accounts, Reports, pickers, the palette |
+| `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
+| `Band` | A day or a group, with its net; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
+| `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
+| `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
+| `PathPicker` | Opens on focus at the current level; letters in order anywhere in the path; last used first; a trail you can click at every level; Create last | The composer, chips, Refile, Accounts |
+| `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
+| `Notice` | Under a place's header, where you were looking; an action and ✕; stays until acted on | Every place |
+| `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open | Every list, the palette |
+
+**Focus** is always a 2px accent ring outside the control. Every control has a hover state.
+
+### Writing and changing
+
+- **The composer** opens with + New or Ctrl+N as a line in the ledger, lifted: an accent ring, a
+  New pill, Done with its Esc key. Its parts are in the order you think of them: From, Date,
+  Amount, Description, To. Each shows its word until filled; the next is underlined, dotted, with
+  its Tab key; a refused part is underlined red with two words of why. The first time, the words
+  are examples in the format to type.
+- **It writes a batch.** Enter saves the line, which drops into the batch under the composer, and
+  a fresh line keeps From and the date. A line dated in the past carries its date as a chip. Esc
+  closes it, and each row goes to its day, lit where it lands.
+- **Details** open with Enter as a sentence of chips, each chip where you change that part, and
+  **a change from a chip saves at once**: undo takes it back. Where it came from and the actions
+  sit at the foot; P shows the postings with a balance check per currency.
+- **Refile** is R on a selected row: the path picker, for To.
+- **Ctrl+K** lists every action in `desktop/shared/actions.ts`, under headings, with its keys.
+
+### Motion
+
+Quick, and horizontal or a short drop. Changing place is instant. Nothing moves more than 40px,
+and nothing moves under a number you are reading. A wash changes colour, never position.
+
+| What happens | How it moves | Time |
+|---|---|---|
+| Details open | Unfold from their row | 160ms |
+| A picker opens | Fades in 4px down | 120ms |
+| The palette opens | Fades in from 98% | 160ms |
+| A line is saved in the batch | Drops 38px into it; the fresh line fades in | 420ms, 250ms |
+| The batch closes | Each row lit where it lands | 2.4s |
+| A line is written | Slides in 32px from the left, then a wash | 220ms, 900ms |
+| A chip is saved | An accent flash, then a tick | 1.4s |
+| An import row is confirmed | 40px right, faded by halfway, then folds | 500ms |
+
+With `prefers-reduced-motion`, nothing moves: what would have is there at once, and a wash is a
+one-second tint.
+
+### Where delight lives
+
+Feedback, flair and quick motion, and words most of all. Never sound: a sound you didn't expect
+startles.
+
+- **The techy side stays**: account paths with their colons, keycaps on everything, the postings
+  as text.
+- **A transaction says what happened**: the row reads From, Amount, To, and the card is a sentence.
+- **It shows in the moments you finish something**: a line dropping into the batch, rows landing
+  on their day, a chip's flash, the card's offset shadow in the accent, a statement's "All
+  sorted".
+- **It stays out of the way of the numbers**: nothing animates on scroll, on a change of place, or
+  over an amount you are reading.
 
 ## It is a desktop app
 
@@ -52,11 +209,11 @@ the other windows on the machine before it has any look of its own.
   menu bar is the OS's application menu. Personality goes into the work and the themes, never
   into a costume frame.
 - **Every action is in the menu, with its shortcut.** One list of actions
-  (`desktop/shared/actions.ts`) feeds the menu, the hints beside buttons and, later, a command
-  palette, so a shortcut is never in one place and missing from another. A packaged build has no
-  Reload and no developer tools.
-- **Places down the left.** Each place is a list beside a pane (Spends, Accounts), with its
-  shortcut, Ctrl+1 and on, in the order they're listed. A place stays open while another shows,
+  (`desktop/shared/actions.ts`) feeds the menu, the hints beside buttons and the palette (Ctrl+K), so a
+  shortcut is never in one place and missing from another. A packaged build has no Reload and no
+  developer tools.
+- **Places down the left**: Ledger, Accounts, Reports, each with its shortcut, Ctrl+1 and on,
+  in the order they're listed. A place stays open while another shows,
   so going somewhere else loses nothing half-typed. Below the narrow width they go across the
   top.
 - **Picking is typing.** A field that takes one of a list (From) filters it by the letters typed,
@@ -125,8 +282,10 @@ The desktop app can have themes, colours to start with.
   ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else
   (`desktop/renderer/theme/contract.ts`, held to by `desktop/renderer/tokens.test.ts`).
   Every built-in theme passes them in a test, and a theme you make will pass them as you make it.
-- **Money is not themed.** The colours for money in and out stay fixed, and a sign reads
-  without colour.
+- **Money is not themed, and neither are the kinds of account.** The colours for money in and
+  out, for an error, and for each root (assets, liabilities, expenses, income) stay fixed in
+  every theme, and none of them carries a meaning alone: a sign reads without colour, and a root
+  shows its initial.
 - **A theme belongs to the machine, not the ledger.** It lives in the app's settings, never in
   the ledger file.
 - **A theme is a few inputs, not a stylesheet**: light or dark, a neutral hue and chroma, an
@@ -134,11 +293,15 @@ The desktop app can have themes, colours to start with.
   variables the way Obsidian has them.
 - **Built-ins first, your own later.** The app ships a few built-in themes, each stored as those
   inputs. Making your own is a picker over the same inputs, and it comes later.
+- **The built-ins are Graphite light and Graphite dark**, and following the system picks between
+  them. Both have a warm neutral (hue 75, chroma 0.012) and a lively accent (chroma 0.17): ochre
+  (hue 90) in light, persimmon (hue 38) in dark.
 
 ## What the current app taught
 
-Worth adopting, each by the first story that needs it, as the rule above says, and what
-stays behind:
+Nothing in the current app's design binds the rewrite. A rule is adopted by naming it and
+writing it here, short, with a test where it can have one, as Parts does with that app's rule
+for reusing components. What is worth adopting, and what stays behind:
 
 | Worth adopting | Stays behind |
 |---|---|
@@ -147,7 +310,7 @@ stays behind:
 | Money and status as two vocabularies | A theme made by swapping a palette |
 | One `Sheet` geometry, day bands over rows | Layouts sized only for a wide window |
 | The keyboard, focus and latency laws (§4) | Toasts that vanish in a bar nobody watches |
-| The third copy of a rule becomes shared | A design document too long to read |
+| One part per job; replacing means deleting | A design document too long to read |
 
 That last one is why this document stays short and why its rules live in tests wherever they
 can.

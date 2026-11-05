@@ -119,8 +119,8 @@ It is built one piece at a time, foundations first. Until a rule lands here,
 None of the current app's server machinery carries over: Postgres and the two-dialect schema,
 Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome,
 Prettier and the copy rules do. The current app's look does not: the rewrite's UI system is
-still being worked out, and until it lands its screens stay plain (`DESIGN.md`, "Until the
-system lands").
+`DESIGN.md`, "The system", built from the parts it lists, and a screen not yet moved onto it
+stays plain.
 
 ## Formatting and linting
 
