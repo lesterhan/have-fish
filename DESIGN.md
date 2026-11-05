@@ -60,6 +60,17 @@ for amounts and dates, the code mono for account paths and a bank's own text.
   its column, so a column of amounts lines up on the decimal point.
 - A size in a component is a type token, never a number.
 
+### Money and days
+
+- **An amount** is grouped by thousands with a comma, with as many decimals as its currency has
+  (`1,234.50`, `¥1,500` as `1,500`), and a true minus (−).
+- **The home currency goes unsaid** in lists and totals; any other says its code after the amount,
+  small and quiet (`35.00 EUR`). A transaction's details always say the code.
+- **A row's sign reads without colour**: a spend has none, money in has `+` and the money-in
+  colour, a transfer has ⇄ before it.
+- **A day** reads `Thu 5 Nov`, with the year when it isn't this one (`Thu 5 Nov 2025`). A day band
+  puts `Today ·` or `Yesterday ·` before it. A moment reads `Thu 5 Nov 2026, 12:40`.
+
 ### Space and density
 
 - Space steps by 4px: `--space-1` 4px to `--space-8` 32px. A place's content sits 16px in, 12px
