@@ -1,0 +1,7 @@
+{
+  "name": "graphite-light",
+  "scheme": "light",
+  "neutralHue": 75,
+  "neutralChroma": 0.012,
+  "accentHue": 90
+}

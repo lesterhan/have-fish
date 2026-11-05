@@ -8,6 +8,7 @@ import type { Context } from '../context'
 import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listCategories, listIncome } from '../services/categories'
 import { spendingIn } from '../services/reports'
+import { setTheme } from '../services/settings'
 import {
   assumedFrom,
   editSpend,
@@ -37,4 +38,5 @@ export const handlers: Handlers = {
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,
+  'settings.theme.set': setTheme,
 }

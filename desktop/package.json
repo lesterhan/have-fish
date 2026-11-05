@@ -19,6 +19,7 @@
     "check:svelte": "ELECTRON_RUN_AS_NODE=1 electron --import ./tools/typescript5.mjs node_modules/svelte-check/bin/svelte-check --tsconfig tsconfig.web.json --output human --fail-on-warnings",
     "db:generate": "drizzle-kit generate",
     "db:bundle": "bun tools/bundle-migrations.ts",
+    "themes": "bun tools/themes.ts",
     "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts",
     "capture": "electron-vite build && vitest run --config vitest.capture.config.ts"
   },

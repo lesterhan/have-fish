@@ -10,7 +10,7 @@ export type Scheme = (typeof SCHEMES)[number]
 
 /** A colour token's name to its `#rrggbb`. */
 export type Palette = Readonly<Record<string, string>>
-export type Theme = Readonly<Record<Scheme, Palette>>
+export type Schemes = Readonly<Record<Scheme, Palette>>
 
 /** WCAG 1.4.3 for text; 1.4.11 for a mark you need to see to use the screen. */
 export const MIN_RATIO = { text: 4.5, graphic: 3 } as const
@@ -26,22 +26,45 @@ export const MIN_STEP = 0.04
 /** How far the schemes may disagree on a step's size: the dark end wants a little more. */
 export const MAX_DIVERGENCE = 2
 
+/** The surfaces the window reads from, each holding every ink below. */
+export const SURFACES = [
+  '--color-background',
+  '--color-sidebar',
+  '--color-band',
+  '--color-selected',
+] as const
+
+/** Text: words, figures, the money-in colour, the accent, and each root's tag. */
+const ON_EVERY_SURFACE = [
+  '--color-text',
+  '--color-muted',
+  '--color-accent',
+  '--color-in',
+  '--color-assets',
+  '--color-liabilities',
+  '--color-expenses',
+  '--color-income',
+] as const
+
 /** Every ink the window draws, on every surface it draws it on. */
 export const INK: readonly Ink[] = [
-  { ink: '--color-text', on: '--color-background', kind: 'text' },
-  { ink: '--color-muted', on: '--color-background', kind: 'text' },
+  ...SURFACES.flatMap((on) => ON_EVERY_SURFACE.map((ink): Ink => ({ ink, on, kind: 'text' }))),
   { ink: '--color-error', on: '--color-background', kind: 'text' },
-  // A selected row: its description, and its date.
-  { ink: '--color-text', on: '--color-selected', kind: 'text' },
-  { ink: '--color-muted', on: '--color-selected', kind: 'text' },
-  // An input's or a button's edge.
+  // A primary button's words.
+  { ink: '--color-on-accent', on: '--color-accent', kind: 'text' },
+  // An input's edge.
   { ink: '--color-border', on: '--color-background', kind: 'graphic' },
+  // A bar, and the accent's edge, on the line under a row.
+  { ink: '--color-bar', on: '--color-rule', kind: 'graphic' },
+  { ink: '--color-accent', on: '--color-rule', kind: 'graphic' },
 ]
 
 /** Every surface, on the one beneath it. */
 export const STEPS: readonly Step[] = [
   { from: '--color-background', to: '--color-selected' },
   { from: '--color-background', to: '--color-rule' },
+  { from: '--color-background', to: '--color-band' },
+  { from: '--color-background', to: '--color-sidebar' },
 ]
 
 export type InkFailure = { scheme: Scheme; ink: string; on: string; ratio: number; needs: number }
@@ -58,7 +81,7 @@ export type StepFailure =
       allows: number
     }
 
-export function inkFailures(theme: Theme, pairs: readonly Ink[] = INK): InkFailure[] {
+export function inkFailures(theme: Schemes, pairs: readonly Ink[] = INK): InkFailure[] {
   return SCHEMES.flatMap((scheme) =>
     pairs.flatMap(({ ink, on, kind }) => {
       const ratio = contrastRatio(colour(theme, scheme, ink), colour(theme, scheme, on))
@@ -68,7 +91,7 @@ export function inkFailures(theme: Theme, pairs: readonly Ink[] = INK): InkFailu
   )
 }
 
-export function stepFailures(theme: Theme, steps: readonly Step[] = STEPS): StepFailure[] {
+export function stepFailures(theme: Schemes, steps: readonly Step[] = STEPS): StepFailure[] {
   return steps.flatMap(({ from, to }): StepFailure[] => {
     const size = (scheme: Scheme) => deltaL(colour(theme, scheme, from), colour(theme, scheme, to))
     const [light, dark] = [size('light'), size('dark')]
@@ -88,7 +111,7 @@ export function stepFailures(theme: Theme, steps: readonly Step[] = STEPS): Step
   })
 }
 
-function colour(theme: Theme, scheme: Scheme, token: string): string {
+function colour(theme: Schemes, scheme: Scheme, token: string): string {
   const value = theme[scheme][token]
   if (value === undefined) throw new Error(`${token} is not in the ${scheme} palette`)
   return value

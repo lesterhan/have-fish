@@ -1,6 +1,7 @@
 // What a command runs against: the open ledger, the time, and the one way it writes.
 
 import type { Changed } from '../shared/commands'
+import type { ThemeChoice } from '../shared/theme/theme'
 import type { Ledger } from './db/ledger'
 import { applyLocal, type BatchOutcome, type Written } from './ledger/apply'
 import { forgetful, type Machine } from './machine'
@@ -29,6 +30,8 @@ export type Context = Time & {
   history: History<Step>
   /** What this machine remembers between runs: never in the ledger. */
   machine: Machine
+  /** Repaints the window in a theme. Electron's, so tests pass their own. */
+  showTheme(choice: ThemeChoice): void
 }
 
 export function contextFor(
@@ -36,6 +39,7 @@ export function contextFor(
   announce: (changed: Changed[]) => void,
   time: Time = systemTime,
   machine: Machine = forgetful(),
+  showTheme: (choice: ThemeChoice) => void = () => {},
 ): Context {
   let written: Written[] = []
   return {
@@ -55,6 +59,7 @@ export function contextFor(
     },
     history: new History(),
     machine,
+    showTheme,
   }
 }
 

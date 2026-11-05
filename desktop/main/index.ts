@@ -2,10 +2,12 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol } from 'electron'
 import { copy } from '../copy'
 import { ACTION, CHANGED, COMMAND, TYPING } from '../shared/channels'
 import type { Changed, Typing } from '../shared/commands'
+import { backgroundFor } from '../shared/theme/derive'
+import { type ThemeChoice, themeSourceOf } from '../shared/theme/theme'
 import { runCommand } from './commands/run'
 import { type Context, contextFor, systemTime } from './context'
 import { type Ledger, openLedger } from './db/ledger'
@@ -55,7 +57,18 @@ if (!app.requestSingleInstanceLock()) {
 
     denyPermissions()
     serveRenderer(join(import.meta.dirname, '../renderer'))
-    const ctx = contextFor(ledger, announce, systemTime, settingsIn(app.getPath('userData')))
+    const machine = settingsIn(app.getPath('userData'))
+    // Before the page loads: its stylesheet's media query then picks the scheme on the first frame.
+    const showTheme = (choice: ThemeChoice) => {
+      nativeTheme.themeSource = themeSourceOf(choice)
+      window?.setBackgroundColor(backgroundFor(choice, nativeTheme.shouldUseDarkColors))
+    }
+    showTheme(machine.theme())
+    // Following the system, the window's own background follows it too.
+    nativeTheme.on('updated', () =>
+      window?.setBackgroundColor(backgroundFor(machine.theme(), nativeTheme.shouldUseDarkColors)),
+    )
+    const ctx = contextFor(ledger, announce, systemTime, machine, showTheme)
     let typing: Typing = { undo: false, redo: false }
     // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.
     const showMenu = () => {
@@ -64,6 +77,7 @@ if (!app.requestSingleInstanceLock()) {
         mac: process.platform === 'darwin',
         run: (id) => window?.webContents.send(ACTION, id),
         undo: undoItems(ctx.history, typing),
+        theme: ctx.machine.theme(),
       })
       Menu.setApplicationMenu(Menu.buildFromTemplate(menu))
     }
@@ -76,7 +90,11 @@ if (!app.requestSingleInstanceLock()) {
       showMenu()
     })
     showMenu()
-    window = createWindow(join(import.meta.dirname, '../preload/index.cjs'), devServer ?? APP_URL)
+    window = createWindow(
+      join(import.meta.dirname, '../preload/index.cjs'),
+      devServer ?? APP_URL,
+      backgroundFor(machine.theme(), nativeTheme.shouldUseDarkColors),
+    )
   })
 }
 

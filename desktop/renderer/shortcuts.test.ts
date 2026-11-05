@@ -25,8 +25,9 @@ describe('ariaShortcut', () => {
 })
 
 test('every action in the list can be shown, on both', () => {
-  for (const { id, accelerator } of ACTIONS) {
-    if (!accelerator.startsWith('CmdOrCtrl')) continue
+  for (const action of ACTIONS) {
+    if (!('accelerator' in action) || !action.accelerator.startsWith('CmdOrCtrl')) continue
+    const { id } = action
     expect(shortcutText(id, false)).toMatch(/^Ctrl\+/)
     expect(shortcutText(id, true)).toMatch(/⌘/)
   }

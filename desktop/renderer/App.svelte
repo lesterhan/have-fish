@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
   import type { Typing } from '../shared/commands'
+  import type { ThemeChoice } from '../shared/theme/theme'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
   import { ledgerStore } from './ledger'
@@ -45,9 +46,15 @@
         showSpends: () => void go('spends'),
         showAccounts: () => void go('accounts'),
         showReports: () => void go('reports'),
+        // Main remembers it and repaints; the stylesheet already holds both schemes.
+        themeGraphiteLight: () => void setTheme('graphite-light'),
+        themeGraphiteDark: () => void setTheme('graphite-dark'),
+        themeSystem: () => void setTheme('system'),
       }),
     ),
   )
+
+  const setTheme = (theme: ThemeChoice) => window.haveFish.invoke('settings.theme.set', { theme })
 
   /** Shows `to`, with the cursor in it. */
   async function go(to: Place) {

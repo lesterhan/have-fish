@@ -12,6 +12,9 @@ describe('runAction', () => {
     showAccounts: vi.fn(),
     showReports: vi.fn(),
     addAccount: vi.fn(),
+    themeGraphiteLight: vi.fn(),
+    themeGraphiteDark: vi.fn(),
+    themeSystem: vi.fn(),
   })
 
   test("runs the action's handler", () => {

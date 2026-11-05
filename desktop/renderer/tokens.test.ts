@@ -4,9 +4,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { inkFailures, stepFailures } from '../shared/theme/contract'
+import { readTheme } from '../shared/theme/css'
 import { rawColoursIn } from '../tools/colours'
-import { inkFailures, stepFailures } from './theme/contract'
-import { readTheme } from './theme/css'
 
 const DESKTOP = join(import.meta.dirname, '..')
 const TOKENS = 'renderer/tokens.css'
