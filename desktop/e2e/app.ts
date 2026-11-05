@@ -82,6 +82,8 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
   if (context === undefined) throw new Error('the app has no browser context')
   const page = context.pages()[0] ?? (await context.waitForEvent('page'))
   await page.waitForSelector('input[name=amount]')
+  // The page is ready before the window shows (see #582); keys need the window on screen.
+  await page.waitForFunction(() => document.visibilityState === 'visible')
 
   return {
     page,
@@ -96,24 +98,33 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
 
 /** Real key presses on the app's X window: xdotool, under xvfb-run. */
 function pressKeys(child: ChildProcess, keys: string): void {
-  const xdotool = (args: string[], timeout = 10_000) =>
-    execFileSync('xdotool', args, { encoding: 'utf8', timeout })
-  let window: string | undefined
-  try {
-    // `--sync` waits for it: the page can be ready before the window shows (see #582). The first
-    // launch on a cold CI runner can take over 10 s to show it, so the wait gets longer.
-    window = xdotool(
-      ['search', '--sync', '--onlyvisible', '--pid', String(child.pid)],
-      30_000,
-    ).split('\n')[0]
-  } catch (e) {
-    throw new Error('pressing keys needs xdotool, and the app on an X display (xvfb-run -a)', {
-      cause: e,
-    })
+  const xdotool = (...args: string[]) =>
+    execFileSync('xdotool', args, { encoding: 'utf8', timeout: 10_000, stdio: 'pipe' })
+  const window = findWindow(child, xdotool)
+  xdotool('windowfocus', '--sync', window)
+  xdotool('key', '--clearmodifiers', keys)
+}
+
+/**
+ * The app's visible X window. Searched again until it's there: on a cold start the window can be
+ * slow to show, and a search that meets a window as it's made or destroyed fails with BadWindow.
+ */
+function findWindow(child: ChildProcess, xdotool: (...args: string[]) => string): string {
+  const deadline = Date.now() + 30_000
+  let last: unknown
+  while (Date.now() < deadline) {
+    try {
+      const found = xdotool('search', '--onlyvisible', '--pid', String(child.pid)).split('\n')[0]
+      if (found) return found
+    } catch (e) {
+      // None yet, or BadWindow from a window in flux: look again.
+      last = e
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
   }
-  if (!window) throw new Error('the app has no window on this X display')
-  xdotool(['windowfocus', '--sync', window])
-  xdotool(['key', '--clearmodifiers', keys])
+  throw new Error('pressing keys needs xdotool, and the app on an X display (xvfb-run -a)', {
+    cause: last,
+  })
 }
 
 /** Chromium prints where its DevTools listen, once they do. */
