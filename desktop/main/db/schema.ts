@@ -125,6 +125,9 @@ export const postings = sqliteTable(
     primaryKey({ columns: [t.transactionId, t.position] }),
     // Covers the balances query whole, in its order; and an account's postings, by its prefix.
     index('postings_account_balance').on(t.accountId, t.currency, t.amountCents),
+    // An account's transactions in order: counts how many it's in with no sort, and finds
+    // the starting balances from `equity:opening`.
+    index('postings_account_transaction').on(t.accountId, t.transactionId),
     // SQLite stores any value in any column, and a text amount would sum as a float.
     check('postings_amount_cents_integer', sql`typeof(${t.amountCents}) = 'integer'`),
   ],

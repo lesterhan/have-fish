@@ -1,0 +1,1 @@
+CREATE INDEX `postings_account_transaction` ON `postings` (`accountId`,`transactionId`);

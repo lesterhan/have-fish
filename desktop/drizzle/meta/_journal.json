@@ -50,6 +50,13 @@
       "when": 1793948724258,
       "tag": "0006_listed-index",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793957517247,
+      "tag": "0007_account-transaction-index",
+      "breakpoints": true
     }
   ]
 }

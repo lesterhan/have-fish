@@ -60,5 +60,11 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "CREATE INDEX `transactions_listed` ON `transactions` (`date`,`originCreatedAt`,`version`,`id`,`deletedAt`) WHERE \"transactions\".\"deletedAt\" IS NULL;"
     ]
+  },
+  {
+    "tag": "0007_account-transaction-index",
+    "statements": [
+      "CREATE INDEX `postings_account_transaction` ON `postings` (`accountId`,`transactionId`);"
+    ]
   }
 ]

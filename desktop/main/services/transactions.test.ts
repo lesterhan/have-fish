@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { contextFor } from '../context'
 import type { Ledger } from '../db/ledger'
-import { applyLocal } from '../ledger/apply'
-import { anAccount, aSpend, MANUAL, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { aLedgerOf, NOW, ok, tempLedger } from '../ledger/fixtures'
 import { removeSpend, writeSpend } from './spends'
 import {
   listTransactions,
@@ -10,8 +9,6 @@ import {
   positionOf,
   transactionsWithIds,
 } from './transactions'
-
-const DAY = 86_400_000
 
 function setup() {
   const ledger = tempLedger()
@@ -125,23 +122,6 @@ describe('spends by id', () => {
   })
 })
 
-/** `n` spends a day apart, ending today, written as one batch: about ten years at 50,000. */
-function aLedgerOf(n: number): Ledger {
-  const ledger = tempLedger()
-  const from = anAccount({ path: 'liabilities:visa', kind: 'card' })
-  const to = anAccount({ path: 'expenses:food', kind: 'category' })
-  const day = (i: number) => new Date(NOW - Math.floor(i / 14) * DAY).toISOString().slice(0, 10)
-  const spends = Array.from({ length: n }, (_, i) =>
-    aSpend(from.id, to.id, '12.50', {
-      date: day(i),
-      description: `Spend ${i}`,
-      origin: { ...MANUAL, createdAt: NOW - i },
-    }),
-  )
-  ok(applyLocal(ledger, [from, to, ...spends], NOW))
-  return ledger
-}
-
 /** What SQLite does for `sql`, a line per step. */
 const planOf = (ledger: Ledger, sql: string) =>
   ledger.db
@@ -172,7 +152,8 @@ describe('at ten years', { timeout: 60_000 }, () => {
   })
 
   test('the last page and a far position, quickly, over 50,000', () => {
-    const ledger = aLedgerOf(50_000)
+    // Two starting balances, as well as the spends.
+    const ledger = aLedgerOf(49_998)
     const last = listTransactions(ledger.db).at(-1)
     const started = performance.now()
     const page = pageOfTransactions(ledger.db, { from: 49_900, limit: 100 })

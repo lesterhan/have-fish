@@ -1,4 +1,4 @@
-// Finds money or a day written out by hand, outside `renderer/format.ts`. `renderer/format.test.ts`
+// Finds money or a day written out by hand, outside `renderer/format.ts`. `tools/formats.test.ts`
 // runs it over the window: every amount and day goes through `money` and `day` (see #609).
 
 /**

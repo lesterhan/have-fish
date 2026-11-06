@@ -105,7 +105,7 @@ const DISABLED = /:disabled|aria-disabled/
 /**
  * Finds a colour a component makes from the tokens rather than reads from them: text at an
  * opacity, a filter, or a `color-mix` as an ink or a surface. The contract checks tokens, so it
- * never sees these (see #606). An edge tinted from a token frames the words and stays legal.
+ * never sees these (see #607). An edge tinted from a token frames the words and stays legal.
  */
 export function madeColoursIn(source: string): string[] {
   const clean = stripComments(source)

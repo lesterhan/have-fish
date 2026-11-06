@@ -180,7 +180,9 @@ const statements = perConnection((orm) => ({
     .from(accounts)
     .where(and(isNull(accounts.deletedAt), inArray(accounts.kind, [...ADDABLE_KINDS])))
     .prepare(),
-  // Each live transaction with a leg on `equity:opening`: its other legs, oldest first.
+  // Each live transaction with a leg on `equity:opening`: its other legs, oldest first. CROSS
+  // JOIN pins the order SQLite reads them in: from the opening account out, a few rows, where
+  // any other order reads every transaction (see #608).
   starts: orm
     .select({
       accountId: postings.accountId,
@@ -188,14 +190,20 @@ const statements = perConnection((orm) => ({
       currency: postings.currency,
       date: transactions.date,
     })
-    .from(postings)
-    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
-    .innerJoin(openingLeg, eq(openingLeg.transactionId, postings.transactionId))
-    .innerJoin(
-      openingAccount,
-      and(eq(openingAccount.id, openingLeg.accountId), eq(openingAccount.kind, 'opening')),
+    .from(openingAccount)
+    .crossJoin(openingLeg)
+    .crossJoin(transactions)
+    .crossJoin(postings)
+    .where(
+      and(
+        eq(openingAccount.kind, 'opening'),
+        eq(openingLeg.accountId, openingAccount.id),
+        eq(transactions.id, openingLeg.transactionId),
+        isNull(transactions.deletedAt),
+        eq(postings.transactionId, openingLeg.transactionId),
+        ne(postings.accountId, openingLeg.accountId),
+      ),
     )
-    .where(and(isNull(transactions.deletedAt), ne(postings.accountId, openingLeg.accountId)))
     .orderBy(transactions.date, transactions.originCreatedAt, transactions.id)
     .prepare(),
   balances: balancesQuery(orm).prepare(),
