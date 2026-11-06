@@ -3,7 +3,6 @@
   import type { ListedDay, ListedTransaction, Money as Amount } from '../shared/commands'
   import type { Drafts } from './drafts'
   import { todayIn } from './format'
-  import { NARROW } from './narrow'
   import Band from './parts/Band.svelte'
   import Headings from './parts/Headings.svelte'
   import Keys from './parts/Keys.svelte'
@@ -11,7 +10,7 @@
   import Listbox from './parts/Listbox.svelte'
   import Money from './parts/Money.svelte'
   import Path from './parts/Path.svelte'
-  import { daysOf, wayOf } from './row'
+  import { columnsOf, daysOf, wayOf } from './row'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
@@ -67,24 +66,16 @@
   const shownDays = $derived(days ?? (transactions ? daysOf(transactions) : []))
   const groups = $derived(shownDays.map((d) => d.count))
 
-  // Below the narrow width the From column goes; the details still show it.
-  let narrow = $state(matchMedia(NARROW).matches)
-  $effect(() => {
-    const query = matchMedia(NARROW)
-    const changed = () => (narrow = query.matches)
-    query.addEventListener('change', changed)
-    return () => query.removeEventListener('change', changed)
-  })
+  // A narrow list leaves From out (the details still show it): the list's width, not the window's.
+  let width = $state(0)
+  const shown = $derived(columnsOf(width))
+  const narrow = $derived(!shown.cells.includes('from'))
   const names = copy.spends.list.columns
-  // From, Amount, To, Description, and the ● of a draft (DESIGN.md, "Layout").
-  const columns = $derived(
-    [...(narrow ? [] : ['min(196px,28%)']), '92px', 'minmax(0,1.2fr)', 'minmax(0,1fr)', '1em'].join(' '),
-  )
   const headings = $derived([
-    ...(narrow ? [] : [names.from]),
-    names.amount,
-    names.to,
-    names.description,
+    ...(narrow ? [] : [{ name: names.from }]),
+    { name: names.amount, end: true },
+    { name: names.to },
+    { name: names.description },
   ])
 
   export function focus() {
@@ -107,8 +98,8 @@
   }
 </script>
 
-<div class="list">
-  <Headings {columns} names={headings} />
+<div class="list" bind:clientWidth={width}>
+  <Headings columns={shown.template} names={headings} />
   <Listbox
     bind:this={listbox}
     items={transactions}
@@ -119,7 +110,7 @@
     active={selectedId}
     {label}
     {idPrefix}
-    {columns}
+    columns={shown.template}
     {groups}
     {written}
     onactive={onselect}

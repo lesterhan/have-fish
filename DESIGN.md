@@ -96,10 +96,12 @@ for amounts and dates, the code mono for account paths and a bank's own text.
 - **Details open in place**, under their row. Pickers open under their field, and the palette
   opens near the top of the window over a scrim.
 - **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
-  Description. Day bands carry their date and the day's net.
-- **One narrow width, 44rem.** Below it the places go across the top as a strip, the ledger drops
-  its From column (the details still show it), and content sits 12px in. A half-screen window at
-  200% lands here, and the 360px minimum is a layout, not a clipping.
+  Description. Day bands carry their date and the day's net. A list narrower than 520px drops
+  From (the details still show it): it's the list that runs out, not the window, so this holds
+  beside the pane at the size the window opens and in Reports' half too.
+- **One narrow width, 44rem.** Below it the places go across the top as a strip, and content sits
+  12px in. A half-screen window at 200% lands here, and the 360px minimum is a layout, not a
+  clipping.
 
 ### Surfaces
 
@@ -150,7 +152,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Keys` | A keycap, or several | Buttons, places, rows, the composer, the palette |
 | `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet | Everywhere; one primary per place at most |
 | `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
-| `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`); colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
+| `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`), and equity's `q`, since `e` is expenses'; a screen reader hears the word; colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
 | `Listbox` | Windowed, keyboard, active option; empty | The ledger, Accounts, Reports, pickers, the palette |
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
 | `Band` | A day or a group, with its net; frosted while rows pass under | The ledger, the batch, Accounts, Reports |

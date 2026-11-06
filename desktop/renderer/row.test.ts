@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { daysOf, wayOf } from './row'
+import { columnsOf, daysOf, NARROW_LIST, wayOf } from './row'
 
 describe('which way a row’s money went', () => {
   test('from income is in; between two of my accounts is between; to a category is out', () => {
@@ -27,5 +27,23 @@ describe('the days of a list held whole', () => {
 
   test('none is none', () => {
     expect(daysOf([])).toEqual([])
+  })
+})
+
+describe('the ledger’s columns', () => {
+  test('a list narrower than the narrow list leaves From out; the details still show it', () => {
+    expect(columnsOf(NARROW_LIST - 1).cells).toEqual(['amount', 'to', 'description', 'draft'])
+    expect(columnsOf(329).cells).not.toContain('from')
+  })
+
+  test('from the narrow list up, From leads, as what happened reads', () => {
+    expect(columnsOf(NARROW_LIST).cells).toEqual(['from', 'amount', 'to', 'description', 'draft'])
+  })
+
+  test('a width for each cell, so the headings and rows share them', () => {
+    for (const width of [329, 960]) {
+      const { cells, template } = columnsOf(width)
+      expect(template.split(' ')).toHaveLength(cells.length)
+    }
   })
 })

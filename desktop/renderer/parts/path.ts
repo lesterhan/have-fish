@@ -3,6 +3,15 @@
 /** The roots a tag has a colour for; equity's tag is plain. */
 export const TINTED = ['assets', 'liabilities', 'expenses', 'income'] as const
 
+// Each root's own letter: equity's initial is expenses', so it takes the next of its word.
+const TAGS: Record<string, string> = {
+  assets: 'a',
+  liabilities: 'l',
+  expenses: 'e',
+  income: 'i',
+  equity: 'q',
+}
+
 /** `liabilities:cibc:visa` as `Path` shows it: an `l` tag, `cibc:` quiet, `visa` at 500. */
 export function pathOf(path: string): {
   root: string
@@ -12,5 +21,5 @@ export function pathOf(path: string): {
 } {
   const [root = '', ...rest] = path.split(':')
   const leaf = rest.pop() ?? root
-  return { root, tag: root.slice(0, 1), parents: rest, leaf }
+  return { root, tag: TAGS[root] ?? root.slice(0, 1), parents: rest, leaf }
 }

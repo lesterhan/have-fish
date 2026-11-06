@@ -26,3 +26,28 @@ export function daysOf(rows: readonly Pick<ListedTransaction, 'date'>[]): Listed
   }
   return days
 }
+
+/** A ledger row's cells, in the order they read. */
+export type Cell = 'from' | 'amount' | 'to' | 'description' | 'draft'
+
+/**
+ * Below this width of list, in CSS pixels, From goes. It's the list that runs out, not the window:
+ * the list is half of it while a pane is beside it, and half again in Reports.
+ */
+export const NARROW_LIST = 520
+
+// From, Amount, To, Description, and the ● of a draft (DESIGN.md, "Layout").
+const WIDTHS: Record<Cell, string> = {
+  from: 'min(196px,28%)',
+  amount: '92px',
+  to: 'minmax(0,1.2fr)',
+  description: 'minmax(0,1fr)',
+  draft: '1em',
+}
+
+/** The cells a ledger row shows in a list this wide, and their grid columns. */
+export function columnsOf(width: number): { cells: Cell[]; template: string } {
+  const cells: Cell[] = ['from', 'amount', 'to', 'description', 'draft']
+  const shown = width < NARROW_LIST ? cells.slice(1) : cells
+  return { cells: shown, template: shown.map((c) => WIDTHS[c]).join(' ') }
+}
