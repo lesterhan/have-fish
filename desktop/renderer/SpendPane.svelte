@@ -2,7 +2,7 @@
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
-  import { amountsText, understood } from './format'
+  import { amountsText, day, todayIn, understood } from './format'
   import Button from './parts/Button.svelte'
   import Empty from './parts/Empty.svelte'
   import Picker from './Picker.svelte'
@@ -74,7 +74,7 @@
   {:else}
     <p class="heading">
       <!-- An editable spend shows its date in the field below. -->
-      {#if !values}<span class="date">{transaction.date}</span>{/if}
+      {#if !values}<span class="date">{day(transaction.date, todayIn())}</span>{/if}
       {#if draft}<Unsaved />{/if}
     </p>
     {#if transaction.from !== null}
@@ -176,7 +176,7 @@
       </form>
     {:else}
       <p class="description">{transaction.description || copy.spends.noDescription}</p>
-      <p class="amount">{amountsText(transaction.amounts)}</p>
+      <p class="amount">{amountsText(transaction.amounts, { code: true })}</p>
       <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
 

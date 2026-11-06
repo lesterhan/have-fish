@@ -5,7 +5,7 @@ import { dateFrom } from '@have-fish/core/typed-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { understood } from '../renderer/format'
-import { aHome, launch, PANE, rows, unsavedInPane, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, shownDay, unsavedInPane, WRITE, writeDown } from './app'
 
 const DAY = 86_400_000
 const here = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -27,7 +27,7 @@ describe('write down a spend from another day', () => {
 
     await writeDown(page, '4.50', 'Coffee')
 
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
 
   test('the date is last in the Tab order, so What for still Tabs straight to To', async () => {
@@ -53,7 +53,7 @@ describe('write down a spend from another day', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 4.50 CAD`, `${daysAgo(2)} | Lunch | 12.00 CAD`])
+      .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(2))} | Lunch | 12.00`])
     expect(await page.inputValue(WRITE_DATE)).toBe(today())
     expect(await focusedName(page)).toBe('amount')
   })
@@ -65,7 +65,7 @@ describe('write down a spend from another day', () => {
     await page.fill(WRITE_DATE, '')
     await page.press(WRITE_DATE, 'Enter')
 
-    await expect.poll(() => rows(page)).toEqual([`${today()} | — | 3.00 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | — | 3.00`])
   })
 })
 
@@ -85,7 +85,7 @@ describe('move a spend to another day', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 4.50 CAD`, `${daysAgo(1)} | Lunch | 12.00 CAD`])
+      .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(1))} | Lunch | 12.00`])
     expect(await unsavedInPane(page)).toBe(0)
     expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
   })
@@ -99,7 +99,7 @@ describe('move a spend to another day', () => {
     await page.press(PANE_DATE, 'Escape')
 
     expect(await page.inputValue(PANE_DATE)).toBe(today())
-    expect(await rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
+    expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
 
   test('a date cleared: nothing is saved, and the field says why', async () => {
@@ -113,7 +113,7 @@ describe('move a spend to another day', () => {
     const error = page.locator('#pane-date-error')
     await expect.poll(() => error.textContent()).toMatch(/isn't a day/)
     expect(await page.getAttribute(PANE_DATE, 'aria-invalid')).toBe('true')
-    expect(await rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD | ●unsaved changes`])
+    expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50 | ●unsaved changes`])
   })
 })
 
@@ -137,7 +137,7 @@ describe('type a date quickly', () => {
       await expect.poll(() => page.innerText(WRITE_UNDERSTOOD)).toBe(said)
       await page.press(WRITE_DATE, 'Enter')
 
-      await expect.poll(() => rows(page)).toEqual([`${date} | — | 5.00 CAD`])
+      await expect.poll(() => rows(page)).toEqual([`${shownDay(date)} | — | 5.00`])
       expect(await page.inputValue(WRITE_DATE)).toBe(today())
     },
   )
@@ -172,7 +172,7 @@ describe('type a date quickly', () => {
       .toBe(understood('y', today()))
     await page.press(PANE_DATE, 'Enter')
 
-    await expect.poll(() => rows(page)).toEqual([`${daysAgo(1)} | Coffee | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(daysAgo(1))} | Coffee | 4.50`])
     expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
   })
 })

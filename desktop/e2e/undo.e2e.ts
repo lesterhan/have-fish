@@ -4,7 +4,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -36,7 +36,7 @@ describe('undo and redo', () => {
     expect(await focused(page)).toBe('Write down a spend amount')
 
     press('ctrl+shift+z')
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
     await expect.poll(() => selected(page)).toEqual([expect.stringContaining('Coffee')])
   })
 
@@ -93,7 +93,7 @@ describe('undo and redo', () => {
     await row(page, 'Lunch').click()
     press('ctrl+z')
 
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Lunch | 12.00 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
     expect(await focused(page)).toBe('Ledger OL')
   })
 
@@ -106,10 +106,10 @@ describe('undo and redo', () => {
     await page.keyboard.press('End')
     await page.keyboard.type(' cake')
     await page.keyboard.press('Enter')
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee cake | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee cake | 4.50`])
 
     press('ctrl+z')
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
     expect(await page.inputValue(P_DESCRIPTION)).toBe('Coffee')
   })
 
@@ -128,12 +128,15 @@ describe('undo and redo', () => {
     press('ctrl+s')
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee cake | 4.50 CAD`, `${today()} | Lunch cake | 12.00 CAD`])
+      .toEqual([
+        `${shownDay(today())} | Coffee cake | 4.50`,
+        `${shownDay(today())} | Lunch cake | 12.00`,
+      ])
 
     press('ctrl+z')
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch | 12.00 CAD`])
+      .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(today())} | Lunch | 12.00`])
   })
 
   test('choosing Undo from the Edit menu does what Ctrl+Z does', async () => {

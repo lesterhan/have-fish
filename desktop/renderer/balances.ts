@@ -6,6 +6,7 @@ import { cents, format } from '@have-fish/core/money'
 import { copy } from '../copy'
 import type { ListedAccount } from '../shared/commands'
 import { HOME_CURRENCY } from '../shared/currency'
+import { money } from './format'
 
 /** One row of the list: an account I added, or a parent its name implies (no account). */
 export type AccountRow = {
@@ -41,12 +42,12 @@ export function accountRows(accounts: readonly ListedAccount[]): AccountRow[] {
  * said so. Nothing in it is zero in `currency`.
  */
 export function balanceText(totals: readonly Total[], root: string, currency: string): string {
-  if (totals.length === 0) return `${format(0)} ${currency}`
+  if (totals.length === 0) return money(format(0), currency)
   return totals
     .map(({ currency, cents }) =>
       root === 'liabilities' && cents < 0
-        ? copy.accounts.owed(`${format(-cents)} ${currency}`)
-        : `${format(cents)} ${currency}`,
+        ? copy.accounts.owed(money(format(-cents), currency))
+        : money(format(cents), currency),
     )
     .join(' · ')
 }

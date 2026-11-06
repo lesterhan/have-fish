@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { describe, expect, test } from 'vitest'
-import { aHome, commandFor, launch, ledgerDirIn, rows, WRITE, writeDown } from './app'
+import { aHome, commandFor, launch, ledgerDirIn, rows, shownDay, WRITE, writeDown } from './app'
 
 const AMOUNT = `${WRITE} input[name=amount]`
 const DESCRIPTION = `${WRITE} input[name=description]`
@@ -22,12 +22,12 @@ describe('write down a spend', () => {
     const { page } = await launch(aHome())
 
     await writeDown(page, '12', 'Lunch')
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Lunch | 12.00 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
     await writeDown(page, '4.50', 'Coffee')
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch | 12.00 CAD`])
+      .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(today())} | Lunch | 12.00`])
     // Cleared and ready for the next one.
     expect(await page.inputValue(AMOUNT)).toBe('')
     expect(await page.inputValue(DESCRIPTION)).toBe('')
@@ -52,9 +52,9 @@ describe('write down a spend', () => {
     await expect
       .poll(() => rows(again.page))
       .toEqual([
-        `${today()} | Three | 3.00 CAD`,
-        `${today()} | Two | 2.00 CAD`,
-        `${today()} | One | 1.00 CAD`,
+        `${shownDay(today())} | Three | 3.00`,
+        `${shownDay(today())} | Two | 2.00`,
+        `${shownDay(today())} | One | 1.00`,
       ])
     expect(existsSync(join(ledgerDirIn(home), 'ledger.sqlite'))).toBe(true)
   })
@@ -82,7 +82,7 @@ describe('write down a spend', () => {
     await page.fill(AMOUNT, '4.50')
     await page.press(AMOUNT, 'Enter')
 
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
     expect(await page.locator('#amount-error').count()).toBe(0)
   })
 })

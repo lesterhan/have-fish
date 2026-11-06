@@ -1339,3 +1339,38 @@ describe('money coming in', () => {
     expect(refused).toMatchObject({ ok: false, failure: { code: 'PATH_INVALID' } })
   })
 })
+
+describe('an amount finer than its currency', () => {
+  /** A yen account, picked for the spend. */
+  function inYen() {
+    const s = setup()
+    const yen = ok(addAccount(s.ctx, { name: 'yen', kind: 'cash', currency: 'JPY' }))
+    return { ...s, yen: yen.id }
+  }
+
+  test('a spend of ¥1,500.50 is refused, naming the amount and the currency', () => {
+    const { ctx, yen } = inYen()
+    expect(writeSpend(ctx, { amount: '1500.50', description: 'Ramen', from: yen })).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_TOO_PRECISE', details: { amount: '1500.50', currency: 'JPY' } },
+    })
+  })
+
+  test('¥1,500 is written, and kept to two places as every amount is', () => {
+    const { ledger, ctx, yen } = inYen()
+    const { id } = ok(writeSpend(ctx, { amount: '1,500', description: 'Ramen', from: yen }))
+    expect(spendOf(ledger, id).postings.map((p) => p.amount)).toEqual(['1500.00', '-1500.00'])
+  })
+
+  test("an edit to a yen spend can't add cents", () => {
+    const { ctx, yen } = inYen()
+    const { id } = ok(writeSpend(ctx, { amount: '1500', description: 'Ramen', from: yen }))
+    const edited = editSpend(ctx, { id, amount: '1500.5', description: 'Ramen' })
+    expect(edited.ok || edited.failure.code).toBe('AMOUNT_TOO_PRECISE')
+  })
+
+  test('cents are fine in a currency that has them', () => {
+    const { ctx } = setup()
+    expect(writeSpend(ctx, { amount: '1500.50', description: 'Dinner' }).ok).toBe(true)
+  })
+})

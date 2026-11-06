@@ -1,8 +1,48 @@
-import { expect, test } from 'vitest'
-import { amountsText, dayOf, todayIn, understood } from './format'
+import { describe, expect, test } from 'vitest'
+import { amountsText, day, dayOf, money, todayIn, understood } from './format'
+
+describe('money', () => {
+  test("grouped by thousands, with its currency's own decimals", () => {
+    expect(money('1500.00', 'JPY')).toBe('1,500 JPY')
+    expect(money('1234.50', 'CAD')).toBe('1,234.50')
+    expect(money('1234567.05', 'EUR')).toBe('1,234,567.05 EUR')
+  })
+
+  test('the home currency goes unsaid, unless its code is asked for', () => {
+    expect(money('1234.50', 'CAD', { code: true })).toBe('1,234.50 CAD')
+    expect(money('4.50', 'CAD')).toBe('4.50')
+  })
+
+  test('a true minus', () => {
+    expect(money('-32.69', 'CAD')).toBe('−32.69')
+    expect(money('-1500.00', 'KRW')).toBe('−1,500 KRW')
+  })
+
+  test('zero, and the cents a whole currency had before it was whole, are shown as they are', () => {
+    expect(money('0.00', 'CAD')).toBe('0.00')
+    expect(money('1500.50', 'JPY')).toBe('1,500.5 JPY')
+  })
+
+  test('the largest amount a posting can carry keeps every digit', () => {
+    expect(money('9999999999.99', 'CAD')).toBe('9,999,999,999.99')
+  })
+})
+
+describe('day', () => {
+  test('the day of the week, the day and the month, this year', () => {
+    expect(day('2026-11-05', '2026-11-06')).toBe('Thu 5 Nov')
+  })
+
+  test("with the year when it isn't this one", () => {
+    expect(day('2025-11-05', '2026-11-06')).toBe('Wed 5 Nov 2025')
+    expect(day('2026-11-05', '2027-01-02')).toBe('Thu 5 Nov 2026')
+  })
+})
 
 test('an amount with its currency', () => {
-  expect(amountsText([{ amount: '4.50', currency: 'CAD' }])).toBe('4.50 CAD')
+  expect(amountsText([{ amount: '4.50', currency: 'USD' }])).toBe('4.50 USD')
+  expect(amountsText([{ amount: '4.50', currency: 'CAD' }])).toBe('4.50')
+  expect(amountsText([{ amount: '4.50', currency: 'CAD' }], { code: true })).toBe('4.50 CAD')
 })
 
 test('several, one after the other', () => {
@@ -11,7 +51,7 @@ test('several, one after the other', () => {
       { amount: '10.00', currency: 'CAD' },
       { amount: '1100.00', currency: 'JPY' },
     ]),
-  ).toBe('10.00 CAD · 1100.00 JPY')
+  ).toBe('10.00 · 1,100 JPY')
 })
 
 test('none is empty', () => {

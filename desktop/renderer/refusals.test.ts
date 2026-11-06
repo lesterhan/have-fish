@@ -11,6 +11,8 @@ describe('fieldOf', () => {
   test('an amount that isn’t one, or isn’t more than zero, is the amount field’s', () => {
     expect(fieldOf(refused('AMOUNT_INVALID', { amount: 'abc' }))).toBe('amount')
     expect(fieldOf(refused('AMOUNT_NOT_POSITIVE', { amount: '0' }))).toBe('amount')
+    const yen = { amount: '1500.50', currency: 'JPY' }
+    expect(fieldOf(refused('AMOUNT_TOO_PRECISE', yen))).toBe('amount')
   })
 
   test('a malformed input belongs to the field it names', () => {

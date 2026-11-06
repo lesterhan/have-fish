@@ -38,6 +38,7 @@ export function accountFieldOf(failure: WireFailure): AccountField {
     case 'PATH_INVALID':
       return 'name'
     case 'AMOUNT_INVALID':
+    case 'AMOUNT_TOO_PRECISE':
     case 'ACCOUNT_ALREADY_STARTED':
       return 'start'
     // The name is the account's path, once main has made it.

@@ -63,10 +63,7 @@ describe('see how much is in each account', () => {
 
     await expect
       .poll(() => listed(page))
-      .toEqual([
-        'cash | Cash | Any currency | 95.50 CAD',
-        'chequing | Bank account | CAD | 850.00 CAD',
-      ])
+      .toEqual(['cash | Cash | Any currency | 95.50', 'chequing | Bank account | CAD | 850.00'])
   })
 
   test('a card shows what I owe on it, and paying it down lowers that', async () => {
@@ -76,16 +73,13 @@ describe('see how much is in each account', () => {
 
     await spend(page, '30', 'visa')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toContain('visa | Card | CAD | owed 230.00 CAD')
+    await expect.poll(() => listed(page)).toContain('visa | Card | CAD | owed 230.00')
 
     await spend(page, '100', 'chequing', 'visa')
     await toAccounts(page)
     await expect
       .poll(() => listed(page))
-      .toEqual([
-        'chequing | Bank account | CAD | 400.00 CAD',
-        'visa | Card | CAD | owed 130.00 CAD',
-      ])
+      .toEqual(['chequing | Bank account | CAD | 400.00', 'visa | Card | CAD | owed 130.00'])
   })
 
   test('an account with nothing in it shows zero', async () => {
@@ -102,8 +96,8 @@ describe('see how much is in each account', () => {
     await expect
       .poll(() => listed(page))
       .toEqual([
-        'wise |  |  | 100.00 CAD · 50.00 EUR',
-        'cad | Bank account | CAD | 100.00 CAD',
+        'wise |  |  | 100.00 · 50.00 EUR',
+        'cad | Bank account | CAD | 100.00',
         'eur | Bank account | EUR | 50.00 EUR',
       ])
     const selected = () =>
@@ -129,7 +123,7 @@ describe('see how much is in each account', () => {
     await addAccount(page, 'chequing', 'bank', 'CAD', '100')
     await spend(page, '40', 'chequing')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | CAD | 60.00 CAD'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | CAD | 60.00'])
 
     await page.click(`${NAV} button:has-text("Ledger")`)
     await page.locator('ol[aria-label=Ledger]').focus()
@@ -137,6 +131,6 @@ describe('see how much is in each account', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
     await toAccounts(page)
 
-    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | CAD | 100.00 CAD'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | CAD | 100.00'])
   })
 })

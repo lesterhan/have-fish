@@ -53,7 +53,7 @@ describe('otherText', () => {
         { amount: '15.00', currency: 'EUR' },
         { amount: '500.00', currency: 'JPY' },
       ]),
-    ).toBe('Not in these totals, in other currencies: 15.00 EUR · 500.00 JPY')
+    ).toBe('Not in these totals, in other currencies: 15.00 EUR · 500 JPY')
   })
 })
 

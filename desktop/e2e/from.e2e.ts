@@ -2,7 +2,17 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, cellsOf, fromLine, launch, rows, WRITE, writeDown } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  cellsOf,
+  fromLine,
+  launch,
+  rows,
+  shownDay,
+  WRITE,
+  writeDown,
+} from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -58,7 +68,7 @@ describe('picking the account that paid', () => {
     expect(await rows(page)).toEqual([])
 
     await page.keyboard.press('Enter')
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Dinner | 30.00 CAD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Dinner | 30.00`])
     expect(await fromLine(page).innerText()).toMatch(/^From\s+visa$/)
   })
 
@@ -123,7 +133,26 @@ describe('picking the account that paid', () => {
     await page.keyboard.press('Enter')
     await page.keyboard.press('Enter')
 
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Gum | 5.00 USD`])
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Gum | 5.00 USD`])
+  })
+
+  test('yen have no cents: ¥1,500.50 is refused on the amount, and ¥1,500 reads 1,500 JPY', async () => {
+    const { page } = await launch(aHome())
+    await addAccount(page, 'yen', 'cash', 'JPY')
+
+    await upToFrom(page, '1500.50', 'Ramen')
+    await page.keyboard.type('yen')
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Enter')
+
+    await expect
+      .poll(() => page.locator(`${WRITE} #amount-error`).innerText())
+      .toBe('That currency has no cents. Type a whole amount, like 1500.')
+    expect(await rows(page)).toEqual([])
+
+    await page.fill(`${WRITE} input[name=amount]`, '1500')
+    await page.press(`${WRITE} input[name=amount]`, 'Enter')
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Ramen | 1,500 JPY`])
   })
 })
 

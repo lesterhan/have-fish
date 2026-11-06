@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, rows, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, launch, rows, shownDay, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -54,9 +54,13 @@ describe('a starting balance, said when adding', () => {
 
     await add(page, 'chequing', 'bank', '1,234.56')
 
-    await expect.poll(() => started(page)).toContain(`Started with 1234.56 CAD ${today()}`)
+    await expect
+      .poll(() => started(page))
+      .toContain(`Started with 1,234.56 CAD ${shownDay(today())}`)
     await page.click(`${NAV} button:has-text("Ledger")`)
-    await expect.poll(() => rows(page)).toEqual([`${today()} | Starting balance | 1234.56 CAD`])
+    await expect
+      .poll(() => rows(page))
+      .toEqual([`${shownDay(today())} | Starting balance | 1,234.56`])
   })
 
   test('on a card or a loan, it asks what I owe, and shows it as owed', async () => {
@@ -71,7 +75,9 @@ describe('a starting balance, said when adding', () => {
 
     await add(page, 'visa', 'card', '500')
 
-    await expect.poll(() => started(page)).toContain(`Owed at the start 500.00 CAD ${today()}`)
+    await expect
+      .poll(() => started(page))
+      .toContain(`Owed at the start 500.00 CAD ${shownDay(today())}`)
   })
 
   test('the question opens from the keyboard, with the cursor in it', async () => {
@@ -168,13 +174,13 @@ describe('a starting balance, said when adding', () => {
     )
     await expect
       .poll(() => page.locator(`${LIST} li`).allInnerTexts())
-      .toEqual([expect.stringContaining('-1.00 CAD')])
+      .toEqual([expect.stringContaining('−1.00')])
 
     expect(await page.inputValue(START)).toBe('250')
     await page.keyboard.press('Enter')
     await expect
       .poll(() => page.locator(`${LIST} li:has-text("chequing")`).innerText())
-      .toContain('250.00 CAD')
+      .toContain('250.00')
   })
 
   test('Ctrl+Z takes back the account and its balance together', async () => {
@@ -203,7 +209,7 @@ describe('a starting balance for an account I already have', () => {
     await page.keyboard.type('20')
     await page.keyboard.press('Enter')
 
-    await expect.poll(() => started(page)).toContain(`Started with 20.00 CAD ${today()}`)
+    await expect.poll(() => started(page)).toContain(`Started with 20.00 CAD ${shownDay(today())}`)
     expect(await page.isVisible(QUESTION)).toBe(false)
   })
 

@@ -90,12 +90,7 @@ describe('see what I spent this week, by category', () => {
     press('ctrl+3')
     await expect
       .poll(() => breakdown(page))
-      .toEqual([
-        'food | 60.00 CAD',
-        'transport | 30.00 CAD',
-        'Unsorted | 10.00 CAD',
-        'Spent 100.00 CAD',
-      ])
+      .toEqual(['food | 60.00', 'transport | 30.00', 'Unsorted | 10.00', 'Spent 100.00'])
     expect(await bars(page)).toEqual([60, 30, 10])
     expect(await page.innerText(WEEK)).toContain('This week')
     expect(await behind(page)).toEqual(['Something', 'Bus pass', 'Groceries'])
@@ -111,17 +106,12 @@ describe('see what I spent this week, by category', () => {
 
     await expect
       .poll(() => breakdown(page))
-      .toEqual(['food | › | 60.00 CAD', 'fun | 20.00 CAD', 'Spent 80.00 CAD'])
+      .toEqual(['food | › | 60.00', 'fun | 20.00', 'Spent 80.00'])
     await page.click(`${BREAKDOWN} li:has-text("food")`)
 
     await expect
       .poll(() => breakdown(page))
-      .toEqual([
-        'groceries | 50.00 CAD',
-        'coffee | 4.50 CAD',
-        'Just food | 5.50 CAD',
-        'Spent 60.00 CAD',
-      ])
+      .toEqual(['groceries | 50.00', 'coffee | 4.50', 'Just food | 5.50', 'Spent 60.00'])
     expect(await trail(page)).toMatch(/All spending\s*:\s*food/)
     expect(await behind(page)).toEqual(['Snack', 'Groceries', 'Coffee'])
 
@@ -156,7 +146,7 @@ describe('see what I spent this week, by category', () => {
 
     await expect
       .poll(() => breakdown(page))
-      .toEqual(['food | 12.00 CAD', 'transport | 3.30 CAD', 'Spent 15.30 CAD'])
+      .toEqual(['food | 12.00', 'transport | 3.30', 'Spent 15.30'])
     expect(await page.inputValue(`${PICKED} input[name=amount]`)).toBe('3.30')
   })
 
@@ -167,12 +157,12 @@ describe('see what I spent this week, by category', () => {
     await page.click(`${BEHIND} li:has-text("Bus pass")`)
     await page.fill(`${PICKED} input[name=amount]`, '3.30')
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
-    await expect.poll(() => breakdown(page)).toEqual(['transport | 3.30 CAD', 'Spent 3.30 CAD'])
+    await expect.poll(() => breakdown(page)).toEqual(['transport | 3.30', 'Spent 3.30'])
 
     await page.locator(BREAKDOWN).focus()
     press('ctrl+z')
 
-    await expect.poll(() => breakdown(page)).toEqual(['transport | 30.00 CAD', 'Spent 30.00 CAD'])
+    await expect.poll(() => breakdown(page)).toEqual(['transport | 30.00', 'Spent 30.00'])
     expect(await page.innerText(`${NAV} [aria-current=page]`)).toMatch(/^Reports/)
     expect(await page.inputValue(`${PICKED} input[name=amount]`)).toBe('30.00')
   })
@@ -182,10 +172,10 @@ describe('see what I spent this week, by category', () => {
     await spend(page, '8', 'Today', 'food')
     await spend(page, '15', 'Last week', 'fun', '', daysAgo(7))
     await toReports(page)
-    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00 CAD', 'Spent 8.00 CAD'])
+    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00', 'Spent 8.00'])
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => breakdown(page)).toEqual(['fun | 15.00 CAD', 'Spent 15.00 CAD'])
+    await expect.poll(() => breakdown(page)).toEqual(['fun | 15.00', 'Spent 15.00'])
     expect(await page.innerText(WEEK)).not.toContain('This week')
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
@@ -194,7 +184,7 @@ describe('see what I spent this week, by category', () => {
 
     await page.click(`${WEEK} button[aria-label="The week after"]`)
     await page.click(`${WEEK} button[aria-label="The week after"]`)
-    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00 CAD', 'Spent 8.00 CAD'])
+    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00', 'Spent 8.00'])
     expect(await page.innerText(WEEK)).toContain('This week')
   })
 })

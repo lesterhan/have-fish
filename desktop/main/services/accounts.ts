@@ -10,6 +10,7 @@ import {
 } from '@have-fish/core/account-kind'
 import { nameOf, pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
+import { fitsCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
@@ -132,6 +133,8 @@ function startOf(
 
   const signed = classOf(account.kind) === 'liability' ? -cents : cents
   const currency = account.currency ?? HOME_CURRENCY
+  if (!fitsCurrency(cents, currency))
+    return failure('AMOUNT_TOO_PRECISE', { amount: typed, currency })
   const opening = accountFor(ctx.ledger.db, OPENING, made)
   const transaction: TransactionDoc = {
     type: 'transaction',

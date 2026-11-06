@@ -42,6 +42,8 @@ describe('accountFieldOf', () => {
     expect(accountFieldOf({ ok: false, error: 'AMOUNT_INVALID', detail: { amount: 'x' } })).toBe(
       'start',
     )
+    const yen = { amount: '1.5', currency: 'JPY' }
+    expect(accountFieldOf({ ok: false, error: 'AMOUNT_TOO_PRECISE', detail: yen })).toBe('start')
     expect(
       accountFieldOf({ ok: false, error: 'ACCOUNT_ALREADY_STARTED', detail: { accountId: 'a' } }),
     ).toBe('start')
