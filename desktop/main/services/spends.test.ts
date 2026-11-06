@@ -12,7 +12,8 @@ import { getDocument } from '../ledger/store'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, listAccounts } from './accounts'
 import { listCategories, listIncome } from './categories'
-import { assumedFrom, editSpend, listTransactions, removeSpend, writeSpend } from './spends'
+import { assumedFrom, editSpend, removeSpend, writeSpend } from './spends'
+import { listTransactions } from './transactions'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
 const LATE = Date.UTC(2026, 9, 30, 3)

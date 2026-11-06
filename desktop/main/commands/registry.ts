@@ -9,14 +9,8 @@ import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listCategories, listIncome } from '../services/categories'
 import { spendingIn } from '../services/reports'
 import { setTheme } from '../services/settings'
-import {
-  assumedFrom,
-  editSpend,
-  listTransactions,
-  removeSpend,
-  saveAllSpends,
-  writeSpend,
-} from '../services/spends'
+import { assumedFrom, editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
+import { pageOfTransactions, positionOf, transactionsWithIds } from '../services/transactions'
 import { redoLast, undoLast } from '../undo/steps'
 
 type Handlers = {
@@ -29,7 +23,18 @@ export const handlers: Handlers = {
   'spend.edit': editSpend,
   'spend.saveAll': saveAllSpends,
   'spend.remove': removeSpend,
-  'transaction.list': (ctx) => ({ ok: true, value: listTransactions(ctx.ledger.db) }),
+  'transaction.page': (ctx, input) => ({
+    ok: true,
+    value: pageOfTransactions(ctx.ledger.db, input),
+  }),
+  'transaction.position': (ctx, { id }) => ({
+    ok: true,
+    value: { at: positionOf(ctx.ledger.db, id) },
+  }),
+  'transaction.get': (ctx, { ids }) => ({
+    ok: true,
+    value: transactionsWithIds(ctx.ledger.db, ids),
+  }),
   'account.add': addAccount,
   'account.start': startAccount,
   'category.list': (ctx) => ({ ok: true, value: listCategories(ctx.ledger.db) }),

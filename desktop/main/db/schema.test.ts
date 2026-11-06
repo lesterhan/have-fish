@@ -114,7 +114,7 @@ describe('the ledger tables', () => {
       'originLine INTEGER',
       'originText TEXT',
     ])
-    expect(indexes('transactions')).toEqual(['transactions_date'])
+    expect(indexes('transactions')).toEqual(['transactions_date', 'transactions_listed'])
   })
 
   test('postings, keyed by transaction and position', () => {
@@ -309,5 +309,44 @@ describe('0005_balances-index', () => {
       .all()
     expect(indexes).toContain('postings_account_balance')
     expect(indexes).not.toContain('postings_account_id')
+  })
+})
+
+describe('0006_listed-index', () => {
+  test('keeps every transaction of a file from before it, and adds the index', () => {
+    const old = new Database(':memory:')
+    onTestFinished(() => {
+      old.close()
+    })
+    migrate(
+      old,
+      MIGRATIONS.filter((m) => m.tag < '0006_listed-index'),
+      NOW,
+      join(tmpdir(), 'havefish-never-written'),
+    )
+    old.exec(`
+      INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt,
+          originDeviceId, deletedAt)
+        VALUES
+          ('00000000-0000-4000-8000-000000000001', '2026-10-29', 'Groceries', 'v2', 'manual', 0,
+            '0000000000000000', NULL),
+          ('00000000-0000-4000-8000-000000000002', '2026-10-28', 'Gone', 'v3', 'manual', 0,
+            '0000000000000000', 5);
+    `)
+    const rows = old.prepare('SELECT * FROM transactions ORDER BY id').all()
+
+    const backups = mkdtempSync(join(tmpdir(), 'havefish-index-'))
+    onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
+    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({
+      ok: true,
+      value: ['0006_listed-index'],
+    })
+
+    expect(old.prepare('SELECT * FROM transactions ORDER BY id').all()).toEqual(rows)
+    const listed = old
+      .prepare('SELECT id FROM transactions INDEXED BY transactions_listed WHERE deletedAt IS NULL')
+      .pluck()
+      .all()
+    expect(listed).toEqual(['00000000-0000-4000-8000-000000000001'])
   })
 })

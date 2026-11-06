@@ -14,12 +14,11 @@
     without,
   } from './drafts'
   import { dayOf, todayIn, understood } from './format'
-  import type { LedgerStore } from './ledger'
+  import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf, fromOptions, toOf, toOptions } from './picker'
   import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
-  import { afterRemoving, kept } from './selection'
   import Button from './parts/Button.svelte'
   import Header from './parts/Header.svelte'
   import Keys from './parts/Keys.svelte'
@@ -72,7 +71,12 @@
   /** Categories, then my accounts: one of mine makes it a transfer. */
   const toChoices = $derived(toOptions(categories, accountOptions))
 
-  const transactions = $derived($ledger.transactions)
+  /** The ledger's list, a page at a time: the store holds the pages the list draws. */
+  const paged = $derived({
+    count: $ledger.total,
+    at: (i: number) => rowAt($ledger, i),
+    indexOf: (id: string) => indexIn($ledger, id),
+  })
   /** Why the lists couldn't load, until they next do. */
   const unloaded = $derived($ledger.failure && wordsFor($ledger.failure))
   /** An undo or redo refused here, until I put it away. */
@@ -88,18 +92,26 @@
   let list: SpendList
   let pane: SpendPane
 
-  const selected = $derived(transactions.find((t) => t.id === selectedId))
+  const selected = $derived(rowWithId($ledger, selectedId))
 
   // Each load: Date follows the calendar and From the account used last, unless I chose them,
-  // and the selection stays where it can. Drafts are left alone: they're the window's.
+  // and the selection stays while it's in the ledger, else goes to the newest. Drafts are left
+  // alone: they're the window's.
   $effect(() => {
-    const { transactions, accounts, assumedFrom } = $ledger
+    const state = $ledger
     untrack(() => {
       if (!dateChosen) date = todayIn()
-      selectedId = kept(transactions, selectedId)
-      if (!fromChosen) fromText = accounts.find((a) => a.id === assumedFrom)?.name ?? ''
+      if (state.loaded && rowWithId(state, selectedId) === undefined) {
+        selectedId = rowAt(state, 0)?.id ?? null
+      }
+      if (!fromChosen) {
+        fromText = state.accounts.find((a) => a.id === state.assumedFrom)?.name ?? ''
+      }
     })
   })
+
+  // The selection and the drafts stay held however far the list scrolls from them.
+  $effect(() => ledger.keep([selectedId, ...drafts.keys()]))
 
   onMount(() => amountInput.focus())
 
@@ -115,14 +127,14 @@
 
   /** Coming here from another place: the list, or the amount field while there's nothing in it. */
   export function focus() {
-    if (transactions.length > 0) list.focus()
+    if ($ledger.total > 0) list.focus()
     else amountInput.focus()
   }
 
   /** After an undo or redo: the list as it is now, with the spend that came back selected. */
   export async function show(id: string) {
     await ledger.caughtUp()
-    if (ledger.current().transactions.some((t) => t.id === id)) selectedId = id
+    if ((await ledger.locate(id)) !== null) selectedId = id
   }
 
   /** An undo or redo refused while this place is showing. */
@@ -161,6 +173,7 @@
       fromChosen = false
       forgetTyping()
       await ledger.caughtUp()
+      await ledger.locate(written.value.id)
       selectedId = written.value.id
     } else {
       error = { field: fieldOf(written, to), words: spendWordsFor(written) }
@@ -201,7 +214,7 @@
 
   /** A draft as main takes it, sending where it goes only if that changed. */
   const sent = (s: Sending) => {
-    const saved = transactions.find((t) => t.id === s.id)
+    const saved = rowWithId(ledger.current(), s.id)
     return editOf(s, saved?.to, (typed) => toOf(payers, typed), saved?.date)
   }
 
@@ -242,7 +255,10 @@
     const id = selectedId
     if (id === null || removing) return
     removing = true
-    const next = afterRemoving(transactions, id)
+    // The row below it, else the one above: fetched now, since they may not be drawn.
+    const at = await ledger.locate(id)
+    const next =
+      at === null ? null : ((await ledger.rowAt(at + 1)) ?? (await ledger.rowAt(at - 1)))?.id ?? null
     const removed = await window.haveFish.invoke('spend.remove', { id })
     removing = false
     if (!removed.ok) {
@@ -386,7 +402,12 @@
 
   <SpendList
     bind:this={list}
-    {transactions}
+    {paged}
+    onrange={(from, to) => ledger.view(from, to)}
+    onmissing={async (index) => {
+      const row = await ledger.rowAt(index)
+      if (row !== undefined) selectedId = row.id
+    }}
     {selectedId}
     {drafts}
     onselect={(id) => (selectedId = id)}

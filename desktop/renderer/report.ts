@@ -33,6 +33,18 @@ export const otherText = (other: Values['report.spending']['other']) =>
   other.length === 0 ? null : copy.reports.breakdown.other(amountsText(other))
 
 /**
+ * The spends Reports asks main for: the week's under the level shown, so picking a line needs no
+ * ask, and any with a draft, so a draft's spend is there to save. Ids, in no order.
+ */
+export function idsWanted(
+  spent: readonly Spent[],
+  level: string,
+  drafted: Iterable<string>,
+): string[] {
+  return [...new Set([...spent.filter((s) => isUnder(s, level)).map((s) => s.id), ...drafted])]
+}
+
+/**
  * The spends behind the picked line, or, with none picked, behind the level: in the list's order,
  * newest first.
  */

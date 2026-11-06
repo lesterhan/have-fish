@@ -9,7 +9,8 @@ import { getDocument, liveAccountAt } from '../ledger/store'
 import { undoItems } from '../undo/menu'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, balancesQuery, listAccounts, startAccount } from './accounts'
-import { listTransactions, removeSpend, writeSpend } from './spends'
+import { removeSpend, writeSpend } from './spends'
+import { listTransactions } from './transactions'
 
 function setup() {
   const ledger = tempLedger()

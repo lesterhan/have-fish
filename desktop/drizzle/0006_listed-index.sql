@@ -1,0 +1,1 @@
+CREATE INDEX `transactions_listed` ON `transactions` (`date`,`originCreatedAt`,`version`,`id`,`deletedAt`) WHERE "transactions"."deletedAt" IS NULL;

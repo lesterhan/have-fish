@@ -1,12 +1,19 @@
 <script lang="ts" generics="T">
   // Every list in the app: its roles, `aria-activedescendant`, the keys, a click by id, and only
   // the rows in view drawn, with the space above and below them kept so the scrollbar is the
-  // whole list's. The rules are in `listbox.ts`.
+  // whole list's. A list is `items`, or `paged` when the window holds only some of it (see #608).
+  // The rules are in `listbox.ts`.
   import { onMount, type Snippet, untrack } from 'svelte'
-  import { movedTo, offsetsOf, scrolledTo, windowOf } from './listbox'
+  import { movedTo, offsetsOf, type Paged, scrolledTo, uniformOf, windowOf } from './listbox'
 
   type Props = {
-    items: readonly T[]
+    /** The whole list; or `paged`. */
+    items?: readonly T[] | undefined
+    paged?: Paged<T> | undefined
+    /** The rows drawn changed, `from` up to `to`: a paged list fetches them. */
+    onrange?: ((from: number, to: number) => void) | undefined
+    /** The keys moved to a row of a paged list that isn't here yet. */
+    onmissing?: ((index: number) => void) | undefined
     /** Each item's id, unique in the list. */
     idOf: (item: T) => string
     /** The active item's id: the selection, or a picker's highlighted option. */
@@ -17,7 +24,7 @@
     /** The row's columns; the cells `row` renders are its children. */
     columns: string
     row: Snippet<[T]>
-    /** An item's height in px, where rows differ; every row is `--row` high otherwise. */
+    /** An item's height in px, where rows differ; every row is `--row` high otherwise. Not paged. */
     height?: (item: T, row: number) => number
     /** Shown but never active: a parent account nobody added. */
     disabled?: (item: T) => boolean
@@ -35,6 +42,9 @@
   }
   let {
     items,
+    paged,
+    onrange,
+    onmissing,
     idOf,
     active,
     label,
@@ -57,12 +67,26 @@
   /** `--row` from the stylesheet, so density changes it there and only there. */
   let rowHeight = $state(33)
 
-  const offsets = $derived(offsetsOf(items.map((item) => height?.(item, rowHeight) ?? rowHeight)))
+  const count = $derived(items?.length ?? paged?.count ?? 0)
+  const itemAt = (i: number): T | undefined => (items ? items[i] : paged?.at(i))
+  // Rows of one height are worked out, not stored, so a paged list costs nothing per row.
+  const offsets = $derived(
+    items && height
+      ? offsetsOf(items.map((item) => height(item, rowHeight)))
+      : uniformOf(count, rowHeight),
+  )
   /** Where each id is: built once per change to the list, so a key press is a lookup. */
-  const indexOf = $derived(new Map(items.map((item, i) => [idOf(item), i])))
+  const positions = $derived(items && new Map(items.map((item, i) => [idOf(item), i])))
   const shown = $derived(windowOf(offsets, scrollTop, viewport))
-  const drawn = $derived(items.slice(shown.from, shown.to))
-  const at = $derived(active === null ? -1 : (indexOf.get(active) ?? -1))
+  const drawn = $derived(
+    Array.from({ length: shown.to - shown.from }, (_, i) => ({
+      index: shown.from + i,
+      item: itemAt(shown.from + i),
+    })),
+  )
+  const at = $derived(
+    active === null ? -1 : positions ? (positions.get(active) ?? -1) : (paged?.indexOf(active) ?? -1),
+  )
   /** Named only while drawn: scrolled out, the list has no element to point at. */
   const descendant = $derived(at >= shown.from && at < shown.to ? optionId(active) : undefined)
 
@@ -82,13 +106,20 @@
     return () => resized.disconnect()
   })
 
-  // The keys move the active item past what's drawn; the list scrolls to keep it in view.
+  // The keys move the active item past what's drawn; the list scrolls to keep it in view. Only
+  // when the active item changes: a page arriving with it in mustn't pull the list back to it.
   $effect(() => {
-    const index = at
+    void active
     untrack(() => {
+      const index = at
       const to = scrolledTo(offsets, index, list.scrollTop, viewport || list.clientHeight)
       if (to !== list.scrollTop) list.scrollTop = scrollTop = to
     })
+  })
+
+  $effect(() => {
+    const { from, to } = shown
+    untrack(() => onrange?.(from, to))
   })
 
   // A combobox's field says which option is active, since the cursor stays in it.
@@ -103,12 +134,16 @@
     if (onkey?.(event)) return true
     const to = movedTo(offsets, at, event.key, viewport || list.clientHeight, {
       wrap,
-      skip: (i) => disabled?.(items[i] as T) ?? false,
+      skip: (i) => {
+        const item = itemAt(i)
+        return item !== undefined && (disabled?.(item) ?? false)
+      },
     })
     if (to === undefined) return false
     event.preventDefault()
-    const item = items[to]
-    if (item !== undefined && to !== at) onactive(idOf(item))
+    const item = itemAt(to)
+    if (item === undefined) onmissing?.(to)
+    else if (to !== at) onactive(idOf(item))
     return true
   }
 
@@ -141,8 +176,8 @@
   tabindex={owner === undefined ? 0 : -1}
   aria-activedescendant={owner === undefined ? descendant : undefined}
   {hidden}
-  style:--above="{offsets[shown.from] ?? 0}px"
-  style:--below="{(offsets[items.length] ?? 0) - (offsets[shown.to] ?? 0)}px"
+  style:--above="{offsets.top(shown.from)}px"
+  style:--below="{offsets.top(count) - offsets.top(shown.to)}px"
   onkeydown={(event) => {
     if (owner === undefined) press(event)
   }}
@@ -150,22 +185,34 @@
   {onmousedown}
   {onclick}
 >
-  {#each drawn as item, i (idOf(item))}
-    {@const id = idOf(item)}
-    {@const off = disabled?.(item) ?? false}
-    <li
-      id={off ? undefined : optionId(id)}
-      role="option"
-      aria-selected={id === active}
-      aria-disabled={off || undefined}
-      aria-setsize={items.length}
-      aria-posinset={shown.from + i + 1}
-      data-id={id}
-      style:grid-template-columns={columns}
-      style:block-size="{height?.(item, rowHeight) ?? rowHeight}px"
-    >
-      {@render row(item)}
-    </li>
+  {#each drawn as { index, item } (item === undefined ? `#${index}` : idOf(item))}
+    {#if item === undefined}
+      <!-- A row of a paged list on its way: its place, so the rows below don't move. -->
+      <li
+        role="option"
+        aria-selected="false"
+        aria-busy="true"
+        aria-setsize={count}
+        aria-posinset={index + 1}
+        style:block-size="{rowHeight}px"
+      ></li>
+    {:else}
+      {@const id = idOf(item)}
+      {@const off = disabled?.(item) ?? false}
+      <li
+        id={off ? undefined : optionId(id)}
+        role="option"
+        aria-selected={id === active}
+        aria-disabled={off || undefined}
+        aria-setsize={count}
+        aria-posinset={index + 1}
+        data-id={id}
+        style:grid-template-columns={columns}
+        style:block-size="{height?.(item, rowHeight) ?? rowHeight}px"
+      >
+        {@render row(item)}
+      </li>
+    {/if}
   {/each}
 </ol>
 

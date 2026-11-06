@@ -43,6 +43,13 @@
       "when": 1793903703237,
       "tag": "0005_balances-index",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793948724258,
+      "tag": "0006_listed-index",
+      "breakpoints": true
     }
   ]
 }

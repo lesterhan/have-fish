@@ -97,7 +97,14 @@ export const transactions = sqliteTable(
     originLine: integer(),
     originText: text(),
   },
-  (t) => [index('transactions_date').on(t.date)],
+  (t) => [
+    index('transactions_date').on(t.date),
+    // The ledger's list in its order, read backwards, live rows only: a page skips along it.
+    // `deletedAt` last makes it cover a count, which SQLite won't infer from the WHERE.
+    index('transactions_listed')
+      .on(t.date, t.originCreatedAt, t.version, t.id, t.deletedAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
 )
 
 /** A transaction's postings, kept in the document's order by `position`. */

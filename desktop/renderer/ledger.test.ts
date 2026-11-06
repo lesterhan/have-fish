@@ -1,27 +1,31 @@
 import { describe, expect, test } from 'vitest'
-import type { Bridge, Changed, CommandName, Wire } from '../shared/commands'
-import { type LedgerState, ledgerStore } from './ledger'
+import type { Bridge, Changed, CommandName, ListedTransaction, Wire } from '../shared/commands'
+import { indexIn, type LedgerState, ledgerStore, PAGE, rowAt, rowWithId } from './ledger'
 
-/** What one load asks main for. */
-const LISTS: CommandName[] = [
-  'transaction.list',
-  'account.list',
-  'category.list',
-  'income.list',
-  'spend.assumedFrom',
-]
+/** What one load asks main for, besides the pages. */
+const LISTS: CommandName[] = ['account.list', 'category.list', 'income.list', 'spend.assumedFrom']
 
-type Call = { name: CommandName; answer(value: Wire<unknown>): void }
+type Call = { name: CommandName; input: unknown; answer(value: Wire<unknown>): void }
 
-/** A bridge whose replies wait until the test gives them, so a load can be caught mid-way. */
-function fakeBridge() {
+const idOf = (i: number) => `t${i}`
+const row = (i: number) => ({ id: idOf(i), description: `Spend ${i}` }) as ListedTransaction
+
+/**
+ * A bridge over a list of `size` rows whose replies wait until the test gives them, so a load can
+ * be caught mid-way. `gone` rows have been removed.
+ */
+function fakeBridge(size = 3) {
   const waiting: Call[] = []
-  const asked: CommandName[] = []
+  const asked: Call[] = []
+  const gone = new Set<string>()
   let notify: (changed: Changed[]) => void = () => {}
   const bridge = {
-    invoke(name: CommandName) {
-      asked.push(name)
-      return new Promise((resolve) => waiting.push({ name, answer: resolve }))
+    invoke(name: CommandName, input: unknown) {
+      return new Promise((resolve) => {
+        const call = { name, input, answer: resolve }
+        asked.push(call)
+        waiting.push(call)
+      })
     },
     onChanged(listener: (changed: Changed[]) => void) {
       notify = listener
@@ -30,50 +34,81 @@ function fakeBridge() {
       }
     },
   } as unknown as Bridge
-  const VALUES: Record<string, unknown> = {
-    'transaction.list': [{ id: 't1' }],
-    'account.list': [{ id: 'a1' }],
-    'category.list': [],
-    'income.list': [],
-    'spend.assumedFrom': { id: 'a1' },
+  const answerTo = (name: CommandName, input: unknown): unknown => {
+    if (name === 'transaction.page') {
+      const { from, limit } = input as { from: number; limit: number }
+      const rows = Array.from({ length: Math.max(Math.min(limit, size - from), 0) }, (_, i) =>
+        row(from + i),
+      )
+      return { total: size, from, rows }
+    }
+    if (name === 'transaction.position') {
+      const { id } = input as { id: string }
+      const at = Number(id.slice(1))
+      return { at: gone.has(id) || at >= size ? null : at }
+    }
+    if (name === 'transaction.get') {
+      const { ids } = input as { ids: string[] }
+      return ids.filter((id) => !gone.has(id)).map((id) => row(Number(id.slice(1))))
+    }
+    return {
+      'account.list': [{ id: 'a1' }],
+      'category.list': [],
+      'income.list': [],
+      'spend.assumedFrom': { id: 'a1' },
+    }[name as string]
   }
   return {
     bridge,
+    gone,
     notify: () => notify([]),
     /** How many times the store asked for `name`. */
-    count: (name: CommandName) => asked.filter((n) => n === name).length,
+    count: (name: CommandName) => asked.filter((c) => c.name === name).length,
+    /** The pages asked for, by page number, in order. */
+    pagesAsked: () =>
+      asked
+        .filter((c) => c.name === 'transaction.page')
+        .map((c) => (c.input as { from: number }).from / PAGE),
+    forget: () => asked.splice(0),
     /** Answers every call still waiting, as main would, then lets the store take them. */
     async answerAll(override: Partial<Record<CommandName, Wire<unknown>>> = {}) {
-      for (const call of waiting.splice(0)) {
-        call.answer(override[call.name] ?? { ok: true, value: VALUES[call.name] })
+      while (waiting.length > 0) {
+        for (const call of waiting.splice(0)) {
+          call.answer(override[call.name] ?? { ok: true, value: answerTo(call.name, call.input) })
+        }
+        await new Promise((resolve) => setTimeout(resolve))
       }
-      await new Promise((resolve) => setTimeout(resolve))
     },
   }
 }
 
+async function started(size = 3) {
+  const fake = fakeBridge(size)
+  const ledger = ledgerStore(fake.bridge)
+  const stop = ledger.start()
+  await fake.answerAll()
+  return { fake, ledger, stop }
+}
+
 describe('the ledger store', () => {
-  test('starting it loads each list once', async () => {
-    const fake = fakeBridge()
-    const ledger = ledgerStore(fake.bridge)
-    ledger.start()
-    await fake.answerAll()
+  test('starting it loads each list once, and the first page of the ledger', async () => {
+    const { fake, ledger } = await started()
 
     for (const name of LISTS) expect(fake.count(name)).toBe(1)
-    expect(ledger.current()).toMatchObject({
-      transactions: [{ id: 't1' }],
+    expect(fake.pagesAsked()).toEqual([0])
+    const state = ledger.current()
+    expect(state).toMatchObject({
+      total: 3,
       accounts: [{ id: 'a1' }],
       assumedFrom: 'a1',
       failure: null,
       loaded: true,
     })
+    expect([0, 1, 2].map((i) => rowAt(state, i)?.id)).toEqual(['t0', 't1', 't2'])
   })
 
   test('one change notice fetches each list once, however many places listen', async () => {
-    const fake = fakeBridge()
-    const ledger = ledgerStore(fake.bridge)
-    ledger.start()
-    await fake.answerAll()
+    const { fake, ledger } = await started()
     const heard: LedgerState[][] = [[], [], []]
     for (const place of heard) ledger.subscribe((state) => place.push(state))
 
@@ -92,17 +127,12 @@ describe('the ledger store', () => {
     fake.notify()
     fake.notify()
     await fake.answerAll()
-    await fake.answerAll()
-    await fake.answerAll()
 
     for (const name of LISTS) expect(fake.count(name)).toBe(2)
   })
 
   test('caughtUp waits for the load a notice started, and starts one when none is coming', async () => {
-    const fake = fakeBridge()
-    const ledger = ledgerStore(fake.bridge)
-    ledger.start()
-    await fake.answerAll()
+    const { fake, ledger } = await started()
 
     fake.notify()
     let caught = false
@@ -112,24 +142,22 @@ describe('the ledger store', () => {
     expect(caught).toBe(false)
     await fake.answerAll()
     await waiting
-    expect(fake.count('transaction.list')).toBe(2)
+    expect(fake.count('account.list')).toBe(2)
 
     const fresh = ledger.caughtUp()
     await fake.answerAll()
     await fresh
-    expect(fake.count('transaction.list')).toBe(3)
+    expect(fake.count('account.list')).toBe(3)
   })
 
   test('a refused list keeps what it had and says why; the next good load clears it', async () => {
-    const fake = fakeBridge()
-    const ledger = ledgerStore(fake.bridge)
-    ledger.start()
-    await fake.answerAll()
+    const { fake, ledger } = await started()
 
     fake.notify()
     const refused = { ok: false, error: 'UNEXPECTED', detail: undefined } as const
-    await fake.answerAll({ 'account.list': refused })
+    await fake.answerAll({ 'account.list': refused, 'transaction.page': refused })
     expect(ledger.current()).toMatchObject({ accounts: [{ id: 'a1' }], failure: refused })
+    expect(rowAt(ledger.current(), 0)?.id).toBe('t0')
 
     fake.notify()
     await fake.answerAll()
@@ -137,14 +165,98 @@ describe('the ledger store', () => {
   })
 
   test('stopping it stops listening', async () => {
-    const fake = fakeBridge()
-    const ledger = ledgerStore(fake.bridge)
-    const stop = ledger.start()
-    await fake.answerAll()
+    const { fake, stop } = await started()
     stop()
 
     fake.notify()
     await fake.answerAll()
-    expect(fake.count('transaction.list')).toBe(1)
+    expect(fake.count('account.list')).toBe(1)
+  })
+})
+
+describe('the ledger list, a page at a time, over 50,000 rows', () => {
+  const SIZE = 50_000
+
+  test('the view fetches its pages and drops the rest', async () => {
+    const { fake, ledger } = await started(SIZE)
+    fake.forget()
+
+    ledger.view(20_090, 20_130)
+    await fake.answerAll()
+
+    expect(fake.pagesAsked()).toEqual([200, 201])
+    const state = ledger.current()
+    expect([...state.pages.keys()].sort()).toEqual([200, 201])
+    expect(rowAt(state, 20_100)?.id).toBe('t20100')
+    expect(rowAt(state, 0)).toBeUndefined()
+    expect(indexIn(state, 't20120')).toBe(20_120)
+  })
+
+  test('a change notice fetches only the pages in view', async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.view(30_000, 30_040)
+    await fake.answerAll()
+    fake.forget()
+
+    fake.notify()
+    await fake.answerAll()
+
+    expect(fake.pagesAsked()).toEqual([300])
+    expect(fake.count('transaction.get')).toBe(0)
+  })
+
+  test('jumping to a row far away fetches one page', async () => {
+    const { fake, ledger } = await started(SIZE)
+    fake.forget()
+
+    const at = ledger.locate('t49999')
+    await fake.answerAll()
+
+    expect(await at).toBe(49_999)
+    expect(fake.pagesAsked()).toEqual([499])
+    expect(rowAt(ledger.current(), 49_999)?.id).toBe('t49999')
+  })
+
+  test("a row that's gone has no place", async () => {
+    const { fake, ledger } = await started(SIZE)
+    fake.gone.add('t40000')
+
+    const at = ledger.locate('t40000')
+    await fake.answerAll()
+
+    expect(await at).toBeNull()
+  })
+
+  test('a kept row stays when the list scrolls away from it, and goes when it does', async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.keep(['t5', null])
+    expect(rowWithId(ledger.current(), 't5')?.id).toBe('t5')
+
+    ledger.view(10_000, 10_040)
+    await fake.answerAll()
+    expect(rowAt(ledger.current(), 5)).toBeUndefined()
+    expect(rowWithId(ledger.current(), 't5')?.id).toBe('t5')
+
+    fake.gone.add('t5')
+    fake.notify()
+    await fake.answerAll()
+    expect(rowWithId(ledger.current(), 't5')).toBeUndefined()
+  })
+
+  test("a kept row that isn't held is fetched", async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.keep(['t42000'])
+    await fake.answerAll()
+    expect(rowWithId(ledger.current(), 't42000')?.id).toBe('t42000')
+  })
+
+  test("a page asked for before a change is dropped: the change's load fetches it fresh", async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.view(500, 540)
+    fake.notify()
+    await fake.answerAll()
+
+    expect(fake.pagesAsked()).toEqual([0, 5, 5])
+    expect([...ledger.current().pages.keys()]).toEqual([5])
   })
 })

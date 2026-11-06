@@ -1,7 +1,15 @@
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
 import type { ListedTransaction } from '../shared/commands'
-import { lineLabel, otherText, spendsBehind, spentOf, thisWeek, weekAfter } from './report'
+import {
+  idsWanted,
+  lineLabel,
+  otherText,
+  spendsBehind,
+  spentOf,
+  thisWeek,
+  weekAfter,
+} from './report'
 
 describe('the week shown', () => {
   test('this week is Monday to Sunday', () => {
@@ -86,5 +94,11 @@ describe('spendsBehind', () => {
     expect(ids(spendsBehind(listed, spent, 'food', own))).toEqual(['lunch'])
     const unsorted = { kind: 'unsorted', category: '' } as const
     expect(ids(spendsBehind(listed, spent, '', unsorted))).toEqual(['bus'])
+  })
+
+  test("asks main for the level's spends, and any with a draft, once each", () => {
+    expect(idsWanted(spent, 'food', []).sort()).toEqual(['coffee', 'lunch'])
+    expect(idsWanted(spent, 'food', ['rent', 'lunch']).sort()).toEqual(['coffee', 'lunch', 'rent'])
+    expect(idsWanted(spent, '', []).sort()).toEqual(['bus', 'coffee', 'lunch', 'rent'])
   })
 })
