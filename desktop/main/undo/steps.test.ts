@@ -8,7 +8,7 @@ import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
 import { editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
 import { listTransactions } from '../services/transactions'
-import { redoLast, undoLast } from './steps'
+import { nextSteps, redoLast, undoLast } from './steps'
 
 const START = Date.UTC(2026, 9, 29, 12)
 
@@ -275,6 +275,24 @@ describe('undo and redo', () => {
     later()
     ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee' }))
     expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'write', description: 'Coffee' })
+  })
+
+  test('what Undo and Redo would take is said by name, and nothing is changed by asking', () => {
+    const { ctx, later, listed } = setup()
+    expect(nextSteps(ctx)).toEqual({ undo: null, redo: null })
+
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    later()
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch' }))
+    expect(nextSteps(ctx)).toEqual({ undo: { kind: 'write', description: 'Lunch' }, redo: null })
+
+    later()
+    ok(undoLast(ctx))
+    expect(nextSteps(ctx)).toEqual({
+      undo: { kind: 'write', description: 'Coffee' },
+      redo: { kind: 'write', description: 'Lunch' },
+    })
+    expect(listed()).toEqual(['Coffee'])
   })
 
   test('with nothing to undo or redo, nothing changes', () => {

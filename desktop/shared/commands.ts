@@ -5,6 +5,7 @@ import { ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
 import type { LedgerDocument } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
+import type { StepName } from './steps'
 import { THEME_CHOICES, type ThemeChoice } from './theme/theme'
 
 /** Long enough for anything typed by hand; the window is the least trusted process. */
@@ -87,6 +88,8 @@ export const inputs = {
   'report.spending': z.strictObject({ start: date, end: date }),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
+  /** What Undo and Redo would take, by name; it changes nothing. */
+  'ledger.steps': z.strictObject({}),
   /** This machine's theme: never the ledger's. */
   'settings.theme.set': z.strictObject({ theme: z.enum(THEME_CHOICES) }),
 }
@@ -194,6 +197,7 @@ export interface Values {
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved
+  'ledger.steps': { undo: StepName | null; redo: StepName | null }
   'settings.theme.set': { theme: ThemeChoice }
 }
 

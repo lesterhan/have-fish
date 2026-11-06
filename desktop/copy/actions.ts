@@ -16,6 +16,7 @@ const labels: { [A in ActionId]: string } = {
   paste: 'Paste',
   selectAll: 'Select all',
   remove: 'Remove spend',
+  palette: 'Do anything…',
   showLedger: 'Ledger',
   showAccounts: 'Accounts',
   showReports: 'Reports',

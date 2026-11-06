@@ -232,7 +232,9 @@ the other windows on the machine before it has any look of its own.
   into a costume frame.
 - **Every action is in the menu, with its shortcut.** One list of actions
   (`desktop/shared/actions.ts`) feeds the menu, the hints beside buttons and the palette (Ctrl+K), so a
-  shortcut is never in one place and missing from another. A packaged build has no Reload and no
+  shortcut is never in one place and missing from another. The palette lists every action the
+  window carries out, under Actions, Go to and Settings, found by the letters typed in order;
+  Electron's own (cut, copy, paste, zoom, quit) stay in the menu. A packaged build has no Reload and no
   developer tools.
 - **Places down the left**: Ledger, Accounts, Reports, each with its shortcut, Ctrl+1 and on,
   in the order they're listed. A place stays open while another shows,

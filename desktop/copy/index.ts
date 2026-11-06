@@ -16,8 +16,19 @@ import { actions } from './actions'
 import { app } from './app'
 import { dialogs } from './dialogs'
 import { errors } from './errors'
+import { palette } from './palette'
 import { reports } from './reports'
 import { spends } from './spends'
 import { steps } from './steps'
 
-export const copy = { accounts, actions, app, dialogs, errors, reports, spends, steps } as const
+export const copy = {
+  accounts,
+  actions,
+  app,
+  dialogs,
+  errors,
+  palette,
+  reports,
+  spends,
+  steps,
+} as const

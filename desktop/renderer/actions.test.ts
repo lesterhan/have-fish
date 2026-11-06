@@ -15,6 +15,7 @@ describe('runAction', () => {
     themeGraphiteLight: vi.fn(),
     themeGraphiteDark: vi.fn(),
     themeSystem: vi.fn(),
+    palette: vi.fn(),
   })
 
   test("runs the action's handler", () => {
