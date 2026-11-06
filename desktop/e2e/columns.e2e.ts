@@ -57,6 +57,9 @@ describe("a row's columns", () => {
     expect(Object.keys(ledger), 'From goes in a narrow list').not.toContain('from')
     expect(ledger.to?.width).toBeGreaterThanOrEqual(A_WORD)
     expect(ledger.description?.width).toBeGreaterThanOrEqual(A_WORD)
+    // A path says its root's word, which the tag stands for, as a screen reader hears it.
+    const to = await page.locator(`${LEDGER} [data-cell=to]`).first().textContent()
+    expect(to?.replace(/\s+/g, ' ').trim()).toBe('expenses food')
 
     // Reports' spends sit in half its place, and narrow the same way.
     await page.click(`${NAV} button:has-text("Reports")`)

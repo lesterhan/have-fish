@@ -1,7 +1,8 @@
 <script lang="ts">
   // An account's path: its root as an initial in a square tinted by kind, so colour never says it
   // alone, then the rest in the code face with the colons quiet and the last part at 500. The
-  // rules are in `path.ts`. A screen reader hears the root's word, which the tag stands for.
+  // rules are in `path.ts`. A screen reader hears the root's word, which the tag stands for; the
+  // tag's letter is drawn by CSS, so the path's text, copied or read, is `liabilities cibc:visa`.
   import { pathOf } from './path'
 
   let { path }: { path: string } = $props()
@@ -10,7 +11,7 @@
 </script>
 
 <span class="path"
-  ><span class="word">{shown.root} </span><span class="tag" data-root={shown.root} aria-hidden="true">{shown.tag}</span><span class="name"
+  ><span class="word">{`${shown.root} `}</span><span class="tag" data-root={shown.root} data-tag={shown.tag} aria-hidden="true"></span><span class="name"
     >{#each shown.parents as parent, i (i)}{parent}<span class="colon">:</span>{/each}<span
       class="leaf">{shown.leaf}</span
     ></span
@@ -33,6 +34,10 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  .tag::before {
+    content: attr(data-tag);
   }
 
   .tag {
