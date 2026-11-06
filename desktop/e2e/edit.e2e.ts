@@ -237,4 +237,86 @@ describe('open a transaction where it sits', () => {
     // Nothing slides over the list: the form above it is still there to use.
     expect(await page.isVisible('form[aria-label="Write down a spend"]')).toBe(true)
   })
+
+  test('details taller than a narrow list: the row stays in view above them', async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 420, height: 700 })
+    await twoSpends(page)
+    await row(page, 'Lunch').click()
+
+    await openSelected(page)
+    expect(await page.inputValue(DESCRIPTION)).toBe('Lunch')
+    const at = await placed(page)
+    const band = await page.evaluate(() =>
+      Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--band')),
+    )
+    // Below the day's band that stays at the top of the list, and inside it.
+    expect(at.row?.top).toBeGreaterThanOrEqual((at.list?.top ?? 0) + band - 1)
+    expect(at.row?.bottom).toBeLessThanOrEqual(at.list?.bottom ?? 0)
+  })
+
+  test('one click on the row whose details were open last only selects it', async () => {
+    const { page } = await launch(aHome())
+    await twoSpends(page)
+    await openSpend(row(page, 'Lunch'))
+
+    await row(page, 'Coffee').click()
+    expect(await isOpen(page)).toBe(false)
+    await row(page, 'Lunch').click()
+    expect(await page.textContent(SELECTED)).toContain('Lunch')
+    expect(await isOpen(page)).toBe(false)
+  })
+
+  test('scrolled pages away from an open spend, its details stay open with the cursor in them', {
+    timeout: 120_000,
+  }, async () => {
+    const { page } = await launch(aHome())
+    // Three pages of the ledger's list, so scrolling drops the page the open spend is on.
+    await manySpends(page, 300)
+    await expect.poll(async () => (await rows(page)).length).toBeGreaterThan(0)
+
+    await openSelected(page)
+    const was = await page.inputValue(DESCRIPTION)
+    await page.click(DESCRIPTION)
+    await page.keyboard.press('End')
+    const scroll = (to: number) =>
+      page.locator(LIST).evaluate((ol, to) => {
+        const scroller = ol.parentElement as HTMLElement
+        scroller.scrollTop = to < 0 ? scroller.scrollHeight : to
+      }, to)
+
+    await scroll(-1)
+    // The last page has drawn, so the store has let go of every page it doesn't hold.
+    await page.waitForFunction((list) => {
+      const last = document.querySelector(`${list} li:last-of-type`)
+      return (
+        last !== null && last.getAttribute('aria-posinset') === last.getAttribute('aria-setsize')
+      )
+    }, LIST)
+    await page.keyboard.type(' typed')
+    await scroll(0)
+
+    expect(await isOpen(page)).toBe(true)
+    expect(await focusedName(page)).toBe('description')
+    expect(await page.inputValue(DESCRIPTION)).toBe(`${was} typed`)
+  })
 })
+
+/** `n` spends through the bridge, all today, numbered so the newest is `Spend n`. */
+async function manySpends(page: Page, n: number) {
+  await page.evaluate(async (n) => {
+    type Out = { ok: boolean; value: unknown }
+    const bridge = (
+      window as unknown as { haveFish: { invoke(name: string, input: unknown): Promise<Out> } }
+    ).haveFish
+    for (let i = 1; i <= n; i++) {
+      const out = await bridge.invoke('spend.write', {
+        amount: '1.00',
+        description: `Spend ${i}`,
+        to: { category: 'food' },
+        date: '',
+      })
+      if (!out.ok) throw new Error(JSON.stringify(out))
+    }
+  }, n)
+}

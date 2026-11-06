@@ -95,7 +95,9 @@ for amounts and dates, the code mono for account paths and a bank's own text.
   of what's selected in it.
 - **Details open in place**, under their row: a click selects a row, and a second click or Enter
   opens it. Esc puts back what was typed and closes them; reaching for another row closes them
-  and keeps what was typed. Pickers open under their field, and the palette opens near the top
+  and keeps what was typed. They stay open however far the list scrolls, and taller than the
+  list, their row stays in view and they run on below it. Pickers open under their field, and
+  the palette opens near the top
   of the window over a scrim.
 - **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
   Description. Day bands carry their date and the day's net. A list narrower than 520px drops

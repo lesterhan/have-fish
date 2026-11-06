@@ -1,6 +1,7 @@
 // The ledger as the window holds it, loaded once per change and shared by every place: the lists
 // the pickers offer, and the ledger's list a page at a time. The window holds the pages a list
-// draws and the rows a place keeps (its selection, its drafts), never the whole list (see #608).
+// draws, the page of the row a place holds open, and the rows a place keeps (its selection, its
+// drafts), never the whole list (see #608).
 
 import type {
   Bridge,
@@ -21,7 +22,7 @@ export const PAGE = 100
 export type LedgerState = {
   /** How many rows the ledger's list has. */
   total: number
-  /** The pages held, by page number: the ones the list draws. */
+  /** The pages held, by page number: the ones the list draws, and the open row's. */
   pages: ReadonlyMap<number, readonly ListedTransaction[]>
   /** Every day of the list, newest first, with how many rows it has: where its bands fall. */
   days: readonly ListedDay[]
@@ -99,6 +100,14 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
   let wanted: number[] = [0]
   /** The ids a place keeps. */
   let keeping = new Set<string>()
+  /** The row a place holds open, and the page it was last found on (-1 until it's found). */
+  let holding: { id: string; page: number } | null = null
+
+  /** What a load fetches and a scroll keeps: the pages drawn, and the open row's. */
+  const heldPages = (): number[] =>
+    holding === null || holding.page < 0 || wanted.includes(holding.page)
+      ? wanted
+      : [...wanted, holding.page]
 
   function emit(next: LedgerState) {
     state = next
@@ -110,7 +119,7 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
 
   async function load(): Promise<void> {
     const mine = ++epoch
-    const pages = wanted
+    const pages = heldPages()
     const asked = [...keeping]
     const [kept, accounts, categories, income, from, days, ...answers] = await Promise.all([
       asked.length === 0
@@ -156,6 +165,16 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       failure: all.find((a): a is WireFailure => !a.ok) ?? null,
       loaded: true,
     })
+    // A change can move the open row onto another page: find it there.
+    if (holding !== null && indexIn(state, holding.id) === -1) void find(holding.id)
+  }
+
+  /** Where the open row is now, its page fetched and held. */
+  async function find(id: string): Promise<void> {
+    const asked = await bridge.invoke('transaction.position', { id })
+    if (holding?.id !== id || !asked.ok || asked.value.at === null) return
+    holding = { id, page: Math.floor(asked.value.at / PAGE) }
+    await fetchPage(holding.page)
   }
 
   /** What's kept after a load: what it found of what it asked, and the rest as they were. */
@@ -234,7 +253,8 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       const first = Math.floor(from / PAGE)
       const last = Math.floor(Math.max(to - 1, from) / PAGE)
       wanted = Array.from({ length: last - first + 1 }, (_, i) => first + i)
-      const pages = new Map([...state.pages].filter(([page]) => wanted.includes(page)))
+      const kept = heldPages()
+      const pages = new Map([...state.pages].filter(([page]) => kept.includes(page)))
       if (pages.size !== state.pages.size) emit({ ...state, pages })
       for (const page of wanted) void fetchPage(page)
     },
@@ -252,6 +272,20 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       if (!asked.ok || asked.value.at === null) return null
       await fetchPage(Math.floor(asked.value.at / PAGE))
       return asked.value.at
+    },
+    /**
+     * Holds the open row's page wherever the list scrolls, so it keeps its place and its details
+     * stay drawn; null lets it go with the next scroll.
+     */
+    hold(id: string | null): void {
+      if (id === holding?.id) return
+      if (id === null) {
+        holding = null
+        return
+      }
+      const at = indexIn(state, id)
+      holding = { id, page: at === -1 ? -1 : Math.floor(at / PAGE) }
+      if (at === -1) void find(id)
     },
     /** Keeps these rows wherever the list is: a place's selection and drafts. */
     keep(ids: Iterable<string | null>): void {

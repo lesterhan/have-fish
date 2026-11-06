@@ -171,7 +171,8 @@ function choosable(i: number, way: 1 | -1, n: number, skip: (i: number) => boole
 }
 
 /**
- * Where to scroll so item `index` shows whole: as little as it takes, or not at all. `covered` is
+ * Where to scroll so item `index` shows whole, or its top if it's taller than the view: as little
+ * as it takes, or not at all. `covered` is
  * what sits over the top of the view, a day's band that stays while rows pass under it.
  */
 export function scrolledTo(
@@ -185,6 +186,7 @@ export function scrolledTo(
   const top = offsets.top(index)
   const bottom = offsets.top(index + 1)
   if (top < scrollTop + covered) return Math.max(top - covered, 0)
-  if (bottom > scrollTop + viewport) return bottom - viewport
+  // Taller than the view, as a row with its details open can be: its top shows, not its end.
+  if (bottom > scrollTop + viewport) return Math.max(Math.min(bottom - viewport, top - covered), 0)
   return scrollTop
 }

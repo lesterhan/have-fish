@@ -48,8 +48,10 @@
 
   let first: HTMLInputElement | undefined = $state()
 
+  // The list scrolls its row and these into view; the browser's own scroll to the field could
+  // put the row under the band that stays at the top.
   export function focus() {
-    first?.focus()
+    first?.focus({ preventScroll: true })
   }
 
   const saved = $derived(savedValues(transaction))

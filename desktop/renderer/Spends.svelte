@@ -109,8 +109,15 @@
     })
   })
 
-  // The selection and the drafts stay held however far the list scrolls from them.
+  // The selection and the drafts stay held however far the list scrolls from them, and the open
+  // spend keeps its place in the list, so its details stay drawn.
   $effect(() => ledger.keep([selectedId, ...drafts.keys()]))
+  $effect(() => ledger.hold(opened))
+
+  // Another row selected, the details close: a click selects, and only a second one opens.
+  $effect(() => {
+    if (openedId !== null && openedId !== selectedId) openedId = null
+  })
 
   onMount(() => amountInput.focus())
 

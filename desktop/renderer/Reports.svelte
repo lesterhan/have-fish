@@ -80,6 +80,11 @@
   const current = $derived(kept(shown, selectedId))
   const selected = $derived(shown.find((t) => t.id === current))
   const opened = $derived(openedId !== null && openedId === current ? openedId : null)
+
+  // Another row selected, the details close: a click selects, and only a second one opens.
+  $effect(() => {
+    if (openedId !== null && openedId !== current) openedId = null
+  })
   const isThisWeek = $derived(week.start === thisWeek(todayIn()).start)
   const other = $derived(report && otherText(report.other))
 

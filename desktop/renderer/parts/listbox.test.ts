@@ -237,6 +237,13 @@ describe('withRoom: an opened row and its details', () => {
     expect(scrolledTo(open, 8, 0, 200)).toBe(170)
   })
 
+  test('details taller than the view: the row stays in view, its details run on below', () => {
+    const open = withRoom(rows, 3, 300)
+    // Row 3 runs 90 to 120 and its details to 420; a view of 200 under a 26px band.
+    expect(scrolledTo(open, 3, 0, 200, 26)).toBe(64)
+    expect(scrolledTo(open, 3, 64, 200, 26)).toBe(64)
+  })
+
   test('keeps what a grouped layout knows', () => {
     const open = withRoom(groupedOf([2, 3], 30, 20), 1, 50)
     expect(open.groupAt(2)).toBe(1)
