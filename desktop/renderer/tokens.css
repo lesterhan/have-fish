@@ -1,6 +1,6 @@
-/* Every visual value the window uses. Plain until it takes the values in DESIGN.md, "The
-   system". The only file that declares a colour: which
-   colour sits on which is in theme/contract.ts, and tokens.test.ts holds both schemes to it. */
+/* Every visual value the window uses. The only file that declares a colour, and it doesn't
+   choose them: tools/themes.ts derives them from the built-in themes, shared/theme/contract.ts
+   says which sits on which, and tokens.test.ts holds both schemes to it. */
 
 :root {
   color-scheme: light dark;
@@ -25,27 +25,53 @@
   --border-width: 1px;
 
   --duration-slide: 150ms;
+}
 
-  --color-text: #1b1b1b;
-  --color-muted: #5f5f5f;
-  --color-background: #ffffff;
-  --color-border: #8a8a8a;
-  --color-rule: #e4e4e4;
-  --color-selected: #ebebeb;
-  --color-error: #a4161a;
+/* The colours, from the built-in themes: `bun run themes` writes them. Never by hand. */
+:root {
+  --color-sidebar: #e3ddd5;
+  --color-background: #fffbf7;
+  --color-band: #f3ede5;
+  --color-selected: #f3e3b7;
+  --color-rule: #e1dbd4;
+  --color-border: #847f78;
+  --color-bar: #71675a;
+  --color-muted: #605b55;
+  --color-text: #1e1a14;
+  --color-accent: #705800;
+  --color-on-accent: #fefbf8;
+  --color-in: #146d34;
+  --color-error: #ac312c;
+  --color-assets: #006787;
+  --color-liabilities: #924500;
+  --color-expenses: #724695;
+  --color-income: #067132;
+  --color-card: #fbf3e2;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-text: #ececec;
-    --color-muted: #a3a3a3;
-    --color-background: #161616;
-    --color-border: #6b6b6b;
-    --color-rule: #2c2c2c;
-    --color-selected: #2e2e2e;
-    --color-error: #ff8a80;
+    --color-sidebar: #0e0a06;
+    --color-background: #1d1913;
+    --color-band: #28241e;
+    --color-selected: #472216;
+    --color-rule: #34302a;
+    --color-border: #76716a;
+    --color-bar: #a19788;
+    --color-muted: #b2ada6;
+    --color-text: #f2ece4;
+    --color-accent: #ff8762;
+    --color-on-accent: #13110f;
+    --color-in: #79ca8b;
+    --color-error: #ff7f73;
+    --color-assets: #47c7f8;
+    --color-liabilities: #f99e65;
+    --color-expenses: #cea0f7;
+    --color-income: #76cf8a;
+    --color-card: #2b1c15;
   }
 }
+/* End of the colours. */
 
 body {
   margin: 0;

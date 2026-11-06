@@ -1,13 +1,13 @@
 // Reads a tokens file into the theme the contract checks: the colours of `:root` as light, and
 // the `prefers-color-scheme: dark` block over them as dark, the way the page resolves them.
 
-import type { Palette, Theme } from './contract'
+import type { Palette, Schemes } from './contract'
 
 type Block = { prelude: string; body: string }
 
 const DARK = /^@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)$/
 
-export function readTheme(css: string): Theme {
+export function readTheme(css: string): Schemes {
   const top = blocks(css.replace(/\/\*[\s\S]*?\*\//g, ''))
   const roots = top.filter((b) => b.prelude === ':root')
   if (roots.length === 0) throw new Error('no :root block to read colours from')

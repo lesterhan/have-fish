@@ -293,7 +293,7 @@ The desktop app can have themes, colours to start with.
 - **Colours are tested, not reviewed.** One tokens file declares every colour. A contract of
   plain functions checks ink (4.5:1 for text, 3:1 for graphics) and surfaces (each step at least
   ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else
-  (`desktop/renderer/theme/contract.ts`, held to by `desktop/renderer/tokens.test.ts`).
+  (`desktop/shared/theme/contract.ts`, held to by `desktop/renderer/tokens.test.ts`).
   Every built-in theme passes them in a test, and a theme you make will pass them as you make it.
 - **Money is not themed, and neither are the kinds of account.** The colours for money in and
   out, for an error, and for each root (assets, liabilities, expenses, income) stay fixed in
@@ -302,8 +302,9 @@ The desktop app can have themes, colours to start with.
 - **A theme belongs to the machine, not the ledger.** It lives in the app's settings, never in
   the ledger file.
 - **A theme is a few inputs, not a stylesheet**: light or dark, a neutral hue and chroma, an
-  accent hue. The app places them on the ladder and derives every colour. There are no public CSS
-  variables the way Obsidian has them.
+  accent hue. The app places them on the ladder and derives every colour (`deriveTokens`), and
+  `tokens.css` holds the built-ins' colours as `bun run themes` writes them, never by hand. There
+  are no public CSS variables the way Obsidian has them.
 - **Built-ins first, your own later.** The app ships a few built-in themes, each stored as those
   inputs. Making your own is a picker over the same inputs, and it comes later.
 - **The built-ins are Graphite light and Graphite dark**, and following the system picks between

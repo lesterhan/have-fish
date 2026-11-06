@@ -1,6 +1,6 @@
 // The app's places down the left: each a list beside a pane.
 
-import type { WindowActionId } from '../shared/actions'
+import type { KeyedActionId, WindowActionId } from '../shared/actions'
 import type { Moved } from '../shared/commands'
 
 export const PLACES = ['spends', 'accounts', 'reports'] as const
@@ -23,7 +23,7 @@ export type DraftsView = PlaceView & {
 }
 
 /** The action that goes to each place, so the sidebar can show its shortcut. */
-export const SHOW: Record<Place, WindowActionId> = {
+export const SHOW: Record<Place, WindowActionId & KeyedActionId> = {
   spends: 'showSpends',
   accounts: 'showAccounts',
   reports: 'showReports',

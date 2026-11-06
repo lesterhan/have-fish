@@ -81,6 +81,8 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
   const context = browser.contexts()[0]
   if (context === undefined) throw new Error('the app has no browser context')
   const page = context.pages()[0] ?? (await context.waitForEvent('page'))
+  // Playwright pins a page it connects to at light; the app's theme decides instead.
+  await page.emulateMedia({ colorScheme: null })
   await page.waitForSelector('input[name=amount]')
   // The page is ready before the window shows (see #582); keys need the window on screen.
   await page.waitForFunction(() => document.visibilityState === 'visible')

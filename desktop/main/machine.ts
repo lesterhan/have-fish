@@ -4,6 +4,7 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { type ThemeChoice, themeChoiceOf } from '../shared/theme/theme'
 
 const SETTINGS_FILE = 'settings.json'
 
@@ -11,20 +12,29 @@ export type Machine = {
   /** The account the last spend written here came out of, if there was one. */
   lastFrom(): string | null
   usedFrom(accountId: string): void
+  /** The theme chosen here; `system` until one is, or when the file holds one this can't use. */
+  theme(): ThemeChoice
+  chooseTheme(choice: ThemeChoice): void
 }
 
 /** For tests, and for a run that can't keep a file: remembered until the app quits. */
 export function forgetful(): Machine {
   let last: string | null = null
+  let theme: ThemeChoice = 'system'
   return {
     lastFrom: () => last,
     usedFrom: (id) => {
       last = id
     },
+    theme: () => theme,
+    chooseTheme: (choice) => {
+      theme = choice
+    },
   }
 }
 
-// Loose, so a key a newer version wrote is kept when this one writes the file back.
+// Loose, so a key a newer version wrote is kept when this one writes the file back. The theme is
+// read through `themeChoiceOf` rather than parsed here, so one this version can't use is kept too.
 const Saved = z.looseObject({ lastFrom: z.uuid().optional().catch(undefined) })
 type Saved = z.infer<typeof Saved>
 
@@ -32,16 +42,22 @@ type Saved = z.infer<typeof Saved>
 export function settingsIn(configDir: string): Machine {
   const path = join(configDir, SETTINGS_FILE)
   let saved = read(path)
+  const keep = (next: Saved) => {
+    saved = next
+    try {
+      write(configDir, path, saved)
+    } catch {
+      // Remembered until the app quits; a file that can't be written only costs the memory of it.
+    }
+  }
   return {
     lastFrom: () => saved.lastFrom ?? null,
     usedFrom(id) {
-      if (saved.lastFrom === id) return
-      saved = { ...saved, lastFrom: id }
-      try {
-        write(configDir, path, saved)
-      } catch {
-        // The spend is already saved; a file that can't be written only costs the memory of it.
-      }
+      if (saved.lastFrom !== id) keep({ ...saved, lastFrom: id })
+    },
+    theme: () => themeChoiceOf(saved.theme),
+    chooseTheme(choice) {
+      if (saved.theme !== choice) keep({ ...saved, theme: choice })
     },
   }
 }

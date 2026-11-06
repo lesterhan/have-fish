@@ -63,6 +63,48 @@ describe('settingsIn', () => {
     machine.usedFrom(VISA)
 
     expect(machine.lastFrom()).toBe(VISA)
+    machine.chooseTheme('graphite-dark')
+    expect(machine.theme()).toBe('graphite-dark')
+  })
+})
+
+describe('the theme', () => {
+  test('follows the system until one is chosen', () => {
+    expect(settingsIn(aDir()).theme()).toBe('system')
+  })
+
+  test('a chosen theme is there after the app starts again', () => {
+    const dir = aDir()
+    settingsIn(dir).chooseTheme('graphite-dark')
+    expect(settingsIn(dir).theme()).toBe('graphite-dark')
+  })
+
+  test.each(['{"theme": "solarized"}', '{"theme": 7}', '{"theme": null}', 'not json'])(
+    'a file holding %s follows the system',
+    (text) => {
+      const dir = aDir()
+      settingsIn(dir).usedFrom(VISA)
+      writeFileSync(join(dir, 'settings.json'), text)
+      expect(settingsIn(dir).theme()).toBe('system')
+    },
+  )
+
+  test('a theme this version does not know is kept when the file is written', () => {
+    const dir = aDir()
+    settingsIn(dir).usedFrom(VISA)
+    const file = join(dir, 'settings.json')
+    writeFileSync(file, JSON.stringify({ lastFrom: VISA, theme: 'my-own' }))
+
+    settingsIn(dir).usedFrom(WISE)
+
+    expect(JSON.parse(readFileSync(file, 'utf8')).theme).toBe('my-own')
+  })
+
+  test('choosing keeps the account used last', () => {
+    const dir = aDir()
+    settingsIn(dir).usedFrom(VISA)
+    settingsIn(dir).chooseTheme('graphite-light')
+    expect(settingsIn(dir).lastFrom()).toBe(VISA)
   })
 })
 
@@ -71,5 +113,7 @@ describe('forgetful', () => {
     const machine = forgetful()
     machine.usedFrom(VISA)
     expect(machine.lastFrom()).toBe(VISA)
+    machine.chooseTheme('graphite-dark')
+    expect(machine.theme()).toBe('graphite-dark')
   })
 })

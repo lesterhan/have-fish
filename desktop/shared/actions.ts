@@ -1,3 +1,5 @@
+import type { ThemeChoice } from './theme/theme'
+
 // Every action the app offers, once. The menu is built from this list and the hints beside
 // buttons read it, so a shortcut can't be in one and missing from the other. Each action's words
 // are in `copy/actions.ts`, under its id.
@@ -19,8 +21,8 @@ export type Role =
 export type Action = {
   readonly id: string
   readonly menu: MenuName
-  /** Electron's form: `CmdOrCtrl+N`. */
-  readonly accelerator: string
+  /** Electron's form: `CmdOrCtrl+N`. None for a choice made only from the menu. */
+  readonly accelerator?: string
   /** Without one, choosing the action sends its id to the window. */
   readonly role?: Role
   /** A line above it in its menu. */
@@ -32,6 +34,8 @@ export type Action = {
    * Delete removes a spend from the list but must still delete text in a field.
    */
   readonly windowKey?: true
+  /** A choice under View, Theme, shown checked while it is the theme. */
+  readonly theme?: ThemeChoice
 }
 
 export const ACTIONS = [
@@ -58,6 +62,11 @@ export const ACTIONS = [
   { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn', grouped: 'apart' },
   { id: 'zoomOut', menu: 'view', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
   { id: 'resetZoom', menu: 'view', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+
+  // The built-in themes, then following the system between them.
+  { id: 'themeGraphiteLight', menu: 'view', theme: 'graphite-light', grouped: 'apart' },
+  { id: 'themeGraphiteDark', menu: 'view', theme: 'graphite-dark' },
+  { id: 'themeSystem', menu: 'view', theme: 'system' },
 ] as const satisfies readonly Action[]
 
 export type ActionId = (typeof ACTIONS)[number]['id']
@@ -65,8 +74,14 @@ export type ActionId = (typeof ACTIONS)[number]['id']
 /** The actions the window carries out; Electron does the rest. */
 export type WindowActionId = Exclude<(typeof ACTIONS)[number], { role: Role }>['id']
 
-export function actionFor(id: ActionId): Action {
-  const action = ACTIONS.find((a) => a.id === id)
+type Listed = (typeof ACTIONS)[number]
+
+/** The actions a key reaches. */
+export type KeyedActionId = Extract<Listed, { accelerator: string }>['id']
+
+/** The action, typed by its id: one with a key is known to have it. */
+export function actionFor<I extends ActionId>(id: I): Extract<Listed, { id: I }> & Action {
+  const action = ACTIONS.find((a): a is Extract<Listed, { id: I }> & Action => a.id === id)
   if (action === undefined) throw new Error(`no action ${id}`)
   return action
 }
@@ -75,7 +90,7 @@ export function actionFor(id: ActionId): Action {
 export function sharedAccelerators(actions: readonly Action[]): string[] {
   const seen = new Map<string, number>()
   for (const { accelerator, alternate } of actions) {
-    for (const each of alternate === undefined ? [accelerator] : [accelerator, alternate]) {
+    for (const each of [accelerator, alternate].filter((k) => k !== undefined)) {
       const key = normal(each)
       seen.set(key, (seen.get(key) ?? 0) + 1)
     }

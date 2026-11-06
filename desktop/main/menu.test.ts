@@ -1,12 +1,16 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import { describe, expect, test, vi } from 'vitest'
 import { copy } from '../copy'
-import { ACTIONS } from '../shared/actions'
+import { ACTIONS, type Action, type ActionId } from '../shared/actions'
 import { menuTemplate } from './menu'
 
-/** Every item under every menu, flattened. */
+/** Every item under every menu, and under any menu inside one, flattened. */
 function itemsOf(template: MenuItemConstructorOptions[]): MenuItemConstructorOptions[] {
-  return template.flatMap((menu) => (Array.isArray(menu.submenu) ? menu.submenu : []))
+  return template.flatMap((menu) =>
+    Array.isArray(menu.submenu)
+      ? menu.submenu.flatMap((i) => (Array.isArray(i.submenu) ? itemsOf([i]) : [i]))
+      : [],
+  )
 }
 
 const rolesOf = (template: MenuItemConstructorOptions[]) =>
@@ -15,7 +19,7 @@ const rolesOf = (template: MenuItemConstructorOptions[]) =>
 const UNDO = { undo: { label: 'Undo', enabled: false }, redo: { label: 'Redo', enabled: false } }
 
 const build = (packaged: boolean, mac = false, run = () => {}, undo = UNDO) =>
-  menuTemplate({ packaged, mac, run, undo })
+  menuTemplate({ packaged, mac, run, undo, theme: 'system' })
 
 const DEVELOPER = ['reload', 'forceReload', 'toggleDevTools']
 
@@ -36,8 +40,34 @@ describe('the menu', () => {
   test('every action is in it once, with its words and its shortcut', () => {
     const items = itemsOf(build(true)).filter((i) => i.type !== 'separator')
     expect(items.map((i) => [i.label, i.accelerator])).toEqual(
-      ACTIONS.map((a) => [copy.actions.labels[a.id], a.accelerator]),
+      ACTIONS.map((a: Action) => [copy.actions.labels[a.id as ActionId], a.accelerator]),
     )
+  })
+
+  test('View has the themes as one item, a choice with the current one checked', () => {
+    const [, , view] = menuTemplate({
+      packaged: true,
+      mac: false,
+      run: () => {},
+      undo: UNDO,
+      theme: 'graphite-dark',
+    })
+    const themes = (view?.submenu as MenuItemConstructorOptions[] | undefined)?.find(
+      (i) => i.label === copy.actions.menus.theme,
+    )
+    const choices = (themes?.submenu ?? []) as MenuItemConstructorOptions[]
+    expect(choices.map((c) => [c.label, c.type, c.checked])).toEqual([
+      ['Graphite light', 'radio', false],
+      ['Graphite dark', 'radio', true],
+      ['Follow the system', 'radio', false],
+    ])
+  })
+
+  test('choosing a theme runs its action in the window, which sets it', () => {
+    const run = vi.fn()
+    const dark = itemsOf(build(true, false, run)).find((i) => i.label === 'Graphite dark')
+    dark?.click?.(undefined as never, undefined, undefined as never)
+    expect(run).toHaveBeenCalledWith('themeGraphiteDark')
   })
 
   test("choosing a window's action runs it by id", () => {

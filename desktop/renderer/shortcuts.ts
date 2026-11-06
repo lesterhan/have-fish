@@ -1,7 +1,7 @@
 // An action's shortcut, from the list, as a hint shows it and as `aria-keyshortcuts` says it.
 
 import { copy } from '../copy'
-import { type ActionId, actionFor } from '../shared/actions'
+import { actionFor, type KeyedActionId } from '../shared/actions'
 
 /** Whether the window is on macOS, whose shortcuts use ⌘. */
 export const MAC = typeof navigator !== 'undefined' && /^Mac/.test(navigator.platform)
@@ -17,20 +17,20 @@ const ARIA: Record<Modifier, string> = { ctrl: 'Control', alt: 'Alt', shift: 'Sh
 const MAC_KEYS: Record<string, string> = { Delete: '⌦' }
 
 /** `Ctrl+S` on Linux and Windows, `⌘S` on macOS. */
-export function shortcutText(id: ActionId, mac: boolean): string {
+export function shortcutText(id: KeyedActionId, mac: boolean): string {
   const { modifiers, key } = keysOf(id, mac)
   if (mac) return [...modifiers.map((m) => SYMBOLS[m]), MAC_KEYS[key] ?? key].join('')
   return [...modifiers.map((m) => copy.actions.keys[m === 'cmd' ? 'ctrl' : m]), key].join('+')
 }
 
 /** `Control+S` on Linux and Windows, `Meta+S` on macOS. */
-export function ariaShortcut(id: ActionId, mac: boolean): string {
+export function ariaShortcut(id: KeyedActionId, mac: boolean): string {
   const { modifiers, key } = keysOf(id, mac)
   return [...modifiers.map((m) => ARIA[m]), key].join('+')
 }
 
 /** The modifiers in display order, and the key, with `CmdOrCtrl` settled for this platform. */
-function keysOf(id: ActionId, mac: boolean): { modifiers: Modifier[]; key: string } {
+function keysOf(id: KeyedActionId, mac: boolean): { modifiers: Modifier[]; key: string } {
   const parts = actionFor(id).accelerator.split(/\+(?!$)/)
   const last = parts.pop() ?? ''
   // A letter in capitals, as keyboards print it; a named key as it's spelled: `Delete`.

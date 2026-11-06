@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { type Ink, inkFailures, type Step, stepFailures, type Theme } from './contract'
+import { type Ink, inkFailures, type Schemes, type Step, stepFailures } from './contract'
 import { contrastRatio, deltaL, oklchToHex } from './oklch'
 
 /** A grey at OKLCH lightness `l`. */
@@ -9,7 +9,7 @@ const WHITE = '#ffffff'
 const BLACK = '#000000'
 
 /** One palette in light and another in dark, over the same two tokens. */
-const theme = (light: [string, string], dark: [string, string]): Theme => ({
+const theme = (light: [string, string], dark: [string, string]): Schemes => ({
   light: { '--ink': light[0], '--ground': light[1] },
   dark: { '--ink': dark[0], '--ground': dark[1] },
 })
