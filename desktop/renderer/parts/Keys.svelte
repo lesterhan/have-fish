@@ -1,7 +1,7 @@
 <script lang="ts">
   // An action's shortcut as a keycap. The control it labels carries `aria-keyshortcuts`, so the
   // cap is hidden from a screen reader, which would say it twice. It takes the ink of where it
-  // sits, which the contract checks; a fainter one would be a token (see #606).
+  // sits, which the contract checks; a fainter one would be a token (see #607).
   import type { KeyedActionId } from '../../shared/actions'
   import { MAC, shortcutText } from '../shortcuts'
 

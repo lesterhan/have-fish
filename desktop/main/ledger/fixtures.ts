@@ -9,6 +9,7 @@ import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Outcome } from '@have-fish/core/outcome'
 import { onTestFinished } from 'vitest'
 import { type Ledger, openLedger } from '../db/ledger'
+import { applyLocal } from './apply'
 
 export const NOW = Date.UTC(2026, 9, 29, 12)
 
@@ -83,4 +84,50 @@ export function aSpend(
 /** The same transaction, deleted at `at`. */
 export function tombstoneOf(doc: TransactionDoc, at = NOW): TransactionDoc {
   return { ...doc, postings: [], deletedAt: at }
+}
+
+const DAY = 86_400_000
+
+/**
+ * About ten years of ledger at 50,000: `n` spends, fourteen a day ending at `NOW`, from a card and
+ * a chequing account into six categories, a pay day every two weeks, and each account's starting
+ * balance. Written as one batch, into `ledger`.
+ */
+export function aLedgerOf(n: number, ledger = tempLedger()): Ledger {
+  const card = anAccount({ path: 'liabilities:visa', kind: 'card' })
+  const bank = anAccount({ path: 'assets:chequing', kind: 'bank' })
+  const opening = anAccount({ path: 'equity:opening', kind: 'opening' })
+  const pay = anAccount({ path: 'income:salary', kind: 'income' })
+  const categories = ['food', 'rent', 'travel', 'books', 'transit', 'gifts'].map((name) =>
+    anAccount({ path: `expenses:${name}`, kind: 'category' }),
+  )
+  const day = (i: number) => new Date(NOW - Math.floor(i / 14) * DAY).toISOString().slice(0, 10)
+  const oldest = day(n)
+  const docs: (AccountDoc | TransactionDoc)[] = [card, bank, opening, pay, ...categories]
+  // What I owe starts negative: the card's leg is the paying one.
+  for (const [from, to] of [
+    [opening, bank],
+    [card, opening],
+  ] as const) {
+    docs.push(
+      aSpend(from.id, to.id, '300.00', {
+        date: oldest,
+        description: 'Starting balance',
+        origin: { ...MANUAL, createdAt: NOW - n - 1 },
+      }),
+    )
+  }
+  for (let i = 0; i < n; i++) {
+    const paid = i % 28 === 0
+    docs.push(
+      aSpend(
+        paid ? pay.id : (i % 3 === 0 ? bank : card).id,
+        paid ? bank.id : (categories[i % categories.length] as AccountDoc).id,
+        paid ? '1500.00' : '12.50',
+        { date: day(i), description: `Spend ${i}`, origin: { ...MANUAL, createdAt: NOW - i } },
+      ),
+    )
+  }
+  ok(applyLocal(ledger, docs, NOW))
+  return ledger
 }

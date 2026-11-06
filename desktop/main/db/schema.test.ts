@@ -130,7 +130,10 @@ describe('the ledger tables', () => {
       .sort((a, b) => a.pk - b.pk)
       .map((c) => c.name)
     expect(key).toEqual(['transactionId', 'position'])
-    expect(indexes('postings')).toEqual(['postings_account_balance'])
+    expect(indexes('postings')).toEqual([
+      'postings_account_balance',
+      'postings_account_transaction',
+    ])
   })
 
   test('outbox, keyed by a row id, with one row per document', () => {
@@ -337,7 +340,8 @@ describe('0006_listed-index', () => {
 
     const backups = mkdtempSync(join(tmpdir(), 'havefish-index-'))
     onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
-    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({
+    const through = MIGRATIONS.filter((m) => m.tag <= '0006_listed-index')
+    expect(migrate(old, through, NOW, backups)).toEqual({
       ok: true,
       value: ['0006_listed-index'],
     })
@@ -348,5 +352,44 @@ describe('0006_listed-index', () => {
       .pluck()
       .all()
     expect(listed).toEqual(['00000000-0000-4000-8000-000000000001'])
+  })
+})
+
+describe('0007_account-transaction-index', () => {
+  const TXN = '00000000-0000-4000-8000-000000000001'
+  const ACCOUNT = '00000000-0000-4000-8000-000000000002'
+
+  test('keeps every posting of a file from before it, and adds the index', () => {
+    const old = new Database(':memory:')
+    onTestFinished(() => {
+      old.close()
+    })
+    const before = MIGRATIONS.filter((m) => m.tag < '0007_account-transaction-index')
+    migrate(old, before, NOW, join(tmpdir(), 'havefish-never-written'))
+    old.exec(`
+      INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt,
+          originDeviceId)
+        VALUES ('${TXN}', '2026-10-29', 'Groceries', 'v2', 'manual', 0, '0000000000000000');
+      INSERT INTO postings (transactionId, position, accountId, amountCents, currency)
+        VALUES ('${TXN}', 0, '${ACCOUNT}', -1250, 'CAD'), ('${TXN}', 1, 'food', 1250, 'CAD');
+    `)
+    const postings = old.prepare('SELECT * FROM postings ORDER BY position').all()
+
+    const backups = mkdtempSync(join(tmpdir(), 'havefish-index-'))
+    onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
+    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({
+      ok: true,
+      value: ['0007_account-transaction-index'],
+    })
+
+    expect(old.prepare('SELECT * FROM postings ORDER BY position').all()).toEqual(postings)
+    const found = old
+      .prepare(
+        `SELECT transactionId FROM postings INDEXED BY postings_account_transaction
+          WHERE accountId = 'food'`,
+      )
+      .pluck()
+      .all()
+    expect(found).toEqual([TXN])
   })
 })
