@@ -4,7 +4,17 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  shownDay,
+  WRITE,
+  writeDown,
+} from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -97,10 +107,11 @@ describe('undo and redo', () => {
     expect(await focused(page)).toBe('Ledger OL')
   })
 
-  test('a saved edit is taken back as the edit, not as typing in the pane', async () => {
+  test('a saved edit is taken back as the edit, not as typing in its details', async () => {
     const { page, press } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
+    await openSelected(page)
 
     await page.focus(P_DESCRIPTION)
     await page.keyboard.press('End')
@@ -120,7 +131,7 @@ describe('undo and redo', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(2)
     for (const name of ['Coffee', 'Lunch']) {
-      await row(page, name).click()
+      await openSpend(row(page, name))
       await page.focus(P_DESCRIPTION)
       await page.keyboard.press('End')
       await page.keyboard.type(' cake')

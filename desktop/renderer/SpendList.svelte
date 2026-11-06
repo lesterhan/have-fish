@@ -1,4 +1,7 @@
 <script lang="ts">
+  // A list of spends: the ledger's, or a report's. Click a row to select it, and again, or Enter,
+  // to open its details under it; Esc closes them, and Delete removes the spend.
+  import type { Snippet } from 'svelte'
   import { copy } from '../copy'
   import type { ListedDay, ListedTransaction, Money as Amount } from '../shared/commands'
   import type { Drafts } from './drafts'
@@ -30,8 +33,14 @@
     written?: string | null
     drafts: Drafts
     onselect: (id: string) => void
-    /** Show the pane; with `focus`, put the cursor in it. */
+    /** The spend whose details are open under its row. */
+    opened: string | null
+    /** Its details. */
+    details: Snippet<[ListedTransaction]>
+    /** Open the selected spend's details; with `focus`, put the cursor in them. */
     onopen: (focus: boolean) => void
+    /** Esc on the list: close them. */
+    onclose: () => void
     /** Delete on the list: remove the selected spend. */
     onremove: () => void
     /** What it's called, where there's more than one list of spends. */
@@ -50,7 +59,10 @@
     written = null,
     drafts,
     onselect,
+    opened,
+    details,
     onopen,
+    onclose,
     onremove,
     label = copy.spends.list.label,
     idPrefix = 'spend',
@@ -88,6 +100,11 @@
       onopen(true)
       return true
     }
+    if (event.key === 'Escape' && opened !== null) {
+      event.preventDefault()
+      onclose()
+      return true
+    }
     // Here and not in the menu, so Delete in a text field still deletes text.
     if (event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault()
@@ -115,10 +132,13 @@
     {written}
     onactive={onselect}
     onpick={(id) => {
-      onselect(id)
-      onopen(false)
+      // Once to select, again to open.
+      if (id === selectedId) onopen(false)
+      else onselect(id)
     }}
     {onkey}
+    {opened}
+    {details}
   >
     {#snippet band(g)}
       {@const day = shownDays[g]}

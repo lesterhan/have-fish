@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, launch, openSelected, PANE, rows, WRITE, writeDown } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 
@@ -61,7 +61,7 @@ describe('fonts', () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
-    expect(await familyOf(page, `${WRITE} label span`)).toBe(SANS)
+    expect(await familyOf(page, `${WRITE} label`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=description]`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${WRITE} input[name=date]`)).toBe(FIGURES)
@@ -69,6 +69,7 @@ describe('fonts', () => {
     expect(await familyOf(page, `${LIST} >> text="4.50"`)).toBe(FIGURES)
     // A row reads in the interface's face; the serif is for titles (DESIGN.md, "Type").
     expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SANS)
+    await openSelected(page)
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} >> text="CAD"`)).toBe(FIGURES)
@@ -104,6 +105,7 @@ describe('fonts', () => {
     const lunch = `${LIST} >> text="Lunch -> Sam"`
     expect(await page.textContent(lunch)).toBe('Lunch -> Sam')
     expect(await ligatures(lunch)).toBe('none')
+    await openSelected(page)
     expect(await ligatures(`${PANE} input[name=description]`)).toBe('none')
   })
 })

@@ -1,9 +1,20 @@
-// Fixing a spend in the pane beside the list, as a person does it, in the built app.
+// Fixing a spend in its details, open under its row, as a person does it, in the built app:
+// Entry-2's acceptance, and Entry-21's, which opened the details where the spend sits.
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, BACK, launch, PANE, rows, shownDay, unsavedInPane, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  shownDay,
+  unsavedInPane,
+  writeDown,
+} from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -27,13 +38,48 @@ const focusedName = (page: Page) =>
   page.evaluate(
     () => document.activeElement?.getAttribute('name') ?? document.activeElement?.tagName,
   )
+const isOpen = (page: Page) => page.locator(PANE).isVisible()
+
+/** The open card's box and its row's, the list's, and how faded each other row is. */
+const placed = async (page: Page) => {
+  // The card drops in 4px; measure where it lands.
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  return page.evaluate(
+    ({ list, card }) => {
+      const ol = document.querySelector(list)
+      const box = (e: Element | null | undefined) => {
+        const r = e?.getBoundingClientRect()
+        return (
+          r && {
+            top: Math.round(r.top),
+            bottom: Math.round(r.bottom),
+            left: r.left,
+            right: r.right,
+          }
+        )
+      }
+      const open = ol?.querySelector('li[aria-selected=true]')
+      const others = [...(ol?.querySelectorAll('li') ?? [])].filter((li) => li !== open)
+      return {
+        row: box(open),
+        card: box(document.querySelector(card)),
+        list: box(ol?.parentElement),
+        faded: others.map((li) => getComputedStyle(li).opacity),
+      }
+    },
+    { list: LIST, card: PANE },
+  )
+}
 
 describe('fix a spend', () => {
-  test('the newest is selected when the app opens, and the one just written after that', async () => {
+  test('the newest is selected when the app opens; Enter opens it, in What for', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
     expect(await page.textContent(SELECTED)).toContain('Coffee')
+    expect(await isOpen(page)).toBe(false)
+    await openSelected(page)
+    expect(await focusedName(page)).toBe('description')
     expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
     expect(await page.inputValue(AMOUNT)).toBe('4.50')
   })
@@ -42,7 +88,7 @@ describe('fix a spend', () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     await page.fill(DESCRIPTION, 'Lunch with Sam')
     await page.fill(AMOUNT, '15')
     await page.press(AMOUNT, 'Enter')
@@ -61,37 +107,43 @@ describe('fix a spend', () => {
   test('the Save button saves too', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(DESCRIPTION, 'Flat white')
-    await page.click(`${PANE} button[type=submit]`)
+    await page.locator(PANE).getByRole('button', { name: 'Save' }).click()
 
     await expect
       .poll(async () => (await rows(page))[0])
       .toBe(`${shownDay(today())} | Flat white | 4.50`)
   })
 
-  test('Escape while editing: nothing changes', async () => {
+  test('Escape while editing: nothing changes, the details close, and the row stays selected', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(DESCRIPTION, 'Not coffee')
     await page.fill(AMOUNT, '99')
     await page.press(AMOUNT, 'Escape')
 
-    expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
-    expect(await page.inputValue(AMOUNT)).toBe('4.50')
-    expect(await unsavedInPane(page)).toBe(0)
+    await expect.poll(() => isOpen(page)).toBe(false)
+    expect(await page.textContent(SELECTED)).toContain('Coffee')
+    expect(await focusedName(page)).toBe('OL')
     expect(await rows(page)).toEqual([
       `${shownDay(today())} | Coffee | 4.50`,
       `${shownDay(today())} | Lunch | 12.00`,
     ])
+    await openSelected(page)
+    expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
+    expect(await page.inputValue(AMOUNT)).toBe('4.50')
+    expect(await unsavedInPane(page)).toBe(0)
   })
 
-  test('an unsaved change shows ● in the pane and the list, and is still there after moving away', async () => {
+  test('an unsaved change shows ● in the details and the list, and is still there after moving away', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     await page.fill(AMOUNT, '15')
 
     expect(await unsavedInPane(page)).toBe(1)
@@ -100,14 +152,15 @@ describe('fix a spend', () => {
       `${shownDay(today())} | Lunch | 12.00 | ●unsaved changes`,
     ])
 
+    // Reaching for another row closes the details; the draft stays.
     await row(page, 'Coffee').click()
-    expect(await page.inputValue(AMOUNT)).toBe('4.50')
-    expect(await unsavedInPane(page)).toBe(0)
+    await expect.poll(() => isOpen(page)).toBe(false)
+    expect(await page.textContent(SELECTED)).toContain('Coffee')
 
     // A write refreshes the list; the draft stays.
     await writeDown(page, '3', 'Tea')
     await expect.poll(async () => (await rows(page))[0]).toContain('Tea')
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     expect(await page.inputValue(AMOUNT)).toBe('15')
     expect(await unsavedInPane(page)).toBe(1)
   })
@@ -115,6 +168,7 @@ describe('fix a spend', () => {
   test('something that is not an amount: nothing is saved, and the field says why', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(AMOUNT, 'abc')
     await page.press(AMOUNT, 'Enter')
@@ -131,46 +185,56 @@ describe('fix a spend', () => {
     ])
   })
 
-  test('from the keyboard: arrows move through the list, Enter goes to the pane', async () => {
+  test('from the keyboard: arrows move through the list, Enter opens the details, Esc closes them', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
     await page.focus(LIST)
     await page.keyboard.press('ArrowDown')
     expect(await page.textContent(SELECTED)).toContain('Lunch')
-    expect(await page.inputValue(DESCRIPTION)).toBe('Lunch')
     await page.keyboard.press('ArrowUp')
     expect(await page.textContent(SELECTED)).toContain('Coffee')
 
     await page.keyboard.press('Enter')
+    await expect.poll(() => isOpen(page)).toBe(true)
     expect(await focusedName(page)).toBe('description')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => isOpen(page)).toBe(false)
+    expect(await focusedName(page)).toBe('OL')
+    expect(await page.textContent(SELECTED)).toContain('Coffee')
   })
+})
 
-  test('in a narrow window the pane slides over the list, and Back returns to it', async () => {
+describe('open a transaction where it sits', () => {
+  test('a click selects a row, and a second opens it under the row, the rest stepping back', async () => {
     const { page } = await launch(aHome())
-    await page.setViewportSize({ width: 420, height: 700 })
     await twoSpends(page)
-    const pane = page.locator(PANE)
 
-    await expect.poll(() => pane.isVisible()).toBe(false)
     await row(page, 'Lunch').click()
-    await expect.poll(() => pane.isVisible()).toBe(true)
+    expect(await page.textContent(SELECTED)).toContain('Lunch')
+    expect(await isOpen(page)).toBe(false)
+    await row(page, 'Lunch').click()
+    await expect.poll(() => isOpen(page)).toBe(true)
     expect(await page.inputValue(DESCRIPTION)).toBe('Lunch')
 
-    await page.click(`${PANE} >> ${BACK}`)
-    await expect.poll(() => pane.isVisible()).toBe(false)
-    expect(await focusedName(page)).toBe('OL')
+    const at = await placed(page)
+    // Attached: the card starts where its row ends, and is as wide as the tile.
+    expect(Math.abs((at.card?.top ?? 0) - (at.row?.bottom ?? 0))).toBeLessThanOrEqual(1)
+    expect(at.faded).toEqual(['0.5'])
   })
 
-  test('a spend picked in a wide window leaves the list uncovered when the window narrows', async () => {
+  test('in a narrow window the details open in place just the same, inside the list', async () => {
     const { page } = await launch(aHome())
-    await twoSpends(page)
-    await row(page, 'Lunch').click()
-
     await page.setViewportSize({ width: 420, height: 700 })
+    await twoSpends(page)
 
-    await expect.poll(() => page.locator(PANE).isVisible()).toBe(false)
-    await row(page, 'Coffee').click({ timeout: 5_000 })
-    await expect.poll(() => page.inputValue(DESCRIPTION)).toBe('Coffee')
+    await openSelected(page)
+    expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
+    const at = await placed(page)
+    expect(Math.abs((at.card?.top ?? 0) - (at.row?.bottom ?? 0))).toBeLessThanOrEqual(1)
+    expect(at.card?.left).toBeGreaterThanOrEqual(at.list?.left ?? 0)
+    expect(at.card?.right).toBeLessThanOrEqual(at.list?.right ?? 0)
+    // Nothing slides over the list: the form above it is still there to use.
+    expect(await page.isVisible('form[aria-label="Write down a spend"]')).toBe(true)
   })
 })

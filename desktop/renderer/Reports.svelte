@@ -1,25 +1,15 @@
 <script lang="ts">
   import { levelAbove, spendingAt, trailTo } from '@have-fish/core/spending'
-  import { onMount, tick, untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
-  import {
-    afterSaves,
-    type Drafts,
-    editOf,
-    type Sending,
-    savedValues,
-    toSend,
-    type Values,
-    withEdit,
-    without,
-  } from './drafts'
+  import type { Values } from './drafts'
+  import type { SpendEditor } from './editor'
   import { todayIn } from './format'
   import Day from './parts/Day.svelte'
   import type { LedgerState, LedgerStore } from './ledger'
-  import { NARROW } from './narrow'
-  import { toOf, toOptions } from './picker'
-  import { fieldOf, spendWordsFor, wordsFor } from './refusals'
+  import { toOptions } from './picker'
+  import { wordsFor } from './refusals'
   import {
     idsWanted,
     otherText,
@@ -34,17 +24,17 @@
   import Header from './parts/Header.svelte'
   import Notice from './parts/Notice.svelte'
   import SpendingList from './SpendingList.svelte'
+  import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
-  import SpendPane from './SpendPane.svelte'
 
   type Props = {
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
-    /** After a save: the fields' own undo has nothing left to take back. */
-    forgetTyping: () => void
+    /** Every spend I'm changing, in whichever place: one editor for the window. */
+    editor: SpendEditor
   }
-  let { hidden, ledger, forgetTyping }: Props = $props()
+  let { hidden, ledger, editor }: Props = $props()
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
   let report = $state.raw<Returned['report.spending'] | null>(null)
@@ -55,7 +45,7 @@
 
   /** The week's spends under the level, and any with a draft: asked of main, never the store. */
   let transactions = $state.raw<ListedTransaction[]>([])
-  // For the pane: what its To offers.
+  // For the card: what its To offers.
   const payers = $derived($ledger.accounts)
   const categories = $derived($ledger.categories)
   /** Why the lists or the report couldn't load, until they next do. */
@@ -74,14 +64,13 @@
     else dismissed = unloaded
   }
   let selectedId = $state<string | null>(null)
-  let drafts = $state.raw<Drafts>(new Map())
-  let savingDraft = $state(false)
-  /** In a narrow window, whether the pane is over the list. */
-  let open = $state(false)
+  const drafts = $derived($editor.drafts)
+  /** The spend whose details I opened; they stay open while it's the one selected. */
+  let openedId = $state<string | null>(null)
 
   let breakdown: SpendingList
   let list: SpendList
-  let pane: SpendPane
+  let card: SpendCard | undefined = $state()
 
   const spent = $derived(report === null ? [] : spentOf(report))
   const at = $derived(spendingAt(spent, level))
@@ -90,6 +79,7 @@
   // The spend picked while it's still behind the line; else the newest that is.
   const current = $derived(kept(shown, selectedId))
   const selected = $derived(shown.find((t) => t.id === current))
+  const opened = $derived(openedId !== null && openedId === current ? openedId : null)
   const isThisWeek = $derived(week.start === thisWeek(todayIn()).start)
   const other = $derived(report && otherText(report.other))
 
@@ -159,16 +149,6 @@
     await (state === reportedFor ? reporting : reportFor(state))
   }
 
-  // A wide window shows the pane beside the list, so there's nothing left open to cover it.
-  onMount(() => {
-    const narrow = matchMedia(NARROW)
-    const widened = () => {
-      if (!narrow.matches) open = false
-    }
-    narrow.addEventListener('change', widened)
-    return () => narrow.removeEventListener('change', widened)
-  })
-
   /** Coming here from another place: the breakdown. */
   export function focus() {
     breakdown.focus()
@@ -204,60 +184,15 @@
   }
 
   function edit(field: keyof Values, value: string) {
-    const saved = selected && savedValues(selected)
-    if (selected === undefined || !saved) return
-    drafts = withEdit(drafts, selected.id, saved, field, value)
-  }
-
-  function revert() {
-    if (current !== null) drafts = without(drafts, current)
-  }
-
-  const refusedFor = (refused: WireFailure | null, to?: Parameters<typeof fieldOf>[1]) =>
-    refused && { field: fieldOf(refused, to), words: spendWordsFor(refused) }
-
-  /** A draft as main takes it, sending where it goes only if that changed. */
-  const sent = (s: Sending) => {
-    const saved = transactions.find((t) => t.id === s.id)
-    return editOf(s, saved?.to, (typed) => toOf(payers, typed), saved?.date)
-  }
-
-  /** Each draft is its own batch here; Ctrl+S's are one step to undo. */
-  async function saveDrafts(ids: Iterable<string>, all: boolean) {
-    const sending = toSend(drafts, ids)
-    if (sending.length === 0 || savingDraft) return
-    savingDraft = true
-    const edits = sending.map(sent)
-    const saves = all
-      ? await window.haveFish.invoke('spend.saveAll', { edits }).then((saved) =>
-          sending.map((s, i) => ({
-            ...s,
-            error: saved.ok
-              ? refusedFor(saved.value[i]?.refused ?? null, edits[i]?.to)
-              : refusedFor(saved),
-          })),
-        )
-      : await Promise.all(
-          sending.map(async (s, i) => {
-            const saved = await window.haveFish.invoke('spend.edit', edits[i] ?? sent(s))
-            return { ...s, error: refusedFor(saved.ok ? null : saved, edits[i]?.to) }
-          }),
-        )
-    // The report first, so the pane never shows the old values in between.
-    if (saves.some((s) => s.error === null)) {
-      forgetTyping()
-      await caughtUp()
-    }
-    drafts = afterSaves(drafts, saves)
-    savingDraft = false
+    if (selected !== undefined) editor.edit(selected, field, value)
   }
 
   function save() {
-    if (current !== null) void saveDrafts([current], false)
+    if (current !== null) void editor.save([current], false, caughtUp)
   }
 
   export function saveAll() {
-    void saveDrafts(drafts.keys(), true)
+    void editor.save(editor.current().drafts.keys(), true, caughtUp)
   }
 
   let removing = false
@@ -268,27 +203,29 @@
     if (id === null || removing) return
     removing = true
     const next = afterRemoving(shown, id)
-    const removed = await window.haveFish.invoke('spend.remove', { id })
+    const refused = await editor.remove(id)
     removing = false
-    if (!removed.ok) {
-      error = wordsFor(removed)
+    if (refused !== null) {
+      error = wordsFor(refused)
       return
     }
-    drafts = without(drafts, id)
+    const wasOpen = opened === id
     selectedId = next
-    forgetTyping()
     await caughtUp()
+    if (wasOpen) list.focus()
   }
 
-  async function openPane(focus: boolean) {
-    open = matchMedia(NARROW).matches
+  async function open(focus: boolean) {
+    openedId = current
     if (!focus) return
     await tick()
-    pane.focus()
+    card?.focus()
   }
 
-  function closePane() {
-    open = false
+  /** Esc: what was typed goes back, the details close, and the row stays selected. */
+  function close() {
+    if (opened !== null) editor.revert(opened)
+    openedId = null
     list.focus()
   }
 </script>
@@ -356,41 +293,42 @@
     selectedId={current}
     {drafts}
     onselect={(id) => (selectedId = id)}
-    onopen={openPane}
+    {opened}
+    onopen={open}
+    onclose={close}
     onremove={remove}
-  />
-
-  <SpendPane
-    bind:this={pane}
-    label={copy.reports.pane.label}
-    idPrefix="report-pane"
-    transaction={selected}
-    draft={selected && drafts.get(selected.id)}
-    toOptions={toChoices}
-    saving={savingDraft}
-    {open}
-    onedit={edit}
-    onrevert={revert}
-    onsave={save}
-    onback={closePane}
-    onremove={remove}
-  />
+  >
+    {#snippet details(t: ListedTransaction)}
+      <SpendCard
+        bind:this={card}
+        label={copy.reports.card.label}
+        idPrefix="report-pane"
+        transaction={t}
+        draft={drafts.get(t.id)}
+        toOptions={toChoices}
+        saving={$editor.saving}
+        onedit={edit}
+        onsave={save}
+        onclose={close}
+        onremove={remove}
+      />
+    {/snippet}
+  </SpendList>
 </main>
 
 <style>
-  /* The breakdown on the left; the spends behind the line picked, and the one picked, on the right. */
+  /* The breakdown on the left; the spends behind the line picked on the right, opening in place. */
   main {
     min-height: 0;
     overflow-y: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(8rem, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(8rem, 1fr);
     grid-template-areas:
       'top top'
       'week week'
       'trail trail'
-      'breakdown list'
-      'breakdown pane';
+      'breakdown list';
     column-gap: var(--space-6);
     row-gap: var(--space-2);
     padding: var(--space-4);
@@ -407,16 +345,6 @@
     gap: var(--space-2);
     min-height: 0;
     overflow-y: auto;
-  }
-
-  /* Under the list here, not beside it: the pane's rule goes across its top. */
-  @media not (max-width: 44rem) {
-    main :global(.pane) {
-      padding-inline-start: 0;
-      padding-block-start: var(--space-4);
-      border-inline-start: none;
-      border-block-start: var(--border-width) solid var(--color-rule);
-    }
   }
 
   /* NARROW in narrow.ts. */

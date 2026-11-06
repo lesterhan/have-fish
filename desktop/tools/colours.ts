@@ -99,8 +99,11 @@ export function rawColoursIn(source: string): string[] {
 /** A transparency, a filter, or a mix on ink or a surface: ways a component makes a colour. */
 const MADE = /(^|[;{\s"'])(opacity|filter|color|background(?:-color)?)\s*:\s*([^;}"\n]+)/g
 
-/** A disabled control, which WCAG 1.4.3 doesn't hold to a contrast. */
-const DISABLED = /:disabled|aria-disabled/
+/**
+ * A disabled control, which WCAG 1.4.3 doesn't hold to a contrast; and the rest of a list while a
+ * row is open, which steps back and isn't for reading (DESIGN.md, "Surfaces").
+ */
+const DISABLED = /:disabled|aria-disabled|\[data-opened\]/
 
 /**
  * Finds a colour a component makes from the tokens rather than reads from them: text at an

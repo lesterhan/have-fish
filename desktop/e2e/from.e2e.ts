@@ -8,6 +8,7 @@ import {
   cellsOf,
   fromLine,
   launch,
+  openSelected,
   rows,
   shownDay,
   WRITE,
@@ -49,11 +50,11 @@ async function upToFrom(page: Page, amount: string, description: string) {
 const offered = (page: Page) =>
   cellsOf(page.locator(`${OPTIONS} [role=option]`)).then((rows) => rows.map(([name]) => name))
 const from = (page: Page) => page.inputValue(FROM)
-/** The account the selected spend came out of, as the pane says it. */
-const paidFrom = (page: Page) =>
-  fromLine(page)
-    .innerText()
-    .then((t) => t.replace(/^From\s+/, ''))
+/** The account the selected spend came out of, as its details say it: the path, in words. */
+const paidFrom = async (page: Page) => {
+  await openSelected(page)
+  return ((await fromLine(page).textContent()) ?? '').replace(/\s+/g, ' ').trim()
+}
 
 describe('picking the account that paid', () => {
   test('typed and picked with Enter, the spend comes out of it, and says so', async () => {
@@ -69,7 +70,7 @@ describe('picking the account that paid', () => {
 
     await page.keyboard.press('Enter')
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Dinner | 30.00`])
-    expect(await fromLine(page).innerText()).toMatch(/^From\s+visa$/)
+    expect(await paidFrom(page)).toBe('liabilities visa')
   })
 
   test('accounts I have added are offered, never a category', async () => {
@@ -165,7 +166,7 @@ describe('leaving it alone', () => {
     await writeDown(page, '4.50', 'Coffee')
 
     await expect.poll(() => rows(page)).toHaveLength(1)
-    expect(await paidFrom(page)).toBe('cash')
+    expect(await paidFrom(page)).toBe('assets cash')
     await expect.poll(() => from(page)).toBe('cash')
   })
 
@@ -182,7 +183,7 @@ describe('leaving it alone', () => {
 
     await writeDown(first.page, '4.50', 'Coffee')
     await expect.poll(() => rows(first.page)).toHaveLength(2)
-    expect(await paidFrom(first.page)).toBe('visa')
+    expect(await paidFrom(first.page)).toBe('liabilities visa')
     await first.quit()
 
     const again = await launch(home)
@@ -203,6 +204,6 @@ describe('leaving it alone', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect(await paidFrom(page)).toBe('visa')
+    expect(await paidFrom(page)).toBe('liabilities visa')
   })
 })

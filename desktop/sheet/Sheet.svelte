@@ -10,6 +10,7 @@
   import Money from '../renderer/parts/Money.svelte'
   import Path from '../renderer/parts/Path.svelte'
   import Sidebar from '../renderer/parts/Sidebar.svelte'
+  import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
   import type { Drafts } from '../renderer/drafts'
   import type { ListedTransaction } from '../shared/commands'
@@ -47,11 +48,37 @@
     row('d', '2026-11-04', '26.32', 'liabilities:cibc:visa', 'expenses:home:supplies', 'Hardware store'),
     row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair'),
   ]
-  const drafts: Drafts = new Map([['d', { description: '', amount: '', to: '', date: '', error: null }]])
+  // Being rewritten: an amount that isn't one, refused.
+  const drafts: Drafts = new Map([
+    [
+      'd',
+      {
+        description: 'Hardware store',
+        amount: '26.3x',
+        to: 'home:supplies',
+        date: '2026-11-04',
+        error: { field: 'amount', words: copy.errors.codes.AMOUNT_INVALID },
+      },
+    ],
+  ])
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
 </script>
+
+{#snippet card(t: ListedTransaction)}
+  <SpendCard
+    transaction={t}
+    draft={drafts.get(t.id)}
+    toOptions={[]}
+    saving={false}
+    onedit={() => {}}
+    onsave={() => {}}
+    onclose={() => {}}
+    onremove={() => {}}
+    idPrefix="sheet-card"
+  />
+{/snippet}
 
 <main>
   <h1>Parts</h1>
@@ -73,9 +100,13 @@
         <Button {variant}>{copy.spends.write.submit}</Button>
         <Button {variant} action="addAccount">{copy.accounts.add}</Button>
         <Button {variant} disabled>{copy.spends.write.submit}</Button>
-        <Button {variant} aria-disabled="true" action="saveAll">{copy.spends.pane.save}</Button>
+        <Button {variant} aria-disabled="true" action="saveAll">{copy.spends.card.save}</Button>
       </div>
     {/each}
+    <div class="line">
+      <Button variant="quiet" key={copy.spends.card.esc}>{copy.spends.card.close}</Button>
+      <Button variant="quiet" danger action="remove">{copy.spends.card.remove}</Button>
+    </div>
   </section>
 
   <section aria-label="Header">
@@ -96,7 +127,7 @@
 
   <section aria-label="Empty">
     <h2>Empty</h2>
-    <div class="frame"><Empty>{copy.spends.pane.nothing}</Empty></div>
+    <div class="frame"><Empty>{copy.reports.breakdown.nothing}</Empty></div>
   </section>
 
   <section aria-label="Money">
@@ -147,10 +178,32 @@
         written="e"
         {drafts}
         onselect={() => {}}
+        opened={null}
+        details={card}
         onopen={() => {}}
+        onclose={() => {}}
         onremove={() => {}}
         label="Rows"
         idPrefix="sheet"
+      />
+    </div>
+  </section>
+
+  <section aria-label="Card">
+    <h2>Card: a row open, its details lifted with it, its fields; the rest stepped back</h2>
+    <div class="frame card">
+      <SpendList
+        transactions={ROWS}
+        selectedId="d"
+        {drafts}
+        onselect={() => {}}
+        opened="d"
+        details={card}
+        onopen={() => {}}
+        onclose={() => {}}
+        onremove={() => {}}
+        label="Open"
+        idPrefix="sheet-open"
       />
     </div>
   </section>
@@ -255,10 +308,15 @@
     border: var(--border-width) dashed var(--color-rule);
   }
 
-  .rows {
+  .rows,
+  .card {
     display: grid;
     max-inline-size: 60rem;
     block-size: 16rem;
+  }
+
+  .card {
+    block-size: 30rem;
   }
 
   .sidebar {

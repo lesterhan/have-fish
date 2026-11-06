@@ -1,6 +1,6 @@
 // Screenshots every place and state of the built app, for design work: empty, then a month in,
-// with a row selected, editing, refused, a picker open, narrow, at 200%, and dark. Then the parts
-// sheet, light and dark.
+// with a row selected, a spend open and being changed, refused, a picker open, narrow, at 200%,
+// and dark. Then the parts sheet, light and dark.
 // `bun run capture`, under `xvfb-run -a` with `NO_SANDBOX=1` on Linux; never part of CI.
 // The shots go to `SHOTS`, or `shots/` here. Run it on two branches the same day to compare.
 
@@ -8,7 +8,7 @@ import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { _electron as electron, type Page } from 'playwright-core'
 import { expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, BACK, launch, PANE, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, launch, openSpend, PANE, WRITE, writeDown } from './app'
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
@@ -61,18 +61,26 @@ test('every place and state', { timeout: 300_000 }, async () => {
   // Spends.
   await shot.take('spends')
   // Scrolled: the top row's band stays while its rows pass under it.
-  await page.locator(SPENDS).evaluate((list) => {
-    list.scrollTop = 300
-  })
+  // The list scrolls in its scroller, which holds the listbox and an open spend's details.
+  const scroll = (to: number) =>
+    page.locator(SPENDS).evaluate((list, to) => {
+      if (list.parentElement) list.parentElement.scrollTop = to
+    }, to)
+  await scroll(300)
   await shot.take('spends-scrolled')
-  await page.locator(SPENDS).evaluate((list) => {
-    list.scrollTop = 0
-  })
+  await scroll(0)
   await page.click(`${SPENDS} li >> nth=2`)
   await shot.take('spends-selected')
   await shot.dark('spends-selected')
+  // Opened: the details under the row, lifted with it, and the rest stepped back.
+  await openSpend(page.locator(`${SPENDS} li >> nth=2`))
+  await shot.take('spends-card')
+  await shot.dark('spends-card')
   await page.fill(`${PANE} input[name=description]`, 'Groceries for the week, and flowers')
-  await shot.take('spends-editing')
+  await page.fill(`${PANE} input[name=amount]`, '12x')
+  await page.press(`${PANE} input[name=amount]`, 'Enter')
+  await page.waitForSelector(`${PANE} [role=alert]`)
+  await shot.take('spends-card-refused')
   await page.press(`${PANE} input[name=description]`, 'Escape')
   await page.click(`${WRITE} input[name=to]`)
   await page.keyboard.type('fo')
@@ -107,24 +115,26 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('reports-week-before')
   await page.click(`${BREAKDOWN} li:has-text("food")`)
   await shot.take('reports-drilled')
-  await page.click(`${REPORTED} li >> nth=0`)
+  await openSpend(page.locator(`${REPORTED} li >> nth=0`), 'section[aria-label="The spend picked"]')
   await shot.take('reports-spend')
 
-  // The size the window opens: the pane beside the list leaves it narrow, and Reports' half more so.
+  // The size the window opens: the form beside the list leaves it narrow, and Reports' half more so.
   await shot.size(OPENS)
   await shot.take('opens-reports')
   await go(page, 'Ledger')
   await shot.take('opens-spends')
+  await openSpend(page.locator(`${SPENDS} li >> nth=2`))
+  await shot.take('opens-spends-card')
+  await page.press(`${PANE} input[name=description]`, 'Escape')
 
-  // Half a screen: the pane slides over the list.
+  // Half a screen: a spend opens in place just the same.
   await shot.size(NARROW)
   await go(page, 'Ledger')
   await shot.take('narrow-spends')
-  await page.click(`${SPENDS} li >> nth=2`)
-  await page.press(SPENDS, 'Enter')
+  await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await page.waitForTimeout(300)
-  await shot.take('narrow-spends-pane')
-  await page.click(`${PANE} >> ${BACK}`)
+  await shot.take('narrow-spends-card')
+  await page.press(`${PANE} input[name=description]`, 'Escape')
   await go(page, 'Accounts')
   await shot.take('narrow-accounts')
   await go(page, 'Reports')

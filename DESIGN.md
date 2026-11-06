@@ -93,8 +93,10 @@ for amounts and dates, the code mono for account paths and a bank's own text.
   the header when something was refused, and its list at full width. Nothing persistent sits
   beside the list. Reports is the one place with two lists side by side: the tree, and the spends
   of what's selected in it.
-- **Details open in place**, under their row. Pickers open under their field, and the palette
-  opens near the top of the window over a scrim.
+- **Details open in place**, under their row: a click selects a row, and a second click or Enter
+  opens it. Esc puts back what was typed and closes them; reaching for another row closes them
+  and keeps what was typed. Pickers open under their field, and the palette opens near the top
+  of the window over a scrim.
 - **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
   Description. Day bands carry their date and the day's net. A list narrower than 520px drops
   From (the details still show it): it's the list that runs out, not the window, so this holds
@@ -150,13 +152,14 @@ screen that needs it, not copied until a third copy forces it out.
 | Part | States | Used by |
 |---|---|---|
 | `Keys` | A keycap, or several | Buttons, places, rows, the composer, the palette |
-| `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet | Everywhere; one primary per place at most |
+| `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet; danger in the error's colour; with an action's keycap or a key of its own | Everywhere; one primary per place at most |
 | `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
 | `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`), and equity's `q`, since `e` is expenses'; a screen reader hears the word; colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
 | `Listbox` | Windowed, keyboard, active option; empty | The ledger, Accounts, Reports, pickers, the palette |
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
 | `Band` | A day or a group, with its net; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
+| `Field` | Its label (and a keycap), the control, and under it what was typed means or why it was refused; in figures for an amount or a day | The card, the form that writes a spend |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
 | `PathPicker` | Opens on focus at the current level; letters in order anywhere in the path; last used first; a trail you can click at every level; Create last | The composer, chips, Refile, Accounts |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |

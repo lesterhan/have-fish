@@ -28,8 +28,9 @@ const boxes = (page: Page) =>
       .filter((l) => l.offsetParent !== null)
       .map((l) => ({
         name: l.getAttribute('aria-label'),
-        bottom: Math.round(l.getBoundingClientRect().bottom),
-        scrolls: l.scrollHeight > l.clientHeight,
+        bottom: Math.round(l.parentElement?.getBoundingClientRect().bottom ?? 0),
+        // A list scrolls in its scroller, around the listbox and any details open in it.
+        scrolls: (l.parentElement?.scrollHeight ?? 0) > (l.parentElement?.clientHeight ?? 0),
       })),
     height: innerHeight,
     pageScrolls: (document.scrollingElement?.scrollHeight ?? 0) > innerHeight,
@@ -68,7 +69,7 @@ describe('a long list', () => {
     const list = page.locator(LEDGER)
     await list.hover()
     await page.mouse.wheel(0, 600)
-    const scrolled = () => list.evaluate((l) => Math.round(l.scrollTop))
+    const scrolled = () => list.evaluate((l) => Math.round(l.parentElement?.scrollTop ?? 0))
     await expect.poll(scrolled).toBeGreaterThan(0)
     const at = await scrolled()
     const first = () => list.locator('li').first().getAttribute('aria-posinset')

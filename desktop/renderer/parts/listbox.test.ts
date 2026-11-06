@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'vitest'
-import { groupedOf, indexAt, movedTo, offsetsOf, scrolledTo, uniformOf, windowOf } from './listbox'
+import {
+  groupedOf,
+  indexAt,
+  movedTo,
+  offsetsOf,
+  scrolledTo,
+  uniformOf,
+  windowOf,
+  withRoom,
+} from './listbox'
 
 const ROW = 33
 const BAND = 24
@@ -206,5 +215,37 @@ describe('uniformOf', () => {
 
   test('an empty one draws nothing', () => {
     expect(windowOf(uniformOf(0, ROW), 0, 600)).toEqual({ from: 0, to: 0 })
+  })
+})
+
+describe('withRoom: an opened row and its details', () => {
+  const rows = uniformOf(10, 30)
+
+  test('the rows below it move down by the room; the ones above stay', () => {
+    const open = withRoom(rows, 3, 100)
+    expect([2, 3, 4, 10].map((i) => open.top(i))).toEqual([60, 90, 220, 400])
+  })
+
+  test('a point in the room is the opened row', () => {
+    const open = withRoom(rows, 3, 100)
+    expect([95, 119, 120, 219, 220, 399].map((y) => open.indexAt(y))).toEqual([3, 3, 3, 3, 4, 9])
+  })
+
+  test('scrolling to the opened row shows its details too', () => {
+    const open = withRoom(rows, 8, 100)
+    // Rows 8 and its room run 240 to 370: a view of 200 from 0 scrolls to show their end.
+    expect(scrolledTo(open, 8, 0, 200)).toBe(170)
+  })
+
+  test('keeps what a grouped layout knows', () => {
+    const open = withRoom(groupedOf([2, 3], 30, 20), 1, 50)
+    expect(open.groupAt(2)).toBe(1)
+    expect(open.starts(2)).toBe(true)
+    expect(open.top(2)).toBe(groupedOf([2, 3], 30, 20).top(2) + 50)
+  })
+
+  test('no row open, or no room: the layout as it was', () => {
+    expect(withRoom(rows, -1, 100)).toBe(rows)
+    expect(withRoom(rows, 3, 0)).toBe(rows)
   })
 })

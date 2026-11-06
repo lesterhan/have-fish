@@ -1,4 +1,4 @@
-// The app's places down the left: each a list beside a pane.
+// The app's places down the left.
 
 import type { KeyedActionId, WindowActionId } from '../shared/actions'
 import type { Moved } from '../shared/commands'

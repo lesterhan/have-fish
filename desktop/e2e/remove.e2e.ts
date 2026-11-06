@@ -3,7 +3,18 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, shownDay, spendCells, WRITE, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  shownDay,
+  spendCells,
+  WRITE,
+  writeDown,
+} from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -50,11 +61,11 @@ describe('removing a spend', () => {
     expect(await focused(page)).toBe('Ledger OL')
   })
 
-  test('the pane’s Remove does the same, with no “are you sure?”', async () => {
+  test('Remove in its details does the same, with no “are you sure?”', async () => {
     const { page } = await launch(aHome())
     await threeSpends(page)
 
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     await page.click(REMOVE)
 
     await expect
@@ -75,6 +86,7 @@ describe('removing a spend', () => {
     press('ctrl+z')
     await expect.poll(() => rows(page)).toEqual(before)
     await expect.poll(() => selected(page)).toEqual(['Coffee'])
+    await openSelected(page)
     expect(await page.inputValue(P_AMOUNT)).toBe('4.50')
   })
 
@@ -82,7 +94,7 @@ describe('removing a spend', () => {
     const { page, press } = await launch(aHome())
     await threeSpends(page)
 
-    await row(page, 'Coffee').click()
+    await openSpend(row(page, 'Coffee'))
     await page.fill(P_DESCRIPTION, 'Coffee, not saved')
     await expect.poll(async () => (await rows(page)).some((r) => r.includes('●'))).toBe(true)
     await page.click(REMOVE)
@@ -92,12 +104,15 @@ describe('removing a spend', () => {
     press('ctrl+z')
     await expect.poll(() => rows(page)).toHaveLength(3)
     expect((await rows(page)).filter((r) => r.includes('●'))).toEqual([])
+    await expect.poll(() => selected(page)).toEqual(['Coffee'])
+    await openSelected(page)
     expect(await page.inputValue(P_DESCRIPTION)).toBe('Coffee')
   })
 
   test('Delete in a text field deletes text, never a spend', async () => {
     const { page, press } = await launch(aHome())
     await threeSpends(page)
+    await openSelected(page)
 
     await page.focus(P_DESCRIPTION)
     await page.keyboard.press('Home')
@@ -115,6 +130,7 @@ describe('removing a spend', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openSelected(page)
     await page.click(REMOVE)
     await expect.poll(() => rows(page)).toEqual([])
     expect(await focused(page)).toBe('Write down a spend amount')

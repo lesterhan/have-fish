@@ -17,7 +17,7 @@ const files = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' })
  * The files whose style is layout only. Each note that moves a screen onto the parts adds its
  * files, and the list ends as every place.
  */
-const LAYOUT_ONLY = ['App.svelte', 'SpendList.svelte']
+const LAYOUT_ONLY = ['App.svelte', 'SpendList.svelte', 'SpendCard.svelte']
 
 describe('parts own what they draw', () => {
   test('it read the renderer', () => {

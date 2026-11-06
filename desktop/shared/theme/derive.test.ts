@@ -141,8 +141,8 @@ describe('the built-ins keep the contract', () => {
   })
 })
 
-test('the contract checks 46 pairs and 4 steps in each scheme', () => {
-  expect([INK.length, STEPS.length]).toEqual([46, 4])
+test('the contract checks 57 pairs and 4 steps in each scheme', () => {
+  expect([INK.length, STEPS.length]).toEqual([57, 4])
 })
 
 describe('backgroundFor', () => {

@@ -30,5 +30,5 @@ export const reports = {
     other: (amounts: string) => `Not in these totals, in other currencies: ${amounts}`,
   },
   spends: { label: 'Its spends' },
-  pane: { label: 'The spend picked' },
+  card: { label: 'The spend picked' },
 }

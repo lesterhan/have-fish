@@ -4,7 +4,18 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { dateFrom } from '@have-fish/core/typed-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, shownDay, unsavedInPane, WRITE, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  shownDay,
+  unsavedInPane,
+  WRITE,
+  writeDown,
+} from './app'
 
 const DAY = 86_400_000
 const here = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -69,14 +80,14 @@ describe('write down a spend from another day', () => {
 })
 
 describe('move a spend to another day', () => {
-  test('change its date in the pane, Enter: it moves into place in the list', async () => {
+  test('change its date in its details, Enter: it moves into place in the list', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '12', 'Lunch')
     await expect.poll(() => rows(page)).toHaveLength(1)
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(2)
 
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     expect(await page.inputValue(PANE_DATE)).toBe(today())
     await page.fill(PANE_DATE, daysAgo(1))
     expect(await unsavedInPane(page)).toBe(1)
@@ -94,9 +105,11 @@ describe('move a spend to another day', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openSelected(page)
     await page.fill(PANE_DATE, daysAgo(3))
     await page.press(PANE_DATE, 'Escape')
 
+    await openSelected(page)
     expect(await page.inputValue(PANE_DATE)).toBe(today())
     expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
@@ -106,6 +119,7 @@ describe('move a spend to another day', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openSelected(page)
     await page.fill(PANE_DATE, '')
     await page.press(PANE_DATE, 'Enter')
 
@@ -117,7 +131,7 @@ describe('move a spend to another day', () => {
 })
 
 describe('type a date quickly', () => {
-  const WRITE_UNDERSTOOD = `${WRITE} #date-understood`
+  const WRITE_UNDERSTOOD = `${WRITE} #date-note`
   /** What a short form means today, here, and how the field says it. */
   const means = (typed: string) => {
     const date = dateFrom(typed, today())
@@ -160,14 +174,15 @@ describe('type a date quickly', () => {
     expect(await rows(page)).toEqual([])
   })
 
-  test('the short way in the pane: y, Enter, and the spend moves to yesterday', async () => {
+  test('the short way in its details: y, Enter, and the spend moves to yesterday', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
+    await openSelected(page)
 
     await page.fill(PANE_DATE, 'y')
     await expect
-      .poll(() => page.innerText(`${PANE} #pane-date-understood`))
+      .poll(() => page.innerText(`${PANE} #pane-date-note`))
       .toBe(shownDay(dateFrom('y', today()) as string))
     await page.press(PANE_DATE, 'Enter')
 

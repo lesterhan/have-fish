@@ -42,7 +42,8 @@ export const spends = {
   dateUnread: "That isn't a day it can read. Try y, -3, mon or 10-31.",
   /** Read out beside the ● on a spend with a draft. */
   unsaved: 'unsaved changes',
-  pane: {
+  /** A spend's details, open under its row. */
+  card: {
     label: 'The spend',
     description: 'What for',
     amount: 'Amount',
@@ -50,9 +51,10 @@ export const spends = {
     to: 'To',
     from: 'From',
     save: 'Save',
+    close: 'Close',
+    /** Close's keycap. */
+    esc: 'Esc',
     remove: 'Remove',
-    back: 'Back to the list',
-    nothing: 'Spends you write down show up here.',
     notSimple: "This one moves more than one amount, so it can't be changed here yet.",
   },
 }

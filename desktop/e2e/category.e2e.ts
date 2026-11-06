@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, PANE, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, launch, openSelected, openSpend, PANE, rows, WRITE } from './app'
 
 const CATEGORY = `${WRITE} input[name=to]`
 const OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories and accounts"]`
@@ -28,7 +28,11 @@ async function writeIn(page: Page, amount: string, description: string, category
 }
 
 const offered = (page: Page) => page.locator(`${OPTIONS} [role=option]`).allInnerTexts()
-const categoryOfSelected = (page: Page) => page.inputValue(PANE_CATEGORY)
+/** Where the selected spend went, as its details say. */
+const categoryOfSelected = async (page: Page) => {
+  if (!(await page.isVisible(PANE))) await openSelected(page)
+  return page.inputValue(PANE_CATEGORY)
+}
 
 describe('a category for a spend I write down', () => {
   test('one I have never used is offered as new, and made', async () => {
@@ -114,10 +118,11 @@ describe('a category for a spend I write down', () => {
   })
 })
 
-describe('changing the category in the pane', () => {
+describe('changing the category in its details', () => {
   test('a draft, with ●, until it is saved; Ctrl+Z puts it back', async () => {
     const { page, press } = await launch(aHome())
     await writeIn(page, '12', 'Lunch', 'food')
+    await openSelected(page)
 
     await page.locator(PANE_CATEGORY).focus()
     await page.keyboard.press('ControlOrMeta+A')
@@ -146,7 +151,7 @@ describe('changing the category in the pane', () => {
     await page.waitForSelector('ol[aria-label=Accounts] li:has-text("chequing")')
 
     await page.click('nav button:has-text("Ledger")')
-    await page.click('ol[aria-label=Ledger] li')
+    await openSpend(page.locator('ol[aria-label=Ledger] li'))
 
     await expect.poll(() => page.locator(`${PANE} input[name=amount]`).isVisible()).toBe(true)
     expect(await page.locator(PANE_CATEGORY).count()).toBe(0)

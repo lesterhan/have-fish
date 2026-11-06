@@ -158,8 +158,15 @@ export const BACK = 'role=button[name="Back to the list"s]'
 
 /** The form that writes a spend down. */
 export const WRITE = 'form[aria-label="Write down a spend"]'
-/** The pane that shows the selected spend. */
+/** A spend's details, open under its row in the ledger. */
 export const PANE = 'section[aria-label="The spend"]'
+
+/** Opens a spend's details as a person does: a click selects its row, and another opens it. */
+export async function openSpend(row: Locator, card = PANE): Promise<void> {
+  await row.click()
+  await row.click()
+  await row.page().waitForSelector(card)
+}
 
 /** Each row's cells as text, in reading order: the row as a person sees it. */
 export const cellsOf = (rows: Locator) =>
@@ -167,12 +174,19 @@ export const cellsOf = (rows: Locator) =>
     items.map((row) => [...row.children].map((c) => c.textContent?.trim() ?? '')),
   )
 
-/** How many ● marks the spend pane shows: 1 for a draft, found by its words. */
+/** How many ● marks a spend's details show: 1 for a draft, found by its words. */
 export const unsavedInPane = (page: Page) =>
   page.locator(PANE).getByText('unsaved changes', { exact: true }).count()
 
-/** The pane's "From <account>" line, for a spend that came out of an account. */
-export const fromLine = (page: Page) => page.locator(PANE).getByText(/^From\s/)
+/** The details' From: the path the spend came out of, as words (`liabilities visa`). */
+export const fromLine = (page: Page) => page.locator(`${PANE} output`)
+
+/** Opens the selected spend's details with Enter on its list, as the keys do. */
+export async function openSelected(page: Page, list = 'ol[aria-label=Ledger]', card = PANE) {
+  await page.focus(list)
+  await page.keyboard.press('Enter')
+  await page.waitForSelector(card)
+}
 
 /** Types a spend the way a person does: amount, Tab, what for, Enter. */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {

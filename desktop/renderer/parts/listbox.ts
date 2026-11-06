@@ -49,6 +49,18 @@ export function uniformOf(count: number, height: number): Layout {
   }
 }
 
+/** `layout` with `extra` px more under row `index`: the room an opened row's details take. */
+export function withRoom<L extends Layout>(layout: L, index: number, extra: number): L {
+  if (index < 0 || index >= layout.count || extra <= 0) return layout
+  const below = layout.top(index + 1)
+  return {
+    ...layout,
+    top: (i: number) => layout.top(i) + (i > index ? extra : 0),
+    indexAt: (y: number) =>
+      y < below ? layout.indexAt(y) : y < below + extra ? index : layout.indexAt(y - extra),
+  }
+}
+
 /** A layout of rows in groups, each under a band: which group a row is in, and if it's the first. */
 export type Grouped = Layout & { groupAt(row: number): number; starts(row: number): boolean }
 

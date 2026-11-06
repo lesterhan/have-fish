@@ -1,41 +1,34 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte'
   import { copy } from '../copy'
-  import type { To, WireFailure } from '../shared/commands'
-  import {
-    afterSaves,
-    type Drafts,
-    editOf,
-    type Sending,
-    savedValues,
-    toSend,
-    type Values,
-    withEdit,
-    without,
-  } from './drafts'
+  import type { ListedTransaction } from '../shared/commands'
+  import type { Values } from './drafts'
+  import type { SpendEditor } from './editor'
   import { dayOf, todayIn, understood } from './format'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
-  import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf, fromOptions, toOf, toOptions } from './picker'
-  import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
+  import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import Button from './parts/Button.svelte'
   import Header from './parts/Header.svelte'
   import Keys from './parts/Keys.svelte'
   import Notice from './parts/Notice.svelte'
   import { ariaShortcut, MAC } from './shortcuts'
   import Day from './parts/Day.svelte'
+  import Field from './parts/Field.svelte'
+  import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
-  import SpendPane from './SpendPane.svelte'
 
   type Props = {
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
+    /** Every spend I'm changing, in whichever place: one editor for the window. */
+    editor: SpendEditor
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, ledger, forgetTyping }: Props = $props()
+  let { hidden, ledger, editor, forgetTyping }: Props = $props()
 
   let amount = $state('')
   let description = $state('')
@@ -43,7 +36,7 @@
   let date = $state(todayIn())
   /** Whether Date holds my choice: until then it follows the calendar, and main dates it. */
   let dateChosen = false
-  let error = $state<{ field: Field; words: string } | null>(null)
+  let error = $state<{ field: Where; words: string } | null>(null)
   let saving = $state(false)
   let amountInput: HTMLInputElement
   let dateInput: HTMLInputElement
@@ -88,16 +81,17 @@
   let selectedId = $state<string | null>(null)
   /** The spend written last, while it slides into its row. */
   let justWritten = $state<string | null>(null)
-  let drafts = $state.raw<Drafts>(new Map())
-  let savingDraft = $state(false)
-  /** In a narrow window, whether the pane is over the list. */
-  let open = $state(false)
+  const drafts = $derived($editor.drafts)
+  /** The spend whose details I opened; they stay open while it's the one selected. */
+  let openedId = $state<string | null>(null)
+  const opened = $derived(openedId !== null && openedId === selectedId ? openedId : null)
   let list: SpendList
-  let pane: SpendPane
+  let card: SpendCard | undefined = $state()
 
   const selected = $derived(rowWithId($ledger, selectedId))
   /** The day the date field means, said under it. */
   const meant = $derived(understood(date))
+  const refusalOf = (field: Where) => (error?.field === field ? error.words : null)
 
   // Each load: Date follows the calendar and From the account used last, unless I chose them,
   // and the selection stays while it's in the ledger, else goes to the newest. Drafts are left
@@ -119,16 +113,6 @@
   $effect(() => ledger.keep([selectedId, ...drafts.keys()]))
 
   onMount(() => amountInput.focus())
-
-  // A wide window shows the pane beside the list, so there's nothing left open to cover it.
-  onMount(() => {
-    const narrow = matchMedia(NARROW)
-    const widened = () => {
-      if (!narrow.matches) open = false
-    }
-    narrow.addEventListener('change', widened)
-    return () => narrow.removeEventListener('change', widened)
-  })
 
   /** Coming here from another place: the list, or the amount field while there's nothing in it. */
   export function focus() {
@@ -194,67 +178,15 @@
   }
 
   function edit(field: keyof Values, value: string) {
-    const saved = selected && savedValues(selected)
-    if (selected === undefined || !saved) return
-    drafts = withEdit(drafts, selected.id, saved, field, value)
-  }
-
-  function revert() {
-    if (selectedId !== null) drafts = without(drafts, selectedId)
-  }
-
-  /** Each draft is its own batch, so one that's refused doesn't hold back the rest. */
-  async function saveDrafts(ids: Iterable<string>, all: boolean) {
-    const sending = toSend(drafts, ids)
-    if (sending.length === 0 || savingDraft) return
-    savingDraft = true
-    const saves = await (all ? sentAll(sending) : sentOne(sending))
-    // The list first, so the pane never shows the old values in between.
-    if (saves.some((s) => s.error === null)) {
-      forgetTyping()
-      await ledger.caughtUp()
-    }
-    drafts = afterSaves(drafts, saves)
-    savingDraft = false
-  }
-
-  const refusedFor = (refused: WireFailure | null, to?: To) =>
-    refused && { field: fieldOf(refused, to), words: spendWordsFor(refused) }
-
-  /** A draft as main takes it, sending where it goes only if that changed. */
-  const sent = (s: Sending) => {
-    const saved = rowWithId(ledger.current(), s.id)
-    return editOf(s, saved?.to, (typed) => toOf(payers, typed), saved?.date)
-  }
-
-  /** The pane's Save: the spend showing, as its own step. */
-  async function sentOne(sending: Sending[]) {
-    return Promise.all(
-      sending.map(async (s) => {
-        const edit = sent(s)
-        const saved = await window.haveFish.invoke('spend.edit', edit)
-        return { ...s, error: refusedFor(saved.ok ? null : saved, edit.to) }
-      }),
-    )
-  }
-
-  /** Ctrl+S's drafts go as one command, so undo takes them back as one step. */
-  async function sentAll(sending: Sending[]) {
-    const edits = sending.map(sent)
-    const saved = await window.haveFish.invoke('spend.saveAll', { edits })
-    if (!saved.ok) return sending.map((s) => ({ ...s, error: refusedFor(saved) }))
-    return sending.map((s, i) => ({
-      ...s,
-      error: refusedFor(saved.value[i]?.refused ?? null, edits[i]?.to),
-    }))
+    if (selected !== undefined) editor.edit(selected, field, value)
   }
 
   function save() {
-    if (selectedId !== null) void saveDrafts([selectedId], false)
+    if (selectedId !== null) void editor.save([selectedId], false, ledger.caughtUp)
   }
 
   export function saveAll() {
-    void saveDrafts(drafts.keys(), true)
+    void editor.save(editor.current().drafts.keys(), true, ledger.caughtUp)
   }
 
   let removing = false
@@ -268,35 +200,37 @@
     const at = await ledger.locate(id)
     const next =
       at === null ? null : ((await ledger.rowAt(at + 1)) ?? (await ledger.rowAt(at - 1)))?.id ?? null
-    const removed = await window.haveFish.invoke('spend.remove', { id })
+    const refused = await editor.remove(id)
     removing = false
-    if (!removed.ok) {
-      error = { field: 'form', words: wordsFor(removed) }
+    if (refused !== null) {
+      error = { field: 'form', words: wordsFor(refused) }
       return
     }
-    drafts = without(drafts, id)
+    const wasOpen = opened === id
     selectedId = next
-    forgetTyping()
     await ledger.caughtUp()
-    // With nothing left to show, the pane's button is gone, and the cursor with it.
+    // Removed from its card, the cursor goes back to the list; with nothing left, to Amount.
     if (selectedId === null) amountInput.focus()
+    else if (wasOpen) list.focus()
   }
 
-  /** Ctrl+N: the amount field, with the pane out of its way. */
+  /** Ctrl+N: the amount field, with the details out of its way. Any draft stays. */
   export function newSpend() {
-    open = false
+    openedId = null
     amountInput.focus()
   }
 
-  async function openPane(focus: boolean) {
-    open = matchMedia(NARROW).matches
+  async function open(focus: boolean) {
+    openedId = selectedId
     if (!focus) return
     await tick()
-    pane.focus()
+    card?.focus()
   }
 
-  function closePane() {
-    open = false
+  /** Esc: what was typed goes back, the details close, and the row stays selected. */
+  function close() {
+    if (opened !== null) editor.revert(opened)
+    openedId = null
     list.focus()
   }
 </script>
@@ -308,102 +242,91 @@
   </div>
 
   <form class="write" aria-label={copy.spends.write.label} onsubmit={write} novalidate>
-    <label>
-      <span>
-        {copy.spends.write.amount}
-        <Keys action="newSpend" />
-      </span>
-      <input
-        bind:this={amountInput}
-        aria-keyshortcuts={ariaShortcut('newSpend', MAC)}
-        bind:value={amount}
-        name="amount"
-        inputmode="decimal"
-        autocomplete="off"
-        maxlength="64"
-        aria-invalid={error?.field === 'amount'}
-        aria-describedby={error?.field === 'amount' ? 'amount-error' : undefined}
-      />
-    </label>
-    {#if error?.field === 'amount'}
-      <p class="error" id="amount-error" role="alert">{error.words}</p>
-    {/if}
+    <Field id="amount" label={copy.spends.write.amount} error={refusalOf('amount')} figures>
+      {#snippet keys()}<Keys action="newSpend" />{/snippet}
+      {#snippet children(describedby)}
+        <input
+          bind:this={amountInput}
+          id="amount"
+          aria-keyshortcuts={ariaShortcut('newSpend', MAC)}
+          bind:value={amount}
+          name="amount"
+          inputmode="decimal"
+          autocomplete="off"
+          maxlength="64"
+          aria-invalid={error?.field === 'amount'}
+          aria-describedby={describedby}
+        />
+      {/snippet}
+    </Field>
 
-    <label>
-      <span>{copy.spends.write.description}</span>
-      <input
-        bind:value={description}
-        name="description"
-        autocomplete="off"
-        maxlength="500"
-        aria-invalid={error?.field === 'description'}
-        aria-describedby={error?.field === 'description' ? 'description-error' : undefined}
-      />
-    </label>
-    {#if error?.field === 'description'}
-      <p class="error" id="description-error" role="alert">{error.words}</p>
-    {/if}
+    <Field id="description" label={copy.spends.write.description} error={refusalOf('description')}>
+      {#snippet children(describedby)}
+        <input
+          id="description"
+          bind:value={description}
+          name="description"
+          autocomplete="off"
+          maxlength="500"
+          aria-invalid={error?.field === 'description'}
+          aria-describedby={describedby}
+        />
+      {/snippet}
+    </Field>
 
-    <span class="field">
-      <label for="write-to">{copy.spends.write.to}</label>
-      <Picker
-        bind:this={toPicker}
-        id="write-to"
-        name="to"
-        options={toChoices}
-        bind:text={toText}
-        placeholder={copy.spends.write.unsorted}
-        listLabel={copy.spends.write.toList}
-        invalid={error?.field === 'to'}
-        describedby={error?.field === 'to' ? 'to-error' : undefined}
-        onchoose={() => {}}
-        newOption={copy.spends.write.newCategory}
-      />
-    </span>
-    {#if error?.field === 'to'}
-      <p class="error" id="to-error" role="alert">{error.words}</p>
-    {/if}
+    <Field id="to" label={copy.spends.write.to} error={refusalOf('to')}>
+      {#snippet children(describedby)}
+        <Picker
+          bind:this={toPicker}
+          id="to"
+          name="to"
+          options={toChoices}
+          bind:text={toText}
+          placeholder={copy.spends.write.unsorted}
+          listLabel={copy.spends.write.toList}
+          invalid={error?.field === 'to'}
+          {describedby}
+          onchoose={() => {}}
+          newOption={copy.spends.write.newCategory}
+        />
+      {/snippet}
+    </Field>
 
-    <span class="field">
-      <label for="write-from">{copy.spends.write.from}</label>
-      <Picker
-        bind:this={fromPicker}
-        id="write-from"
-        name="from"
-        options={fromChoices}
-        bind:text={fromText}
-        placeholder={assumedName ?? copy.spends.write.wallet}
-        listLabel={copy.spends.write.fromList}
-        invalid={error?.field === 'from'}
-        describedby={error?.field === 'from' ? 'from-error' : undefined}
-        onchoose={() => (fromChosen = true)}
-        newOption={copy.spends.write.newIncome}
-      />
-    </span>
-    {#if error?.field === 'from'}
-      <p class="error" id="from-error" role="alert">{error.words}</p>
-    {/if}
+    <Field id="from" label={copy.spends.write.from} error={refusalOf('from')}>
+      {#snippet children(describedby)}
+        <Picker
+          bind:this={fromPicker}
+          id="from"
+          name="from"
+          options={fromChoices}
+          bind:text={fromText}
+          placeholder={assumedName ?? copy.spends.write.wallet}
+          listLabel={copy.spends.write.fromList}
+          invalid={error?.field === 'from'}
+          {describedby}
+          onchoose={() => (fromChosen = true)}
+          newOption={copy.spends.write.newIncome}
+        />
+      {/snippet}
+    </Field>
 
     <!-- Typed the short way too (`y`, `-3`, `mon`, `10-31`); what it means shows under it. -->
-    <label>
-      <span>{copy.spends.write.date}</span>
-      <input
-        bind:this={dateInput}
-        bind:value={date}
-        oninput={() => (dateChosen = true)}
-        name="date"
-        autocomplete="off"
-        maxlength="10"
-        aria-invalid={error?.field === 'date'}
-        aria-describedby={[error?.field === 'date' ? 'date-error' : '', 'date-understood'].join(' ').trim()}
-      />
-    </label>
-    <p class="understood" id="date-understood">
-      {#if meant !== null}<Day date={meant} />{/if}
-    </p>
-    {#if error?.field === 'date'}
-      <p class="error" id="date-error" role="alert">{error.words}</p>
-    {/if}
+    <Field id="date" label={copy.spends.write.date} error={refusalOf('date')} figures>
+      {#snippet note()}{#if meant !== null}<Day date={meant} />{/if}{/snippet}
+      {#snippet children(describedby)}
+        <input
+          id="date"
+          bind:this={dateInput}
+          bind:value={date}
+          oninput={() => (dateChosen = true)}
+          name="date"
+          autocomplete="off"
+          maxlength="10"
+          aria-invalid={error?.field === 'date'}
+          aria-describedby={describedby}
+        />
+      {/snippet}
+    </Field>
 
     <Button type="submit" variant="primary" disabled={saving}>{copy.spends.write.submit}</Button>
     {#if error?.field === 'form'}
@@ -425,35 +348,37 @@
     written={justWritten}
     {drafts}
     onselect={(id) => (selectedId = id)}
-    onopen={openPane}
+    {opened}
+    onopen={open}
+    onclose={close}
     onremove={remove}
-  />
-
-  <SpendPane
-    bind:this={pane}
-    transaction={selected}
-    draft={selected && drafts.get(selected.id)}
-    toOptions={toChoices}
-    saving={savingDraft}
-    {open}
-    onedit={edit}
-    onrevert={revert}
-    onsave={save}
-    onback={closePane}
-    onremove={remove}
-  />
+  >
+    {#snippet details(t: ListedTransaction)}
+      <SpendCard
+        bind:this={card}
+        transaction={t}
+        draft={drafts.get(t.id)}
+        toOptions={toChoices}
+        saving={$editor.saving}
+        onedit={edit}
+        onsave={save}
+        onclose={close}
+        onremove={remove}
+      />
+    {/snippet}
+  </SpendList>
 </main>
 
 <style>
+  /* The form beside the list, which has the rest: a spend's details open inside it. */
   main {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       'top top'
-      'write pane'
-      'list pane';
+      'write list';
     gap: var(--space-4) var(--space-6);
     padding: var(--space-4);
   }
@@ -472,6 +397,7 @@
   @media (max-width: 44rem) {
     main {
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       grid-template-areas:
         'top'
         'write'
@@ -482,54 +408,9 @@
 
   form {
     grid-area: write;
+    align-self: start;
     display: grid;
     gap: var(--space-2);
-  }
-
-  label {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  label span,
-  .field label {
-    font-size: var(--text-quiet);
-    color: var(--color-muted);
-  }
-
-  .field {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  label span :global(kbd) {
-    margin-inline-start: var(--space-2);
-  }
-
-  input {
-    font: inherit;
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-control);
-    color: inherit;
-    background: transparent;
-  }
-
-  input[name='amount'],
-  input[name='date'] {
-    font-family: var(--font-figures);
-    font-variant-numeric: tabular-nums;
-  }
-
-  input[aria-invalid='true'] {
-    border-color: var(--color-error);
-  }
-
-  .understood {
-    margin: 0;
-    min-height: 1lh;
-    font-size: var(--text-quiet);
-    color: var(--color-muted);
   }
 
   .error {

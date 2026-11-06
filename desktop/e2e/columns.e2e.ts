@@ -39,7 +39,8 @@ const cellsIn = (page: Page, list: string) =>
 /** The headings over a list, each with its edges. */
 const headingsOver = (page: Page, list: string) =>
   page.evaluate((list) => {
-    const headings = document.querySelector(list)?.previousElementSibling
+    // Over the list's scroller, which holds the listbox.
+    const headings = document.querySelector(list)?.parentElement?.previousElementSibling
     return [...(headings?.children ?? [])].map((h) => {
       const { left, right } = h.getBoundingClientRect()
       return { name: h.textContent, left, right }
@@ -81,7 +82,9 @@ describe("a row's columns", () => {
     await page.waitForFunction(() => document.getAnimations().length === 0)
     const scrolls = await page
       .locator(LEDGER)
-      .evaluate((list) => list.scrollHeight > list.clientHeight)
+      .evaluate(
+        (list) => (list.parentElement?.scrollHeight ?? 0) > (list.parentElement?.clientHeight ?? 0),
+      )
     expect(scrolls).toBe(true)
 
     const cells = await cellsIn(page, LEDGER)
