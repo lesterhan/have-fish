@@ -4,7 +4,11 @@ import type { AddableKind } from '@have-fish/core/account-kind'
 
 export const accounts = {
   add: 'Add account',
-  list: { label: 'Accounts' },
+  list: {
+    label: 'Accounts',
+    /** The headings over the list's columns. */
+    columns: { account: 'Account', kind: 'Kind', balance: 'Balance' },
+  },
   /** In my words: never asset, liability or equity. */
   kinds: {
     cash: 'Cash',
@@ -40,6 +44,8 @@ export const accounts = {
       owe: 'How much do you owe on it today?',
     },
     started: { have: 'Started with', owe: 'Owed at the start' },
+    /** The field the folded question opens: how much. */
+    amount: 'Amount',
     saveStart: 'Save',
     save: 'Add account',
     cancel: 'Cancel',

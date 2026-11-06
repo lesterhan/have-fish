@@ -48,7 +48,8 @@
     margin-inline-start: var(--space-1);
   }
 
-  .field :global(input) {
+  .field :global(input),
+  .field :global(select) {
     min-width: 0;
     font: inherit;
     padding: var(--space-2);
@@ -64,7 +65,8 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .refused :global(input) {
+  .refused :global(input),
+  .refused :global(select) {
     border-color: var(--color-error);
   }
 

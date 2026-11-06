@@ -2,6 +2,8 @@
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
   import Empty from '../renderer/parts/Empty.svelte'
+  import Field from '../renderer/parts/Field.svelte'
+  import Fold from '../renderer/parts/Fold.svelte'
   import Header from '../renderer/parts/Header.svelte'
   import Keys from '../renderer/parts/Keys.svelte'
   import Notice from '../renderer/parts/Notice.svelte'
@@ -165,8 +167,17 @@
   </section>
 
   <section aria-label="Band">
-    <h2>Band: a day and its net</h2>
+    <h2>Band: a day and its net; a root and what it comes to</h2>
     <div class="frame"><Band date={TODAY} today={TODAY} net={[cad('-32.69')]} /></div>
+    <div class="frame"><Band net={[cad('12276.65')]}><Path path="assets" /></Band></div>
+  </section>
+
+  <section aria-label="Fold">
+    <h2>Fold: a question folded, then opened on its field</h2>
+    <div class="frame"><Fold summary="How much is in it today?">{@render amount('fold-closed')}</Fold></div>
+    <div class="frame">
+      <Fold summary="How much is in it today?" open>{@render amount('fold-open')}</Fold>
+    </div>
   </section>
 
   <section aria-label="Rows">
@@ -207,6 +218,12 @@
       />
     </div>
   </section>
+
+  {#snippet amount(id: string)}
+    <Field {id} label="Amount" figures>
+      {#snippet children(describedby)}<input {id} value="1,234.56" aria-describedby={describedby} />{/snippet}
+    </Field>
+  {/snippet}
 
   <section aria-label="Sidebar">
     <h2>Sidebar, a place current</h2>

@@ -1,21 +1,27 @@
 <script lang="ts">
-  // A day's band over its rows: the day, and what it came to at the right. Its net is main's,
-  // summed in SQL over the whole day, never over the rows the window holds (see #611).
+  // A band over a group of rows: a day, or what an account's root is, and what they come to at
+  // the right. A day's net is main's, summed in SQL over the whole day, never over the rows the
+  // window holds (see #611).
+  import type { Snippet } from 'svelte'
   import type { Money as Amount } from '../../shared/commands'
   import Day from './Day.svelte'
   import Money from './Money.svelte'
 
   type Props = {
-    date: string
-    today: string
+    /** The day, or `children` in its place. */
+    date?: string | undefined
+    today?: string | undefined
     /** Undefined until the day's net arrives; a day that nets to nothing has none. */
     net?: readonly Amount[] | undefined
+    children?: Snippet | undefined
   }
-  let { date, today, net }: Props = $props()
+  let { date, today, net, children }: Props = $props()
 </script>
 
 <div class="band">
-  <span class="day"><Day {date} {today} band /></span>
+  <span class="what"
+    >{#if children}{@render children()}{:else if date !== undefined}<Day {date} {today} band />{/if}</span
+  >
   {#if net !== undefined && net.length > 0}<span class="net"><Money of={net} /></span>{/if}
 </div>
 

@@ -1,9 +1,15 @@
 <script lang="ts">
+  // The accounts as a tree under their roots: each root a band with what it comes to, each child
+  // indented under its parent and named from it (`:chequing`), and a parent nobody added there
+  // for its children's total, never selected.
   import { copy } from '../copy'
   import type { ListedAccount } from '../shared/commands'
-  import type { AccountRow } from './balances'
-  import Money from './parts/Money.svelte'
+  import { ACCOUNT_COLUMNS as COLUMNS, type AccountRow, accountGroups } from './balances'
+  import Band from './parts/Band.svelte'
+  import Headings from './parts/Headings.svelte'
   import Listbox from './parts/Listbox.svelte'
+  import Money from './parts/Money.svelte'
+  import Path from './parts/Path.svelte'
 
   type Props = {
     /** What shows: every account, and the parents their names imply. */
@@ -19,6 +25,14 @@
 
   let listbox: ReturnType<typeof Listbox<AccountRow>>
 
+  const groups = $derived(accountGroups(rows))
+  const names = copy.accounts.list.columns
+  const headings = [
+    { name: names.account },
+    { name: names.kind },
+    { name: names.balance, end: true },
+  ]
+
   export function focus() {
     listbox.focus()
   }
@@ -32,7 +46,7 @@
 </script>
 
 <div class="list">
-  <!-- A parent nobody added is there for its children's total, and never selected. -->
+  <Headings columns={COLUMNS} names={headings} />
   <Listbox
     bind:this={listbox}
     items={rows}
@@ -40,7 +54,8 @@
     active={selectedId}
     label={copy.accounts.list.label}
     idPrefix="account"
-    columns="minmax(0, 1fr) 7rem 7rem auto"
+    columns={COLUMNS}
+    groups={groups.map((g) => g.count)}
     disabled={(r) => r.account === undefined}
     onactive={onselect}
     onpick={(id) => {
@@ -49,14 +64,19 @@
     }}
     {onkey}
   >
+    {#snippet band(g)}
+      {@const group = groups[g]}
+      {#if group}
+        <Band net={group.total.map((b) => b.money)}><Path path={group.root} /></Band>
+      {/if}
+    {/snippet}
     {#snippet row(r)}
       {@const a = r.account}
-      <span class="name" class:parent={!a} style:--depth={r.depth}>{r.label}</span>
-      <span class="kind">{a ? copy.accounts.kinds[a.kind] : ''}</span>
-      <span class="currency" class:code={a?.currency != null}>
-        {a ? (a.currency ?? copy.accounts.anyCurrency) : ''}
-      </span>
-      <span class="balance"
+      <span data-cell="name" style:padding-inline-start="calc({r.depth} * var(--space-4))"
+        >{r.depth > 0 ? `:${r.label}` : r.label}</span
+      >
+      <span data-cell="kind">{a ? copy.accounts.kinds[a.kind] : ''}</span>
+      <span data-cell="balance"
         >{#each r.balance as { money, owed }, i (money.currency)}{#if i > 0}{' · '}{/if}{#if owed}{`${copy.accounts.owed} `}{/if}<Money
             of={money}
           />{/each}</span
@@ -69,38 +89,11 @@
   .list {
     grid-area: list;
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
   }
 
-  .name {
-    padding-inline-start: calc(var(--depth) * var(--space-4));
-    font-family: var(--font-serif);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .kind {
-    color: var(--color-muted);
-  }
-
-  .currency {
-    text-align: end;
-  }
-
-  .balance {
-    text-align: end;
-    font-family: var(--font-figures);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  .name.parent {
-    color: var(--color-muted);
-  }
-
-  /* A currency code is data; "Any currency" is words. */
-  .code {
-    font-family: var(--font-figures);
+  [data-cell='balance'] {
+    justify-self: end;
   }
 </style>

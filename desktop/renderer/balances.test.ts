@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { ListedAccount } from '../shared/commands'
-import { accountRows, type Balance, balanceOf } from './balances'
+import { accountGroups, accountRows, type Balance, balanceOf } from './balances'
 import { money } from './format'
 
 const account = (fields: Partial<ListedAccount>): ListedAccount => ({
@@ -106,5 +106,45 @@ describe('accountRows', () => {
       account({ id: 'c', name: 'cash' }),
     ])
     expect(rows.map((r) => said(r.balance))).toEqual(['0.00', '0.00 USD'])
+  })
+})
+
+describe('accounts under their roots', () => {
+  const home = [
+    account({ id: 'l', name: 'car-loan', kind: 'loan', balance: [cad('-9390.00')] }),
+    account({ id: 'c', name: 'tangerine:chequing', kind: 'bank', balance: [cad('3145.28')] }),
+    account({ id: 's', name: 'tangerine:savings', kind: 'bank', balance: [cad('9000.00')] }),
+    account({ id: 'v', name: 'visa', kind: 'card', balance: [cad('-1218.00')] }),
+    account({ id: 'w', name: 'wallet', kind: 'cash', balance: [cad('131.37')] }),
+  ]
+
+  test('what I have comes first, then what I owe, each account under its parent', () => {
+    expect(accountRows(home).map((r) => [r.root, r.label, r.depth])).toEqual([
+      ['assets', 'tangerine', 0],
+      ['assets', 'chequing', 1],
+      ['assets', 'savings', 1],
+      ['assets', 'wallet', 0],
+      ['liabilities', 'car-loan', 0],
+      ['liabilities', 'visa', 0],
+    ])
+  })
+
+  test('each root is a group, with how many rows it has and what it comes to', () => {
+    const groups = accountGroups(accountRows(home))
+    expect(groups.map((g) => [g.root, g.count, said(g.total)])).toEqual([
+      ['assets', 4, '12,276.65'],
+      ['liabilities', 2, 'owed 10,608.00'],
+    ])
+  })
+
+  test('a root in more than one currency says each; none is no groups', () => {
+    const groups = accountGroups(
+      accountRows([
+        account({ id: 'c', name: 'cash', balance: [cad('10.00')] }),
+        account({ id: 'e', name: 'euros', balance: [{ amount: '5.00', currency: 'EUR' }] }),
+      ]),
+    )
+    expect(groups.map((g) => said(g.total))).toEqual(['10.00 · 5.00 EUR'])
+    expect(accountGroups([])).toEqual([])
   })
 })

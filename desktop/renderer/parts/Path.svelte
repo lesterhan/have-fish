@@ -3,6 +3,7 @@
   // alone, then the rest in the code face with the colons quiet and the last part at 500. The
   // rules are in `path.ts`. A screen reader hears the root's word, which the tag stands for; the
   // tag's letter is drawn by CSS, so the path's text, copied or read, is `liabilities cibc:visa`.
+  // A root alone is its tag and its word.
   import { pathOf } from './path'
 
   let { path }: { path: string } = $props()
@@ -11,7 +12,7 @@
 </script>
 
 <span class="path"
-  ><span class="word">{`${shown.root} `}</span><span class="tag" data-root={shown.root} data-tag={shown.tag} aria-hidden="true"></span><span class="name"
+  >{#if path.includes(':')}<span class="word">{`${shown.root} `}</span>{/if}<span class="tag" data-root={shown.root} data-tag={shown.tag} aria-hidden="true"></span><span class="name"
     >{#each shown.parents as parent, i (i)}{parent}<span class="colon">:</span>{/each}<span
       class="leaf">{shown.leaf}</span
     ></span

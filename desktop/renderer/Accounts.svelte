@@ -185,7 +185,8 @@
     onopen={() => (open = matchMedia(NARROW).matches)}
   />
 
-  <AccountPane
+  <div class="pane">
+    <AccountPane
     bind:this={pane}
     account={selected}
     {adding}
@@ -197,6 +198,7 @@
     oncancel={() => void cancel()}
     onback={closePane}
   />
+  </div>
 </main>
 
 <style>
@@ -216,6 +218,12 @@
     display: none;
   }
 
+  .pane {
+    grid-area: pane;
+    display: grid;
+    min-height: 0;
+  }
+
   .top {
     grid-area: top;
     display: grid;
@@ -230,6 +238,11 @@
         'top'
         'list';
       padding: var(--space-3);
+    }
+
+    /* The pane slides over the list, out of the grid. */
+    .pane {
+      display: contents;
     }
   }
 </style>
