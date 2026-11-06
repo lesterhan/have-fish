@@ -3,7 +3,6 @@
 
 import { copy } from '../../copy'
 import type { Typing } from '../../shared/commands'
-import type { StepName } from '../../shared/steps'
 import type { History } from './history'
 import type { Step } from './steps'
 
@@ -15,7 +14,7 @@ export function undoItems(history: History<Step>, typing: Typing): UndoItems {
   const item = (way: 'undo' | 'redo', next: Step | undefined): Item => {
     if (typing[way]) return { label: copy.actions.typing[way], enabled: true }
     if (next === undefined) return { label: labels[way], enabled: false }
-    return { label: named(way, next.name), enabled: true }
+    return { label: copy.steps.said(way, next.name), enabled: true }
   }
   return { undo: item('undo', history.nextUndo()), redo: item('redo', history.nextRedo()) }
 }
@@ -24,22 +23,4 @@ export function undoItems(history: History<Step>, typing: Typing): UndoItems {
 export function typingFrom(said: unknown): Typing {
   const { undo, redo } = (typeof said === 'object' && said !== null ? said : {}) as Partial<Typing>
   return { undo: undo === true, redo: redo === true }
-}
-
-function named(way: 'undo' | 'redo', name: StepName): string {
-  const words = copy.steps[way]
-  switch (name.kind) {
-    case 'write':
-      return words.write(name)
-    case 'edit':
-      return words.edit(name)
-    case 'saveAll':
-      return words.saveAll(name)
-    case 'remove':
-      return words.remove(name)
-    case 'addAccount':
-      return words.addAccount(name)
-    case 'start':
-      return words.start(name)
-  }
 }

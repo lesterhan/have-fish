@@ -5,7 +5,7 @@
 import type { LedgerDocument } from '@have-fish/core/documents'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
 import { compareVersions, type Version } from '@have-fish/core/version'
-import type { Moved } from '../../shared/commands'
+import type { Moved, Values } from '../../shared/commands'
 import type { StepName } from '../../shared/steps'
 import type { Context } from '../context'
 import type { BatchOutcome } from '../ledger/apply'
@@ -62,6 +62,14 @@ export function applyKeeping(
 /** Puts `changes` on the history as one step, unless nothing changed. */
 export function record(ctx: Context, name: StepName, changes: Change[], shows?: Moved): void {
   if (changes.length > 0) ctx.history.record(shows ? { name, changes, shows } : { name, changes })
+}
+
+/** What Undo and Redo would take back or put back, by name: the palette says them (see #616). */
+export function nextSteps(ctx: Context): Values['ledger.steps'] {
+  return {
+    undo: ctx.history.nextUndo()?.name ?? null,
+    redo: ctx.history.nextRedo()?.name ?? null,
+  }
 }
 
 /** Takes back the newest step. A step that can't be is refused whole, and leaves the history. */

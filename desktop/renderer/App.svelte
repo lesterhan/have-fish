@@ -2,11 +2,14 @@
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
   import type { Typing } from '../shared/commands'
+  import type { WindowActionId } from '../shared/actions'
   import type { ThemeChoice } from '../shared/theme/theme'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
   import { spendEditor } from './editor'
   import { ledgerStore } from './ledger'
+  import Palette from './Palette.svelte'
+  import { type PaletteItem, paletteItems } from './palette'
   import Sidebar from './parts/Sidebar.svelte'
   import { type DraftsView, type Place, type PlaceView, shownBy } from './places'
   import { wordsFor } from './refusals'
@@ -39,29 +42,65 @@
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
 
-  onMount(() =>
-    window.haveFish.onAction((id) =>
-      runAction(id, {
-        newSpend,
-        addAccount,
-        // Every draft, wherever it was typed; the place I'm in catches its lists up.
-        saveAll: () => drafts(place === 'reports' ? 'reports' : 'ledger').saveAll(),
-        undo,
-        redo,
-        // Remove spend means nothing where spends aren't showing.
-        remove: () => {
-          if (place !== 'accounts') void drafts(place).remove()
-        },
-        showLedger: () => void go('ledger'),
-        showAccounts: () => void go('accounts'),
-        showReports: () => void go('reports'),
-        // Main remembers it and repaints; the stylesheet already holds both schemes.
-        themeGraphiteLight: () => void setTheme('graphite-light'),
-        themeGraphiteDark: () => void setTheme('graphite-dark'),
-        themeSystem: () => void setTheme('system'),
-      }),
-    ),
-  )
+  /** Every action the window carries out: the menu's, and the palette's. */
+  const handlers = {
+    palette: () => void togglePalette(),
+    newSpend,
+    addAccount,
+    // Every draft, wherever it was typed; the place I'm in catches its lists up.
+    saveAll: () => drafts(place === 'reports' ? 'reports' : 'ledger').saveAll(),
+    undo,
+    redo,
+    // Remove spend means nothing where spends aren't showing.
+    remove: () => {
+      if (place !== 'accounts') void drafts(place).remove()
+    },
+    showLedger: () => void go('ledger'),
+    showAccounts: () => void go('accounts'),
+    showReports: () => void go('reports'),
+    // Main remembers it and repaints; the stylesheet already holds both schemes.
+    themeGraphiteLight: () => void setTheme('graphite-light'),
+    themeGraphiteDark: () => void setTheme('graphite-dark'),
+    themeSystem: () => void setTheme('system'),
+  }
+
+  onMount(() => window.haveFish.onAction((id) => runAction(id, handlers)))
+
+  /** The palette's actions while it's open, and where the cursor was before it. */
+  let palette = $state<readonly PaletteItem[] | null>(null)
+  let before: HTMLElement | null = null
+
+  /** Ctrl+K: the palette, with Undo and Redo named as the menu names them. Again, it closes. */
+  async function togglePalette() {
+    if (palette !== null) {
+      closePalette()
+      return
+    }
+    before = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const typing = fieldUndo.typing(textField(before))
+    const next = await window.haveFish.invoke('ledger.steps', {})
+    const named = (way: Way) =>
+      typing[way]
+        ? copy.actions.typing[way]
+        : next.ok && next.value[way] !== null
+          ? copy.steps.said(way, next.value[way])
+          : null
+    palette = paletteItems({ undo: named('undo'), redo: named('redo') })
+  }
+
+  /** Esc: the cursor goes back where it was. */
+  function closePalette() {
+    palette = null
+    before?.focus()
+    before = null
+  }
+
+  /** Runs `id` from where the cursor was, as the menu would have. */
+  async function runFromPalette(id: WindowActionId) {
+    closePalette()
+    await tick()
+    handlers[id]()
+  }
 
   const setTheme = (theme: ThemeChoice) => window.haveFish.invoke('settings.theme.set', { theme })
 
@@ -192,6 +231,9 @@
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
   <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {editor} />
 </div>
+{#if palette !== null}
+  <Palette items={palette} onrun={(id) => void runFromPalette(id)} onclose={closePalette} />
+{/if}
 
 <style>
   .app {

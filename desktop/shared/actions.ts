@@ -53,8 +53,11 @@ export const ACTIONS = [
   { id: 'selectAll', menu: 'edit', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
   { id: 'remove', menu: 'edit', accelerator: 'Delete', windowKey: true, grouped: 'apart' },
 
+  // Every action the window carries out, searched by its letters.
+  { id: 'palette', menu: 'view', accelerator: 'CmdOrCtrl+K' },
+
   // The places down the left, in their order there.
-  { id: 'showLedger', menu: 'view', accelerator: 'CmdOrCtrl+1' },
+  { id: 'showLedger', menu: 'view', accelerator: 'CmdOrCtrl+1', grouped: 'apart' },
   { id: 'showAccounts', menu: 'view', accelerator: 'CmdOrCtrl+2' },
   { id: 'showReports', menu: 'view', accelerator: 'CmdOrCtrl+3' },
 

@@ -16,7 +16,7 @@ import {
   positionOf,
   transactionsWithIds,
 } from '../services/transactions'
-import { redoLast, undoLast } from '../undo/steps'
+import { nextSteps, redoLast, undoLast } from '../undo/steps'
 
 type Handlers = {
   [N in CommandName]: (ctx: Context, input: z.output<(typeof inputs)[N]>) => Outcome<Values[N]>
@@ -49,5 +49,6 @@ export const handlers: Handlers = {
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,
+  'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
   'settings.theme.set': setTheme,
 }

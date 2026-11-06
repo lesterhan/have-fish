@@ -16,6 +16,7 @@ const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'
 const NAV = 'nav[aria-label=Places]'
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
+const PALETTE = 'role=dialog[name="Do anything"]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
 const REPORTED = 'ol[aria-label="Its spends"]'
 
@@ -53,7 +54,8 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Opened again a month in, as it is each day.
   await first.quit()
-  page = (await launch(home)).page
+  const second = await launch(home)
+  page = second.page
   shot = await shooter(page)
   await shot.size(WIDE)
   await page.waitForSelector(`${SPENDS} li`)
@@ -91,6 +93,20 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.fill(`${WRITE} input[name=date]`, 'mon')
   await shot.take('spends-date')
   await page.fill(`${WRITE} input[name=date]`, today)
+
+  // The palette, Ctrl+K: over the blurred, dimmed ledger; the letters typed marked; none.
+  await page.mouse.move(0, 0)
+  second.press('ctrl+k')
+  await page.waitForSelector(PALETTE)
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  await shot.take('palette')
+  await shot.dark('palette')
+  await page.keyboard.type('n')
+  await shot.take('palette-typed')
+  await page.keyboard.type('zqx')
+  await shot.take('palette-none')
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(PALETTE, { state: 'detached' })
 
   // Accounts.
   await go(page, 'Accounts')

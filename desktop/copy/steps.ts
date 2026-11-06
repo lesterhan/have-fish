@@ -23,4 +23,23 @@ const redo: Words = {
   start: ({ name }) => `Redo starting balance of ${name}`,
 }
 
-export const steps = { undo, redo }
+/** What Undo or Redo says it would do with `name`: the menu's words, and the palette's. */
+function said(way: 'undo' | 'redo', name: StepName): string {
+  const words = way === 'undo' ? undo : redo
+  switch (name.kind) {
+    case 'write':
+      return words.write(name)
+    case 'edit':
+      return words.edit(name)
+    case 'saveAll':
+      return words.saveAll(name)
+    case 'remove':
+      return words.remove(name)
+    case 'addAccount':
+      return words.addAccount(name)
+    case 'start':
+      return words.start(name)
+  }
+}
+
+export const steps = { undo, redo, said }
