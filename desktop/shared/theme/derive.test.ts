@@ -77,6 +77,16 @@ describe('deriveTokens', () => {
     }
   })
 
+  test("a notice's surface is the error's tint, 7% over the background", () => {
+    for (const theme of [LIGHT, DARK]) {
+      const t = deriveTokens(theme)
+      const [bg, notice, error] = ['background', 'notice', 'error'].map(
+        (n) => hexToOklch(t[`--color-${n}`] as string).l,
+      ) as [number, number, number]
+      expect(notice).toBeCloseTo(bg + (error - bg) * 0.07, 2)
+    }
+  })
+
   test('the money and account colours are the same whatever the theme', () => {
     const other: Theme = { ...LIGHT, neutralHue: 250, accentHue: 300 }
     const fixed = ['in', 'error', 'assets', 'liabilities', 'expenses', 'income'].map(
@@ -119,8 +129,8 @@ describe('the built-ins keep the contract', () => {
   })
 })
 
-test('the contract checks 37 pairs and 4 steps in each scheme', () => {
-  expect([INK.length, STEPS.length]).toEqual([37, 4])
+test('the contract checks 42 pairs and 4 steps in each scheme', () => {
+  expect([INK.length, STEPS.length]).toEqual([42, 4])
 })
 
 describe('backgroundFor', () => {

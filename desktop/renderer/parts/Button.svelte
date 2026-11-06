@@ -64,7 +64,8 @@
   }
 
   .primary:hover {
-    filter: brightness(1.1);
+    border-color: var(--color-accent-hover);
+    background: var(--color-accent-hover);
   }
 
   .quiet {
@@ -82,7 +83,6 @@
   button:disabled,
   button[aria-disabled='true'] {
     opacity: 0.5;
-    filter: none;
     transform: none;
     box-shadow: none;
     cursor: default;

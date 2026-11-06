@@ -21,6 +21,8 @@ export const RUNGS = {
   muted: [0.475, 0.75],
   text: [0.22, 0.945],
   accent: [0.47, 0.75],
+  // A primary button under the pointer: a step lighter, as `brightness(1.1)` was.
+  'accent-hover': [0.505, 0.775],
   'on-accent': [0.99, 0.18],
 } as const satisfies Record<string, readonly [number, number]>
 
@@ -60,6 +62,7 @@ export function deriveTokens(theme: Theme): Palette {
     muted: neutral('muted'),
     text: neutral('text'),
     accent: { l: at('accent'), c: ACCENT_CHROMA, h: accentHue },
+    'accent-hover': { l: at('accent-hover'), c: ACCENT_CHROMA, h: accentHue },
     'on-accent': neutral('on-accent', 0.005),
   }
   for (const [name, { hue, chroma, l }] of Object.entries(FIXED)) {
@@ -67,6 +70,8 @@ export function deriveTokens(theme: Theme): Palette {
   }
   // The selection's tint at a third over the background: a details card, lifted with its row.
   colours.card = mix(colours.background as Oklch, colours.selected as Oklch, 1 / 3)
+  // A notice's surface: the error's tint, faint, so its words stay text on a near-background.
+  colours.notice = mix(colours.background as Oklch, colours.error as Oklch, 0.07)
 
   return Object.fromEntries(
     Object.entries(colours).map(([name, colour]) => [`--color-${name}`, oklchToHex(colour)]),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rawColoursIn } from './colours'
+import { madeColoursIn, rawColoursIn } from './colours'
 
 describe('the detectors themselves', () => {
   it('catches a hex in a style block', () => {
@@ -47,5 +47,50 @@ describe('the detectors themselves', () => {
     expect(
       rawColoursIn('/* it ran from #3b4252 down to #20242d */ .a { color: var(--x); }'),
     ).toEqual([])
+  })
+})
+
+describe('a colour made in a component', () => {
+  it('catches text drawn at an opacity', () => {
+    expect(madeColoursIn('kbd { font-size: 11px; opacity: 0.8; }')).toEqual(['opacity: 0.8'])
+  })
+
+  it('catches a filter that changes a colour', () => {
+    expect(madeColoursIn('.primary:hover { filter: brightness(1.1); }')).toEqual([
+      'filter: brightness(1.1)',
+    ])
+  })
+
+  it('catches a surface or an ink mixed from tokens', () => {
+    const mixed = 'color-mix(in oklab, var(--color-error) 7%, var(--color-background))'
+    expect(madeColoursIn(`.notice { background: ${mixed}; }`)).toEqual([`background: ${mixed}`])
+    expect(
+      madeColoursIn('.a { color: color-mix(in oklab, currentColor 60%, transparent); }'),
+    ).toEqual(['color: color-mix(in oklab, currentColor 60%, transparent)'])
+  })
+
+  it('catches one in an inline style', () => {
+    expect(madeColoursIn('<span style="opacity: 0.6">CAD</span>')).toEqual(['opacity: 0.6'])
+  })
+
+  it("leaves an edge tinted from a token alone: it frames the words, it isn't them", () => {
+    expect(
+      madeColoursIn(
+        'kbd { border: 1px solid color-mix(in oklab, currentColor 35%, transparent); }',
+      ),
+    ).toEqual([])
+  })
+
+  it("leaves a disabled control alone, which WCAG doesn't hold to a contrast", () => {
+    const css = "button:disabled,\nbutton[aria-disabled='true'] { opacity: 0.5; }"
+    expect(madeColoursIn(css)).toEqual([])
+  })
+
+  it('leaves fully shown, fully hidden and no filter alone', () => {
+    expect(madeColoursIn('.a { opacity: 1; } .b { opacity: 0; } .c { filter: none; }')).toEqual([])
+  })
+
+  it('ignores comments', () => {
+    expect(madeColoursIn('/* was opacity: 0.8 */ .a { color: var(--color-text); }')).toEqual([])
   })
 })

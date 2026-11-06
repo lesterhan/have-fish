@@ -95,3 +95,33 @@ export function rawColoursIn(source: string): string[] {
 
   return found
 }
+
+/** A transparency, a filter, or a mix on ink or a surface: ways a component makes a colour. */
+const MADE = /(^|[;{\s"'])(opacity|filter|color|background(?:-color)?)\s*:\s*([^;}"\n]+)/g
+
+/** A disabled control, which WCAG 1.4.3 doesn't hold to a contrast. */
+const DISABLED = /:disabled|aria-disabled/
+
+/**
+ * Finds a colour a component makes from the tokens rather than reads from them: text at an
+ * opacity, a filter, or a `color-mix` as an ink or a surface. The contract checks tokens, so it
+ * never sees these (see #606). An edge tinted from a token frames the words and stays legal.
+ */
+export function madeColoursIn(source: string): string[] {
+  const clean = stripComments(source)
+  const found: string[] = []
+  for (const match of clean.matchAll(MADE)) {
+    const [, , property, raw] = match as unknown as [string, string, string, string]
+    const value = raw.trim()
+    if (property === 'opacity' && (value === '0' || value === '1')) continue
+    if (property === 'filter' && value === 'none') continue
+    if ((property === 'color' || property.startsWith('background')) && !value.includes('color-mix'))
+      continue
+    // The rule this sits in: its selector is the text before its brace.
+    const before = clean.slice(0, match.index)
+    const selector = before.slice(before.lastIndexOf('}') + 1, before.lastIndexOf('{'))
+    if (before.lastIndexOf('{') > before.lastIndexOf('}') && DISABLED.test(selector)) continue
+    found.push(`${property}: ${value}`)
+  }
+  return found
+}
