@@ -19,8 +19,9 @@ const ACCOUNTS = 'ol[aria-label=Accounts]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
 const REPORTED = 'ol[aria-label="Its spends"]'
 
-/** A laptop screen; half of one, which is narrow; and the same screen at 200%. */
+/** A laptop screen; the size the window opens; half of one, which is narrow; and 200%. */
 const WIDE = { width: 1280, height: 800, scale: 1 }
+const OPENS = { width: 960, height: 720, scale: 1 }
 const NARROW = { width: 640, height: 800, scale: 1 }
 // Ctrl+= five times lays out like this: half the CSS pixels, each drawn twice the size.
 const ZOOMED = { width: 640, height: 400, scale: 2 }
@@ -108,6 +109,12 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('reports-drilled')
   await page.click(`${REPORTED} li >> nth=0`)
   await shot.take('reports-spend')
+
+  // The size the window opens: the pane beside the list leaves it narrow, and Reports' half more so.
+  await shot.size(OPENS)
+  await shot.take('opens-reports')
+  await go(page, 'Ledger')
+  await shot.take('opens-spends')
 
   // Half a screen: the pane slides over the list.
   await shot.size(NARROW)

@@ -2,12 +2,18 @@ import { describe, expect, test } from 'vitest'
 import { pathOf } from './path'
 
 describe('a path', () => {
-  test("each root's tag shows its initial, so colour never carries it alone", () => {
-    expect(
-      ['assets:cash', 'liabilities:visa', 'expenses:food', 'income:salary', 'equity:opening'].map(
-        (p) => pathOf(p).tag,
-      ),
-    ).toEqual(['a', 'l', 'e', 'i', 'e'])
+  test("each root's tag is its own, so colour never carries it alone", () => {
+    const tags = ['assets:cash', 'liabilities:visa', 'expenses:food', 'income:salary'].map(
+      (p) => pathOf(p).tag,
+    )
+    expect(tags).toEqual(['a', 'l', 'e', 'i'])
+    // Equity's initial is expenses' already: it takes the next letter of its word.
+    expect(pathOf('equity:opening').tag).toBe('q')
+    expect(new Set([...tags, pathOf('equity:opening').tag]).size).toBe(5)
+  })
+
+  test('a root the ledger has no word for shows its initial', () => {
+    expect(pathOf('other:thing').tag).toBe('o')
   })
 
   test("drops its root's word: the tag stands for it", () => {

@@ -262,6 +262,8 @@
     margin: 0;
     padding: 0;
     overflow-y: auto;
+    /* Room for the scrollbar whether it shows or not, so the rows don't shift when it comes. */
+    scrollbar-gutter: stable;
     list-style: none;
   }
 
