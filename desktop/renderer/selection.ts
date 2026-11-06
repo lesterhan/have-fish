@@ -1,4 +1,4 @@
-// Which spend the list has selected, as the list changes and the keys move it.
+// Which item a list keeps selected as the list changes. The keys are the Listbox's (parts/listbox.ts).
 
 type Listed = { id: string }
 
@@ -13,21 +13,4 @@ export function afterRemoving(list: readonly Listed[], removed: string): string 
   const at = list.findIndex((t) => t.id === removed)
   if (at === -1) return kept(list, null)
   return list[at + 1]?.id ?? list[at - 1]?.id ?? null
-}
-
-/** Where a key moves the selection; undefined for a key that doesn't move it. */
-export function movedBy(
-  list: readonly Listed[],
-  selected: string | null,
-  key: string,
-): string | null | undefined {
-  const at = list.findIndex((t) => t.id === selected)
-  const to = {
-    ArrowDown: at === -1 ? 0 : Math.min(at + 1, list.length - 1),
-    ArrowUp: Math.max(at - 1, 0),
-    Home: 0,
-    End: list.length - 1,
-  }[key]
-  if (to === undefined) return undefined
-  return list[to]?.id ?? null
 }

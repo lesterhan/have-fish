@@ -3,7 +3,7 @@
   import type { ListedTransaction } from '../shared/commands'
   import type { Drafts } from './drafts'
   import { amountsText } from './format'
-  import { movedBy } from './selection'
+  import Listbox from './parts/Listbox.svelte'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
@@ -31,87 +31,58 @@
     idPrefix = 'spend',
   }: Props = $props()
 
-  let list: HTMLOListElement
+  let listbox: ReturnType<typeof Listbox<ListedTransaction>>
 
   export function focus() {
-    list.focus()
+    listbox.focus()
   }
 
-  const optionId = (id: string) => `${idPrefix}-${id}`
-
-  // Keeps the selected row in view as the keys move it.
-  $effect(() => {
-    if (selectedId !== null) {
-      document.getElementById(optionId(selectedId))?.scrollIntoView({ block: 'nearest' })
-    }
-  })
-
-  function onkeydown(event: KeyboardEvent) {
+  function onkey(event: KeyboardEvent): boolean {
     if (event.key === 'Enter') {
       event.preventDefault()
       onopen(true)
-      return
+      return true
     }
     // Here and not in the menu, so Delete in a text field still deletes text.
     if (event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault()
       onremove()
-      return
+      return true
     }
-    const to = movedBy(transactions, selectedId, event.key)
-    if (to === undefined) return
-    event.preventDefault()
-    if (to !== null) onselect(to)
-  }
-
-  function onclick(event: MouseEvent) {
-    const id = (event.target as Element).closest<HTMLElement>('[role=option]')?.dataset.id
-    if (id === undefined) return
-    onselect(id)
-    onopen(false)
+    return false
   }
 </script>
 
-<ol
-  bind:this={list}
-  role="listbox"
-  aria-label={label}
-  tabindex="0"
-  aria-activedescendant={selectedId === null ? undefined : optionId(selectedId)}
-  {onkeydown}
-  {onclick}
->
-  {#each transactions as t (t.id)}
-    <li id={optionId(t.id)} role="option" aria-selected={t.id === selectedId} data-id={t.id}>
+<div class="list">
+  <Listbox
+    bind:this={listbox}
+    items={transactions}
+    idOf={(t) => t.id}
+    active={selectedId}
+    {label}
+    {idPrefix}
+    columns="auto minmax(0, 1fr) auto 1em"
+    onactive={onselect}
+    onpick={(id) => {
+      onselect(id)
+      onopen(false)
+    }}
+    {onkey}
+  >
+    {#snippet row(t)}
       <span class="date">{t.date}</span>
       <span class="description">{t.description || copy.spends.noDescription}</span>
       <span class="amount">{amountsText(t.amounts)}</span>
       {#if drafts.has(t.id)}<Unsaved />{/if}
-    </li>
-  {/each}
-</ol>
+    {/snippet}
+  </Listbox>
+</div>
 
 <style>
-  ol {
+  .list {
     grid-area: list;
-    overflow-y: auto;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  li {
     display: grid;
-    /* A track for the ● even when it's absent, so amounts stay in one column. */
-    grid-template-columns: auto minmax(0, 1fr) auto 1em;
-    gap: var(--space-3);
-    padding: var(--space-2);
-    border-bottom: var(--border-width) solid var(--color-rule);
-    cursor: default;
-  }
-
-  li[aria-selected='true'] {
-    background: var(--color-selected);
+    min-height: 0;
   }
 
   .date {

@@ -8,7 +8,7 @@ import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { _electron as electron, type Page } from 'playwright-core'
 import { expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, BACK, launch, PANE, rows, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, BACK, launch, PANE, WRITE, writeDown } from './app'
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
@@ -45,8 +45,10 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   await go(page, 'Ledger')
   const written = await seed(page)
-  // Each account's starting balance is a transaction too.
-  await expect.poll(async () => (await rows(page)).length, { timeout: 30_000 }).toBe(written + 5)
+  // Each account's starting balance is a transaction too. The list draws only what's in view,
+  // and each row says how many there are.
+  const size = () => page.locator(`${SPENDS} li`).first().getAttribute('aria-setsize')
+  await expect.poll(size, { timeout: 30_000 }).toBe(String(written + 5))
 
   // Opened again a month in, as it is each day.
   await first.quit()

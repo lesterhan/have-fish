@@ -43,14 +43,6 @@ export function offered<O extends Option>(
   return [...mine, { kind: 'new', name }]
 }
 
-/** Where the arrow keys take the active option, wrapping at the ends; undefined for other keys. */
-export function stepped(active: number, key: string, count: number): number | undefined {
-  if (count === 0) return undefined
-  if (key === 'ArrowDown') return (active + 1) % count
-  if (key === 'ArrowUp') return (active - 1 + count) % count
-  return undefined
-}
-
 /**
  * What To offers: the categories in the order given, then my accounts, each with its hint. A
  * category with an account's name is left out, since that name means the account.

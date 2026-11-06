@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch } from './app'
+import { aHome, launch, settingsDirIn } from './app'
 
 /** The page's background, as painted. */
 const background = (page: Page) =>
@@ -13,8 +13,7 @@ const background = (page: Page) =>
 
 const dark = (page: Page) => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
 
-/** Where main keeps this machine's settings, under `home`. */
-const settingsIn = (home: string) => join(home, 'config', 'have-fish-dev', 'settings.json')
+const settingsIn = (home: string) => join(settingsDirIn(home), 'settings.json')
 
 const settle = (page: Page) => page.waitForTimeout(400)
 
@@ -44,7 +43,7 @@ describe('the theme', () => {
 
   test('a settings file with a theme it does not know opens, following the system', async () => {
     const home = aHome()
-    mkdirSync(join(home, 'config', 'have-fish-dev'), { recursive: true })
+    mkdirSync(settingsDirIn(home), { recursive: true })
     writeFileSync(settingsIn(home), JSON.stringify({ theme: 'solarized' }))
 
     const { page } = await launch(home)

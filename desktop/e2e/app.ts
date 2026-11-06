@@ -26,9 +26,14 @@ export function aHome(): string {
   return home
 }
 
+/** The app's folder name: a packaged build's, or a dev run's. */
+const appName = packaged ? 'have-fish' : 'have-fish-dev'
+
 /** Where the app keeps its ledger, under `home`. */
-export const ledgerDirIn = (home: string) =>
-  join(home, 'data', packaged ? 'have-fish' : 'have-fish-dev')
+export const ledgerDirIn = (home: string) => join(home, 'data', appName)
+
+/** Where the app keeps this machine's settings (`settings.json`), under `home`. */
+export const settingsDirIn = (home: string) => join(home, 'config', appName)
 
 /** How to start the app as a person would, for `home`, with any `extra` environment. */
 export function commandFor(home: string, extra: Record<string, string> = {}) {

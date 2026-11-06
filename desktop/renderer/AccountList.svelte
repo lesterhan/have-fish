@@ -2,7 +2,7 @@
   import { copy } from '../copy'
   import type { ListedAccount } from '../shared/commands'
   import type { AccountRow } from './balances'
-  import { movedBy } from './selection'
+  import Listbox from './parts/Listbox.svelte'
 
   type Props = {
     /** What shows: every account, and the parents their names imply. */
@@ -16,98 +16,55 @@
   }
   let { rows, accounts, selectedId, onselect, onopen }: Props = $props()
 
-  let list: HTMLOListElement
+  let listbox: ReturnType<typeof Listbox<AccountRow>>
 
   export function focus() {
-    list.focus()
+    listbox.focus()
   }
 
-  const optionId = (id: string) => `account-${id}`
-
-  // Keeps the selected row in view as the keys move it.
-  $effect(() => {
-    if (selectedId !== null) {
-      document.getElementById(optionId(selectedId))?.scrollIntoView({ block: 'nearest' })
-    }
-  })
-
-  function onkeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      onopen()
-      return
-    }
-    const to = movedBy(accounts, selectedId, event.key)
-    if (to === undefined) return
+  function onkey(event: KeyboardEvent): boolean {
+    if (event.key !== 'Enter') return false
     event.preventDefault()
-    if (to !== null) onselect(to)
-  }
-
-  function onclick(event: MouseEvent) {
-    const id = (event.target as Element).closest<HTMLElement>('[role=option]')?.dataset.id
-    if (id === undefined) return
-    onselect(id)
     onopen()
+    return true
   }
 </script>
 
-<ol
-  bind:this={list}
-  role="listbox"
-  aria-label={copy.accounts.list.label}
-  tabindex="0"
-  aria-activedescendant={selectedId === null ? undefined : optionId(selectedId)}
-  {onkeydown}
-  {onclick}
->
-  {#each rows as row (row.key)}
-    {@const a = row.account}
-    {#if a}
-      <li id={optionId(a.id)} role="option" aria-selected={a.id === selectedId} data-id={a.id}>
-        <span class="name" style:--depth={row.depth}>{row.label}</span>
-        <span class="kind">{copy.accounts.kinds[a.kind]}</span>
-        <span class="currency" class:code={a.currency !== null}>
-          {a.currency ?? copy.accounts.anyCurrency}
-        </span>
-        <span class="balance">{row.balance}</span>
-      </li>
-    {:else}
-      <!-- A parent nobody added: there for its children's total, never selected. -->
-      <li role="option" aria-selected="false" aria-disabled="true" class="parent">
-        <span class="name" style:--depth={row.depth}>{row.label}</span>
-        <span></span>
-        <span></span>
-        <span class="balance">{row.balance}</span>
-      </li>
-    {/if}
-  {/each}
-</ol>
+<div class="list">
+  <!-- A parent nobody added is there for its children's total, and never selected. -->
+  <Listbox
+    bind:this={listbox}
+    items={rows}
+    idOf={(r) => r.account?.id ?? r.key}
+    active={selectedId}
+    label={copy.accounts.list.label}
+    idPrefix="account"
+    columns="minmax(0, 1fr) 7rem 7rem auto"
+    disabled={(r) => r.account === undefined}
+    onactive={onselect}
+    onpick={(id) => {
+      onselect(id)
+      onopen()
+    }}
+    {onkey}
+  >
+    {#snippet row(r)}
+      {@const a = r.account}
+      <span class="name" class:parent={!a} style:--depth={r.depth}>{r.label}</span>
+      <span class="kind">{a ? copy.accounts.kinds[a.kind] : ''}</span>
+      <span class="currency" class:code={a?.currency != null}>
+        {a ? (a.currency ?? copy.accounts.anyCurrency) : ''}
+      </span>
+      <span class="balance">{r.balance}</span>
+    {/snippet}
+  </Listbox>
+</div>
 
 <style>
-  ol {
+  .list {
     grid-area: list;
-    overflow-y: auto;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    /* One set of columns for every row, so the balances line up. */
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    align-content: start;
-  }
-
-  li {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-    gap: var(--space-3);
-    padding: var(--space-2);
-    border-bottom: var(--border-width) solid var(--color-rule);
-    cursor: default;
-  }
-
-  li[aria-selected='true'] {
-    background: var(--color-selected);
+    min-height: 0;
   }
 
   .name {
@@ -133,7 +90,7 @@
     white-space: nowrap;
   }
 
-  .parent .name {
+  .name.parent {
     color: var(--color-muted);
   }
 

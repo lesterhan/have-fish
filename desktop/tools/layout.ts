@@ -9,6 +9,13 @@ export function kbdsIn(source: string): number {
   return [...strip(source).matchAll(/<kbd[\s>]/g)].length
 }
 
+/** Each `role="listbox"`, `role="option"` and `aria-activedescendant` in markup. */
+export function listboxesIn(source: string): string[] {
+  return [
+    ...strip(source).matchAll(/role=["']?(?:listbox|option)\b["']?|aria-activedescendant/g),
+  ].map(([found]) => found)
+}
+
 /** The one narrow width (DESIGN.md, "Layout"). */
 export const NARROW_WIDTH = '44rem'
 
