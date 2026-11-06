@@ -5,6 +5,7 @@
   import type { ThemeChoice } from '../shared/theme/theme'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
+  import { spendEditor } from './editor'
   import { ledgerStore } from './ledger'
   import Sidebar from './parts/Sidebar.svelte'
   import { type DraftsView, type Place, type PlaceView, shownBy } from './places'
@@ -28,6 +29,13 @@
   const lists = ledgerStore(window.haveFish)
   onMount(() => lists.start())
 
+  // One editor for every spend I'm changing, so a draft is the same in the ledger and Reports.
+  const editor = spendEditor({
+    bridge: window.haveFish,
+    accounts: () => lists.current().accounts,
+    forgetTyping,
+  })
+
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
 
@@ -36,7 +44,7 @@
       runAction(id, {
         newSpend,
         addAccount,
-        // Each place's drafts are its own: Save all saves the ones where I am.
+        // Every draft, wherever it was typed; the place I'm in catches its lists up.
         saveAll: () => drafts(place === 'reports' ? 'reports' : 'ledger').saveAll(),
         undo,
         redo,
@@ -174,9 +182,15 @@
 
 <div class="app">
   <Sidebar current={place} ongo={(p) => void go(p)} />
-  <Spends bind:this={spends} hidden={place !== 'ledger'} ledger={lists} {forgetTyping} />
+  <Spends
+    bind:this={spends}
+    hidden={place !== 'ledger'}
+    ledger={lists}
+    {editor}
+    {forgetTyping}
+  />
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
-  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {forgetTyping} />
+  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {editor} />
 </div>
 
 <style>

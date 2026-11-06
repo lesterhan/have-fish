@@ -2,7 +2,17 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, BACK, cellsOf, launch, PANE, rows, writeDown } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  BACK,
+  cellsOf,
+  launch,
+  openSelected,
+  PANE,
+  rows,
+  writeDown,
+} from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -73,6 +83,7 @@ describe('the places', () => {
     const { page, press } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
+    await openSelected(page)
     await page.fill(`${PANE} input[name=description]`, 'Coffee and cake')
 
     press('ctrl+2')

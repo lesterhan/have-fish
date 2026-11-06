@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, cellsOf, launch, rows, spendCells, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, cellsOf, launch, openSpend, rows, spendCells, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
@@ -58,7 +58,8 @@ const breakdown = (page: Page) =>
         .filter((t) => t !== '')
         .join(' | '),
     )
-    const total = [...(ol?.parentElement?.querySelectorAll('p') ?? [])]
+    // Beside the list's scroller, which holds the listbox.
+    const total = [...(ol?.parentElement?.parentElement?.querySelectorAll('p') ?? [])]
       .map((p) => p.textContent?.replace(/\s+/g, ' ').trim() ?? '')
       .find((t) => t.startsWith('Spent'))
     return [...lines, total?.trim() ?? '']
@@ -132,7 +133,7 @@ describe('see what I spent this week, by category', () => {
     await expect.poll(() => trail(page)).toBe('All spending')
   })
 
-  test('a spend picked shows in the pane, and fixing it there changes the report', async () => {
+  test('a spend opened shows its details under it, and fixing it there changes the report', async () => {
     const { page } = await launch(aHome())
     await spend(page, '12', 'Lunch', 'food')
     await spend(page, '30', 'Bus pass', 'transport')
@@ -140,7 +141,7 @@ describe('see what I spent this week, by category', () => {
     await expect.poll(() => breakdown(page)).toHaveLength(3)
 
     await page.click(`${BREAKDOWN} li:has-text("transport")`)
-    await page.click(`${BEHIND} li:has-text("Bus pass")`)
+    await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
     expect(await page.inputValue(`${PICKED} input[name=description]`)).toBe('Bus pass')
 
     await page.fill(`${PICKED} input[name=amount]`, '3.30')
@@ -152,11 +153,24 @@ describe('see what I spent this week, by category', () => {
     expect(await page.inputValue(`${PICKED} input[name=amount]`)).toBe('3.30')
   })
 
+  test('a change begun in Reports is the same draft in the ledger', async () => {
+    const { page } = await launch(aHome())
+    await spend(page, '30', 'Bus pass', 'transport')
+    await toReports(page)
+    await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
+    await page.fill(`${PICKED} input[name=amount]`, '3.30')
+
+    await page.click(`${NAV} button:has-text("Ledger")`)
+    await expect.poll(() => rows(page)).toEqual([expect.stringMatching(/Bus pass \| 30\.00 \| ●/)])
+    await openSpend(page.locator('ol[aria-label=Ledger] li:has-text("Bus pass")'))
+    expect(await page.inputValue('section[aria-label="The spend"] input[name=amount]')).toBe('3.30')
+  })
+
   test('Ctrl+Z takes a fix back, and the report stays where I am', async () => {
     const { page, press } = await launch(aHome())
     await spend(page, '30', 'Bus pass', 'transport')
     await toReports(page)
-    await page.click(`${BEHIND} li:has-text("Bus pass")`)
+    await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
     await page.fill(`${PICKED} input[name=amount]`, '3.30')
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
     await expect.poll(() => breakdown(page)).toEqual(['transport | 3.30', 'Spent 3.30'])

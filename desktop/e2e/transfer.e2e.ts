@@ -2,7 +2,18 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  fromLine,
+  launch,
+  openSelected,
+  PANE,
+  rows,
+  shownDay,
+  WRITE,
+  writeDown,
+} from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -56,10 +67,11 @@ const offered = (page: Page) =>
         .join(' · '),
     ),
   )
-const paidFrom = (page: Page) =>
-  fromLine(page)
-    .innerText()
-    .then((t) => t.replace(/^From\s+/, ''))
+/** The account the selected spend came out of, as its details say it: the path, in words. */
+const paidFrom = async (page: Page) => {
+  await openSelected(page)
+  return ((await fromLine(page).textContent()) ?? '').replace(/\s+/g, ' ').trim()
+}
 
 describe('moving money between my accounts', () => {
   test('100 from chequing to the wallet: To is the wallet, From is chequing', async () => {
@@ -74,8 +86,8 @@ describe('moving money between my accounts', () => {
 
     await expect.poll(() => rows(page)).toHaveLength(2)
     expect((await rows(page))[0]).toBe(`${shownDay(today())} | Cash out | ⇄ 100.00`)
+    expect(await paidFrom(page)).toBe('assets chequing')
     expect(await page.inputValue(PANE_TO)).toBe('cash')
-    expect(await paidFrom(page)).toBe('chequing')
   })
 
   test('To offers the categories I use, then my accounts, each saying what it is', async () => {
@@ -113,10 +125,11 @@ describe('moving money between my accounts', () => {
   })
 })
 
-describe('changing where it went, in the pane', () => {
+describe('changing where it went, in its details', () => {
   test('a spend becomes a transfer; changing only its amount after leaves it one', async () => {
     const { page, press } = await launch(aHome())
     await twoAccounts(page)
+    await openSelected(page)
 
     await page.locator(PANE_TO).focus()
     await page.keyboard.press('ControlOrMeta+A')

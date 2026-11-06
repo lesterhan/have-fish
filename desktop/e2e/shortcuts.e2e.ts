@@ -4,7 +4,18 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, shownDay, unsavedInPane, WRITE, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  shownDay,
+  unsavedInPane,
+  WRITE,
+  writeDown,
+} from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -28,9 +39,10 @@ async function twoSpends(page: Page) {
 }
 
 describe('shortcuts', () => {
-  test('Ctrl+N goes to the amount field from the pane', async () => {
+  test('Ctrl+N goes to the amount field from a spend’s details', async () => {
     const { page, press } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.focus(DESCRIPTION)
     press('ctrl+n')
@@ -38,13 +50,12 @@ describe('shortcuts', () => {
     await expect.poll(() => focused(page)).toBe('Write down a spend amount')
   })
 
-  test('Ctrl+N in a narrow window takes the pane off the form', async () => {
+  test('Ctrl+N in a narrow window closes the details on its way to the form', async () => {
     const { page, press } = await launch(aHome())
     await page.setViewportSize({ width: 420, height: 700 })
     await twoSpends(page)
 
-    await row(page, 'Lunch').click()
-    await expect.poll(() => page.isVisible(PANE)).toBe(true)
+    await openSpend(row(page, 'Lunch'))
     press('ctrl+n')
 
     await expect.poll(() => page.isVisible(PANE)).toBe(false)
@@ -67,9 +78,10 @@ describe('shortcuts', () => {
   test('Ctrl+S saves the changes on every spend, and clears every ●', async () => {
     const { page, press } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(AMOUNT, '5')
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     await page.fill(DESCRIPTION, 'Lunch with Sam')
     await expect.poll(async () => (await rows(page)).filter((r) => r.includes('●'))).toHaveLength(2)
 
@@ -87,9 +99,10 @@ describe('shortcuts', () => {
   test('Ctrl+S: a change that is refused keeps its ●, says why, and holds back no other', async () => {
     const { page, press } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(AMOUNT, 'lots')
-    await row(page, 'Lunch').click()
+    await openSpend(row(page, 'Lunch'))
     await page.fill(AMOUNT, '15')
     press('ctrl+s')
 
@@ -100,7 +113,7 @@ describe('shortcuts', () => {
         `${shownDay(today())} | Lunch | 15.00`,
       ])
 
-    await row(page, 'Coffee').click()
+    await openSpend(row(page, 'Coffee'))
     expect(await page.inputValue(AMOUNT)).toBe('lots')
     expect(await page.textContent(`${PANE} [role=alert]`)).toBe(
       "That isn't an amount. Type a number, like 4.50.",
@@ -111,6 +124,7 @@ describe('shortcuts', () => {
   test.runIf(process.env.E2E_APP)('a packaged build has no Reload to lose a change', async () => {
     const { page, press } = await launch(aHome())
     await twoSpends(page)
+    await openSelected(page)
 
     await page.fill(DESCRIPTION, 'Not yet saved')
     press('ctrl+r')

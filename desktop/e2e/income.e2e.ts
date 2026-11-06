@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, fromLine, launch, openSelected, PANE, rows, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -67,7 +67,8 @@ describe('write down money coming in', () => {
 
     await expect.poll(() => rows(page)).toHaveLength(2)
     expect((await rows(page))[0]).toMatch(/\| Pay \| \+2,000\.00$/)
-    expect(await fromLine(page).innerText()).toMatch(/^From\s+salary$/)
+    await openSelected(page)
+    expect((await fromLine(page).textContent())?.replace(/\s+/g, ' ').trim()).toBe('income salary')
     expect(await page.inputValue(`${PANE} input[name=to]`)).toBe('chequing')
     expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 2,100.00'])
 

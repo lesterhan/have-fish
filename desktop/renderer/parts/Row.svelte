@@ -1,7 +1,8 @@
 <script lang="ts">
   // One option of a Listbox, and its states (DESIGN.md, "Parts"): at rest; a lighter step under
   // the pointer; selected, a tint, with an accent edge and its keys while its list has focus; just
-  // written, sliding in and washed. A row that starts a day carries the day's band above it.
+  // written, sliding in and washed; open, lifted with its details under it, while the rest of the
+  // list steps back. A row that starts a day carries the day's band above it.
   import type { Snippet } from 'svelte'
 
   type Props = {
@@ -22,6 +23,8 @@
     /** The band of `group`, when the row starts it. */
     band?: Snippet<[number]> | undefined
     group?: number | undefined
+    /** Open: the room under it its details take, in px; 0 when it's closed. */
+    room?: number
     /** Shown while it's selected and its list has focus: what its keys do. */
     hint?: Snippet | undefined
     children?: Snippet | undefined
@@ -39,6 +42,7 @@
     height,
     band,
     group,
+    room = 0,
     hint,
     children,
   }: Props = $props()
@@ -55,8 +59,10 @@
   data-id={dataId}
   data-written={written || undefined}
   class:banded={band !== undefined && group !== undefined}
+  class:open={room > 0}
   style:grid-template-columns={columns}
   style:block-size="{height}px"
+  style:margin-block-end={room > 0 ? `${room}px` : undefined}
 >
   {#if band && group !== undefined}<div class="band">{@render band(group)}</div>{/if}
   {@render children?.()}
@@ -104,6 +110,38 @@
 
   :global(ol:focus) > li[aria-selected='true'] {
     box-shadow: inset 3px 0 0 var(--color-accent);
+  }
+
+  /* Open: the row is the top of a tile with its details, inset and lifted (DESIGN.md, "Card"). */
+  li.open {
+    isolation: isolate;
+    border-block-end-color: transparent;
+  }
+
+  li.open,
+  li.open:hover,
+  :global(ol:focus) > li.open[aria-selected='true'] {
+    background: none;
+    box-shadow: none;
+  }
+
+  li.open::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: var(--space-1) var(--space-2) 0;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    background: var(--color-selected);
+    box-shadow: var(--shadow-lift);
+  }
+
+  li.open.banded::before {
+    inset-block-start: var(--band);
+  }
+
+  /* The rest of the list, while a row is open: not for reading, and reaching for it closes it. */
+  :global([data-opened] > ol) > li:not(.open) {
+    opacity: 0.5;
   }
 
   li[aria-disabled='true'] {

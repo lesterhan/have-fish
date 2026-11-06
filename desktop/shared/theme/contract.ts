@@ -32,6 +32,7 @@ export const SURFACES = [
   '--color-sidebar',
   '--color-band',
   '--color-selected',
+  '--color-card',
 ] as const
 
 /** Text: words, figures, the money-in colour, the accent, and each root's tag. */
@@ -50,6 +51,10 @@ const ON_EVERY_SURFACE = [
 export const INK: readonly Ink[] = [
   ...SURFACES.flatMap((on) => ON_EVERY_SURFACE.map((ink): Ink => ({ ink, on, kind: 'text' }))),
   { ink: '--color-error', on: '--color-background', kind: 'text' },
+  // Remove, on the card's foot; a field's edge, and a refusal, on the card.
+  { ink: '--color-error', on: '--color-band', kind: 'text' },
+  { ink: '--color-error', on: '--color-card', kind: 'text' },
+  { ink: '--color-border', on: '--color-card', kind: 'graphic' },
   // A primary button's words, and its keycap, at rest and under the pointer.
   { ink: '--color-on-accent', on: '--color-accent', kind: 'text' },
   { ink: '--color-on-accent', on: '--color-accent-hover', kind: 'text' },

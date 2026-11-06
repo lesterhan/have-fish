@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A button: primary (one per place at most), plain, or quiet. With an action it shows that
-  // action's keycap and says its shortcut to a screen reader.
+  // A button: primary (one per place at most), plain, or quiet; `danger` in the error's colour.
+  // With an action, or a key of its own, it shows the keycap and says it to a screen reader.
   import type { Snippet } from 'svelte'
   import type { HTMLButtonAttributes } from 'svelte/elements'
   import type { KeyedActionId } from '../../shared/actions'
@@ -9,10 +9,22 @@
 
   type Props = HTMLButtonAttributes & {
     variant?: 'primary' | 'plain' | 'quiet'
+    /** What it does can't be taken back but by Undo: Remove. */
+    danger?: boolean
     action?: KeyedActionId
+    /** A key that does it where it sits, which no menu has: Esc closes a card. */
+    key?: string
     children: Snippet
   }
-  let { variant = 'plain', action, children, type = 'button', ...rest }: Props = $props()
+  let {
+    variant = 'plain',
+    danger = false,
+    action,
+    key,
+    children,
+    type = 'button',
+    ...rest
+  }: Props = $props()
   let element: HTMLButtonElement
 
   export function focus() {
@@ -24,11 +36,12 @@
   bind:this={element}
   {type}
   class={variant}
-  aria-keyshortcuts={action && ariaShortcut(action, MAC)}
+  class:danger
+  aria-keyshortcuts={action ? ariaShortcut(action, MAC) : key}
   {...rest}
 >
   {@render children()}
-  {#if action}<Keys {action} />{/if}
+  {#if action}<Keys {action} />{:else if key}<Keys {key} />{/if}
 </button>
 
 <style>
@@ -78,6 +91,11 @@
   .quiet:hover {
     border-color: transparent;
     color: var(--color-text);
+  }
+
+  .danger,
+  .danger:hover {
+    color: var(--color-error);
   }
 
   button:disabled,

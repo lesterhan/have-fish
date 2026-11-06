@@ -1,0 +1,55 @@
+<script lang="ts">
+  // A row's details, attached under it and lifted with it (DESIGN.md, "Card"): what it holds,
+  // then a foot band with its actions at the end. The list places it; Listbox makes the room.
+  import type { Snippet } from 'svelte'
+
+  type Props = {
+    label: string
+    children: Snippet
+    /** The actions, at the end of the foot. */
+    foot: Snippet
+    onkeydown?: (event: KeyboardEvent) => void
+  }
+  let { label, children, foot, onkeydown }: Props = $props()
+</script>
+
+<!-- Keys bubble up from the fields inside; the card itself never takes focus. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<section class="card" aria-label={label} {onkeydown}>
+  <div class="body">{@render children()}</div>
+  <div class="foot">{@render foot()}</div>
+</section>
+
+<style>
+  .card {
+    display: grid;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    background: var(--color-card);
+    box-shadow: var(--shadow-lift);
+    /* The ring stops at the row above, which carries its own: one tile, no seam. */
+    clip-path: inset(0 -12px -12px -12px);
+    animation: open var(--duration-open) var(--ease-out);
+  }
+
+  .body {
+    padding: var(--space-4);
+  }
+
+  .foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: end;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    background: var(--color-band);
+  }
+
+  @keyframes open {
+    from {
+      opacity: 0;
+      translate: 0 calc(-1 * var(--space-1));
+    }
+  }
+</style>

@@ -81,6 +81,13 @@ describe('a colour made in a component', () => {
     ).toEqual([])
   })
 
+  it('leaves the list that steps back while a row is open, which is not for reading', () => {
+    const css = ':global([data-opened] > ol) > li:not(.open) { opacity: 0.5; }'
+    expect(madeColoursIn(css)).toEqual([])
+    expect(madeColoursIn('[data-opened] > .stays { opacity: 0.5; }')).toEqual([])
+    expect(madeColoursIn('li:not(.open) { opacity: 0.5; }')).toEqual(['opacity: 0.5'])
+  })
+
   it("leaves a disabled control alone, which WCAG doesn't hold to a contrast", () => {
     const css = "button:disabled,\nbutton[aria-disabled='true'] { opacity: 0.5; }"
     expect(madeColoursIn(css)).toEqual([])
