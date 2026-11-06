@@ -10,7 +10,12 @@ import { listCategories, listIncome } from '../services/categories'
 import { spendingIn } from '../services/reports'
 import { setTheme } from '../services/settings'
 import { assumedFrom, editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
-import { pageOfTransactions, positionOf, transactionsWithIds } from '../services/transactions'
+import {
+  daysOfTransactions,
+  pageOfTransactions,
+  positionOf,
+  transactionsWithIds,
+} from '../services/transactions'
 import { redoLast, undoLast } from '../undo/steps'
 
 type Handlers = {
@@ -31,6 +36,7 @@ export const handlers: Handlers = {
     ok: true,
     value: { at: positionOf(ctx.ledger.db, id) },
   }),
+  'transaction.days': (ctx) => ({ ok: true, value: daysOfTransactions(ctx.ledger.db) }),
   'transaction.get': (ctx, { ids }) => ({
     ok: true,
     value: transactionsWithIds(ctx.ledger.db, ids),

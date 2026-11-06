@@ -24,6 +24,7 @@
   import Keys from './parts/Keys.svelte'
   import Notice from './parts/Notice.svelte'
   import { ariaShortcut, MAC } from './shortcuts'
+  import Day from './parts/Day.svelte'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
 
@@ -85,6 +86,8 @@
   let dismissed = $state<string | null>(null)
   const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
   let selectedId = $state<string | null>(null)
+  /** The spend written last, while it slides into its row. */
+  let justWritten = $state<string | null>(null)
   let drafts = $state.raw<Drafts>(new Map())
   let savingDraft = $state(false)
   /** In a narrow window, whether the pane is over the list. */
@@ -93,6 +96,8 @@
   let pane: SpendPane
 
   const selected = $derived(rowWithId($ledger, selectedId))
+  /** The day the date field means, said under it. */
+  const meant = $derived(understood(date))
 
   // Each load: Date follows the calendar and From the account used last, unless I chose them,
   // and the selection stays while it's in the ledger, else goes to the newest. Drafts are left
@@ -175,6 +180,10 @@
       await ledger.caughtUp()
       await ledger.locate(written.value.id)
       selectedId = written.value.id
+      justWritten = written.value.id
+      setTimeout(() => {
+        if (justWritten === written.value.id) justWritten = null
+      }, 1500)
     } else {
       error = { field: fieldOf(written, to), words: spendWordsFor(written) }
     }
@@ -389,7 +398,9 @@
         aria-describedby={[error?.field === 'date' ? 'date-error' : '', 'date-understood'].join(' ').trim()}
       />
     </label>
-    <p class="understood" id="date-understood">{understood(date) ?? ''}</p>
+    <p class="understood" id="date-understood">
+      {#if meant !== null}<Day date={meant} />{/if}
+    </p>
     {#if error?.field === 'date'}
       <p class="error" id="date-error" role="alert">{error.words}</p>
     {/if}
@@ -408,7 +419,10 @@
       const row = await ledger.rowAt(index)
       if (row !== undefined) selectedId = row.id
     }}
+    days={$ledger.days}
+    nets={$ledger.nets}
     {selectedId}
+    written={justWritten}
     {drafts}
     onselect={(id) => (selectedId = id)}
     onopen={openPane}

@@ -49,6 +49,52 @@ export function uniformOf(count: number, height: number): Layout {
   }
 }
 
+/** A layout of rows in groups, each under a band: which group a row is in, and if it's the first. */
+export type Grouped = Layout & { groupAt(row: number): number; starts(row: number): boolean }
+
+/**
+ * Rows in groups of `sizes`, each group's first row carrying its band above it: a day and its rows.
+ * Worked out from the groups, so ten years of days costs an array of days, not of rows.
+ */
+export function groupedOf(sizes: readonly number[], row: number, band: number): Grouped {
+  const firsts = new Float64Array(sizes.length + 1)
+  for (let g = 0; g < sizes.length; g++)
+    firsts[g + 1] = (firsts[g] as number) + (sizes[g] as number)
+  const groups = sizes.length
+  const count = firsts[groups] as number
+  const startOf = (g: number) => firsts[g] as number
+  /** The last group whose value from `at` is at or below `x`: a binary search. */
+  const lastAtOrBelow = (x: number, at: (g: number) => number) => {
+    let low = 0
+    let high = groups - 1
+    while (low < high) {
+      const mid = (low + high + 1) >> 1
+      if (at(mid) <= x) low = mid
+      else high = mid - 1
+    }
+    return low
+  }
+  const groupAt = (r: number) => lastAtOrBelow(r, startOf)
+  const groupTop = (g: number) => startOf(g) * row + g * band
+  const starts = (r: number) => r < count && startOf(groupAt(r)) === r
+  return {
+    count,
+    groupAt,
+    starts,
+    // The bands above it: its own day's, unless it carries that one itself.
+    top: (r) =>
+      r >= count
+        ? count * row + groups * band
+        : r * row + (groupAt(r) + (starts(r) ? 0 : 1)) * band,
+    indexAt(y) {
+      if (count === 0) return 0
+      const g = lastAtOrBelow(y, groupTop)
+      const into = Math.max(Math.floor((y - groupTop(g) - band) / row), 0)
+      return Math.min(startOf(g) + into, startOf(g + 1) - 1, count - 1)
+    },
+  }
+}
+
 /** The item at height `y`, clamped to the list. */
 export const indexAt = (layout: Layout, y: number): number => layout.indexAt(y)
 
@@ -112,17 +158,21 @@ function choosable(i: number, way: 1 | -1, n: number, skip: (i: number) => boole
   return undefined
 }
 
-/** Where to scroll so item `index` shows whole: as little as it takes, or not at all. */
+/**
+ * Where to scroll so item `index` shows whole: as little as it takes, or not at all. `covered` is
+ * what sits over the top of the view, a day's band that stays while rows pass under it.
+ */
 export function scrolledTo(
   offsets: Layout,
   index: number,
   scrollTop: number,
   viewport: number,
+  covered = 0,
 ): number {
   if (index < 0 || index >= offsets.count) return scrollTop
   const top = offsets.top(index)
   const bottom = offsets.top(index + 1)
-  if (top < scrollTop) return top
+  if (top < scrollTop + covered) return Math.max(top - covered, 0)
   if (bottom > scrollTop + viewport) return bottom - viewport
   return scrollTop
 }

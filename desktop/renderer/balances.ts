@@ -3,10 +3,8 @@
 import { pathFor } from '@have-fish/core/account-path'
 import { balanceRows, type Total } from '@have-fish/core/balances'
 import { cents, format } from '@have-fish/core/money'
-import { copy } from '../copy'
-import type { ListedAccount } from '../shared/commands'
+import type { ListedAccount, Money } from '../shared/commands'
 import { HOME_CURRENCY } from '../shared/currency'
-import { money } from './format'
 
 /** One row of the list: an account I added, or a parent its name implies (no account). */
 export type AccountRow = {
@@ -14,8 +12,11 @@ export type AccountRow = {
   account: ListedAccount | undefined
   label: string
   depth: number
-  balance: string
+  /** What's in it, by currency, for `Money`; owed where it's what I owe. */
+  balance: Balance[]
 }
+
+export type Balance = { money: Money; owed: boolean }
 
 /** The accounts as a tree: each parent above its children, with their money rolled into it. */
 export function accountRows(accounts: readonly ListedAccount[]): AccountRow[] {
@@ -32,7 +33,7 @@ export function accountRows(accounts: readonly ListedAccount[]): AccountRow[] {
       account,
       label: row.label,
       depth: row.depth,
-      balance: balanceText(row.totals, row.root, account?.currency ?? HOME_CURRENCY),
+      balance: balanceOf(row.totals, row.root, account?.currency ?? HOME_CURRENCY),
     }
   })
 }
@@ -41,13 +42,10 @@ export function accountRows(accounts: readonly ListedAccount[]): AccountRow[] {
  * What's in it, by currency. Under `liabilities`, below zero is what I owe, shown above zero and
  * said so. Nothing in it is zero in `currency`.
  */
-export function balanceText(totals: readonly Total[], root: string, currency: string): string {
-  if (totals.length === 0) return money(format(0), currency)
-  return totals
-    .map(({ currency, cents }) =>
-      root === 'liabilities' && cents < 0
-        ? copy.accounts.owed(money(format(-cents), currency))
-        : money(format(cents), currency),
-    )
-    .join(' · ')
+export function balanceOf(totals: readonly Total[], root: string, currency: string): Balance[] {
+  if (totals.length === 0) return [{ money: { amount: format(0), currency }, owed: false }]
+  return totals.map(({ currency, cents }) => {
+    const owed = root === 'liabilities' && cents < 0
+    return { money: { amount: format(owed ? -cents : cents), currency }, owed }
+  })
 }

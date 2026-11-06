@@ -3,7 +3,13 @@ import type { Bridge, Changed, CommandName, ListedTransaction, Wire } from '../s
 import { indexIn, type LedgerState, ledgerStore, PAGE, rowAt, rowWithId } from './ledger'
 
 /** What one load asks main for, besides the pages. */
-const LISTS: CommandName[] = ['account.list', 'category.list', 'income.list', 'spend.assumedFrom']
+const LISTS: CommandName[] = [
+  'account.list',
+  'category.list',
+  'income.list',
+  'spend.assumedFrom',
+  'transaction.days',
+]
 
 type Call = { name: CommandName; input: unknown; answer(value: Wire<unknown>): void }
 
@@ -40,8 +46,15 @@ function fakeBridge(size = 3) {
       const rows = Array.from({ length: Math.max(Math.min(limit, size - from), 0) }, (_, i) =>
         row(from + i),
       )
-      return { total: size, from, rows }
+      // Each page is a day of its own, netting its first row's number, negated.
+      return {
+        total: size,
+        from,
+        rows,
+        nets: [{ date: `day ${from}`, net: [{ amount: `-${from}.00`, currency: 'CAD' }] }],
+      }
     }
+    if (name === 'transaction.days') return [{ date: 'every day', count: size }]
     if (name === 'transaction.position') {
       const { id } = input as { id: string }
       const at = Number(id.slice(1))
@@ -171,6 +184,28 @@ describe('the ledger store', () => {
     fake.notify()
     await fake.answerAll()
     expect(fake.count('account.list')).toBe(1)
+  })
+})
+
+describe("the list's days", () => {
+  test('a load brings every day with its count, and each page its days’ nets', async () => {
+    const { ledger } = await started(250)
+    const state = ledger.current()
+    expect(state.days).toEqual([{ date: 'every day', count: 250 }])
+    expect([...state.nets]).toEqual([['day 0', [{ amount: '-0.00', currency: 'CAD' }]]])
+  })
+
+  test('a page fetched between loads brings its nets; the next load keeps only those in view', async () => {
+    const { fake, ledger } = await started(50_000)
+    ledger.view(20_090, 20_130)
+    await fake.answerAll()
+    expect(ledger.current().nets.get('day 20100')).toEqual([
+      { amount: '-20100.00', currency: 'CAD' },
+    ])
+
+    fake.notify()
+    await fake.answerAll()
+    expect([...ledger.current().nets.keys()].sort()).toEqual(['day 20000', 'day 20100'])
   })
 })
 

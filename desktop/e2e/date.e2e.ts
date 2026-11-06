@@ -4,7 +4,6 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { dateFrom } from '@have-fish/core/typed-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { understood } from '../renderer/format'
 import { aHome, launch, PANE, rows, shownDay, unsavedInPane, WRITE, writeDown } from './app'
 
 const DAY = 86_400_000
@@ -123,7 +122,7 @@ describe('type a date quickly', () => {
   const means = (typed: string) => {
     const date = dateFrom(typed, today())
     if (date === null) throw new Error(`can't read ${typed}`)
-    return { date, said: understood(typed, today()) }
+    return { date, said: shownDay(date) }
   }
 
   test.each(['y', '-3', 'mon', 'fri', '10-31'])(
@@ -144,7 +143,7 @@ describe('type a date quickly', () => {
 
   test('today is said as a day before I touch it', async () => {
     const { page } = await launch(aHome())
-    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe(understood(today(), today()))
+    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe(shownDay(today()))
   })
 
   test('something it can’t read: nothing is saved, and Date says how to type one', async () => {
@@ -169,7 +168,7 @@ describe('type a date quickly', () => {
     await page.fill(PANE_DATE, 'y')
     await expect
       .poll(() => page.innerText(`${PANE} #pane-date-understood`))
-      .toBe(understood('y', today()))
+      .toBe(shownDay(dateFrom('y', today()) as string))
     await page.press(PANE_DATE, 'Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(daysAgo(1))} | Coffee | 4.50`])

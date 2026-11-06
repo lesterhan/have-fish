@@ -28,7 +28,14 @@ export const spends = {
     wallet: 'cash',
     submit: 'Write it down',
   },
-  list: { label: 'Ledger' },
+  list: {
+    label: 'Ledger',
+    /** The headings over the ledger's columns. */
+    columns: { from: 'From', amount: 'Amount', to: 'To', description: 'Description' },
+    /** On the selected row's keycap, and beside it: Enter shows its details. */
+    enter: 'Enter',
+    details: 'details',
+  },
   /** In place of a spend's description when it has none. */
   noDescription: '—',
   /** A date field holding something that isn't a day, typed long or the short way. */

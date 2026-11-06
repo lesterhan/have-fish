@@ -2,6 +2,7 @@
   import { copy } from '../copy'
   import type { ListedAccount } from '../shared/commands'
   import type { AccountRow } from './balances'
+  import Money from './parts/Money.svelte'
   import Listbox from './parts/Listbox.svelte'
 
   type Props = {
@@ -55,7 +56,11 @@
       <span class="currency" class:code={a?.currency != null}>
         {a ? (a.currency ?? copy.accounts.anyCurrency) : ''}
       </span>
-      <span class="balance">{r.balance}</span>
+      <span class="balance"
+        >{#each r.balance as { money, owed }, i (money.currency)}{#if i > 0}{' · '}{/if}{#if owed}{`${copy.accounts.owed} `}{/if}<Money
+            of={money}
+          />{/each}</span
+      >
     {/snippet}
   </Listbox>
 </div>

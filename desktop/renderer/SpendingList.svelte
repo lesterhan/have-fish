@@ -2,7 +2,8 @@
   import type { SpendingLine } from '@have-fish/core/spending'
   import { copy } from '../copy'
   import Empty from './parts/Empty.svelte'
-  import { lineLabel, moneyText } from './report'
+  import Money from './parts/Money.svelte'
+  import { lineLabel, moneyOf } from './report'
   import Listbox from './parts/Listbox.svelte'
 
   type Props = {
@@ -67,7 +68,7 @@
       <span class="name" class:unsorted={line.kind !== 'category'}>{lineLabel(line)}</span>
       <span class="opens" aria-hidden="true">{line.opens ? copy.reports.breakdown.opens : ''}</span>
       <span class="bar" aria-hidden="true"><span style:inline-size="{line.share * 100}%"></span></span>
-      <span class="amount">{moneyText(line.cents, currency)}</span>
+      <span class="amount"><Money of={moneyOf(line.cents, currency)} /></span>
     {/snippet}
   </Listbox>
   {#if lines.length === 0}
@@ -75,7 +76,7 @@
   {:else}
     <p class="total">
       <span>{copy.reports.breakdown.total}</span>
-      <span class="amount">{moneyText(total, currency)}</span>
+      <span class="amount"><Money of={moneyOf(total, currency)} /></span>
     </p>
   {/if}
 </div>

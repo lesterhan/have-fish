@@ -23,6 +23,8 @@ const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => (
   simple: { amount: '4.50', currency: 'CAD' },
   from: 'cash',
   to: 'unsorted',
+  fromPath: 'assets:cash',
+  toPath: 'expenses:unsorted',
   ...fields,
 })
 

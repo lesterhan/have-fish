@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, cellsOf, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, shownDay, spendCells, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -14,7 +14,7 @@ const REMOVE = `${PANE} >> role=button[name="Remove"s]`
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const selected = (page: Page) =>
-  cellsOf(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([, d]) => d))
+  spendCells(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([, d]) => d))
 const focused = (page: Page) =>
   page.evaluate(() => {
     const el = document.activeElement

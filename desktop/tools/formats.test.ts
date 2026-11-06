@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, test } from 'vitest'
-import { rawFormatsIn } from './formats'
+import { drawnHereIn, rawFormatsIn } from './formats'
 
 describe('the detector itself', () => {
   it('catches a day or an amount shown as stored', () => {
@@ -39,6 +39,19 @@ describe('the detector itself', () => {
   })
 })
 
+describe('the component detector', () => {
+  it('catches a component formatting an amount or a day itself', () => {
+    expect(drawnHereIn('<span>{money(m.amount, m.currency)}</span>')).toEqual(['money('])
+    expect(drawnHereIn('<span>{day(t.date, today)}</span>')).toEqual(['day('])
+    expect(drawnHereIn('{amountsText(t.amounts)}')).toEqual(['amountsText('])
+  })
+
+  it('leaves the parts that draw them alone, and other words with day in them', () => {
+    expect(drawnHereIn('<Money of={t.amounts} /> <Day date={t.date} />')).toEqual([])
+    expect(drawnHereIn('const d = today(); thisWeek(todayIn())')).toEqual([])
+  })
+})
+
 describe('money and days go through here', () => {
   const RENDERER = join(import.meta.dirname, '../renderer')
   const files = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' }).filter(
@@ -55,5 +68,13 @@ describe('money and days go through here', () => {
       rawFormatsIn(readFileSync(join(RENDERER, f), 'utf8')).map((found) => `${f}: ${found}`),
     )
     expect(raw, 'Use money() or day() from renderer/format.ts').toEqual([])
+  })
+
+  test('a component draws them only with Money and Day', () => {
+    const PARTS = ['parts/Money.svelte', 'parts/Day.svelte']
+    const drawn = files
+      .filter((f) => f.endsWith('.svelte') && !PARTS.includes(f.replaceAll('\\', '/')))
+      .flatMap((f) => drawnHereIn(readFileSync(join(RENDERER, f), 'utf8')).map((c) => `${f}: ${c}`))
+    expect(drawn, 'Use <Money of=…> or <Day date=…>').toEqual([])
   })
 })

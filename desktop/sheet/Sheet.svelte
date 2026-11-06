@@ -5,13 +5,49 @@
   import Header from '../renderer/parts/Header.svelte'
   import Keys from '../renderer/parts/Keys.svelte'
   import Notice from '../renderer/parts/Notice.svelte'
+  import Band from '../renderer/parts/Band.svelte'
+  import Day from '../renderer/parts/Day.svelte'
+  import Money from '../renderer/parts/Money.svelte'
+  import Path from '../renderer/parts/Path.svelte'
   import Sidebar from '../renderer/parts/Sidebar.svelte'
+  import SpendList from '../renderer/SpendList.svelte'
+  import type { Drafts } from '../renderer/drafts'
+  import type { ListedTransaction } from '../shared/commands'
   import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
   // Each part in each of its states. Hover, focus and pressed can't be drawn at rest: the capture
   // script shoots the Button section with each.
   let place = $state<Place>('ledger')
+  const TODAY = '2026-11-05'
+  const cad = (amount: string) => ({ amount, currency: 'CAD' })
+  const row = (
+    id: string,
+    date: string,
+    amount: string,
+    fromPath: string,
+    toPath: string,
+    description: string,
+  ): ListedTransaction => ({
+    id,
+    date,
+    description,
+    amounts: [cad(amount)],
+    simple: cad(amount),
+    from: fromPath.split(':').slice(1).join(':'),
+    to: toPath.split(':').slice(1).join(':'),
+    fromPath,
+    toPath,
+  })
+  // Rest, selected, being rewritten (●), just written; money in and a move between my accounts.
+  const ROWS = [
+    row('a', TODAY, '16.76', 'liabilities:cibc:visa', 'expenses:health:pharmacy', 'Pharmacy'),
+    row('b', TODAY, '15.93', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Lunch'),
+    row('c', '2026-11-04', '200.00', 'assets:tangerine:chequing', 'assets:tangerine:savings', 'Put some away'),
+    row('d', '2026-11-04', '26.32', 'liabilities:cibc:visa', 'expenses:home:supplies', 'Hardware store'),
+    row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair'),
+  ]
+  const drafts: Drafts = new Map([['d', { description: '', amount: '', to: '', date: '', error: null }]])
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
@@ -61,6 +97,62 @@
   <section aria-label="Empty">
     <h2>Empty</h2>
     <div class="frame"><Empty>{copy.spends.pane.nothing}</Empty></div>
+  </section>
+
+  <section aria-label="Money">
+    <h2>Money: out, in, between, another currency, with its code, several</h2>
+    <div class="line">
+      <Money of={cad('1234.50')} />
+      <Money of={cad('40.00')} way="in" />
+      <Money of={cad('200.00')} way="between" />
+      <Money of={{ amount: '35.00', currency: 'EUR' }} />
+      <Money of={cad('-32.69')} code />
+      <Money of={[cad('10.00'), { amount: '1100', currency: 'JPY' }]} />
+    </div>
+  </section>
+
+  <section aria-label="Day">
+    <h2>Day: this year, another, a band's today and yesterday, a run</h2>
+    <div class="line">
+      <Day date="2026-11-02" today={TODAY} />
+      <Day date="2025-12-31" today={TODAY} />
+      <Day date={TODAY} today={TODAY} band />
+      <Day date="2026-11-04" today={TODAY} band />
+      <Day date="2026-11-02" until="2026-11-08" today={TODAY} />
+    </div>
+  </section>
+
+  <section aria-label="Path">
+    <h2>Path: each root's tag</h2>
+    <div class="line">
+      <Path path="assets:tangerine:chequing" />
+      <Path path="liabilities:cibc:visa" />
+      <Path path="expenses:food:restaurants" />
+      <Path path="income:salary" />
+      <Path path="equity:opening" />
+    </div>
+  </section>
+
+  <section aria-label="Band">
+    <h2>Band: a day and its net</h2>
+    <div class="frame"><Band date={TODAY} today={TODAY} net={[cad('-32.69')]} /></div>
+  </section>
+
+  <section aria-label="Rows">
+    <h2>Rows: rest, selected, ● being rewritten, just written; in and between</h2>
+    <div class="frame rows">
+      <SpendList
+        transactions={ROWS}
+        selectedId="b"
+        written="e"
+        {drafts}
+        onselect={() => {}}
+        onopen={() => {}}
+        onremove={() => {}}
+        label="Rows"
+        idPrefix="sheet"
+      />
+    </div>
   </section>
 
   <section aria-label="Sidebar">
@@ -161,6 +253,12 @@
     max-inline-size: 40rem;
     padding: var(--space-3);
     border: var(--border-width) dashed var(--color-rule);
+  }
+
+  .rows {
+    display: grid;
+    max-inline-size: 60rem;
+    block-size: 16rem;
   }
 
   .sidebar {

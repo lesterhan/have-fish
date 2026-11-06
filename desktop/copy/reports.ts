@@ -10,7 +10,6 @@ export const reports = {
     later: '▶',
     thisWeek: 'This week',
     /** Monday to Sunday, as two dates. */
-    span: (start: string, end: string) => `${start} to ${end}`,
   },
   trail: {
     label: 'Where you are in your categories',

@@ -59,6 +59,14 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Spends.
   await shot.take('spends')
+  // Scrolled: the top row's band stays while its rows pass under it.
+  await page.locator(SPENDS).evaluate((list) => {
+    list.scrollTop = 300
+  })
+  await shot.take('spends-scrolled')
+  await page.locator(SPENDS).evaluate((list) => {
+    list.scrollTop = 0
+  })
   await page.click(`${SPENDS} li >> nth=2`)
   await shot.take('spends-selected')
   await shot.dark('spends-selected')

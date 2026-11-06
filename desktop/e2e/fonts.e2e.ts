@@ -67,7 +67,8 @@ describe('fonts', () => {
     expect(await familyOf(page, `${WRITE} input[name=date]`)).toBe(FIGURES)
     expect(await familyOf(page, `${LIST} >> text=/^\\w{3} \\d{1,2} \\w{3}$/`)).toBe(FIGURES)
     expect(await familyOf(page, `${LIST} >> text="4.50"`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SERIF)
+    // A row reads in the interface's face; the serif is for titles (DESIGN.md, "Type").
+    expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SANS)
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} >> text="CAD"`)).toBe(FIGURES)
@@ -77,6 +78,8 @@ describe('fonts', () => {
   test("the list's amounts line up on the decimal point", async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
+    // A row just written slides in: measure where it lands.
+    await page.waitForFunction(() => document.getAnimations().length === 0)
 
     const points = await page.$$eval(`${LIST} >> text=/^\\d+\\.\\d{2}$/`, (amounts) =>
       amounts.map((el) => {

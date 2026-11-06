@@ -58,6 +58,10 @@ export const INK: readonly Ink[] = [
   { ink: '--color-muted', on: '--color-notice', kind: 'text' },
   { ink: '--color-error', on: '--color-notice', kind: 'graphic' },
   { ink: '--color-accent', on: '--color-notice', kind: 'graphic' },
+  // A path's tag: the root's initial on its tint.
+  ...(['assets', 'liabilities', 'expenses', 'income'] as const).map(
+    (root): Ink => ({ ink: `--color-${root}`, on: `--color-${root}-tint`, kind: 'text' }),
+  ),
   // An input's edge.
   { ink: '--color-border', on: '--color-background', kind: 'graphic' },
   // A bar, and the accent's edge, on the line under a row.

@@ -12,6 +12,19 @@ const DESCRIPTION = `${WRITE} input[name=description]`
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
+describe("a day's band", () => {
+  test('says the day, and what it came to with a true minus, over its first row', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '4.50', 'Coffee')
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(2)
+
+    // The band rides in the day's first row, and isn't in the second.
+    const bands = page.locator('ol[aria-label=Ledger] [role=option] > div')
+    await expect.poll(() => bands.allInnerTexts()).toEqual([`Today · ${shownDay(today())}\n−16.50`])
+  })
+})
+
 describe('write down a spend', () => {
   test('the amount field is ready to type into when the app opens', async () => {
     const { page } = await launch(aHome())

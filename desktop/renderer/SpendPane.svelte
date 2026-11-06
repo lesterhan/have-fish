@@ -2,7 +2,9 @@
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
-  import { amountsText, day, todayIn, understood } from './format'
+  import { understood } from './format'
+  import Day from './parts/Day.svelte'
+  import Money from './parts/Money.svelte'
   import Button from './parts/Button.svelte'
   import Empty from './parts/Empty.svelte'
   import Picker from './Picker.svelte'
@@ -52,6 +54,8 @@
   const saved = $derived(transaction && savedValues(transaction))
   // What the fields show: the draft while there is one, else what's saved.
   const values = $derived(draft ?? saved)
+  /** The day the date field means, said under it. */
+  const meant = $derived(values && understood(values.date))
   const error = $derived(draft?.error ?? null)
 
   function onsubmit(event: SubmitEvent) {
@@ -74,7 +78,7 @@
   {:else}
     <p class="heading">
       <!-- An editable spend shows its date in the field below. -->
-      {#if !values}<span class="date">{day(transaction.date, todayIn())}</span>{/if}
+      {#if !values}<span class="date"><Day date={transaction.date} /></span>{/if}
       {#if draft}<Unsaved />{/if}
     </p>
     {#if transaction.from !== null}
@@ -160,7 +164,9 @@
               : `${idPrefix}-date-understood`}
           />
         </label>
-        <p class="understood" id={`${idPrefix}-date-understood`}>{understood(values.date) ?? ''}</p>
+        <p class="understood" id={`${idPrefix}-date-understood`}>
+          {#if meant}<Day date={meant} />{/if}
+        </p>
         {#if error?.field === 'date'}
           <p class="error" id={`${idPrefix}-date-error`} role="alert">{error.words}</p>
         {/if}
@@ -176,7 +182,7 @@
       </form>
     {:else}
       <p class="description">{transaction.description || copy.spends.noDescription}</p>
-      <p class="amount">{amountsText(transaction.amounts, { code: true })}</p>
+      <p class="amount"><Money of={transaction.amounts} code /></p>
       <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
 

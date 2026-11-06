@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { indexAt, movedTo, offsetsOf, scrolledTo, uniformOf, windowOf } from './listbox'
+import { groupedOf, indexAt, movedTo, offsetsOf, scrolledTo, uniformOf, windowOf } from './listbox'
 
 const ROW = 33
 const BAND = 24
@@ -129,6 +129,59 @@ describe('scrolledTo', () => {
   test('scrolls just enough, up or down', () => {
     expect(scrolledTo(offsets, 6, 50, 200)).toBe(150)
     expect(scrolledTo(offsets, 0, 50, 200)).toBe(0)
+  })
+
+  test('keeps an item out from under what covers the top of the view', () => {
+    expect(scrolledTo(offsets, 2, 90, 200, 24)).toBe(76)
+    expect(scrolledTo(offsets, 2, 76, 200, 24)).toBe(76)
+    // The first item covers it with its own band: it scrolls to the top, never past.
+    expect(scrolledTo(offsets, 0, 30, 200, 24)).toBe(0)
+  })
+})
+
+describe('groupedOf: rows in days, each day under its band', () => {
+  // Ten years: fourteen rows a day, with a short day here and there.
+  const sizes = Array.from({ length: 3_650 }, (_, d) => (d % 7 === 3 ? 2 : 14))
+  const count = sizes.reduce((a, b) => a + b, 0)
+  const grouped = groupedOf(sizes, ROW, BAND)
+  const firsts = new Set(sizes.map((_, d) => sizes.slice(0, d).reduce((a, b) => a + b, 0)))
+  const measured = offsetsOf(
+    Array.from({ length: count }, (_, r) => (firsts.has(r) ? BAND : 0) + ROW),
+  )
+
+  test("lays out as measured would, a day's first row carrying its band, without an array", () => {
+    expect(grouped.count).toBe(count)
+    for (const r of [0, 1, 13, 14, 15, 44, 45, 46, 20_000, count - 1, count]) {
+      expect(grouped.top(r), `row ${r}`).toBe(measured.top(r))
+    }
+    for (const y of [-5, 0, BAND - 1, BAND, BAND + ROW, 14 * ROW + BAND + 3, 700_000, 10 ** 8]) {
+      expect(grouped.indexAt(y), `y ${y}`).toBe(measured.indexAt(y))
+    }
+  })
+
+  test('says which day a row is in, and whether it starts it', () => {
+    expect([0, 13, 14, 43, 44].map((r) => grouped.groupAt(r))).toEqual([0, 0, 1, 3, 4])
+    expect([0, 1, 14, 42, 43, 44].map((r) => grouped.starts(r))).toEqual([
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+    ])
+  })
+
+  test('the window and the keys come out as measured', () => {
+    expect(windowOf(grouped, 700_000, 600)).toEqual(windowOf(measured, 700_000, 600))
+    for (const key of ['ArrowDown', 'PageDown', 'PageUp', 'End', 'Home']) {
+      expect(movedTo(grouped, 20_000, key, 600), key).toBe(movedTo(measured, 20_000, key, 600))
+    }
+  })
+
+  test('none is empty', () => {
+    const none = groupedOf([], ROW, BAND)
+    expect([none.count, none.top(0), none.indexAt(50)]).toEqual([0, 0, 0])
+    expect(windowOf(none, 0, 600)).toEqual({ from: 0, to: 0 })
   })
 })
 

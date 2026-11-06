@@ -685,6 +685,8 @@ describe('listTransactions', () => {
         simple: { amount: '12.00', currency: 'CAD' },
         from: 'cash',
         to: 'unsorted',
+        fromPath: 'assets:cash',
+        toPath: 'expenses:unsorted',
       },
       {
         id: coffee.id,
@@ -694,6 +696,8 @@ describe('listTransactions', () => {
         simple: { amount: '4.50', currency: 'CAD' },
         from: 'cash',
         to: 'unsorted',
+        fromPath: 'assets:cash',
+        toPath: 'expenses:unsorted',
       },
     ])
   })

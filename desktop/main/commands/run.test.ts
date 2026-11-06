@@ -25,7 +25,7 @@ describe('runCommand', () => {
     const { ctx, log } = setup()
     expect(runCommand(ctx, 'transaction.page', PAGE, log)).toEqual({
       ok: true,
-      value: { total: 0, from: 0, rows: [] },
+      value: { total: 0, from: 0, rows: [], nets: [] },
     })
   })
 

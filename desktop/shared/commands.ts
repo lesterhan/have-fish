@@ -66,6 +66,8 @@ export const inputs = {
   }),
   /** Where a transaction is in the list, so the window can show it however far down. */
   'transaction.position': z.strictObject({ id: z.uuid() }),
+  /** Every day of the list and its count: where its day bands fall. */
+  'transaction.days': z.strictObject({}),
   /** The live ones of these, in the list's order. */
   'transaction.get': z.strictObject({ ids: z.array(z.uuid()).max(1000) }),
   /** `currency` null: it can hold any. */
@@ -108,7 +110,16 @@ export type ListedTransaction = {
    * an income source, the account of mine it went to. Without its root: what an edit can change.
    */
   to: string | null
+  /** `from` and `to` as whole paths, root and all, for their tags. */
+  fromPath: string | null
+  toPath: string | null
 }
+
+/** A day of the ledger's list, and how many rows it has. */
+export type ListedDay = { date: string; count: number }
+
+/** What a day came to: money in less money out, per currency. A move between my accounts is neither. */
+export type DayNet = { date: string; net: Money[] }
 
 /** A category I've put a spend in, or an income source money came from, as a picker offers it. */
 export type ListedCategory = {
@@ -159,7 +170,10 @@ export interface Values {
   'spend.saveAll': { id: string; refused: WireFailure | null }[]
   'spend.remove': { id: string }
   /** `total` is every live row, so a list's scrollbar is the whole list's. */
-  'transaction.page': { total: number; from: number; rows: ListedTransaction[] }
+  /** With the net of each day it has a row of: the whole day's, not only its rows here. */
+  'transaction.page': { total: number; from: number; rows: ListedTransaction[]; nets: DayNet[] }
+  /** Newest day first. */
+  'transaction.days': ListedDay[]
   /** Counting from 0; null when it isn't live. */
   'transaction.position': { at: number | null }
   'transaction.get': ListedTransaction[]
