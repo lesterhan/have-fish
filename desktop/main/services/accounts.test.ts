@@ -499,3 +499,12 @@ describe('startAccount', () => {
     expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('30.00')
   })
 })
+
+describe('a starting balance finer than its currency', () => {
+  test('is refused, and the account is not added', () => {
+    const { ledger, ctx } = setup()
+    const added = addAccount(ctx, { name: 'yen', kind: 'cash', currency: 'JPY', start: '100.5' })
+    expect(added.ok || added.failure.code).toBe('AMOUNT_TOO_PRECISE')
+    expect(listAccounts(ledger.db)).toEqual([])
+  })
+})

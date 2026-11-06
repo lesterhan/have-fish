@@ -12,6 +12,7 @@ export function fieldOf(failure: WireFailure, to?: To): Field {
   switch (failure.error) {
     case 'AMOUNT_INVALID':
     case 'AMOUNT_NOT_POSITIVE':
+    case 'AMOUNT_TOO_PRECISE':
       return 'amount'
     case 'DATE_INVALID':
       return 'date'

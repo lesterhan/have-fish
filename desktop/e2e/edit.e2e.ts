@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, BACK, launch, PANE, rows, unsavedInPane, writeDown } from './app'
+import { aHome, BACK, launch, PANE, rows, shownDay, unsavedInPane, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -19,7 +19,7 @@ async function twoSpends(page: Page) {
   await writeDown(page, '4.50', 'Coffee')
   await expect
     .poll(() => rows(page))
-    .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch | 12.00 CAD`])
+    .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(today())} | Lunch | 12.00`])
 }
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
@@ -49,7 +49,10 @@ describe('fix a spend', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch with Sam | 15.00 CAD`])
+      .toEqual([
+        `${shownDay(today())} | Coffee | 4.50`,
+        `${shownDay(today())} | Lunch with Sam | 15.00`,
+      ])
     expect(await page.inputValue(AMOUNT)).toBe('15.00')
     expect(await unsavedInPane(page)).toBe(0)
     expect(await page.textContent(SELECTED)).toContain('Lunch with Sam')
@@ -62,7 +65,9 @@ describe('fix a spend', () => {
     await page.fill(DESCRIPTION, 'Flat white')
     await page.click(`${PANE} button[type=submit]`)
 
-    await expect.poll(async () => (await rows(page))[0]).toBe(`${today()} | Flat white | 4.50 CAD`)
+    await expect
+      .poll(async () => (await rows(page))[0])
+      .toBe(`${shownDay(today())} | Flat white | 4.50`)
   })
 
   test('Escape while editing: nothing changes', async () => {
@@ -77,8 +82,8 @@ describe('fix a spend', () => {
     expect(await page.inputValue(AMOUNT)).toBe('4.50')
     expect(await unsavedInPane(page)).toBe(0)
     expect(await rows(page)).toEqual([
-      `${today()} | Coffee | 4.50 CAD`,
-      `${today()} | Lunch | 12.00 CAD`,
+      `${shownDay(today())} | Coffee | 4.50`,
+      `${shownDay(today())} | Lunch | 12.00`,
     ])
   })
 
@@ -91,8 +96,8 @@ describe('fix a spend', () => {
 
     expect(await unsavedInPane(page)).toBe(1)
     expect(await rows(page)).toEqual([
-      `${today()} | Coffee | 4.50 CAD`,
-      `${today()} | Lunch | 12.00 CAD | ●unsaved changes`,
+      `${shownDay(today())} | Coffee | 4.50`,
+      `${shownDay(today())} | Lunch | 12.00 | ●unsaved changes`,
     ])
 
     await row(page, 'Coffee').click()
@@ -121,8 +126,8 @@ describe('fix a spend', () => {
     expect(await page.inputValue(AMOUNT)).toBe('abc')
     expect(await unsavedInPane(page)).toBe(1)
     expect(await rows(page)).toEqual([
-      `${today()} | Coffee | 4.50 CAD | ●unsaved changes`,
-      `${today()} | Lunch | 12.00 CAD`,
+      `${shownDay(today())} | Coffee | 4.50 | ●unsaved changes`,
+      `${shownDay(today())} | Lunch | 12.00`,
     ])
   })
 

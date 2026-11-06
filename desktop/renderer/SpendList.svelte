@@ -2,7 +2,7 @@
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
   import type { Drafts } from './drafts'
-  import { amountsText } from './format'
+  import { amountsText, day, todayIn } from './format'
   import type { Paged } from './parts/listbox'
   import Listbox from './parts/Listbox.svelte'
   import Unsaved from './Unsaved.svelte'
@@ -42,6 +42,12 @@
   }: Props = $props()
 
   let listbox: ReturnType<typeof Listbox<ListedTransaction>>
+  /** Asked again with each change to the list, so a day past midnight says its year right. */
+  const today = $derived.by(() => {
+    void transactions
+    void paged
+    return todayIn()
+  })
 
   export function focus() {
     listbox.focus()
@@ -83,7 +89,7 @@
     {onkey}
   >
     {#snippet row(t)}
-      <span class="date">{t.date}</span>
+      <span class="date">{day(t.date, today)}</span>
       <span class="description">{t.description || copy.spends.noDescription}</span>
       <span class="amount">{amountsText(t.amounts)}</span>
       {#if drafts.has(t.id)}<Unsaved />{/if}

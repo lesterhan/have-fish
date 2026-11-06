@@ -4,7 +4,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, unsavedInPane, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, shownDay, unsavedInPane, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -77,7 +77,10 @@ describe('shortcuts', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Coffee | 5.00 CAD`, `${today()} | Lunch with Sam | 12.00 CAD`])
+      .toEqual([
+        `${shownDay(today())} | Coffee | 5.00`,
+        `${shownDay(today())} | Lunch with Sam | 12.00`,
+      ])
     expect(await unsavedInPane(page)).toBe(0)
   })
 
@@ -93,8 +96,8 @@ describe('shortcuts', () => {
     await expect
       .poll(() => rows(page))
       .toEqual([
-        `${today()} | Coffee | 4.50 CAD | ●unsaved changes`,
-        `${today()} | Lunch | 15.00 CAD`,
+        `${shownDay(today())} | Coffee | 4.50 | ●unsaved changes`,
+        `${shownDay(today())} | Lunch | 15.00`,
       ])
 
     await row(page, 'Coffee').click()

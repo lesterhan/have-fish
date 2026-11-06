@@ -66,10 +66,10 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect((await rows(page))[0]).toMatch(/\| Pay \| 2000\.00 CAD$/)
+    expect((await rows(page))[0]).toMatch(/\| Pay \| 2,000\.00$/)
     expect(await fromLine(page).innerText()).toMatch(/^From\s+salary$/)
     expect(await page.inputValue(`${PANE} input[name=to]`)).toBe('chequing')
-    expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 2100.00 CAD'])
+    expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 2,100.00'])
 
     await page.click(`${NAV} button:has-text("Reports")`)
     await expect.poll(() => page.innerText('role=main')).toContain('No spending in this week.')
@@ -92,7 +92,7 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 70.00 CAD'])
+    expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 70.00'])
   })
 
   test('the next spend still comes out of the account used last, not the income source', async () => {

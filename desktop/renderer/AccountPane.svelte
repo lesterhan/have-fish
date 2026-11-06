@@ -3,6 +3,7 @@
   import { CURRENCIES } from '@have-fish/core/currencies'
   import { tick } from 'svelte'
   import { copy } from '../copy'
+  import { day, money, todayIn } from './format'
   import type { ListedAccount } from '../shared/commands'
   import {
     type AccountField,
@@ -190,8 +191,10 @@
           {owes(account.kind) ? copy.accounts.pane.started.owe : copy.accounts.pane.started.have}
         </dt>
         <dd class="start">
-          <span class="code">{account.start.amount} {account.start.currency}</span>
-          <span class="date">{account.start.date}</span>
+          <span class="code">
+            {money(account.start.amount, account.start.currency, { code: true })}
+          </span>
+          <span class="date">{day(account.start.date, todayIn())}</span>
         </dd>
       {/if}
     </dl>

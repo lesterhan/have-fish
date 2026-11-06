@@ -65,8 +65,8 @@ describe('fonts', () => {
     expect(await familyOf(page, `${WRITE} input[name=description]`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${WRITE} input[name=date]`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} >> text=/^\\d{4}-\\d{2}-\\d{2}$/`)).toBe(FIGURES)
-    expect(await familyOf(page, `${LIST} >> text="4.50 CAD"`)).toBe(FIGURES)
+    expect(await familyOf(page, `${LIST} >> text=/^\\w{3} \\d{1,2} \\w{3}$/`)).toBe(FIGURES)
+    expect(await familyOf(page, `${LIST} >> text="4.50"`)).toBe(FIGURES)
     expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SERIF)
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
@@ -78,7 +78,7 @@ describe('fonts', () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
 
-    const points = await page.$$eval(`${LIST} >> text=/^\\d+\\.\\d{2} CAD$/`, (amounts) =>
+    const points = await page.$$eval(`${LIST} >> text=/^\\d+\\.\\d{2}$/`, (amounts) =>
       amounts.map((el) => {
         const text = el.firstChild as Text
         const range = document.createRange()

@@ -5,7 +5,7 @@ import { cents, format } from '@have-fish/core/money'
 import { isIn, isUnder, type SpendingLine, type Spent } from '@have-fish/core/spending'
 import { copy } from '../copy'
 import type { ListedTransaction, Values } from '../shared/commands'
-import { amountsText } from './format'
+import { amountsText, money } from './format'
 
 export type Week = { start: string; end: string }
 
@@ -26,7 +26,8 @@ export function lineLabel(line: Pick<SpendingLine, 'kind' | 'label'>): string {
   return line.label
 }
 
-export const moneyText = (cents: number, currency: string) => `${format(cents)} ${currency}`
+/** A report's sum, as money reads. */
+export const moneyText = (cents: number, currency: string) => money(format(cents), currency)
 
 /** What went out in other currencies, said once, or null when there was none. */
 export const otherText = (other: Values['report.spending']['other']) =>

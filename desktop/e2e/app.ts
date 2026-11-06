@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path'
 import electron from 'electron'
 import { chromium, type Locator, type Page } from 'playwright-core'
 import { onTestFinished } from 'vitest'
+import { day, todayIn } from '../renderer/format'
 
 const desktop = join(import.meta.dirname, '..')
 
@@ -181,6 +182,9 @@ export async function writeDown(page: Page, amount: string, description: string)
   await page.keyboard.type(description)
   await page.keyboard.press('Enter')
 }
+
+/** A day as the window shows it, today being today where this machine is. */
+export const shownDay = (date: string) => day(date, todayIn())
 
 /** The list as text, one row per entry: date, description, amount, and ● for a draft. */
 export const rows = (page: Page) =>

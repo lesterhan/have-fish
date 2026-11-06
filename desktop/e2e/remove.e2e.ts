@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, cellsOf, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, cellsOf, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -45,7 +45,7 @@ describe('removing a spend', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Tea | 3.00 CAD`, `${today()} | Lunch | 12.00 CAD`])
+      .toEqual([`${shownDay(today())} | Tea | 3.00`, `${shownDay(today())} | Lunch | 12.00`])
     expect(await selected(page)).toEqual(['Lunch'])
     expect(await focused(page)).toBe('Ledger OL')
   })
@@ -59,7 +59,7 @@ describe('removing a spend', () => {
 
     await expect
       .poll(() => rows(page))
-      .toEqual([`${today()} | Tea | 3.00 CAD`, `${today()} | Coffee | 4.50 CAD`])
+      .toEqual([`${shownDay(today())} | Tea | 3.00`, `${shownDay(today())} | Coffee | 4.50`])
     expect(await selected(page)).toEqual(['Coffee'])
   })
 

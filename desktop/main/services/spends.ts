@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
 import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
+import { fitsCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
@@ -53,6 +54,9 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const to = destination(ctx.ledger.db, goesTo, from.value.id, made)
   if (!to.ok) return to
   const currency = from.value.currency ?? to.value.currency ?? HOME_CURRENCY
+  if (!fitsCurrency(cents, currency)) {
+    return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
+  }
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
@@ -168,6 +172,11 @@ function edit(
   if (doc.deletedAt !== null) return refused(failure('TRANSACTION_DELETED', { id }))
   const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  if (!fitsCurrency(cents, simple.currency)) {
+    return refused(
+      failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency: simple.currency }),
+    )
+  }
 
   const now = ctx.now()
   const into = doc.postings.find((p) => toCents(p.amount) > 0)?.accountId

@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, shownDay, WRITE, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -73,7 +73,7 @@ describe('moving money between my accounts', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect((await rows(page))[0]).toBe(`${today()} | Cash out | 100.00 CAD`)
+    expect((await rows(page))[0]).toBe(`${shownDay(today())} | Cash out | 100.00`)
     expect(await page.inputValue(PANE_TO)).toBe('cash')
     expect(await paidFrom(page)).toBe('chequing')
   })
@@ -128,7 +128,9 @@ describe('changing where it went, in the pane', () => {
 
     await page.fill(`${PANE} input[name=amount]`, '5')
     await page.locator(`${PANE} input[name=amount]`).press('Enter')
-    await expect.poll(async () => (await rows(page))[0]).toBe(`${today()} | Coffee | 5.00 CAD`)
+    await expect
+      .poll(async () => (await rows(page))[0])
+      .toBe(`${shownDay(today())} | Coffee | 5.00`)
     expect(await page.inputValue(PANE_TO)).toBe('chequing')
 
     await page.locator('ol[aria-label=Ledger]').focus()
