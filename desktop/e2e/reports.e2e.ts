@@ -3,7 +3,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, cellsOf, launch, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, cellsOf, launch, rows, spendCells, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
@@ -75,7 +75,9 @@ const bars = (page: Page) =>
 
 /** What the list beside the breakdown shows: the spends' descriptions. */
 const behind = (page: Page) =>
-  cellsOf(page.locator(`${BEHIND} li`)).then((rows) => rows.map(([, description]) => description))
+  spendCells(page.locator(`${BEHIND} li`)).then((rows) =>
+    rows.map(([, description]) => description),
+  )
 const trail = (page: Page) => page.locator(TRAIL).innerText()
 
 describe('see what I spent this week, by category', () => {

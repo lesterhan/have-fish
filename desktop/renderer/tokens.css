@@ -29,6 +29,8 @@
 
   /* Density: Regular. The setting that changes these is its own story. */
   --row: 33px;
+  /* A day band over its rows: shorter than a row, and moves with it. */
+  --band: 26px;
 
   /* Space steps by 4px. */
   --space-1: 4px;
@@ -114,6 +116,10 @@
   --color-income: #067132;
   --color-card: #fbf3e2;
   --color-notice: #fbede8;
+  --color-assets-tint: #dbe6ea;
+  --color-liabilities-tint: #f1e1d5;
+  --color-expenses-tint: #eae1e9;
+  --color-income-tint: #dfe7d9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -138,6 +144,10 @@
     --color-income: #76cf8a;
     --color-card: #2b1c15;
     --color-notice: #2a1f19;
+    --color-assets-tint: #272e2e;
+    --color-liabilities-tint: #37291e;
+    --color-expenses-tint: #322a2e;
+    --color-income-tint: #2a2e22;
   }
 }
 /* End of the colours. */

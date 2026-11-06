@@ -73,7 +73,7 @@ describe('moving money between my accounts', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect((await rows(page))[0]).toBe(`${shownDay(today())} | Cash out | 100.00`)
+    expect((await rows(page))[0]).toBe(`${shownDay(today())} | Cash out | ⇄ 100.00`)
     expect(await page.inputValue(PANE_TO)).toBe('cash')
     expect(await paidFrom(page)).toBe('chequing')
   })
@@ -130,7 +130,7 @@ describe('changing where it went, in the pane', () => {
     await page.locator(`${PANE} input[name=amount]`).press('Enter')
     await expect
       .poll(async () => (await rows(page))[0])
-      .toBe(`${shownDay(today())} | Coffee | 5.00`)
+      .toBe(`${shownDay(today())} | Coffee | ⇄ 5.00`)
     expect(await page.inputValue(PANE_TO)).toBe('chequing')
 
     await page.locator('ol[aria-label=Ledger]').focus()

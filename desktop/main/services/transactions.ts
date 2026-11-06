@@ -6,7 +6,14 @@ import { nameOf } from '@have-fish/core/account-path'
 import { format } from '@have-fish/core/money'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
-import type { InputOf, ListedTransaction, Money, Values } from '../../shared/commands'
+import type {
+  DayNet,
+  InputOf,
+  ListedDay,
+  ListedTransaction,
+  Money,
+  Values,
+} from '../../shared/commands'
 import { perConnection } from '../db/prepared'
 import { INCOME, sendable } from './spends'
 
@@ -42,6 +49,20 @@ const statements = perConnection((_, db) => ({
     `SELECT id, date, description, originCreatedAt, version FROM transactions
       WHERE deletedAt IS NULL AND id IN (SELECT value FROM json_each(?))`,
   ),
+  // Read along `transactions_listed`, whose first column is the day: no sort (see the plan test).
+  days: db.prepare<[], ListedDay>(
+    `SELECT date, count(*) AS count FROM transactions WHERE deletedAt IS NULL
+      GROUP BY date ORDER BY date DESC`,
+  ),
+  // What each day's categories and income sources took, negated: a spend's category gains what
+  // I lost, and a source gives what I gained. A move between my accounts posts to neither.
+  nets: db.prepare<[string], { date: string; currency: string; cents: number }>(
+    `SELECT t.date, p.currency, -sum(p.amountCents) AS cents
+      FROM transactions AS t CROSS JOIN postings AS p CROSS JOIN accounts AS a
+      WHERE t.date IN (SELECT value FROM json_each(?)) AND t.deletedAt IS NULL
+        AND p.transactionId = t.id AND a.id = p.accountId AND a.kind IN ('category', 'income')
+      GROUP BY t.date, p.currency ORDER BY t.date DESC, p.currency`,
+  ),
   // An account can arrive after its transaction under sync, so it may not be here yet.
   postings: db.prepare<[string], Row>(
     `SELECT p.transactionId, p.position, p.currency, p.amountCents AS cents, a.path, a.kind
@@ -57,7 +78,21 @@ export function pageOfTransactions(
 ): Values['transaction.page'] {
   const s = statements(db)
   const heads = s.page.all({ from, limit })
-  return { total: s.total.get() ?? 0, from, rows: listed(db, heads) }
+  return { total: s.total.get() ?? 0, from, rows: listed(db, heads), nets: netsOf(db, heads) }
+}
+
+/** Every day of the list, newest first, and how many rows each has. */
+export const daysOfTransactions = (db: Database.Database): ListedDay[] => statements(db).days.all()
+
+/** The net of each day these rows are on, newest first; a day that nets to nothing has none. */
+function netsOf(db: Database.Database, heads: readonly Head[]): DayNet[] {
+  const dates = [...new Set(heads.map((h) => h.date))]
+  if (dates.length === 0) return []
+  const byDay = new Map<string, Money[]>(dates.map((d) => [d, []]))
+  for (const { date, currency, cents } of statements(db).nets.all(JSON.stringify(dates))) {
+    if (cents !== 0) byDay.get(date)?.push({ amount: format(cents), currency })
+  }
+  return [...byDay].map(([date, net]) => ({ date, net }))
 }
 
 /** Where the transaction sits in the list, counting from 0; null when it isn't live. */
@@ -107,15 +142,19 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
     const simple = simpleAmountOf(legs)
     const from = simple && paths[legs.findIndex((l) => l.cents < 0)]
     const to = simple && paths[legs.findIndex((l) => l.cents > 0)]
+    // An account that can pay, or income: a starting balance comes from `equity:opening`.
+    const fromName = from && (isAddable(from.kind) || from.kind === INCOME) ? from : null
+    const toName = from && to && sendable(from.kind, to.kind) ? to : null
     return {
       id,
       date,
       description,
       amounts: movedIn(legs),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      // An account that can pay, or income: a starting balance comes from `equity:opening`.
-      from: from && (isAddable(from.kind) || from.kind === INCOME) ? nameOf(from.path) : null,
-      to: from && to && sendable(from.kind, to.kind) ? nameOf(to.path) : null,
+      from: fromName && nameOf(fromName.path),
+      to: toName && nameOf(toName.path),
+      fromPath: fromName?.path ?? null,
+      toPath: toName?.path ?? null,
     }
   })
 }

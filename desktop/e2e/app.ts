@@ -186,10 +186,23 @@ export async function writeDown(page: Page, amount: string, description: string)
 /** A day as the window shows it, today being today where this machine is. */
 export const shownDay = (date: string) => day(date, todayIn())
 
-/** The list as text, one row per entry: date, description, amount, and ● for a draft. */
+/**
+ * Spend rows as cells: the day, from the band above its first row; the description; the amount;
+ * and ● for a draft. Rows found by role, cells by what they hold.
+ */
+export const spendCells = (rows: Locator) =>
+  rows.evaluateAll((items) => {
+    let day = ''
+    return items.map((li) => {
+      day = li.querySelector(':scope > div time')?.textContent?.trim() ?? day
+      const cell = (name: string) =>
+        li.querySelector(`[data-cell=${name}]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+      return [day, cell('description'), cell('amount'), ...(cell('draft') ? [cell('draft')] : [])]
+    })
+  })
+
+/** The ledger as text, one row per spend: its day, description, amount, and ● for a draft. */
 export const rows = (page: Page) =>
-  page
-    .locator('ol[aria-label=Ledger] li')
-    .evaluateAll((items) =>
-      items.map((li) => [...li.children].map((c) => c.textContent?.trim() ?? '').join(' | ')),
-    )
+  spendCells(page.locator('ol[aria-label=Ledger] [role=option]')).then((all) =>
+    all.map((cells) => cells.join(' | ')),
+  )

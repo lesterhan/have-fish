@@ -15,7 +15,8 @@ export const accounts = {
   /** A starting balance's description, in the ledger and its hledger export. */
   startDescription: 'Starting balance',
   /** A card's or a loan's balance, as what I owe on it; first, so the amounts line up. */
-  owed: (amount: string) => `owed ${amount}`,
+  /** Before what I owe on an account: shown above zero. */
+  owed: 'owed',
   /** In place of a currency, for an account that can hold any. */
   anyCurrency: 'Any currency',
   pane: {

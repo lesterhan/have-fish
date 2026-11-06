@@ -14,7 +14,8 @@
     withEdit,
     without,
   } from './drafts'
-  import { day, todayIn } from './format'
+  import { todayIn } from './format'
+  import Day from './parts/Day.svelte'
   import type { LedgerState, LedgerStore } from './ledger'
   import { NARROW } from './narrow'
   import { toOf, toOptions } from './picker'
@@ -305,7 +306,7 @@
     <p>
       {#if isThisWeek}<strong>{copy.reports.week.thisWeek}</strong>{/if}
       <span class="span">
-        {copy.reports.week.span(day(week.start, todayIn()), day(week.end, todayIn()))}
+        <Day date={week.start} until={week.end} />
       </span>
     </p>
     <Button aria-label={copy.reports.week.after} onclick={() => goWeek(1)}>

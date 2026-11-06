@@ -14,6 +14,7 @@ const LOAD: [CommandName, unknown][] = [
   ['category.list', {}],
   ['income.list', {}],
   ['spend.assumedFrom', {}],
+  ['transaction.days', {}],
   ['transaction.page', { from: 0, limit: 100 }],
   ['transaction.get', { ids: ['00000000-0000-4000-8000-000000000000'] }],
 ]
@@ -57,7 +58,7 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
     })
   load()
 
-  test('each query reads an index, and only the counts and the balances read one whole', () => {
+  test('each query reads an index, and only the counts, the days and the balances read one whole', () => {
     const plans = load().map(({ sql, args }) =>
       ledger.db
         .prepare<unknown[], { detail: string }>(`EXPLAIN QUERY PLAN ${sql}`)
@@ -88,7 +89,10 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
       ],
       // spend.assumedFrom: the wallet, by its path.
       ['SEARCH accounts USING INDEX accounts_path_key (pathKey=?)', 'USE TEMP B-TREE FOR ORDER BY'],
-      // transaction.page: a page along the list's index, its total, and its postings.
+      // transaction.days: each day's count, along the list's index, whose first column is the day.
+      ['SCAN transactions USING COVERING INDEX transactions_listed'],
+      // transaction.page: a page along the list's index, its total, its postings, and its days'
+      // nets. Their sort is of the page's days' rows.
       ['SCAN transactions USING INDEX transactions_listed'],
       ['SCAN transactions USING COVERING INDEX transactions_listed'],
       [
@@ -96,6 +100,14 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
         'LIST SUBQUERY 1',
         'SCAN json_each VIRTUAL TABLE INDEX 1:',
         'SEARCH a USING INDEX sqlite_autoindex_accounts_1 (id=?) LEFT-JOIN',
+      ],
+      [
+        'SEARCH t USING COVERING INDEX transactions_listed (date=?)',
+        'LIST SUBQUERY 1',
+        'SCAN json_each VIRTUAL TABLE INDEX 1:',
+        'SEARCH p USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+        'SEARCH a USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+        'USE TEMP B-TREE FOR GROUP BY',
       ],
       // transaction.get: the kept rows, by id.
       [

@@ -2,9 +2,20 @@
   // Every list in the app: its roles, `aria-activedescendant`, the keys, a click by id, and only
   // the rows in view drawn, with the space above and below them kept so the scrollbar is the
   // whole list's. A list is `items`, or `paged` when the window holds only some of it (see #608).
-  // The rules are in `listbox.ts`.
+  // Rows can come in groups, each under a band, and the top one's band stays while its rows pass
+  // under it (see #611). The rules are in `listbox.ts`; each row is a `Row`.
   import { onMount, type Snippet, untrack } from 'svelte'
-  import { movedTo, offsetsOf, type Paged, scrolledTo, uniformOf, windowOf } from './listbox'
+  import {
+    groupedOf,
+    type Layout,
+    movedTo,
+    offsetsOf,
+    type Paged,
+    scrolledTo,
+    uniformOf,
+    windowOf,
+  } from './listbox'
+  import Row from './Row.svelte'
 
   type Props = {
     /** The whole list; or `paged`. */
@@ -34,6 +45,17 @@
     onpick: (id: string) => void
     /** A key the list doesn't move by, first: true if it was handled. */
     onkey?: (event: KeyboardEvent) => boolean
+    /**
+     * How many rows each group has, in order: a day's. Each group's first row carries `band`
+     * above it. Ignored unless they add up to the list's rows.
+     */
+    groups?: readonly number[] | undefined
+    /** The band of group `g`. */
+    band?: Snippet<[number]> | undefined
+    /** Shown on the selected row while the list has focus: what its keys do. */
+    hint?: Snippet | undefined
+    /** The row just written: it slides in and washes. */
+    written?: string | null | undefined
     /** Wraps at the ends, as a picker does. */
     wrap?: boolean
     /** A combobox's field, which keeps the cursor: the list sets its active descendant. */
@@ -53,6 +75,10 @@
     row,
     height,
     disabled,
+    groups,
+    band,
+    hint,
+    written,
     onactive,
     onpick,
     onkey,
@@ -64,17 +90,28 @@
   let list: HTMLOListElement
   let scrollTop = $state(0)
   let viewport = $state(0)
-  /** `--row` from the stylesheet, so density changes it there and only there. */
+  /** `--row` and `--band` from the stylesheet, so density changes them there and only there. */
   let rowHeight = $state(33)
+  let bandHeight = $state(26)
 
   const count = $derived(items?.length ?? paged?.count ?? 0)
   const itemAt = (i: number): T | undefined => (items ? items[i] : paged?.at(i))
-  // Rows of one height are worked out, not stored, so a paged list costs nothing per row.
-  const offsets = $derived(
-    items && height
-      ? offsetsOf(items.map((item) => height(item, rowHeight)))
-      : uniformOf(count, rowHeight),
+  const grouped = $derived(
+    band && groups && groups.reduce((a, b) => a + b, 0) === count
+      ? groupedOf(groups, rowHeight, bandHeight)
+      : undefined,
   )
+  // Rows of one height are worked out, not stored, so a paged list costs nothing per row.
+  const offsets: Layout = $derived(
+    grouped ??
+      (items && height
+        ? offsetsOf(items.map((item) => height(item, rowHeight)))
+        : uniformOf(count, rowHeight)),
+  )
+  /** What the band that stays at the top covers. */
+  const covered = $derived(grouped ? bandHeight : 0)
+  /** The group of the row at the top of the view, whose band stays there. */
+  const topGroup = $derived(grouped && count > 0 ? grouped.groupAt(offsets.indexAt(scrollTop)) : -1)
   /** Where each id is: built once per change to the list, so a key press is a lookup. */
   const positions = $derived(items && new Map(items.map((item, i) => [idOf(item), i])))
   const shown = $derived(windowOf(offsets, scrollTop, viewport))
@@ -99,8 +136,9 @@
   }
 
   onMount(() => {
-    const css = Number.parseFloat(getComputedStyle(list).getPropertyValue('--row'))
-    if (css > 0) rowHeight = css
+    const css = (name: string) => Number.parseFloat(getComputedStyle(list).getPropertyValue(name))
+    if (css('--row') > 0) rowHeight = css('--row')
+    if (css('--band') > 0) bandHeight = css('--band')
     const resized = new ResizeObserver(() => (viewport = list.clientHeight))
     resized.observe(list)
     return () => resized.disconnect()
@@ -112,7 +150,7 @@
     void active
     untrack(() => {
       const index = at
-      const to = scrolledTo(offsets, index, list.scrollTop, viewport || list.clientHeight)
+      const to = scrolledTo(offsets, index, list.scrollTop, viewport || list.clientHeight, covered)
       if (to !== list.scrollTop) list.scrollTop = scrollTop = to
     })
   })
@@ -185,33 +223,35 @@
   {onmousedown}
   {onclick}
 >
+  {#if grouped && band && topGroup >= 0}
+    <!-- The top row's band, staying while its rows pass under. Takes no room in the list. -->
+    <div class="stays" aria-hidden="true"><div>{@render band(topGroup)}</div></div>
+  {/if}
   {#each drawn as { index, item } (item === undefined ? `#${index}` : idOf(item))}
+    {@const starts = grouped?.starts(index) ?? false}
+    {@const height = offsets.top(index + 1) - offsets.top(index)}
+    {@const group = starts && grouped ? grouped.groupAt(index) : undefined}
     {#if item === undefined}
-      <!-- A row of a paged list on its way: its place, so the rows below don't move. -->
-      <li
-        role="option"
-        aria-selected="false"
-        aria-busy="true"
-        aria-setsize={count}
-        aria-posinset={index + 1}
-        style:block-size="{rowHeight}px"
-      ></li>
+      <Row id={undefined} busy setsize={count} posinset={index + 1} {height} {band} {group} />
     {:else}
       {@const id = idOf(item)}
       {@const off = disabled?.(item) ?? false}
-      <li
+      <Row
         id={off ? undefined : optionId(id)}
-        role="option"
-        aria-selected={id === active}
-        aria-disabled={off || undefined}
-        aria-setsize={count}
-        aria-posinset={index + 1}
-        data-id={id}
-        style:grid-template-columns={columns}
-        style:block-size="{height?.(item, rowHeight) ?? rowHeight}px"
+        dataId={id}
+        selected={id === active}
+        disabled={off}
+        written={id === written}
+        setsize={count}
+        posinset={index + 1}
+        {columns}
+        {height}
+        {band}
+        {group}
+        hint={id === active ? hint : undefined}
       >
         {@render row(item)}
-      </li>
+      </Row>
     {/if}
   {/each}
 </ol>
@@ -244,22 +284,15 @@
     display: none;
   }
 
-  li {
-    display: grid;
-    align-items: center;
-    column-gap: var(--space-3);
-    box-sizing: border-box;
-    padding-inline: var(--space-2);
-    border-block-end: var(--border-width) solid var(--color-rule);
-    overflow: hidden;
-    cursor: default;
+  .stays {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    block-size: 0;
   }
 
-  li[aria-selected='true'] {
-    background: var(--color-selected);
-  }
-
-  li[aria-disabled='true'] {
-    color: var(--color-muted);
+  .stays > div {
+    position: absolute;
+    inset-inline: 0;
   }
 </style>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { amountsText, day, dayOf, money, todayIn, understood } from './format'
+import { amountsText, bandDay, day, dayOf, money, moneyParts, todayIn, understood } from './format'
 
 describe('money', () => {
   test("grouped by thousands, with its currency's own decimals", () => {
@@ -74,14 +74,54 @@ test('a day typed the short way goes as its date; what it can’t read goes as t
   expect(dayOf('', TODAY)).toBe('')
 })
 
-test('what the field understood reads as a day, with the year when it isn’t this one', () => {
-  expect(understood('10-31', TODAY)).toBe('Sat 31 Oct')
-  expect(understood('-3', TODAY)).toBe('Sun 1 Nov')
-  expect(understood('12-25', TODAY)).toBe('Thu 25 Dec 2025')
-  expect(understood('2027-01-01', TODAY)).toBe('Fri 1 Jan 2027')
+test('what the field understood is the date it means, for a Day to show', () => {
+  expect(understood('10-31', TODAY)).toBe('2026-10-31')
+  expect(understood('-3', TODAY)).toBe('2026-11-01')
+  expect(understood('12-25', TODAY)).toBe('2025-12-25')
 })
 
 test('nothing typed, or nothing it can read, understands nothing', () => {
   expect(understood('', TODAY)).toBeNull()
   expect(understood('soon', TODAY)).toBeNull()
+})
+
+describe('the parts of an amount, for Money', () => {
+  test('a spend has no sign; money in has +; a transfer has ⇄', () => {
+    expect(moneyParts('16.76', 'CAD')).toEqual({ sign: null, figure: '16.76', code: null })
+    expect(moneyParts('40.00', 'CAD', { way: 'in' })).toEqual({
+      sign: '+',
+      figure: '40.00',
+      code: null,
+    })
+    expect(moneyParts('200.00', 'CAD', { way: 'between' })).toEqual({
+      sign: '⇄',
+      figure: '200.00',
+      code: null,
+    })
+  })
+
+  test('the code apart from the figure, so it can be small and quiet', () => {
+    expect(moneyParts('35.00', 'EUR')).toEqual({ sign: null, figure: '35.00', code: 'EUR' })
+    expect(moneyParts('-32.69', 'CAD', { code: true })).toEqual({
+      sign: null,
+      figure: '−32.69',
+      code: 'CAD',
+    })
+  })
+})
+
+describe("a day band's day", () => {
+  test('today and yesterday say so before the day', () => {
+    expect(bandDay(TODAY, TODAY)).toEqual({ lead: 'today', day: 'Wed 4 Nov' })
+    expect(bandDay('2026-11-03', TODAY)).toEqual({ lead: 'yesterday', day: 'Tue 3 Nov' })
+  })
+
+  test('any other day is the day alone, with its year when it isn’t this one', () => {
+    expect(bandDay('2026-11-02', TODAY)).toEqual({ lead: null, day: 'Mon 2 Nov' })
+    expect(bandDay('2026-11-05', TODAY)).toEqual({ lead: null, day: 'Thu 5 Nov' })
+    expect(bandDay('2025-12-31', '2026-01-01')).toEqual({
+      lead: 'yesterday',
+      day: 'Wed 31 Dec 2025',
+    })
+  })
 })

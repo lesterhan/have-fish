@@ -17,7 +17,7 @@ const files = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' })
  * The files whose style is layout only. Each note that moves a screen onto the parts adds its
  * files, and the list ends as every place.
  */
-const LAYOUT_ONLY = ['App.svelte']
+const LAYOUT_ONLY = ['App.svelte', 'SpendList.svelte']
 
 describe('parts own what they draw', () => {
   test('it read the renderer', () => {
@@ -30,9 +30,12 @@ describe('parts own what they draw', () => {
     expect(elsewhere, 'Use <Keys action=…>').toEqual([])
   })
 
-  test('a listbox, its options and its active descendant are only in Listbox', () => {
+  test('a listbox, its options and its active descendant are only in Listbox and its Row', () => {
     const elsewhere = files.filter(
-      (f) => f !== 'parts/Listbox.svelte' && listboxesIn(read(f)).length > 0,
+      // A Row is the Listbox's option, drawn for it.
+      (f) =>
+        !['parts/Listbox.svelte', 'parts/Row.svelte'].includes(f) &&
+        listboxesIn(read(f)).length > 0,
     )
     expect(elsewhere, 'Use <Listbox>').toEqual([])
   })

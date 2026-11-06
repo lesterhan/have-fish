@@ -1,0 +1,76 @@
+<script lang="ts">
+  // An account's path: its root as an initial in a square tinted by kind, so colour never says it
+  // alone, then the rest in the code face with the colons quiet and the last part at 500. The
+  // rules are in `path.ts`.
+  import { pathOf } from './path'
+
+  let { path }: { path: string } = $props()
+
+  const shown = $derived(pathOf(path))
+</script>
+
+<span class="path"
+  ><span class="tag" data-root={shown.root} aria-hidden="true">{shown.tag}</span><span class="name"
+    >{#each shown.parents as parent, i (i)}{parent}<span class="colon">:</span>{/each}<span
+      class="leaf">{shown.leaf}</span
+    ></span
+  ></span
+>
+
+<style>
+  .path {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-inline-size: 100%;
+    vertical-align: middle;
+  }
+
+  .tag {
+    flex: none;
+    inline-size: 1.4em;
+    border-radius: var(--radius-chip);
+    font-family: var(--font-code);
+    font-size: var(--text-key);
+    line-height: 1.4em;
+    text-align: center;
+    color: var(--color-muted);
+    background: var(--color-band);
+  }
+
+  .tag[data-root='assets'] {
+    color: var(--color-assets);
+    background: var(--color-assets-tint);
+  }
+
+  .tag[data-root='liabilities'] {
+    color: var(--color-liabilities);
+    background: var(--color-liabilities-tint);
+  }
+
+  .tag[data-root='expenses'] {
+    color: var(--color-expenses);
+    background: var(--color-expenses-tint);
+  }
+
+  .tag[data-root='income'] {
+    color: var(--color-income);
+    background: var(--color-income-tint);
+  }
+
+  .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-code);
+  }
+
+  .colon {
+    color: var(--color-muted);
+  }
+
+  .leaf {
+    font-weight: var(--weight-label);
+  }
+</style>

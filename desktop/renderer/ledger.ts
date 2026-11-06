@@ -4,9 +4,12 @@
 
 import type {
   Bridge,
+  DayNet,
   ListedAccount,
   ListedCategory,
+  ListedDay,
   ListedTransaction,
+  Money,
   Values,
   Wire,
   WireFailure,
@@ -20,6 +23,10 @@ export type LedgerState = {
   total: number
   /** The pages held, by page number: the ones the list draws. */
   pages: ReadonlyMap<number, readonly ListedTransaction[]>
+  /** Every day of the list, newest first, with how many rows it has: where its bands fall. */
+  days: readonly ListedDay[]
+  /** What each day of the pages held came to, by date. */
+  nets: ReadonlyMap<string, readonly Money[]>
   /** The rows a place asked to keep, wherever they are in the list. A row that's gone isn't. */
   kept: ReadonlyMap<string, ListedTransaction>
   /** My accounts, which can pay or be paid into. */
@@ -39,6 +46,8 @@ export type LedgerState = {
 const EMPTY: LedgerState = {
   total: 0,
   pages: new Map(),
+  days: [],
+  nets: new Map(),
   kept: new Map(),
   accounts: [],
   categories: [],
@@ -66,6 +75,12 @@ export const rowWithId = (state: LedgerState, id: string | null): ListedTransact
   id === null
     ? undefined
     : (state.kept.get(id) ?? [...state.pages.values()].flat().find((t) => t.id === id))
+
+/** The nets a page brought, added to `into`. */
+function netsInto(into: Map<string, readonly Money[]>, nets: readonly DayNet[]) {
+  for (const { date, net } of nets) into.set(date, net)
+  return into
+}
 
 export type LedgerStore = ReturnType<typeof ledgerStore>
 
@@ -97,7 +112,7 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
     const mine = ++epoch
     const pages = wanted
     const asked = [...keeping]
-    const [kept, accounts, categories, income, from, ...answers] = await Promise.all([
+    const [kept, accounts, categories, income, from, days, ...answers] = await Promise.all([
       asked.length === 0
         ? Promise.resolve({ ok: true, value: [] } as Wire<ListedTransaction[]>)
         : bridge.invoke('transaction.get', { ids: asked }),
@@ -105,25 +120,34 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       bridge.invoke('category.list', {}),
       bridge.invoke('income.list', {}),
       bridge.invoke('spend.assumedFrom', {}),
+      bridge.invoke('transaction.days', {}),
       ...pages.map(pageAsk),
     ])
     if (mine !== epoch) return
-    const all = [kept, accounts, categories, income, from, ...answers]
+    const all = [kept, accounts, categories, income, from, days, ...answers]
     const held = new Map<number, readonly ListedTransaction[]>()
+    const nets = new Map<string, readonly Money[]>()
     let total = state.total
     pages.forEach((page, i) => {
       const answer = answers[i] as Wire<Page>
       if (answer.ok) {
         held.set(page, answer.value.rows)
         total = answer.value.total
+        netsInto(nets, answer.value.nets)
       } else {
         const old = state.pages.get(page)
         if (old !== undefined) held.set(page, old)
+        for (const t of old ?? []) {
+          const net = state.nets.get(t.date)
+          if (net !== undefined) nets.set(t.date, net)
+        }
       }
     })
     emit({
       total,
       pages: held,
+      days: days.ok ? days.value : state.days,
+      nets,
       kept: kept.ok ? keptAfter(new Set(asked), kept.value, held) : state.kept,
       accounts: accounts.ok ? accounts.value : state.accounts,
       categories: categories.ok ? categories.value : state.categories,
@@ -180,6 +204,7 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       ...state,
       total: answer.value.total,
       pages: new Map(state.pages).set(page, answer.value.rows),
+      nets: netsInto(new Map(state.nets), answer.value.nets),
     })
   }
 

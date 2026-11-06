@@ -5,10 +5,12 @@
   import type { KeyedActionId } from '../../shared/actions'
   import { MAC, shortcutText } from '../shortcuts'
 
-  let { action }: { action: KeyedActionId } = $props()
+  /** An action's shortcut; or `key`, a list's own key that no menu has, such as Enter. */
+  let { action, key }: { action: KeyedActionId; key?: never } | { action?: never; key: string } =
+    $props()
 </script>
 
-<kbd aria-hidden="true">{shortcutText(action, MAC)}</kbd>
+<kbd aria-hidden="true">{action ? shortcutText(action, MAC) : key}</kbd>
 
 <style>
   kbd {

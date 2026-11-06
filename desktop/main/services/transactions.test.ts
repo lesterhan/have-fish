@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { contextFor } from '../context'
 import type { Ledger } from '../db/ledger'
 import { aLedgerOf, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { addAccount } from './accounts'
 import { removeSpend, writeSpend } from './spends'
 import {
+  daysOfTransactions,
   listTransactions,
   pageOfTransactions,
   positionOf,
@@ -70,6 +72,7 @@ describe('a page of the list', () => {
       total: 7,
       from: 50,
       rows: [],
+      nets: [],
     })
   })
 
@@ -79,6 +82,113 @@ describe('a page of the list', () => {
     const page = pageOfTransactions(ledger.db, { from: 0, limit: 10 })
     expect(page.total).toBe(6)
     expect(names(page.rows)).not.toContain('Thu')
+  })
+})
+
+describe('a row as the list draws it', () => {
+  test("carries its paths whole, so a tag can show each one's root", () => {
+    const { ledger } = aWeek()
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      from: 'cash',
+      fromPath: 'assets:cash',
+      to: 'unsorted',
+      toPath: 'expenses:unsorted',
+    })
+  })
+
+  test('with no one From and To, has no paths', () => {
+    const { ledger, ctx } = aWeek()
+    const chequing = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' })).id
+    ok(
+      writeSpend(ctx, {
+        amount: '20',
+        description: 'Pay',
+        from: { income: 'pay' },
+        to: { account: chequing },
+      }),
+    )
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      fromPath: 'income:pay',
+      toPath: 'assets:chequing',
+    })
+  })
+})
+
+describe('the days of the list', () => {
+  test('how many rows each day has, newest day first', () => {
+    const { ledger } = aWeek()
+    expect(daysOfTransactions(ledger.db)).toEqual([
+      { date: '2026-10-29', count: 3 },
+      { date: '2026-10-28', count: 2 },
+      { date: '2026-10-26', count: 2 },
+    ])
+  })
+
+  test('a removed spend leaves its day, and a day with none left goes', () => {
+    const { ledger, ctx, ids } = aWeek()
+    ok(removeSpend(ctx, { id: ids[1] as string }))
+    ok(removeSpend(ctx, { id: ids[3] as string }))
+    expect(daysOfTransactions(ledger.db).map((d) => d.date)).toEqual(['2026-10-29', '2026-10-26'])
+  })
+})
+
+describe("a page's day nets", () => {
+  test("each day on the page, what came in less what went out, from SQL: the whole day's", () => {
+    const { ledger } = aWeek()
+    // The page holds two of Thursday's three; the net is all three.
+    expect(pageOfTransactions(ledger.db, { from: 1, limit: 3 }).nets).toEqual([
+      { date: '2026-10-29', net: [{ amount: '-13.50', currency: 'CAD' }] },
+      { date: '2026-10-28', net: [{ amount: '-9.00', currency: 'CAD' }] },
+    ])
+  })
+
+  test('money in counts up, a move between my accounts not at all, a starting balance not at all', () => {
+    const { ledger, ctx } = setup()
+    const chequing = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '500' }),
+    ).id
+    const date = '2026-10-29'
+    ok(
+      writeSpend(ctx, {
+        amount: '40',
+        description: 'Chair',
+        from: { income: 'sales' },
+        to: { account: chequing },
+        date,
+      }),
+    )
+    ok(writeSpend(ctx, { amount: '12.25', description: 'Lunch', from: chequing, date }))
+    ok(
+      writeSpend(ctx, {
+        amount: '100',
+        description: 'Cash',
+        from: chequing,
+        to: { account: ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: 'CAD' })).id },
+        date: '2026-10-28',
+      }),
+    )
+    const { nets } = pageOfTransactions(ledger.db, { from: 0, limit: 10 })
+    expect(nets.find((d) => d.date === date)?.net).toEqual([{ amount: '27.75', currency: 'CAD' }])
+    // A day with only a move between my accounts nets to nothing.
+    expect(nets.find((d) => d.date === '2026-10-28')?.net).toEqual([])
+  })
+
+  test('each currency apart', () => {
+    const { ledger, ctx } = setup()
+    const date = '2026-10-29'
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', date }))
+    const eur = ok(addAccount(ctx, { name: 'wise', kind: 'bank', currency: 'EUR' })).id
+    ok(writeSpend(ctx, { amount: '35', description: 'Cafe', from: eur, date }))
+    const { nets } = pageOfTransactions(ledger.db, { from: 0, limit: 10 })
+    expect(nets).toEqual([
+      {
+        date,
+        net: [
+          { amount: '-4.50', currency: 'CAD' },
+          { amount: '-35.00', currency: 'EUR' },
+        ],
+      },
+    ])
   })
 })
 

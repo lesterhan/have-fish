@@ -72,6 +72,10 @@ export function deriveTokens(theme: Theme): Palette {
   colours.card = mix(colours.background as Oklch, colours.selected as Oklch, 1 / 3)
   // A notice's surface: the error's tint, faint, so its words stay text on a near-background.
   colours.notice = mix(colours.background as Oklch, colours.error as Oklch, 0.07)
+  // A path's tag: its root's tint, with the root's initial on it in the root's colour.
+  for (const root of ['assets', 'liabilities', 'expenses', 'income']) {
+    colours[`${root}-tint`] = mix(colours.background as Oklch, colours[root] as Oklch, 0.14)
+  }
 
   return Object.fromEntries(
     Object.entries(colours).map(([name, colour]) => [`--color-${name}`, oklchToHex(colour)]),

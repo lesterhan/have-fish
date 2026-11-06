@@ -21,9 +21,27 @@ const AMOUNT = new Map(
  * `Intl` reads exactly, so the amount is never a float.
  */
 export function money(amount: string, currency: string, { code = false } = {}): string {
+  const parts = moneyParts(amount, currency, { code })
+  return parts.code === null ? parts.figure : `${parts.figure} ${parts.code}`
+}
+
+/** Which way a row's money went: out (no sign), in (`+`), or between my accounts (`⇄`). */
+export type Way = 'out' | 'in' | 'between'
+
+const SIGN = { out: null, in: '+', between: '⇄' } as const
+
+/**
+ * An amount in the pieces `Money` sets apart: the sign that says which way it went, the figure,
+ * and the code when it's said.
+ */
+export function moneyParts(
+  amount: string,
+  currency: string,
+  { code = false, way = 'out' as Way } = {},
+): { sign: '+' | '⇄' | null; figure: string; code: string | null } {
   const format = AMOUNT.get(minorUnits(currency)) as Intl.NumberFormat
   const figure = format.format(amount as Intl.StringNumericLiteral).replace('-', '−')
-  return code || currency !== HOME_CURRENCY ? `${figure} ${currency}` : figure
+  return { sign: SIGN[way], figure, code: code || currency !== HOME_CURRENCY ? currency : null }
 }
 
 /** What a transaction moved, each currency's amount as `money` writes it. */
@@ -59,11 +77,15 @@ export function day(date: string, today: string): string {
   return words.join(' ')
 }
 
-/**
- * What a date field understood, as a day reads. Null for nothing typed, or nothing it can read.
- */
-export function understood(typed: string, today = todayIn()): string | null {
-  if (typed.trim() === '') return null
-  const date = dateFrom(typed, today)
-  return date === null ? null : day(date, today)
+/** The date a date field understood, for a `Day` to show. Null for nothing typed, or unreadable. */
+export const understood = (typed: string, today = todayIn()): string | null =>
+  typed.trim() === '' ? null : dateFrom(typed, today)
+
+/** A day band's day, and whether it's today or yesterday, which the band says before it. */
+export function bandDay(
+  date: string,
+  today: string,
+): { lead: 'today' | 'yesterday' | null; day: string } {
+  const lead = date === today ? 'today' : date === dateFrom('y', today) ? 'yesterday' : null
+  return { lead, day: day(date, today) }
 }

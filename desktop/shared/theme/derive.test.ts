@@ -87,6 +87,18 @@ describe('deriveTokens', () => {
     }
   })
 
+  test("each root's tag is its colour's tint, 14% over the background", () => {
+    for (const theme of [LIGHT, DARK]) {
+      const t = deriveTokens(theme)
+      for (const root of ['assets', 'liabilities', 'expenses', 'income']) {
+        const [bg, tint, ink] = ['background', `${root}-tint`, root].map(
+          (n) => hexToOklch(t[`--color-${n}`] as string).l,
+        ) as [number, number, number]
+        expect(tint, root).toBeCloseTo(bg + (ink - bg) * 0.14, 2)
+      }
+    }
+  })
+
   test('the money and account colours are the same whatever the theme', () => {
     const other: Theme = { ...LIGHT, neutralHue: 250, accentHue: 300 }
     const fixed = ['in', 'error', 'assets', 'liabilities', 'expenses', 'income'].map(
@@ -129,8 +141,8 @@ describe('the built-ins keep the contract', () => {
   })
 })
 
-test('the contract checks 42 pairs and 4 steps in each scheme', () => {
-  expect([INK.length, STEPS.length]).toEqual([42, 4])
+test('the contract checks 46 pairs and 4 steps in each scheme', () => {
+  expect([INK.length, STEPS.length]).toEqual([46, 4])
 })
 
 describe('backgroundFor', () => {
