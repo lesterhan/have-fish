@@ -36,10 +36,10 @@ async function ask(page: Page) {
     .toBe('start')
 }
 
-/** The selected account's starting balance, as its pane says it. */
+/** What the selected account's pane says, its starting balance among it. */
 const started = (page: Page) =>
   page
-    .locator(`${ACCOUNT} dl`)
+    .locator(ACCOUNT)
     .innerText()
     .then((t) => t.replace(/\s+/g, ' ').trim())
 

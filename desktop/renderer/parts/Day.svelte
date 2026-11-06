@@ -8,7 +8,7 @@
     /** `YYYY-MM-DD`. */
     date: string
     /** Asked again by a list on each change, so a day past midnight reads right. */
-    today?: string
+    today?: string | undefined
     /** A day band's: Today and Yesterday say so. */
     band?: boolean
     /** The last day of a run that starts at `date`. */
