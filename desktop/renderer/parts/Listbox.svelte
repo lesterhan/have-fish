@@ -141,8 +141,8 @@
   tabindex={owner === undefined ? 0 : -1}
   aria-activedescendant={owner === undefined ? descendant : undefined}
   {hidden}
-  style:padding-block-start="{offsets[shown.from] ?? 0}px"
-  style:padding-block-end="{(offsets[items.length] ?? 0) - (offsets[shown.to] ?? 0)}px"
+  style:--above="{offsets[shown.from] ?? 0}px"
+  style:--below="{(offsets[items.length] ?? 0) - (offsets[shown.to] ?? 0)}px"
   onkeydown={(event) => {
     if (owner === undefined) press(event)
   }}
@@ -171,12 +171,26 @@
 
 <style>
   ol {
-    box-sizing: content-box;
     min-height: 0;
     margin: 0;
-    padding-inline: 0;
+    padding: 0;
     overflow-y: auto;
     list-style: none;
+  }
+
+  /* The rows not drawn, as space inside the scroller: on its padding they'd make it taller. */
+  ol::before,
+  ol::after {
+    content: '';
+    display: block;
+  }
+
+  ol::before {
+    block-size: var(--above);
+  }
+
+  ol::after {
+    block-size: var(--below);
   }
 
   ol[hidden] {
