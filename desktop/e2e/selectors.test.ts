@@ -12,8 +12,8 @@ const TAGS =
 const CLASS = new RegExp(`(?:^|[\\s\\])>+~,]|\\b(?:${TAGS}))\\.[a-zA-Z_][\\w-]*`)
 /** Position, which a reordered layout changes. */
 const POSITION = /:(?:nth-child|nth-last-child|nth-of-type|first-child|last-child|first-of-type)\b/
-/** Strings that look like a class but are file names. */
-const FILE = /^\.(?:woff2?|ttf|otf|css|js|html|png)$/
+/** Strings that look like a class but are file names: `.woff2`, `sheet-main.ts`. */
+const FILE = /^[\w-]*\.(?:woff2?|ttf|otf|css|js|ts|html|png)$/
 
 const LITERAL = /'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"/g
 
@@ -66,6 +66,7 @@ describe('e2e selectors', () => {
       'ol >> text=/^\\d+\\.\\d{2} CAD$/',
       'Lunch -> Sam',
       '.woff2',
+      'sheet-main.ts',
     ]) {
       expect(flagged(fine), fine).toBe(false)
     }

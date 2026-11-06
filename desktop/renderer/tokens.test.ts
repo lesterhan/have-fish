@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest'
 import { inkFailures, stepFailures } from '../shared/theme/contract'
 import { readTheme } from '../shared/theme/css'
 import { rawColoursIn } from '../tools/colours'
+import { rawTimingsIn, rawTypeIn } from '../tools/sizes'
 
 const DESKTOP = join(import.meta.dirname, '..')
 const TOKENS = 'renderer/tokens.css'
@@ -46,5 +47,27 @@ describe('colour lives in tokens.css and nowhere else', () => {
       rawColoursIn(readFileSync(join(DESKTOP, file), 'utf8')).map((c) => `${file}: ${c}`),
     )
     expect(raw, 'Make each a token in tokens.css, and add it to the contract').toEqual([])
+  })
+})
+
+describe('type and timing live in tokens.css too', () => {
+  const found = (detect: (source: string) => string[]) =>
+    appFiles().flatMap((file) =>
+      detect(readFileSync(join(DESKTOP, file), 'utf8')).map((v) => `${file}: ${v}`),
+    )
+
+  test('every font-size is a type step', () => {
+    expect(found(rawTypeIn), 'Use a --text-* step from tokens.css').toEqual([])
+  })
+
+  test('reduced motion is one rule, in tokens.css', () => {
+    const elsewhere = appFiles().filter((f) =>
+      readFileSync(join(DESKTOP, f), 'utf8').includes('prefers-reduced-motion'),
+    )
+    expect(elsewhere, 'tokens.css sets every duration for it').toEqual([])
+  })
+
+  test('every duration is a motion token', () => {
+    expect(found(rawTimingsIn), 'Use a --duration-* token from tokens.css').toEqual([])
   })
 })

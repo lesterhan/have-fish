@@ -1,11 +1,12 @@
 // Screenshots every place and state of the built app, for design work: empty, then a month in,
-// with a row selected, editing, refused, a picker open, narrow, at 200%, and dark.
+// with a row selected, editing, refused, a picker open, narrow, at 200%, and dark. Then the parts
+// sheet, light and dark.
 // `bun run capture`, under `xvfb-run -a` with `NO_SANDBOX=1` on Linux; never part of CI.
 // The shots go to `SHOTS`, or `shots/` here. Run it on two branches the same day to compare.
 
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { Page } from 'playwright-core'
+import { _electron as electron, type Page } from 'playwright-core'
 import { expect, test } from 'vitest'
 import { ADD_ACCOUNT, aHome, BACK, launch, PANE, rows, WRITE, writeDown } from './app'
 import { seed } from './month'
@@ -127,6 +128,28 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await writeDown(page, 'abc', 'Coffee')
   await page.waitForSelector('#amount-error')
   await shot.take('spends-refused')
+})
+
+test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
+  mkdirSync(out, { recursive: true })
+  // Its own entry, never the app's window: `bun run capture` builds sheet-out/ first.
+  const sheet = await electron.launch({
+    args: [
+      join(import.meta.dirname, 'sheet-main.ts'),
+      ...(process.env.NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+    ],
+    env: { ...process.env, NODE_OPTIONS: '' },
+  })
+  try {
+    const page = await sheet.firstWindow()
+    await page.waitForSelector('main h1')
+    const shot = await shooter(page)
+    await shot.size({ width: 1280, height: 1700, scale: 1 })
+    await shot.take('sheet')
+    await shot.dark('sheet')
+  } finally {
+    await sheet.close()
+  }
 })
 
 async function go(page: Page, place: string) {

@@ -257,21 +257,14 @@
       transform: translateX(100%);
       visibility: hidden;
       transition:
-        transform var(--duration-slide) ease-out,
+        transform var(--duration-slide) var(--ease-out),
         visibility 0s linear var(--duration-slide);
     }
 
     .pane.open {
       transform: none;
       visibility: visible;
-      transition: transform var(--duration-slide) ease-out;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pane,
-    .pane.open {
-      transition: none;
+      transition: transform var(--duration-slide) var(--ease-out);
     }
   }
 
@@ -300,7 +293,7 @@
   }
 
   .hint {
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
   }
 
   dl {
@@ -311,7 +304,7 @@
   }
 
   dt {
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 
@@ -335,7 +328,7 @@
   }
 
   label > span:first-child {
-    font-size: var(--font-size-small);
+    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 
@@ -345,7 +338,7 @@
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
     color: inherit;
     background: transparent;
   }
@@ -412,7 +405,7 @@
   }
 
   .error {
-    font-size: var(--font-size-small);
+    font-size: var(--text-small);
     color: var(--color-error);
   }
 </style>
