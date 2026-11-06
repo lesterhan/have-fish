@@ -6,13 +6,8 @@ import { applyReceived } from '../ledger/apply'
 import { ok, tempLedger } from '../ledger/fixtures'
 import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
-import {
-  editSpend,
-  listTransactions,
-  removeSpend,
-  saveAllSpends,
-  writeSpend,
-} from '../services/spends'
+import { editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
+import { listTransactions } from '../services/transactions'
 import { redoLast, undoLast } from './steps'
 
 const START = Date.UTC(2026, 9, 29, 12)

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { levelAbove, spendingAt, trailTo } from '@have-fish/core/spending'
-  import { onMount, tick } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import { copy } from '../copy'
-  import type { Values as Returned, WireFailure } from '../shared/commands'
+  import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
   import {
     afterSaves,
     type Drafts,
@@ -19,7 +19,15 @@
   import { NARROW } from './narrow'
   import { toOf, toOptions } from './picker'
   import { fieldOf, spendWordsFor, wordsFor } from './refusals'
-  import { otherText, spendsBehind, spentOf, thisWeek, type Week, weekAfter } from './report'
+  import {
+    idsWanted,
+    otherText,
+    spendsBehind,
+    spentOf,
+    thisWeek,
+    type Week,
+    weekAfter,
+  } from './report'
   import { afterRemoving, kept } from './selection'
   import Button from './parts/Button.svelte'
   import Header from './parts/Header.svelte'
@@ -44,8 +52,9 @@
   let pickedKey = $state<string | null>(null)
   let error = $state<string | null>(null)
 
-  // For the pane: every spend, and what its To offers.
-  const transactions = $derived($ledger.transactions)
+  /** The week's spends under the level, and any with a draft: asked of main, never the store. */
+  let transactions = $state.raw<ListedTransaction[]>([])
+  // For the pane: what its To offers.
   const payers = $derived($ledger.accounts)
   const categories = $derived($ledger.categories)
   /** Why the lists or the report couldn't load, until they next do. */
@@ -103,8 +112,31 @@
     if (spending.ok) {
       report = spending.value
       reportFailure = null
+      await loadSpends(idsWanted(spentOf(spending.value), level, drafts.keys()))
     } else reportFailure = spending
   }
+
+  let spendsAsked = 0
+
+  /** The spends with these ids, as the list shows them. The latest ask wins. */
+  async function loadSpends(ids: string[]) {
+    const mine = ++spendsAsked
+    if (ids.length === 0) {
+      transactions = []
+      return
+    }
+    const found = await window.haveFish.invoke('transaction.get', { ids })
+    if (mine !== spendsAsked) return
+    if (found.ok) transactions = found.value
+    else reportFailure = found
+  }
+
+  // Another level, or a new draft: the spends it wants. A report's own load asks for them too.
+  const wanted = $derived(idsWanted(spent, level, drafts.keys()).sort().join(' '))
+  $effect(() => {
+    const ids = wanted
+    untrack(() => void loadSpends(ids === '' ? [] : ids.split(' ')))
+  })
 
   function reportFor(state: LedgerState): Promise<void> {
     reportedFor = state

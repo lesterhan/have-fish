@@ -59,7 +59,15 @@ export const inputs = {
   /** Several edits, each its own batch, and one step to undo. */
   'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
   'spend.remove': z.strictObject({ id: z.uuid() }),
-  'transaction.list': z.strictObject({}),
+  /** `limit` rows of the ledger's list from row `from`, newest first: what a list draws. */
+  'transaction.page': z.strictObject({
+    from: z.number().int().min(0),
+    limit: z.number().int().min(1).max(500),
+  }),
+  /** Where a transaction is in the list, so the window can show it however far down. */
+  'transaction.position': z.strictObject({ id: z.uuid() }),
+  /** The live ones of these, in the list's order. */
+  'transaction.get': z.strictObject({ ids: z.array(z.uuid()).max(1000) }),
   /** `currency` null: it can hold any. */
   'account.add': z.strictObject({
     name: typed(200),
@@ -150,7 +158,11 @@ export interface Values {
   /** Each edit in the order sent: saved, or refused and why. */
   'spend.saveAll': { id: string; refused: WireFailure | null }[]
   'spend.remove': { id: string }
-  'transaction.list': ListedTransaction[]
+  /** `total` is every live row, so a list's scrollbar is the whole list's. */
+  'transaction.page': { total: number; from: number; rows: ListedTransaction[] }
+  /** Counting from 0; null when it isn't live. */
+  'transaction.position': { at: number | null }
+  'transaction.get': ListedTransaction[]
   'account.add': { id: string }
   /** The starting balance's transaction; null when there was nothing to write (empty, or zero). */
   'account.start': { id: string | null }

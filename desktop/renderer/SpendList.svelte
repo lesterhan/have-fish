@@ -3,11 +3,18 @@
   import type { ListedTransaction } from '../shared/commands'
   import type { Drafts } from './drafts'
   import { amountsText } from './format'
+  import type { Paged } from './parts/listbox'
   import Listbox from './parts/Listbox.svelte'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
-    transactions: ListedTransaction[]
+    /** The spends, all of them here; or `paged`, the ledger's list a page at a time. */
+    transactions?: ListedTransaction[]
+    paged?: Paged<ListedTransaction>
+    /** The rows drawn changed: their pages are wanted. */
+    onrange?: (from: number, to: number) => void
+    /** The keys moved to a row whose page isn't here yet. */
+    onmissing?: (index: number) => void
     selectedId: string | null
     drafts: Drafts
     onselect: (id: string) => void
@@ -22,6 +29,9 @@
   }
   let {
     transactions,
+    paged,
+    onrange,
+    onmissing,
     selectedId,
     drafts,
     onselect,
@@ -57,6 +67,9 @@
   <Listbox
     bind:this={listbox}
     items={transactions}
+    {paged}
+    {onrange}
+    {onmissing}
     idOf={(t) => t.id}
     active={selectedId}
     {label}

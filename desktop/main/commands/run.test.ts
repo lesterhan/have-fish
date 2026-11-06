@@ -17,10 +17,16 @@ function setup() {
   return { ledger, ctx, log, lines, errors, announced }
 }
 
+/** The first page of the ledger's list. */
+const PAGE = { from: 0, limit: 100 }
+
 describe('runCommand', () => {
   test("a command's value crosses as ok", () => {
     const { ctx, log } = setup()
-    expect(runCommand(ctx, 'transaction.list', {}, log)).toEqual({ ok: true, value: [] })
+    expect(runCommand(ctx, 'transaction.page', PAGE, log)).toEqual({
+      ok: true,
+      value: { total: 0, from: 0, rows: [] },
+    })
   })
 
   test('a refusal crosses as { error, detail }', () => {
@@ -35,8 +41,8 @@ describe('runCommand', () => {
   test('a written spend is listed', () => {
     const { ctx, log } = setup()
     const written = runCommand(ctx, 'spend.write', { amount: '4.50', description: 'Coffee' }, log)
-    const listed = runCommand(ctx, 'transaction.list', {}, log)
-    expect(written.ok && listed.ok && listed.value.map((t) => t.id)).toEqual([
+    const listed = runCommand(ctx, 'transaction.page', PAGE, log)
+    expect(written.ok && listed.ok && listed.value.rows.map((t) => t.id)).toEqual([
       written.ok && written.value.id,
     ])
   })
@@ -94,8 +100,8 @@ describe('runCommand', () => {
       ok: true,
       value: { id },
     })
-    const listed = runCommand(ctx, 'transaction.list', {}, log)
-    expect(listed.ok && listed.value).toMatchObject([
+    const listed = runCommand(ctx, 'transaction.page', PAGE, log)
+    expect(listed.ok && listed.value.rows).toMatchObject([
       { id, description: 'Tea', simple: { amount: '5.00', currency: 'CAD' } },
     ])
   })
@@ -122,7 +128,7 @@ describe('runCommand', () => {
     const { ledger, ctx, log, errors } = setup()
     ledger.close()
 
-    expect(runCommand(ctx, 'transaction.list', {}, log)).toEqual({
+    expect(runCommand(ctx, 'transaction.page', PAGE, log)).toEqual({
       ok: false,
       error: 'UNEXPECTED',
       detail: undefined,
@@ -196,7 +202,7 @@ describe('runCommand', () => {
 
   test('a command that writes nothing says nothing', () => {
     const { ctx, log, announced } = setup()
-    runCommand(ctx, 'transaction.list', {}, log)
+    runCommand(ctx, 'transaction.page', PAGE, log)
     runCommand(ctx, 'spend.write', { amount: 'abc', description: '' }, log)
     expect(announced).toEqual([])
   })

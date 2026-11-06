@@ -1,27 +1,17 @@
-// Writing down a spend, and the list of what's been written.
+// Writing down a spend, changing it, and taking it out. The list is `transactions.ts`.
 
 import { randomUUID } from 'node:crypto'
 import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
-import { nameOf, pathFor } from '@have-fish/core/account-path'
+import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
-import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
+import { simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
-import { desc, eq, isNull } from 'drizzle-orm'
-import {
-  type InputOf,
-  type ListedTransaction,
-  type Money,
-  type To,
-  type Values,
-  wireFailure,
-} from '../../shared/commands'
+import { type InputOf, type To, type Values, wireFailure } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
-import { perConnection } from '../db/prepared'
-import { accounts, postings, transactions } from '../db/schema'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
 import { accountFor, idOf } from './applied'
@@ -29,7 +19,7 @@ import { accountFor, idOf } from './applied'
 /** Where a spend comes from before any account is chosen, and goes when it has no category. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
 const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
-const INCOME = 'income'
+export const INCOME = 'income'
 
 /**
  * A spend from the account that paid to its category, a transfer to another account of mine, or
@@ -279,7 +269,7 @@ function movable(db: Database.Database, out: string, into: string): boolean {
 }
 
 /** Whether money from `from` to `to` is one an edit can change: a spend, transfer or income. */
-const sendable = (from: AccountKind, to: AccountKind) =>
+export const sendable = (from: AccountKind, to: AccountKind) =>
   (isAddable(from) && goesTo(to)) || (from === INCOME && isAddable(to))
 
 /** Where money from an account of mine can go: a category, or another account of mine. */
@@ -306,78 +296,4 @@ function spendAmount(typed: string): Outcome<number> {
   if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
   if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: typed })
   return { ok: true, value: cents }
-}
-
-const statements = perConnection((orm) => ({
-  // One row per posting, with its transaction; a transaction's rows are together.
-  listed: orm
-    .select({
-      id: transactions.id,
-      date: transactions.date,
-      description: transactions.description,
-      currency: postings.currency,
-      cents: postings.amountCents,
-      path: accounts.path,
-      kind: accounts.kind,
-    })
-    .from(transactions)
-    .leftJoin(postings, eq(postings.transactionId, transactions.id))
-    // An account can arrive after its transaction under sync, so it may not be here yet.
-    .leftJoin(accounts, eq(accounts.id, postings.accountId))
-    .where(isNull(transactions.deletedAt))
-    .orderBy(
-      desc(transactions.date),
-      desc(transactions.originCreatedAt),
-      desc(transactions.version),
-      transactions.id,
-      postings.position,
-    )
-    .prepare(),
-}))
-
-/** Every live transaction, newest day first, and newest made first within a day. */
-export function listTransactions(db: Database.Database): ListedTransaction[] {
-  type Grouped = { row: { id: string; date: string; description: string }; legs: Leg[] }
-  // Each leg's account, or null while it hasn't arrived.
-  type Account = { path: string; kind: AccountKind } | null
-  const grouped: (Grouped & { paths: Account[] })[] = []
-  for (const row of statements(db).listed.all()) {
-    let last = grouped.at(-1)
-    if (last?.row.id !== row.id) {
-      last = { row, legs: [], paths: [] }
-      grouped.push(last)
-    }
-    if (row.currency !== null && row.cents !== null) {
-      last.legs.push({ cents: row.cents, currency: row.currency })
-      last.paths.push(
-        row.path === null || row.kind === null ? null : { path: row.path, kind: row.kind },
-      )
-    }
-  }
-  return grouped.map(({ row: { id, date, description }, legs, paths }) => {
-    const simple = simpleAmountOf(legs)
-    const from = simple && paths[legs.findIndex((l) => l.cents < 0)]
-    const to = simple && paths[legs.findIndex((l) => l.cents > 0)]
-    return {
-      id,
-      date,
-      description,
-      amounts: movedIn(legs),
-      simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      // An account that can pay, or income: a starting balance comes from `equity:opening`.
-      from: from && (isAddable(from.kind) || from.kind === INCOME) ? nameOf(from.path) : null,
-      to: from && to && sendable(from.kind, to.kind) ? nameOf(to.path) : null,
-    }
-  })
-}
-
-/** The sum of the positive legs in each currency, by currency code. */
-function movedIn(legs: Leg[]): Money[] {
-  const moved = new Map<string, number>()
-  for (const { cents, currency } of legs) {
-    if (cents > 0) moved.set(currency, (moved.get(currency) ?? 0) + cents)
-  }
-  return [...moved]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([currency, cents]) => ({ amount: format(cents), currency }))
 }

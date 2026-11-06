@@ -9,6 +9,16 @@ import { seed } from './month'
 const NAV = 'nav[aria-label=Places]'
 const LEDGER = 'ol[aria-label=Ledger]'
 
+/** The selected row's words, and whether it shows whole inside the list. */
+const selection = (page: Page) =>
+  page.evaluate((list) => {
+    const ol = document.querySelector(list)
+    const li = ol?.querySelector('li[aria-selected=true]')
+    if (!ol || !li) return null
+    const [box, row] = [ol.getBoundingClientRect(), li.getBoundingClientRect()]
+    return { text: li.textContent ?? '', shows: row.top >= box.top && row.bottom <= box.bottom }
+  }, LEDGER)
+
 const go = (page: Page, place: string) => page.click(`${NAV} button:has-text("${place}")`)
 
 /** Every list on show, by name: its bottom edge and the window's height, and if the page scrolls. */
@@ -69,5 +79,41 @@ describe('a long list', () => {
     await go(page, 'Ledger')
     await expect.poll(scrolled).toBe(at)
     await expect.poll(first).toBe(firstDrawn)
+  })
+
+  test('an undo far down the list selects what came back, and shows it', {
+    timeout: 120_000,
+  }, async () => {
+    const { page, press } = await launch(aHome())
+    const written = await seed(page)
+    // Older than the month, so the list runs well past its first page.
+    await page.evaluate(async () => {
+      type Invoke = (name: string, input: unknown) => Promise<{ ok: boolean }>
+      const bridge = (window as unknown as { haveFish: { invoke: Invoke } }).haveFish
+      for (let i = 0; i < 150; i++) {
+        const date = `2025-0${1 + Math.floor(i / 28)}-${String(1 + (i % 28)).padStart(2, '0')}`
+        await bridge.invoke('spend.write', { amount: '1.00', description: `Old ${i}`, date })
+      }
+    })
+    const total = written + 5 + 150
+    const size = () => page.locator(`${LEDGER} li`).first().getAttribute('aria-setsize')
+    await expect.poll(size, { timeout: 30_000 }).toBe(String(total))
+
+    await page.click(`${LEDGER} li >> nth=0`)
+    await page.keyboard.press('End')
+    await expect
+      .poll(() => selection(page))
+      .toEqual({ text: expect.stringContaining('Old 0'), shows: true })
+
+    await page.keyboard.press('Delete')
+    await expect.poll(size).toBe(String(total - 1))
+    await page.keyboard.press('Home')
+    await expect.poll(() => selection(page).then((s) => s?.text)).not.toContain('Old')
+
+    press('ctrl+z')
+    await expect.poll(size).toBe(String(total))
+    await expect
+      .poll(() => selection(page))
+      .toEqual({ text: expect.stringContaining('Old 0'), shows: true })
   })
 })

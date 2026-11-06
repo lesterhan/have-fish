@@ -177,7 +177,9 @@ export async function seed(page: Page, today = new Date()): Promise<number> {
       ids.set(a.name, id)
     }
     type Listed = { id: string; description: string; simple: { amount: string } }
-    for (const t of await run<Listed[]>('transaction.list', {})) {
+    // Only the starting balances so far: one page holds them.
+    const first = await run<{ rows: Listed[] }>('transaction.page', { from: 0, limit: 500 })
+    for (const t of first.rows) {
       const { id, description, simple } = t
       await run('spend.edit', { id, description, amount: simple.amount, date: began })
     }
