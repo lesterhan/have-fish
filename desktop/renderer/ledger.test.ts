@@ -15,15 +15,18 @@ type Call = { name: CommandName; input: unknown; answer(value: Wire<unknown>): v
 
 const idOf = (i: number) => `t${i}`
 const row = (i: number) => ({ id: idOf(i), description: `Spend ${i}` }) as ListedTransaction
+/** A row written since the list began, newer than every other. */
+const newRow = (i: number) => ({ id: `n${i}`, description: `New ${i}` }) as ListedTransaction
 
 /**
  * A bridge over a list of `size` rows whose replies wait until the test gives them, so a load can
- * be caught mid-way. `gone` rows have been removed.
+ * be caught mid-way. `gone` rows have been removed; `write(n)` puts n new rows at the top.
  */
 function fakeBridge(size = 3) {
   const waiting: Call[] = []
   const asked: Call[] = []
   const gone = new Set<string>()
+  let added = 0
   let notify: (changed: Changed[]) => void = () => {}
   const bridge = {
     invoke(name: CommandName, input: unknown) {
@@ -43,12 +46,13 @@ function fakeBridge(size = 3) {
   const answerTo = (name: CommandName, input: unknown): unknown => {
     if (name === 'transaction.page') {
       const { from, limit } = input as { from: number; limit: number }
-      const rows = Array.from({ length: Math.max(Math.min(limit, size - from), 0) }, (_, i) =>
-        row(from + i),
+      const total = size + added
+      const rows = Array.from({ length: Math.max(Math.min(limit, total - from), 0) }, (_, i) =>
+        from + i < added ? newRow(from + i) : row(from + i - added),
       )
       // Each page is a day of its own, netting its first row's number, negated.
       return {
-        total: size,
+        total,
         from,
         rows,
         nets: [{ date: `day ${from}`, net: [{ amount: `-${from}.00`, currency: 'CAD' }] }],
@@ -58,7 +62,7 @@ function fakeBridge(size = 3) {
     if (name === 'transaction.position') {
       const { id } = input as { id: string }
       const at = Number(id.slice(1))
-      return { at: gone.has(id) || at >= size ? null : at }
+      return { at: gone.has(id) || at >= size ? null : at + added }
     }
     if (name === 'transaction.get') {
       const { ids } = input as { ids: string[] }
@@ -74,6 +78,9 @@ function fakeBridge(size = 3) {
   return {
     bridge,
     gone,
+    write: (n: number) => {
+      added += n
+    },
     notify: () => notify([]),
     /** How many times the store asked for `name`. */
     count: (name: CommandName) => asked.filter((c) => c.name === name).length,
@@ -283,6 +290,50 @@ describe('the ledger list, a page at a time, over 50,000 rows', () => {
     ledger.keep(['t42000'])
     await fake.answerAll()
     expect(rowWithId(ledger.current(), 't42000')?.id).toBe('t42000')
+  })
+
+  test('an opened row stays where it is however far the list scrolls, until it closes', async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.hold('t5')
+
+    ledger.view(10_000, 10_040)
+    await fake.answerAll()
+    expect(indexIn(ledger.current(), 't5')).toBe(5)
+    expect(rowAt(ledger.current(), 5)?.id).toBe('t5')
+
+    fake.forget()
+    fake.notify()
+    await fake.answerAll()
+    expect(fake.pagesAsked().sort((a, b) => a - b)).toEqual([0, 100])
+    expect(indexIn(ledger.current(), 't5')).toBe(5)
+
+    ledger.hold(null)
+    ledger.view(10_000, 10_040)
+    expect(indexIn(ledger.current(), 't5')).toBe(-1)
+  })
+
+  test('an opened row pushed onto another page is found there', async () => {
+    const { fake, ledger } = await started(SIZE)
+    ledger.hold('t5')
+    ledger.view(10_000, 10_040)
+    await fake.answerAll()
+
+    fake.write(150)
+    fake.notify()
+    await fake.answerAll()
+
+    expect(indexIn(ledger.current(), 't5')).toBe(155)
+    ledger.view(10_000, 10_040)
+    expect(indexIn(ledger.current(), 't5')).toBe(155)
+  })
+
+  test("an opened row that isn't held is found and its page fetched", async () => {
+    const { fake, ledger } = await started(SIZE)
+    fake.forget()
+    ledger.hold('t42000')
+    await fake.answerAll()
+    expect(fake.pagesAsked()).toEqual([420])
+    expect(indexIn(ledger.current(), 't42000')).toBe(42_000)
   })
 
   test("a page asked for before a change is dropped: the change's load fetches it fresh", async () => {
