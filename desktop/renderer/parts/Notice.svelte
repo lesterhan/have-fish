@@ -23,7 +23,7 @@
     padding: var(--space-2) var(--space-4);
     border-block-end: var(--border-width) solid var(--color-rule);
     font-size: var(--text-quiet);
-    background: color-mix(in oklab, var(--color-error) 7%, var(--color-background));
+    background: var(--color-notice);
     box-shadow: var(--edge-error);
   }
 

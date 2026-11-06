@@ -104,6 +104,7 @@
   --color-muted: #605b55;
   --color-text: #1e1a14;
   --color-accent: #705800;
+  --color-accent-hover: #7c6100;
   --color-on-accent: #fefbf8;
   --color-in: #146d34;
   --color-error: #ac312c;
@@ -112,6 +113,7 @@
   --color-expenses: #724695;
   --color-income: #067132;
   --color-card: #fbf3e2;
+  --color-notice: #fbede8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -126,6 +128,7 @@
     --color-muted: #b2ada6;
     --color-text: #f2ece4;
     --color-accent: #ff8762;
+    --color-accent-hover: #ff9574;
     --color-on-accent: #13110f;
     --color-in: #79ca8b;
     --color-error: #ff7f73;
@@ -134,6 +137,7 @@
     --color-expenses: #cea0f7;
     --color-income: #76cf8a;
     --color-card: #2b1c15;
+    --color-notice: #2a1f19;
   }
 }
 /* End of the colours. */

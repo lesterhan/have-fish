@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { inkFailures, stepFailures } from '../shared/theme/contract'
 import { readTheme } from '../shared/theme/css'
-import { rawColoursIn } from '../tools/colours'
+import { madeColoursIn, rawColoursIn } from '../tools/colours'
 import { rawTimingsIn, rawTypeIn } from '../tools/sizes'
 
 const DESKTOP = join(import.meta.dirname, '..')
@@ -47,6 +47,13 @@ describe('colour lives in tokens.css and nowhere else', () => {
       rawColoursIn(readFileSync(join(DESKTOP, file), 'utf8')).map((c) => `${file}: ${c}`),
     )
     expect(raw, 'Make each a token in tokens.css, and add it to the contract').toEqual([])
+  })
+
+  test('no file makes a colour from them, which the contract would never see', () => {
+    const made = appFiles().flatMap((file) =>
+      madeColoursIn(readFileSync(join(DESKTOP, file), 'utf8')).map((c) => `${file}: ${c}`),
+    )
+    expect(made, 'Derive it in deriveTokens, and add its pairs to the contract').toEqual([])
   })
 })
 

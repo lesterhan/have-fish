@@ -50,8 +50,14 @@ const ON_EVERY_SURFACE = [
 export const INK: readonly Ink[] = [
   ...SURFACES.flatMap((on) => ON_EVERY_SURFACE.map((ink): Ink => ({ ink, on, kind: 'text' }))),
   { ink: '--color-error', on: '--color-background', kind: 'text' },
-  // A primary button's words.
+  // A primary button's words, and its keycap, at rest and under the pointer.
   { ink: '--color-on-accent', on: '--color-accent', kind: 'text' },
+  { ink: '--color-on-accent', on: '--color-accent-hover', kind: 'text' },
+  // A notice: its words, its ✕, its edge, and a focus ring on it.
+  { ink: '--color-text', on: '--color-notice', kind: 'text' },
+  { ink: '--color-muted', on: '--color-notice', kind: 'text' },
+  { ink: '--color-error', on: '--color-notice', kind: 'graphic' },
+  { ink: '--color-accent', on: '--color-notice', kind: 'graphic' },
   // An input's edge.
   { ink: '--color-border', on: '--color-background', kind: 'graphic' },
   // A bar, and the accent's edge, on the line under a row.
