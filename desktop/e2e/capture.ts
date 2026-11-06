@@ -14,7 +14,7 @@ import { seed } from './month'
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
 
 const NAV = 'nav[aria-label=Places]'
-const SPENDS = 'ol[aria-label=Spends]'
+const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
 const REPORTED = 'ol[aria-label="Its spends"]'
@@ -43,7 +43,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await go(page, 'Reports')
   await shot.take('reports-empty')
 
-  await go(page, 'Spends')
+  await go(page, 'Ledger')
   const written = await seed(page)
   // Each account's starting balance is a transaction too.
   await expect.poll(async () => (await rows(page)).length, { timeout: 30_000 }).toBe(written + 5)
@@ -101,7 +101,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Half a screen: the pane slides over the list.
   await shot.size(NARROW)
-  await go(page, 'Spends')
+  await go(page, 'Ledger')
   await shot.take('narrow-spends')
   await page.click(`${SPENDS} li >> nth=2`)
   await page.press(SPENDS, 'Enter')
@@ -115,7 +115,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // 200%.
   await shot.size(ZOOMED)
-  await go(page, 'Spends')
+  await go(page, 'Ledger')
   await shot.take('zoom-spends')
   await go(page, 'Accounts')
   await shot.take('zoom-accounts')
@@ -124,7 +124,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Refused, last: the refusal stays until the next spend is written.
   await shot.size(WIDE)
-  await go(page, 'Spends')
+  await go(page, 'Ledger')
   await writeDown(page, 'abc', 'Coffee')
   await page.waitForSelector('#amount-error')
   await shot.take('spends-refused')
@@ -144,9 +144,21 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
     const page = await sheet.firstWindow()
     await page.waitForSelector('main h1')
     const shot = await shooter(page)
-    await shot.size({ width: 1280, height: 1700, scale: 1 })
+    await shot.size({ width: 1280, height: 2300, scale: 1 })
     await shot.take('sheet')
     await shot.dark('sheet')
+
+    // What can't be drawn at rest: the first button focused from the keyboard, the second hovered,
+    // then held down.
+    const buttons = page.locator('section[aria-label=Button]')
+    await page.keyboard.press('Tab')
+    const hovered = await buttons.getByRole('button').nth(1).boundingBox()
+    if (hovered === null) throw new Error('the sheet has no second button')
+    await page.mouse.move(hovered.x + hovered.width / 2, hovered.y + hovered.height / 2)
+    await buttons.screenshot({ path: join(out, 'sheet-button-focus-hover.png') })
+    await page.mouse.down()
+    await buttons.screenshot({ path: join(out, 'sheet-button-pressed.png') })
+    await page.mouse.up()
   } finally {
     await sheet.close()
   }

@@ -21,6 +21,9 @@
   import { fieldOf, spendWordsFor, wordsFor } from './refusals'
   import { otherText, spendsBehind, spentOf, thisWeek, type Week, weekAfter } from './report'
   import { afterRemoving, kept } from './selection'
+  import Button from './parts/Button.svelte'
+  import Header from './parts/Header.svelte'
+  import Notice from './parts/Notice.svelte'
   import SpendingList from './SpendingList.svelte'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
@@ -51,6 +54,15 @@
     const failure = $ledger.failure ?? reportFailure
     return failure && wordsFor(failure)
   })
+  /** The load failure I put away; a different one shows again. */
+  let dismissed = $state<string | null>(null)
+  /** A refusal stays until I put it away, as does a load failure. */
+  const notice = $derived(error ?? (unloaded !== dismissed ? unloaded : null))
+
+  function dismiss() {
+    if (error !== null) error = null
+    else dismissed = unloaded
+  }
   let selectedId = $state<string | null>(null)
   let drafts = $state.raw<Drafts>(new Map())
   let savingDraft = $state(false)
@@ -91,7 +103,6 @@
     if (spending.ok) {
       report = spending.value
       reportFailure = null
-      error = null
     } else reportFailure = spending
   }
 
@@ -250,40 +261,41 @@
 </script>
 
 <main class="reports" {hidden}>
+  <div class="top">
+    <Header title={copy.app.places.reports} />
+    {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
+  </div>
+
   <div class="week" role="group" aria-label={copy.reports.week.label}>
-    <button type="button" aria-label={copy.reports.week.before} onclick={() => goWeek(-1)}>
+    <Button aria-label={copy.reports.week.before} onclick={() => goWeek(-1)}>
       {copy.reports.week.earlier}
-    </button>
+    </Button>
     <p>
       {#if isThisWeek}<strong>{copy.reports.week.thisWeek}</strong>{/if}
       <span class="span">{copy.reports.week.span(week.start, week.end)}</span>
     </p>
-    <button type="button" aria-label={copy.reports.week.after} onclick={() => goWeek(1)}>
+    <Button aria-label={copy.reports.week.after} onclick={() => goWeek(1)}>
       {copy.reports.week.later}
-    </button>
+    </Button>
   </div>
 
   <nav class="trail" aria-label={copy.reports.trail.label}>
     {#if level === ''}
       <span aria-current="location">{copy.reports.trail.top}</span>
     {:else}
-      <button type="button" onclick={() => up('')}>{copy.reports.trail.top}</button>
+      <Button variant="quiet" onclick={() => up('')}>{copy.reports.trail.top}</Button>
       {#each trailTo(level) as step, i (step)}
         <span class="between" aria-hidden="true">{copy.reports.trail.between}</span>
         {#if i === trailTo(level).length - 1}
           <span aria-current="location">{step.slice(step.lastIndexOf(':') + 1)}</span>
         {:else}
-          <button type="button" onclick={() => up(step)}>
+          <Button variant="quiet" onclick={() => up(step)}>
             {step.slice(step.lastIndexOf(':') + 1)}
-          </button>
+          </Button>
         {/if}
       {/each}
     {/if}
   </nav>
-
-  {#if (error ?? unloaded) !== null}
-    <p class="error" role="alert">{error ?? unloaded}</p>
-  {/if}
 
   <div class="left">
     <SpendingList
@@ -339,9 +351,9 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto auto auto minmax(8rem, 1fr) auto;
     grid-template-areas:
+      'top top'
       'week week'
       'trail trail'
-      'error error'
       'breakdown list'
       'breakdown pane';
     column-gap: var(--space-6);
@@ -378,12 +390,13 @@
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: none;
       grid-template-areas:
+        'top'
         'week'
         'trail'
-        'error'
         'breakdown'
         'list';
       align-content: start;
+      padding: var(--space-3);
     }
   }
 
@@ -426,24 +439,9 @@
     font-size: var(--text-quiet);
   }
 
-  button {
-    font: inherit;
-    padding: var(--space-1) var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-control);
-    color: inherit;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .trail button {
-    border-color: transparent;
-    text-decoration: underline;
-  }
-
-  .error {
-    grid-area: error;
-    font-size: var(--text-small);
-    color: var(--color-error);
+  .top {
+    grid-area: top;
+    display: grid;
+    gap: var(--space-3);
   }
 </style>

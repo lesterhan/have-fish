@@ -28,7 +28,7 @@ export const spends = {
     wallet: 'cash',
     submit: 'Write it down',
   },
-  list: { label: 'Spends' },
+  list: { label: 'Ledger' },
   /** In place of a spend's description when it has none. */
   noDescription: '—',
   /** A date field holding something that isn't a day, typed long or the short way. */

@@ -21,7 +21,7 @@ async function addAccount(page: Page, name: string, kind: string, start = '') {
   }
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
   await page.waitForSelector(`ol[aria-label=Accounts] li:has-text("${name}")`)
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
 }
 
 /** Amount, what for and To typed; the cursor in From, emptied. */
@@ -50,7 +50,7 @@ const balances = async (page: Page) => {
     .evaluateAll((items) =>
       items.map((li) => [...li.children].map((c) => c.textContent?.trim() ?? '').join(' | ')),
     )
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
   return listed
 }
 

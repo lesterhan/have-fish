@@ -12,6 +12,7 @@
     "copy/**/*.test.ts",
     "renderer/tokens.test.ts",
     "renderer/fonts.test.ts",
-    "sheet/sheet.test.ts"
+    "sheet/sheet.test.ts",
+    "renderer/parts/parts.test.ts"
   ]
 }

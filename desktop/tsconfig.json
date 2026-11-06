@@ -23,6 +23,7 @@
     "renderer/tokens.test.ts",
     "renderer/fonts.test.ts",
     "sheet/sheet.test.ts",
+    "renderer/parts/parts.test.ts",
     "vite.sheet.config.ts",
     "electron.vite.config.ts"
   ]

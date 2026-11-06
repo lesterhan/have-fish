@@ -3,9 +3,10 @@
   import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
   import { amountsText, understood } from './format'
+  import Button from './parts/Button.svelte'
+  import Empty from './parts/Empty.svelte'
   import Picker from './Picker.svelte'
   import type { Option } from './picker'
-  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
@@ -66,10 +67,10 @@
 </script>
 
 <section class="pane" class:open aria-label={label}>
-  <button type="button" class="back" onclick={onback}>{copy.spends.pane.back}</button>
+  <span class="back"><Button variant="quiet" onclick={onback}>{copy.spends.pane.back}</Button></span>
 
   {#if transaction === undefined}
-    <p class="quiet">{copy.spends.pane.nothing}</p>
+    <Empty>{copy.spends.pane.nothing}</Empty>
   {:else}
     <p class="heading">
       <!-- An editable spend shows its date in the field below. -->
@@ -165,14 +166,9 @@
         {/if}
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
-        <button
-          type="submit"
-          aria-disabled={draft === undefined || saving}
-          aria-keyshortcuts={ariaShortcut('saveAll', MAC)}
-        >
+        <Button type="submit" action="saveAll" aria-disabled={draft === undefined || saving}>
           {copy.spends.pane.save}
-          <kbd aria-hidden="true">{shortcutText('saveAll', MAC)}</kbd>
-        </button>
+        </Button>
         <!-- The pane has no From field yet, so a refusal about the account shows here too. -->
         {#if error?.field === 'form' || error?.field === 'from'}
           <p class="error" role="alert">{error.words}</p>
@@ -184,7 +180,7 @@
       <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
 
-    <button type="button" class="remove" onclick={onremove}>{copy.spends.pane.remove}</button>
+    <Button onclick={onremove}>{copy.spends.pane.remove}</Button>
   {/if}
 </section>
 
@@ -308,8 +304,7 @@
     text-align: end;
   }
 
-  input,
-  button {
+  input {
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
@@ -320,23 +315,6 @@
 
   input[aria-invalid='true'] {
     border-color: var(--color-error);
-  }
-
-  button {
-    justify-self: start;
-    cursor: pointer;
-  }
-
-  button[aria-disabled='true'] {
-    color: var(--color-muted);
-    cursor: default;
-  }
-
-  kbd {
-    font: inherit;
-    font-size: var(--text-key);
-    color: var(--color-muted);
-    margin-inline-start: var(--space-2);
   }
 
   .error {

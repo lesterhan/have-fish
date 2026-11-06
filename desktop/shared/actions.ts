@@ -54,7 +54,7 @@ export const ACTIONS = [
   { id: 'remove', menu: 'edit', accelerator: 'Delete', windowKey: true, grouped: 'apart' },
 
   // The places down the left, in their order there.
-  { id: 'showSpends', menu: 'view', accelerator: 'CmdOrCtrl+1' },
+  { id: 'showLedger', menu: 'view', accelerator: 'CmdOrCtrl+1' },
   { id: 'showAccounts', menu: 'view', accelerator: 'CmdOrCtrl+2' },
   { id: 'showReports', menu: 'view', accelerator: 'CmdOrCtrl+3' },
 

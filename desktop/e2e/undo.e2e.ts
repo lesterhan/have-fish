@@ -8,7 +8,7 @@ import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 const W_AMOUNT = `${WRITE} input[name=amount]`
 const W_DESCRIPTION = `${WRITE} input[name=description]`
 const P_DESCRIPTION = `${PANE} input[name=description]`
@@ -94,7 +94,7 @@ describe('undo and redo', () => {
     press('ctrl+z')
 
     await expect.poll(() => rows(page)).toEqual([`${today()} | Lunch | 12.00 CAD`])
-    expect(await focused(page)).toBe('Spends OL')
+    expect(await focused(page)).toBe('Ledger OL')
   })
 
   test('a saved edit is taken back as the edit, not as typing in the pane', async () => {

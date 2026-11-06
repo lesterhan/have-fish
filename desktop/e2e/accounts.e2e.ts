@@ -41,22 +41,22 @@ async function add(page: Page, name: string, kind: string, currency?: string) {
 }
 
 describe('the places', () => {
-  test('Spends, Accounts and Reports down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
+  test('Ledger, Accounts and Reports down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
     const { page, press } = await launch(aHome())
     expect(await page.locator(`${NAV} button`).allInnerTexts()).toEqual([
-      expect.stringMatching(/^Spends\s+Ctrl\+1$/),
+      expect.stringMatching(/^Ledger\s+Ctrl\+1$/),
       expect.stringMatching(/^Accounts\s+Ctrl\+2$/),
       expect.stringMatching(/^Reports\s+Ctrl\+3$/),
     ])
-    expect(await current(page)).toMatch(/^Spends/)
+    expect(await current(page)).toMatch(/^Ledger/)
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
     expect(await page.isVisible(LIST)).toBe(true)
-    expect(await page.isVisible('ol[aria-label=Spends]')).toBe(false)
+    expect(await page.isVisible('ol[aria-label=Ledger]')).toBe(false)
 
     press('ctrl+1')
-    await expect.poll(() => current(page)).toMatch(/^Spends/)
+    await expect.poll(() => current(page)).toMatch(/^Ledger/)
     expect(await focused(page)).toBe('Write down a spend amount')
   })
 
@@ -78,7 +78,7 @@ describe('the places', () => {
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
     press('ctrl+1')
-    await expect.poll(() => current(page)).toMatch(/^Spends/)
+    await expect.poll(() => current(page)).toMatch(/^Ledger/)
 
     expect(await page.inputValue(`${PANE} input[name=description]`)).toBe('Coffee and cake')
     expect((await rows(page))[0]).toContain('●')
@@ -266,7 +266,7 @@ describe('undoing an account added', () => {
     await add(page, 'visa', 'card')
     await expect.poll(() => accounts(page)).toHaveLength(1)
     press('ctrl+1')
-    await expect.poll(() => current(page)).toMatch(/^Spends/)
+    await expect.poll(() => current(page)).toMatch(/^Ledger/)
     // Ctrl+1 leaves the cursor in the amount field; a field just entered gives Ctrl+Z to the ledger.
 
     press('ctrl+z')

@@ -17,7 +17,7 @@ const DAY = 86_400_000
 const here = Intl.DateTimeFormat().resolvedOptions().timeZone
 const daysAgo = (n: number) => calendarDateAt(Date.now() - n * DAY, here)
 
-/** A spend written on Spends: amount, what for, To, and From and its day if given. */
+/** A spend written in the ledger: amount, what for, To, and From and its day if given. */
 async function spend(
   page: Page,
   amount: string,
@@ -26,7 +26,7 @@ async function spend(
   from = '',
   date = '',
 ) {
-  await page.click(`${NAV} button:has-text("Spends")`)
+  await page.click(`${NAV} button:has-text("Ledger")`)
   const before = (await rows(page)).length
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)

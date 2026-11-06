@@ -7,7 +7,7 @@ import { aHome, cellsOf, launch, PANE, rows, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-const LIST = 'ol[aria-label=Spends]'
+const LIST = 'ol[aria-label=Ledger]'
 const P_AMOUNT = `${PANE} input[name=amount]`
 const P_DESCRIPTION = `${PANE} input[name=description]`
 const REMOVE = `${PANE} >> role=button[name="Remove"s]`
@@ -47,7 +47,7 @@ describe('removing a spend', () => {
       .poll(() => rows(page))
       .toEqual([`${today()} | Tea | 3.00 CAD`, `${today()} | Lunch | 12.00 CAD`])
     expect(await selected(page)).toEqual(['Lunch'])
-    expect(await focused(page)).toBe('Spends OL')
+    expect(await focused(page)).toBe('Ledger OL')
   })
 
   test('the pane’s Remove does the same, with no “are you sure?”', async () => {

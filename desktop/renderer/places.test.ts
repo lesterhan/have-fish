@@ -3,9 +3,9 @@ import { actionFor } from '../shared/actions'
 import { PLACES, SHOW, shownBy } from './places'
 
 describe('shownBy', () => {
-  test('a step that moved spends shows the first in Spends', () => {
+  test('a step that moved spends shows the first in the ledger', () => {
     expect(shownBy({ spends: ['a', 'b'], accounts: [] }, 'accounts')).toEqual({
-      place: 'spends',
+      place: 'ledger',
       id: 'a',
     })
   })
@@ -25,7 +25,7 @@ describe('shownBy', () => {
   })
 
   test('nothing moved, nothing to show', () => {
-    expect(shownBy({ spends: [], accounts: [] }, 'spends')).toBeNull()
+    expect(shownBy({ spends: [], accounts: [] }, 'ledger')).toBeNull()
   })
 })
 

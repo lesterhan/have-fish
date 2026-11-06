@@ -55,7 +55,7 @@ describe('a starting balance, said when adding', () => {
     await add(page, 'chequing', 'bank', '1,234.56')
 
     await expect.poll(() => started(page)).toContain(`Started with 1234.56 CAD ${today()}`)
-    await page.click(`${NAV} button:has-text("Spends")`)
+    await page.click(`${NAV} button:has-text("Ledger")`)
     await expect.poll(() => rows(page)).toEqual([`${today()} | Starting balance | 1234.56 CAD`])
   })
 
@@ -96,7 +96,7 @@ describe('a starting balance, said when adding', () => {
     await expect.poll(() => page.locator(`${LIST} li`).count()).toBe(1)
     expect(await started(page)).not.toContain('Started with')
     expect(await page.locator(QUESTION).innerText()).toBe('How much is in it today?')
-    await page.click(`${NAV} button:has-text("Spends")`)
+    await page.click(`${NAV} button:has-text("Ledger")`)
     expect(await rows(page)).toEqual([])
   })
 
@@ -186,7 +186,7 @@ describe('a starting balance, said when adding', () => {
     press('ctrl+z')
 
     await expect.poll(() => page.locator(`${LIST} li`).count()).toBe(0)
-    await page.click(`${NAV} button:has-text("Spends")`)
+    await page.click(`${NAV} button:has-text("Ledger")`)
     expect(await rows(page)).toEqual([])
   })
 })

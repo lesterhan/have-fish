@@ -59,7 +59,7 @@ describe('e2e selectors', () => {
     }
     for (const fine of [
       'role=button[name="Add account"s]',
-      'ol[aria-label=Spends] li[aria-selected=true]',
+      'ol[aria-label=Ledger] li[aria-selected=true]',
       'https://example.com/',
       'spend.write',
       'No spending in this week.',

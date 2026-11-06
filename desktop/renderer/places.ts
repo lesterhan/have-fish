@@ -3,7 +3,7 @@
 import type { KeyedActionId, WindowActionId } from '../shared/actions'
 import type { Moved } from '../shared/commands'
 
-export const PLACES = ['spends', 'accounts', 'reports'] as const
+export const PLACES = ['ledger', 'accounts', 'reports'] as const
 export type Place = (typeof PLACES)[number]
 
 /** What App asks of every place. */
@@ -24,7 +24,7 @@ export type DraftsView = PlaceView & {
 
 /** The action that goes to each place, so the sidebar can show its shortcut. */
 export const SHOW: Record<Place, WindowActionId & KeyedActionId> = {
-  spends: 'showSpends',
+  ledger: 'showLedger',
   accounts: 'showAccounts',
   reports: 'showReports',
 }
@@ -35,7 +35,7 @@ export const SHOW: Record<Place, WindowActionId & KeyedActionId> = {
  */
 export function shownBy(moved: Moved, here: Place): { place: Place; id: string } | null {
   const [spend] = moved.spends
-  if (spend !== undefined) return { place: here === 'reports' ? here : 'spends', id: spend }
+  if (spend !== undefined) return { place: here === 'reports' ? here : 'ledger', id: spend }
   const [account] = moved.accounts
   if (account !== undefined) return { place: 'accounts', id: account }
   return null

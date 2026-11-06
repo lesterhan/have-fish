@@ -20,7 +20,11 @@
   import { fromOf, fromOptions, toOf, toOptions } from './picker'
   import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import { afterRemoving, kept } from './selection'
-  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
+  import Button from './parts/Button.svelte'
+  import Header from './parts/Header.svelte'
+  import Keys from './parts/Keys.svelte'
+  import Notice from './parts/Notice.svelte'
+  import { ariaShortcut, MAC } from './shortcuts'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
 
@@ -71,6 +75,11 @@
   const transactions = $derived($ledger.transactions)
   /** Why the lists couldn't load, until they next do. */
   const unloaded = $derived($ledger.failure && wordsFor($ledger.failure))
+  /** An undo or redo refused here, until I put it away. */
+  let refusal = $state<string | null>(null)
+  /** The load failure I put away; a different one shows again. */
+  let dismissed = $state<string | null>(null)
+  const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
   let selectedId = $state<string | null>(null)
   let drafts = $state.raw<Drafts>(new Map())
   let savingDraft = $state(false)
@@ -118,7 +127,12 @@
 
   /** An undo or redo refused while this place is showing. */
   export function refused(words: string) {
-    error = { field: 'form', words }
+    refusal = words
+  }
+
+  function dismiss() {
+    if (refusal !== null) refusal = null
+    else dismissed = unloaded
   }
 
   async function write(event: SubmitEvent) {
@@ -263,11 +277,16 @@
 </script>
 
 <main class="spends" {hidden}>
+  <div class="top">
+    <Header title={copy.app.places.ledger} />
+    {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
+  </div>
+
   <form class="write" aria-label={copy.spends.write.label} onsubmit={write} novalidate>
     <label>
       <span>
         {copy.spends.write.amount}
-        <kbd aria-hidden="true">{shortcutText('newSpend', MAC)}</kbd>
+        <Keys action="newSpend" />
       </span>
       <input
         bind:this={amountInput}
@@ -359,11 +378,9 @@
       <p class="error" id="date-error" role="alert">{error.words}</p>
     {/if}
 
-    <button type="submit" disabled={saving}>{copy.spends.write.submit}</button>
+    <Button type="submit" variant="primary" disabled={saving}>{copy.spends.write.submit}</Button>
     {#if error?.field === 'form'}
       <p class="error" role="alert">{error.words}</p>
-    {:else if unloaded}
-      <p class="error" role="alert">{unloaded}</p>
     {/if}
   </form>
 
@@ -397,12 +414,19 @@
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     grid-template-areas:
+      'top top'
       'write pane'
       'list pane';
-    gap: var(--space-6);
+    gap: var(--space-4) var(--space-6);
     padding: var(--space-4);
+  }
+
+  .top {
+    grid-area: top;
+    display: grid;
+    gap: var(--space-3);
   }
 
   main[hidden] {
@@ -414,8 +438,10 @@
     main {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas:
+        'top'
         'write'
         'list';
+      padding: var(--space-3);
     }
   }
 
@@ -441,13 +467,11 @@
     gap: var(--space-1);
   }
 
-  kbd {
-    font: inherit;
+  label span :global(kbd) {
     margin-inline-start: var(--space-2);
   }
 
-  input,
-  button {
+  input {
     font: inherit;
     padding: var(--space-2);
     border: var(--border-width) solid var(--color-border);
@@ -464,11 +488,6 @@
 
   input[aria-invalid='true'] {
     border-color: var(--color-error);
-  }
-
-  button {
-    justify-self: start;
-    cursor: pointer;
   }
 
   .understood {
