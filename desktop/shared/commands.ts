@@ -2,7 +2,7 @@
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
 import { ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
-import type { LedgerDocument } from '@have-fish/core/documents'
+import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
 import type { StepName } from './steps'
@@ -90,6 +90,8 @@ export const inputs = {
   'ledger.steps': z.strictObject({}),
   /** This machine's theme: never the ledger's. */
   'settings.theme.set': z.strictObject({ theme: z.enum(THEME_CHOICES) }),
+  /** Text the window put together, onto the system clipboard. It writes nothing to the ledger. */
+  'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
 }
 
 /** One posting as a row's details read it: what it moved, and the account or category it touched. */
@@ -99,6 +101,19 @@ export type ListedLeg = {
   currency: string
   /** Its account's or category's whole path; null when that account isn't here yet. */
   path: string | null
+}
+
+/** Where a transaction came from, as its details say it. */
+export type ListedOrigin = {
+  source: OriginSource
+  /** UTC ms. */
+  at: number
+  /** Whether this ledger's own device made it, rather than another computer's copy. */
+  here: boolean
+  /** The bank's file, for an import; null otherwise. */
+  file: string | null
+  /** Its line in that file, for an import; null otherwise. */
+  line: number | null
 }
 
 /** One transaction as the list shows it. */
@@ -125,6 +140,8 @@ export type ListedTransaction = {
   toPath: string | null
   /** Each posting, in order: how a spend paid from more than one account says so. */
   legs: ListedLeg[]
+  /** Where it came from: by hand, an import, or the app; when; and on which computer. */
+  origin: ListedOrigin
 }
 
 /** A day of the ledger's list, and how many rows it has. */
@@ -207,6 +224,7 @@ export interface Values {
   'ledger.redo': Moved
   'ledger.steps': { undo: StepName | null; redo: StepName | null }
   'settings.theme.set': { theme: ThemeChoice }
+  'clipboard.copy': null
 }
 
 export type CommandName = keyof typeof inputs

@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { amountsText, bandDay, day, dayOf, money, moneyParts, todayIn, understood } from './format'
+import {
+  amountsText,
+  bandDay,
+  day,
+  dayOf,
+  moment,
+  money,
+  moneyParts,
+  todayIn,
+  understood,
+} from './format'
 
 describe('money', () => {
   test("grouped by thousands, with its currency's own decimals", () => {
@@ -36,6 +46,14 @@ describe('day', () => {
   test("with the year when it isn't this one", () => {
     expect(day('2025-11-05', '2026-11-06')).toBe('Wed 5 Nov 2025')
     expect(day('2026-11-05', '2027-01-02')).toBe('Thu 5 Nov 2026')
+  })
+})
+
+describe('a moment', () => {
+  test('the day, the year and the time, in the zone I am in', () => {
+    const at = Date.UTC(2026, 10, 5, 12, 40)
+    expect(moment(at, 'UTC')).toBe('Thu 5 Nov 2026, 12:40')
+    expect(moment(at, 'America/Toronto')).toBe('Thu 5 Nov 2026, 07:40')
   })
 })
 

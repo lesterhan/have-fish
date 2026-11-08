@@ -3,6 +3,7 @@
 
 import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
+import type { OriginSource } from '@have-fish/core/documents'
 import { format } from '@have-fish/core/money'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
@@ -17,7 +18,16 @@ import type {
 import { perConnection } from '../db/prepared'
 import { INCOME, sendable } from './spends'
 
-type Head = { id: string; date: string; description: string }
+type Head = {
+  id: string
+  date: string
+  description: string
+  originSource: OriginSource
+  originCreatedAt: number
+  originDeviceId: string
+  originFile: string | null
+  originLine: number | null
+}
 type Key = { date: string; originCreatedAt: number; version: string; id: string }
 type Row = { transactionId: string; position: number; currency: string; cents: number } & {
   path: string | null
@@ -30,7 +40,9 @@ const statements = perConnection((_, db) => ({
     .prepare<[], number>(`SELECT count(*) FROM transactions WHERE deletedAt IS NULL`)
     .pluck(),
   page: db.prepare<{ from: number; limit: number }, Head>(
-    `SELECT id, date, description FROM transactions WHERE deletedAt IS NULL
+    `SELECT id, date, description, originSource, originCreatedAt, originDeviceId, originFile,
+      originLine
+      FROM transactions WHERE deletedAt IS NULL
       ORDER BY date DESC, originCreatedAt DESC, version DESC, id DESC LIMIT :limit OFFSET :from`,
   ),
   key: db.prepare<[string], Key>(
@@ -45,10 +57,13 @@ const statements = perConnection((_, db) => ({
     )
     .pluck(),
   // Sorted here, not in SQL: a few hundred at most, and no sort for SQLite to build.
-  withIds: db.prepare<[string], Head & { originCreatedAt: number; version: string }>(
-    `SELECT id, date, description, originCreatedAt, version FROM transactions
+  withIds: db.prepare<[string], Head & { version: string }>(
+    `SELECT id, date, description, originSource, originCreatedAt, originDeviceId, originFile,
+      originLine, version FROM transactions
       WHERE deletedAt IS NULL AND id IN (SELECT value FROM json_each(?))`,
   ),
+  /** This ledger's own device: an origin naming it was made on this computer. */
+  device: db.prepare<[], string>(`SELECT deviceId FROM meta`).pluck(),
   // Read along `transactions_listed`, whose first column is the day: no sort (see the plan test).
   days: db.prepare<[], ListedDay>(
     `SELECT date, count(*) AS count FROM transactions WHERE deletedAt IS NULL
@@ -129,11 +144,13 @@ const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 /** Each head with its postings, as the list shows it. */
 function listed(db: Database.Database, heads: readonly Head[]): ListedTransaction[] {
   if (heads.length === 0) return []
+  const here = statements(db).device.get() ?? ''
   const legsOf = new Map<string, Row[]>(heads.map((h) => [h.id, []]))
   for (const row of statements(db).postings.all(JSON.stringify(heads.map((h) => h.id)))) {
     legsOf.get(row.transactionId)?.push(row)
   }
-  return heads.map(({ id, date, description }) => {
+  return heads.map((head) => {
+    const { id, date, description } = head
     const rows = (legsOf.get(id) ?? []).sort((a, b) => a.position - b.position)
     const legs: Leg[] = rows.map((r) => ({ cents: r.cents, currency: r.currency }))
     const paths = rows.map((r) =>
@@ -160,6 +177,13 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
         currency: r.currency,
         path: r.path,
       })),
+      origin: {
+        source: head.originSource,
+        at: head.originCreatedAt,
+        here: head.originDeviceId === here,
+        file: head.originFile,
+        line: head.originLine,
+      },
     }
   })
 }

@@ -165,6 +165,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
+| `Postings` | Shown or hidden; a balance check per currency, Copy, the transaction as text with a root per kind | The card |
 | `PathPicker` | Opens on focus at the current level; letters in order anywhere in the path; last used first; a trail you can click at every level; Create last | The composer, chips, Refile, Accounts |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
 | `Notice` | Under a place's header, where you were looking; an action and ✕; stays until acted on | Every place |

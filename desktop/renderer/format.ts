@@ -77,6 +77,24 @@ export function day(date: string, today: string): string {
   return words.join(' ')
 }
 
+const MOMENT: Intl.DateTimeFormatOptions = {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
+/** When something was made, where I am: `Thu 5 Nov 2026, 12:40`, from UTC ms. */
+export function moment(at: number, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
+  const parts = new Intl.DateTimeFormat('en-GB', { ...MOMENT, timeZone }).formatToParts(
+    new Date(at),
+  )
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
+  return `${part('weekday')} ${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}`
+}
+
 /** The date a date field understood, for a `Day` to show. Null for nothing typed, or unreadable. */
 export const understood = (typed: string, today = todayIn()): string | null =>
   typed.trim() === '' ? null : dateFrom(typed, today)

@@ -69,6 +69,7 @@ describe('spendsBehind', () => {
     fromPath: null,
     toPath: null,
     legs: [],
+    origin: { source: 'manual', at: 0, here: true, file: null, line: null },
   })
   const listed = [t('coffee'), t('rent'), t('lunch'), t('bus'), t('transfer')]
   const spent: Spent[] = [

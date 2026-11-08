@@ -58,15 +58,27 @@ describe('money and days go through here', () => {
     (f) => /\.(svelte|ts)$/.test(f) && !/\.test\.ts$/.test(f) && f !== 'format.ts',
   )
 
+  /** The ledger's own text form, copied to another tool: not an amount formatted for the screen. */
+  const MACHINE_TEXT: Record<string, string> = {
+    'postings.ts': 'the transaction as text, for copying',
+    'parts/Postings.svelte': 'the same text, drawn',
+  }
+
   test('it read the window', () => {
     expect(files).toContain('SpendList.svelte')
     expect(files.length).toBeGreaterThan(30)
   })
 
+  test('every file that writes the ledger’s own text is still there', () => {
+    expect(Object.keys(MACHINE_TEXT).filter((f) => !files.includes(f))).toEqual([])
+  })
+
   test('no other file writes an amount or a day itself', () => {
-    const raw = files.flatMap((f) =>
-      rawFormatsIn(readFileSync(join(RENDERER, f), 'utf8')).map((found) => `${f}: ${found}`),
-    )
+    const raw = files
+      .filter((f) => !(f in MACHINE_TEXT))
+      .flatMap((f) =>
+        rawFormatsIn(readFileSync(join(RENDERER, f), 'utf8')).map((found) => `${f}: ${found}`),
+      )
     expect(raw, 'Use money() or day() from renderer/format.ts').toEqual([])
   })
 

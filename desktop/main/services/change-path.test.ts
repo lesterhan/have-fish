@@ -58,7 +58,7 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
     })
   load()
 
-  test('each query reads an index, and only the counts, the days and the balances read one whole', () => {
+  test('each query reads an index, and only the one-row meta, the counts, the days and the balances read one whole', () => {
     const plans = load().map(({ sql, args }) =>
       ledger.db
         .prepare<unknown[], { detail: string }>(`EXPLAIN QUERY PLAN ${sql}`)
@@ -95,6 +95,8 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
       // nets. Their sort is of the page's days' rows.
       ['SCAN transactions USING INDEX transactions_listed'],
       ['SCAN transactions USING COVERING INDEX transactions_listed'],
+      // This ledger's device id, to say whether each row was made here: one row.
+      ['SCAN meta'],
       [
         'SEARCH p USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
         'LIST SUBQUERY 1',

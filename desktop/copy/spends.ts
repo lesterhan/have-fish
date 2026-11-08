@@ -1,5 +1,8 @@
 // The words on the spends screen: the form, the list and the pane.
 
+/** A line with one part set in the code face: where an import's file name goes. */
+export type OriginPart = { text: string; code?: boolean }
+
 export const spends = {
   write: {
     label: 'Write down a spend',
@@ -66,5 +69,32 @@ export const spends = {
     esc: 'Esc',
     remove: 'Remove',
     notSimple: "This one moves more than one amount, so it can't be changed here yet.",
+    /** Where it came from, when, and on which computer. */
+    origin: {
+      manual: (when: string, place: string): OriginPart[] => [
+        { text: `Written by hand · ${when} · ${place}` },
+      ],
+      system: (when: string, place: string): OriginPart[] => [
+        { text: `Made by have-fish · ${when} · ${place}` },
+      ],
+      imported: (file: string, line: number, when: string, place: string): OriginPart[] => [
+        { text: 'Imported from ' },
+        { text: file, code: true },
+        { text: `, line ${line} · ${when} · ${place}` },
+      ],
+      here: 'this computer',
+      elsewhere: 'another computer',
+    },
+    /** The postings block's name, and the key that shows it. */
+    postings: 'Postings',
+    postingsKey: 'P',
+    copy: 'Copy',
+    /** Copy's word just after it is pressed. */
+    copied: 'Copied',
+    /** Said for each currency that balances, and each that doesn't. */
+    balanced: (currency: string) => `${currency} balances`,
+    unbalanced: (currency: string) => `${currency} doesn't balance`,
+    /** What a posting calls an account that isn't in this ledger yet. */
+    missingAccount: 'an account not here yet',
   },
 }

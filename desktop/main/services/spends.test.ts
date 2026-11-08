@@ -691,6 +691,13 @@ describe('listTransactions', () => {
           { amount: '12.00', currency: 'CAD', path: 'expenses:unsorted' },
           { amount: '-12.00', currency: 'CAD', path: 'assets:cash' },
         ],
+        origin: {
+          source: 'manual',
+          at: LATE + 60_000,
+          here: true,
+          file: null,
+          line: null,
+        },
       },
       {
         id: coffee.id,
@@ -706,6 +713,7 @@ describe('listTransactions', () => {
           { amount: '4.50', currency: 'CAD', path: 'expenses:unsorted' },
           { amount: '-4.50', currency: 'CAD', path: 'assets:cash' },
         ],
+        origin: { source: 'manual', at: LATE, here: true, file: null, line: null },
       },
     ])
   })

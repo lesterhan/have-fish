@@ -2,7 +2,16 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  protocol,
+} from 'electron'
 import { copy } from '../copy'
 import { ACTION, CHANGED, COMMAND, TYPING } from '../shared/channels'
 import type { Changed, Typing } from '../shared/commands'
@@ -68,7 +77,9 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.on('updated', () =>
       window?.setBackgroundColor(backgroundFor(machine.theme(), nativeTheme.shouldUseDarkColors)),
     )
-    const ctx = contextFor(ledger, announce, systemTime, machine, showTheme)
+    const ctx = contextFor(ledger, announce, systemTime, machine, showTheme, (text) =>
+      clipboard.writeText(text),
+    )
     let typing: Typing = { undo: false, redo: false }
     // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.
     const showMenu = () => {
