@@ -11,8 +11,6 @@ import { aLedgerOf, NOW, openTempLedger } from '../ledger/fixtures'
 /** What the window asks for after each change: `renderer/ledger.ts`'s load. */
 const LOAD: [CommandName, unknown][] = [
   ['account.list', {}],
-  ['category.list', {}],
-  ['income.list', {}],
   ['spend.assumedFrom', {}],
   ['transaction.days', {}],
   ['transaction.page', { from: 0, limit: 100 }],
@@ -78,15 +76,6 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
       ['SCAN postings USING COVERING INDEX postings_account_balance'],
       // The accounts I have: a few dozen rows.
       ['SCAN accounts'],
-      // category.list, then income.list: how many spends each is in, with no sort.
-      [
-        'SCAN accounts USING INDEX sqlite_autoindex_accounts_1',
-        'SEARCH postings USING COVERING INDEX postings_account_transaction (accountId=?)',
-      ],
-      [
-        'SCAN accounts USING INDEX sqlite_autoindex_accounts_1',
-        'SEARCH postings USING COVERING INDEX postings_account_transaction (accountId=?)',
-      ],
       // spend.assumedFrom: the wallet, by its path.
       ['SEARCH accounts USING INDEX accounts_path_key (pathKey=?)', 'USE TEMP B-TREE FOR ORDER BY'],
       // transaction.days: each day's count, along the list's index, whose first column is the day.

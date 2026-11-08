@@ -3,13 +3,7 @@ import type { Bridge, Changed, CommandName, ListedTransaction, Wire } from '../s
 import { indexIn, type LedgerState, ledgerStore, PAGE, rowAt, rowWithId } from './ledger'
 
 /** What one load asks main for, besides the pages. */
-const LISTS: CommandName[] = [
-  'account.list',
-  'category.list',
-  'income.list',
-  'spend.assumedFrom',
-  'transaction.days',
-]
+const LISTS: CommandName[] = ['account.list', 'spend.assumedFrom', 'transaction.days']
 
 type Call = { name: CommandName; input: unknown; answer(value: Wire<unknown>): void }
 
@@ -71,8 +65,6 @@ function fakeBridge(size = 3) {
     }
     return {
       'account.list': [{ id: 'a1' }],
-      'category.list': [],
-      'income.list': [],
       'spend.assumedFrom': { id: 'a1' },
     }[name as string]
   }

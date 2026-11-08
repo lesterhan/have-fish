@@ -7,7 +7,6 @@ import type {
   Bridge,
   DayNet,
   ListedAccount,
-  ListedCategory,
   ListedDay,
   ListedPath,
   ListedTransaction,
@@ -33,10 +32,6 @@ export type LedgerState = {
   kept: ReadonlyMap<string, ListedTransaction>
   /** My accounts, which can pay or be paid into. */
   accounts: ListedAccount[]
-  /** The categories in use, most used first. */
-  categories: ListedCategory[]
-  /** The income sources money has come from, most used first. */
-  income: ListedCategory[]
   /** The account a spend comes out of when From is left alone. */
   assumedFrom: string | null
   /** Why the last load didn't get every list; null once one does. */
@@ -52,8 +47,6 @@ const EMPTY: LedgerState = {
   nets: new Map(),
   kept: new Map(),
   accounts: [],
-  categories: [],
-  income: [],
   assumedFrom: null,
   failure: null,
   loaded: false,
@@ -125,19 +118,17 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
     const mine = ++epoch
     const pages = heldPages()
     const asked = [...keeping]
-    const [kept, accounts, categories, income, from, days, ...answers] = await Promise.all([
+    const [kept, accounts, from, days, ...answers] = await Promise.all([
       asked.length === 0
         ? Promise.resolve({ ok: true, value: [] } as Wire<ListedTransaction[]>)
         : bridge.invoke('transaction.get', { ids: asked }),
       bridge.invoke('account.list', {}),
-      bridge.invoke('category.list', {}),
-      bridge.invoke('income.list', {}),
       bridge.invoke('spend.assumedFrom', {}),
       bridge.invoke('transaction.days', {}),
       ...pages.map(pageAsk),
     ])
     if (mine !== epoch) return
-    const all = [kept, accounts, categories, income, from, days, ...answers]
+    const all = [kept, accounts, from, days, ...answers]
     const held = new Map<number, readonly ListedTransaction[]>()
     const nets = new Map<string, readonly Money[]>()
     let total = state.total
@@ -163,8 +154,6 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       nets,
       kept: kept.ok ? keptAfter(new Set(asked), kept.value, held) : state.kept,
       accounts: accounts.ok ? accounts.value : state.accounts,
-      categories: categories.ok ? categories.value : state.categories,
-      income: income.ok ? income.value : state.income,
       assumedFrom: from.ok ? from.value.id : state.assumedFrom,
       failure: all.find((a): a is WireFailure => !a.ok) ?? null,
       loaded: true,

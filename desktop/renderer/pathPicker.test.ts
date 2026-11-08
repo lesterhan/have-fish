@@ -24,6 +24,7 @@ const PATHS = [
   path('expenses:food:groceries', 'category', 50),
   path('expenses:food:groceries:market', 'category', 80),
   path('expenses:transport:transit', 'category', 40),
+  path('expenses:unsorted', 'category', 75),
   path('assets:cash', 'cash', 70),
   path('assets:tangerine:chequing', 'bank', 100),
   path('assets:tangerine:savings', 'bank', 30),
@@ -46,6 +47,8 @@ describe('what a picker offers', () => {
     expect(offered(PATHS, 'to').map((p) => p.path)).not.toContain('income:salary')
     expect(offered(PATHS, 'to').map((p) => p.path)).toContain('expenses:food')
     expect(offered(PATHS, 'to').map((p) => p.path)).toContain('assets:cash')
+    // What an empty To means is never a path to pick.
+    expect(offered(PATHS, 'to').map((p) => p.path)).not.toContain('expenses:unsorted')
   })
 })
 

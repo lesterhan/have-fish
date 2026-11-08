@@ -30,6 +30,9 @@ const ROOTS: Record<Mode, readonly string[]> = {
 
 const ALL_ROOTS = ['assets', 'liabilities', 'expenses', 'income', 'equity']
 
+/** What an empty To means: never offered as a path. */
+const UNSORTED = 'expenses:unsorted'
+
 /** The first part of a path: `liabilities` in `liabilities:cibc:visa`. */
 export const rootOf = (path: string) => path.split(':')[0] ?? ''
 
@@ -48,6 +51,7 @@ export const parentsOf = (path: string) => {
 /** The paths a picker of this mode may offer: what can pay or receive, and income or categories. */
 export function offered(paths: readonly ListedPath[], mode: Mode): ListedPath[] {
   return paths.filter((p) => {
+    if (p.path === UNSORTED) return false
     if (!ROOTS[mode].includes(rootOf(p.path))) return false
     return mode === 'from'
       ? isAddable(p.kind) || p.kind === 'income'
