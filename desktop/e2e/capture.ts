@@ -83,6 +83,12 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('spends-card-postings')
   await shot.dark('spends-card-postings')
   await page.keyboard.press('p')
+  // The path picker at the value's level, its trail above.
+  await openChip(page, 'to')
+  await page.waitForSelector(`${PANE} [role=listbox] [role=option]`)
+  await shot.take('spends-card-picker')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
   await openChip(page, 'description')
   await page.fill(`${PANE} input[name=description]`, 'Groceries for the week, and flowers')
   await openChip(page, 'amount')
@@ -201,6 +207,14 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
     await shot.size({ width: 1280, height: 2300, scale: 1 })
     await shot.take('sheet')
     await shot.dark('sheet')
+    // The picker open, at a category's level.
+    await page.click('section[aria-label=PathPicker] input')
+    await page.waitForSelector('section[aria-label=PathPicker] [role=option]')
+    await page.waitForFunction(() => document.getAnimations().length === 0)
+    await shot.take('sheet-path-picker')
+    await shot.dark('sheet-path-picker')
+    await page.keyboard.press('Escape')
+    await page.click('h1')
 
     // What can't be drawn at rest: the first button focused from the keyboard, the second hovered,
     // then held down.

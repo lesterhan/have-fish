@@ -7,6 +7,7 @@ import {
   aHome,
   fromLine,
   launch,
+  offeredPaths,
   openChip,
   openSelected,
   PANE,
@@ -59,15 +60,7 @@ async function fromIs(page: Page, name: string) {
   await page.keyboard.press('Enter')
 }
 
-const offered = (page: Page) =>
-  page.locator(`${OPTIONS} [role=option]`).evaluateAll((options) =>
-    options.map((o) =>
-      [...o.querySelectorAll('span')]
-        .map((s) => s.textContent)
-        .filter((t) => t !== '')
-        .join(' · '),
-    ),
-  )
+const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
 /** The account the selected spend came out of, as its details say it: the path, in words. */
 const paidFrom = async (page: Page) => {
   await openSelected(page)
@@ -106,7 +99,7 @@ describe('moving money between my accounts', () => {
 
     await expect
       .poll(() => offered(page))
-      .toEqual(['cafe', 'cash · Cash', 'chequing · Bank account', 'Create c'])
+      .toEqual(['expenses:cafe', 'assets:cash', 'assets:chequing', 'expenses:c'])
   })
 
   test('to the account it comes from: nothing is written, and To says why', async () => {

@@ -12,11 +12,12 @@
   import Day from '../renderer/parts/Day.svelte'
   import Money from '../renderer/parts/Money.svelte'
   import Path from '../renderer/parts/Path.svelte'
+  import PathPicker from '../renderer/parts/PathPicker.svelte'
   import Postings from '../renderer/parts/Postings.svelte'
   import Sidebar from '../renderer/parts/Sidebar.svelte'
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
-  import type { ListedTransaction } from '../shared/commands'
+  import type { ListedPath, ListedTransaction } from '../shared/commands'
   import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
@@ -60,6 +61,35 @@
       { amount: '-35.00', currency: 'CAD', path: 'liabilities:cibc:visa' },
     ],
   }
+  const DAY = 86_400_000
+  /** Paths for the picker's states: used today, yesterday, days ago, and never. */
+  const PATHS: ListedPath[] = [
+    { id: 'food', path: 'expenses:food', kind: 'category', lastUsed: Date.now() },
+    { id: 'coffee', path: 'expenses:food:coffee', kind: 'category', lastUsed: Date.now() - DAY },
+    {
+      id: 'groceries',
+      path: 'expenses:food:groceries',
+      kind: 'category',
+      lastUsed: Date.now() - 3 * DAY,
+    },
+    {
+      id: 'market',
+      path: 'expenses:food:groceries:market',
+      kind: 'category',
+      lastUsed: Date.now() - 5 * DAY,
+    },
+    {
+      id: 'restaurants',
+      path: 'expenses:food:restaurants',
+      kind: 'category',
+      lastUsed: Date.now() - 4 * DAY,
+    },
+    { id: 'books', path: 'expenses:fun:books', kind: 'category', lastUsed: Date.now() - 9 * DAY },
+    { id: 'visa', path: 'liabilities:cibc:visa', kind: 'card', lastUsed: Date.now() },
+    { id: 'chequing', path: 'assets:tangerine:chequing', kind: 'bank', lastUsed: Date.now() },
+  ]
+  const loadPaths = async () => PATHS
+  let picked = $state('food:restaurants')
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
@@ -69,6 +99,7 @@
   <SpendCard
     transaction={t}
     toOptions={[]}
+    {loadPaths}
     onSaved={async () => {}}
     onclose={() => {}}
     onremove={() => {}}
@@ -102,6 +133,25 @@
     <div class="line">
       <Button variant="quiet" key={copy.spends.card.esc}>{copy.spends.card.close}</Button>
       <Button variant="quiet" danger action="remove">{copy.spends.card.remove}</Button>
+    </div>
+  </section>
+
+  <section aria-label="PathPicker">
+    <h2>PathPicker: the trail, the parts under it, last used, and Create</h2>
+    <div class="line">
+      <PathPicker
+        id="sheet-path"
+        name="path"
+        mode="to"
+        {loadPaths}
+        bind:text={picked}
+        placeholder={copy.spends.write.unsorted}
+        listLabel={copy.spends.write.toList}
+        invalid={false}
+        describedby={undefined}
+        onchoose={() => {}}
+        newOption={copy.spends.write.newCategory}
+      />
     </div>
   </section>
 

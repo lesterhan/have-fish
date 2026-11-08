@@ -1,7 +1,7 @@
 // What the window can ask main to do: each command's name, the input its schema takes, and the
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
-import { ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
+import { type AccountKind, ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
 import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
@@ -82,6 +82,8 @@ export const inputs = {
   'account.list': z.strictObject({}),
   'category.list': z.strictObject({}),
   'income.list': z.strictObject({}),
+  /** Every account and category, for a path picker: its whole path, kind and last use. */
+  'path.list': z.strictObject({}),
   /** What went to each category from `start` to `end`, both days in it. */
   'report.spending': z.strictObject({ start: date, end: date }),
   'ledger.undo': z.strictObject({}),
@@ -150,6 +152,16 @@ export type ListedDay = { date: string; count: number }
 /** What a day came to: money in less money out, per currency. A move between my accounts is neither. */
 export type DayNet = { date: string; net: Money[] }
 
+/** An account or category as a path picker offers it. */
+export type ListedPath = {
+  id: string
+  /** Its whole path, root and all: `expenses:food:coffee`. */
+  path: string
+  kind: AccountKind
+  /** UTC ms of the latest live transaction that used it; null if none has. */
+  lastUsed: number | null
+}
+
 /** A category I've put a spend in, or an income source money came from, as a picker offers it. */
 export type ListedCategory = {
   id: string
@@ -214,6 +226,8 @@ export interface Values {
   'category.list': ListedCategory[]
   /** The income sources money has come from, most used first. */
   'income.list': ListedCategory[]
+  /** Every live account and category, by path. */
+  'path.list': ListedPath[]
   /**
    * In the home currency, `currency`, oldest day first. `other` is what went to categories in
    * each other currency, by code: none that sum to zero.

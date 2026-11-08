@@ -59,6 +59,7 @@ function fakeBridge(size = 3) {
       }
     }
     if (name === 'transaction.days') return [{ date: 'every day', count: size }]
+    if (name === 'path.list') return []
     if (name === 'transaction.position') {
       const { id } = input as { id: string }
       const at = Number(id.slice(1))
@@ -109,6 +110,29 @@ async function started(size = 3) {
   await fake.answerAll()
   return { fake, ledger, stop }
 }
+
+describe('the paths a picker offers', () => {
+  test('asked for when a picker first asks, and once per change after that', async () => {
+    const { fake, ledger } = await started()
+    expect(fake.count('path.list')).toBe(0)
+
+    const first = ledger.paths()
+    await fake.answerAll()
+    expect(await first).toEqual([])
+    expect(fake.count('path.list')).toBe(1)
+
+    fake.forget()
+    await ledger.paths()
+    expect(fake.count('path.list')).toBe(0)
+
+    fake.notify()
+    await fake.answerAll()
+    const next = ledger.paths()
+    await fake.answerAll()
+    await next
+    expect(fake.count('path.list')).toBe(1)
+  })
+})
 
 describe('the ledger store', () => {
   test('starting it loads each list once, and the first page of the ledger', async () => {

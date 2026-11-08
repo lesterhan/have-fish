@@ -9,6 +9,7 @@ import type {
   ListedAccount,
   ListedCategory,
   ListedDay,
+  ListedPath,
   ListedTransaction,
   Money,
   Values,
@@ -102,6 +103,9 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
   let keeping = new Set<string>()
   /** The row a place holds open, and the page it was last found on (-1 until it's found). */
   let holding: { id: string; page: number } | null = null
+  /** Every path for a picker, asked for once per change: last use moves with every spend. */
+  let allPaths: ListedPath[] | null = null
+  let pathsAt = -1
 
   /** What a load fetches and a scroll keeps: the pages drawn, and the open row's. */
   const heldPages = (): number[] =>
@@ -172,6 +176,20 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       if (at === -1) void find(holding.id)
       else holding = { id: holding.id, page: Math.floor(at / PAGE) }
     }
+  }
+
+  /**
+   * Every path a picker offers, with its last use. Read once per change: the first picker to
+   * open pays for the query, the rest read the same answer.
+   */
+  async function paths(): Promise<ListedPath[]> {
+    if (allPaths !== null && pathsAt === epoch) return allPaths
+    const mine = epoch
+    const answer = await bridge.invoke('path.list', {})
+    if (!answer.ok) return allPaths ?? []
+    allPaths = answer.value
+    pathsAt = mine
+    return allPaths
   }
 
   /** Where the open row is now, its page fetched and held. */
@@ -245,6 +263,8 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       return () => listeners.delete(listener)
     },
     current: (): LedgerState => state,
+    /** Every path a picker offers, read once per change. */
+    paths,
     /**
      * Resolves once the store holds the ledger as it is now. After a write, main's notice has
      * started a load (it arrives before the command's answer), so this waits for that one; with

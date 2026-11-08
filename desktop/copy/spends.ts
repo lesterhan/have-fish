@@ -39,6 +39,16 @@ export const spends = {
     enter: 'Enter',
     details: 'details',
   },
+  /** In a path picker: how long ago a path was used, and the key that opens a part of it. */
+  picker: {
+    used: {
+      today: 'used today',
+      yesterday: 'used yesterday',
+      days: (days: number) => `used ${days} days ago`,
+      now: 'now',
+    },
+    open: (name: string) => `Open ${name}`,
+  },
   /** In place of a spend's description when it has none. */
   noDescription: '—',
   /** A date field holding something that isn't a day, typed long or the short way. */

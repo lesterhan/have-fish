@@ -6,7 +6,7 @@
   import { todayIn } from './format'
   import Day from './parts/Day.svelte'
   import type { LedgerState, LedgerStore } from './ledger'
-  import { toOptions } from './picker'
+
   import { wordsFor } from './refusals'
   import {
     idsWanted,
@@ -41,9 +41,8 @@
 
   /** The week's spends under the level, and any with a draft: asked of main, never the store. */
   let transactions = $state.raw<ListedTransaction[]>([])
-  // For the card: what its To offers.
+  // For the card: the accounts a To can name.
   const payers = $derived($ledger.accounts)
-  const categories = $derived($ledger.categories)
   /** Why the lists or the report couldn't load, until they next do. */
   let reportFailure = $state<WireFailure | null>(null)
   const unloaded = $derived.by(() => {
@@ -82,10 +81,9 @@
   const isThisWeek = $derived(week.start === thisWeek(todayIn()).start)
   const other = $derived(report && otherText(report.other))
 
-  const fromOptions = $derived(
+  const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
-  const toChoices = $derived(toOptions(categories, fromOptions))
 
   /** The store load the report was last asked for, and that ask. */
   let reportedFor: LedgerState | null = null
@@ -289,7 +287,8 @@
         label={copy.reports.card.label}
         idPrefix="report-pane"
         transaction={t}
-        toOptions={toChoices}
+        toOptions={accountOptions}
+        loadPaths={() => ledger.paths()}
         onSaved={caughtUp}
         onclose={close}
         onremove={remove}

@@ -31,8 +31,6 @@
     border-radius: 0 0 var(--radius-card) var(--radius-card);
     background: var(--color-card);
     box-shadow: var(--shadow-lift);
-    /* The ring stops at the row above, which carries its own: one tile, no seam. */
-    clip-path: inset(0 -12px -12px -12px);
     animation: open var(--duration-open) var(--ease-out);
   }
 
