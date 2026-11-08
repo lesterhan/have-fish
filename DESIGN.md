@@ -1,6 +1,6 @@
 # DESIGN.md
 
-The design of the rewrite: the desktop app in `core/` and `desktop/`. `CLAUDE.md` says how to
+The design of the rewrite: the desktop app in `core/` and `desktop/`. `AGENTS.md` says how to
 build; this says what to build and what it should feel like. It is being worked out, and it
 grows only when something is built on it.
 

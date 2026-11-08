@@ -14,5 +14,5 @@
 
 <!-- One line on what ran (tests, type check, the app). One on what wasn't checked. -->
 
-<!-- Title: [scope] Imperative description (CLAUDE.md, "PR workflow"). Current-app UI change:
+<!-- Title: [scope] Imperative description (AGENTS.md, "PR workflow"). Current-app UI change:
      frontend/DESIGN.md §9 is the review checklist. Rewrite UI: DESIGN.md. -->
