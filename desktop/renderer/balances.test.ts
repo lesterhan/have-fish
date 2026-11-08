@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import type { ListedAccount } from '../shared/commands'
-import { accountGroups, accountRows, type Balance, balanceOf } from './balances'
+import {
+  accountColumnsOf,
+  accountGroups,
+  accountRows,
+  type Balance,
+  balanceOf,
+  NARROW_ACCOUNTS,
+} from './balances'
 import { money } from './format'
 
 const account = (fields: Partial<ListedAccount>): ListedAccount => ({
@@ -106,6 +113,20 @@ describe('accountRows', () => {
       account({ id: 'c', name: 'cash' }),
     ])
     expect(rows.map((r) => said(r.balance))).toEqual(['0.00', '0.00 USD'])
+  })
+})
+
+describe('the columns of an account row', () => {
+  test('a narrow list drops Kind, so the name has the room', () => {
+    expect(accountColumnsOf(NARROW_ACCOUNTS - 1).cells).toEqual(['name', 'balance'])
+    expect(accountColumnsOf(NARROW_ACCOUNTS).cells).toEqual(['name', 'kind', 'balance'])
+  })
+
+  test('each cell has a column, and the name has the rest at the size the window opens', () => {
+    const wide = accountColumnsOf(800)
+    expect(wide.cells).toEqual(['name', 'kind', 'balance'])
+    expect(wide.template.split(' ')).toHaveLength(3)
+    expect(accountColumnsOf(329).template).toBe('minmax(0,1fr) minmax(7rem,auto)')
   })
 })
 

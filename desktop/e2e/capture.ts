@@ -137,6 +137,8 @@ test('every place and state', { timeout: 300_000 }, async () => {
   // The size the window opens: the form beside the list leaves it narrow, and Reports' half more so.
   await shot.size(OPENS)
   await shot.take('opens-reports')
+  await go(page, 'Accounts')
+  await shot.take('opens-accounts')
   await go(page, 'Ledger')
   await shot.take('opens-spends')
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))

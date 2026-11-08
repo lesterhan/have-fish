@@ -40,7 +40,7 @@ async function spend(page: Page, amount: string, from: string, to = '') {
   await expect.poll(async () => (await rows(page)).length).toBe(before + 1)
 }
 
-/** The accounts list as text: name, kind, balance. */
+/** The accounts list as text: name and balance (Kind goes at the size the window opens). */
 const listed = (page: Page) =>
   page
     .locator(`${LIST} li`)
@@ -63,9 +63,7 @@ describe('see how much is in each account', () => {
     await spend(page, '4.50', 'cash')
     await toAccounts(page)
 
-    await expect
-      .poll(() => listed(page))
-      .toEqual(['cash | Cash | 95.50', 'chequing | Bank account | 850.00'])
+    await expect.poll(() => listed(page)).toEqual(['cash | 95.50', 'chequing | 850.00'])
   })
 
   test('a card shows what I owe on it, and paying it down lowers that', async () => {
@@ -75,13 +73,11 @@ describe('see how much is in each account', () => {
 
     await spend(page, '30', 'visa')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toContain('visa | Card | owed 230.00')
+    await expect.poll(() => listed(page)).toContain('visa | owed 230.00')
 
     await spend(page, '100', 'chequing', 'visa')
     await toAccounts(page)
-    await expect
-      .poll(() => listed(page))
-      .toEqual(['chequing | Bank account | 400.00', 'visa | Card | owed 130.00'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | 400.00', 'visa | owed 130.00'])
   })
 
   test('what I have under one band, what I owe under the next, each with its total', async () => {
@@ -99,16 +95,13 @@ describe('see how much is in each account', () => {
         }),
       )
     await expect.poll(bands).toEqual(['assets 500.00', 'liabilities 200.00'])
-    expect(await listed(page)).toEqual([
-      'chequing | Bank account | 500.00',
-      'visa | Card | owed 200.00',
-    ])
+    expect(await listed(page)).toEqual(['chequing | 500.00', 'visa | owed 200.00'])
   })
 
   test('an account with nothing in it shows zero', async () => {
     const { page } = await launch(aHome())
     await addAccount(page, 'savings', 'bank', 'USD')
-    expect(await listed(page)).toEqual(['savings | Bank account | 0.00 USD'])
+    expect(await listed(page)).toEqual(['savings | 0.00 USD'])
   })
 
   test('a parent shows its children’s money per currency, and the arrows pass over it', async () => {
@@ -118,11 +111,7 @@ describe('see how much is in each account', () => {
 
     await expect
       .poll(() => listed(page))
-      .toEqual([
-        'wise |  | 100.00 · 50.00 EUR',
-        ':cad | Bank account | 100.00',
-        ':eur | Bank account | 50.00 EUR',
-      ])
+      .toEqual(['wise | 100.00 · 50.00 EUR', ':cad | 100.00', ':eur | 50.00 EUR'])
     const selected = () =>
       page.locator(`${LIST} li[aria-selected=true] [data-cell=name]`).allInnerTexts()
     // wise is there for its children's total: a row, but not one to select.
@@ -146,7 +135,7 @@ describe('see how much is in each account', () => {
     await addAccount(page, 'chequing', 'bank', 'CAD', '100')
     await spend(page, '40', 'chequing')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | 60.00'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | 60.00'])
 
     await page.click(`${NAV} button:has-text("Ledger")`)
     await page.locator('ol[aria-label=Ledger]').focus()
@@ -154,6 +143,6 @@ describe('see how much is in each account', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
     await toAccounts(page)
 
-    await expect.poll(() => listed(page)).toEqual(['chequing | Bank account | 100.00'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | 100.00'])
   })
 })
