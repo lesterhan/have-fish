@@ -10,7 +10,6 @@ describe('the palette’s actions', () => {
     expect(words(items)).toEqual([
       'actions: New spend',
       'actions: Add account',
-      'actions: Save all changes',
       'actions: Undo write Coffee',
       'actions: Redo',
       'actions: Remove spend',
@@ -50,7 +49,7 @@ describe('the letters typed, in order', () => {
   })
 
   test('spaces typed are skipped', () => {
-    expect(lettersIn('Save all changes', 'sa ch')).toEqual([0, 1, 9, 10])
+    expect(lettersIn('New spend', 'n s')).toEqual([0, 4])
   })
 })
 

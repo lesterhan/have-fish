@@ -33,6 +33,13 @@
 
   .body {
     padding: var(--space-4);
+    /* The details read as a sentence; the words between the chips are quiet. */
+    font-size: var(--text-sentence);
+    line-height: 1.55;
+  }
+
+  .body :global(.lead) {
+    color: var(--color-muted);
   }
 
   .foot {

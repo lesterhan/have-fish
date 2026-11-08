@@ -155,6 +155,11 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
       to: toName && nameOf(toName.path),
       fromPath: fromName?.path ?? null,
       toPath: toName?.path ?? null,
+      legs: rows.map((r) => ({
+        amount: format(r.cents),
+        currency: r.currency,
+        path: r.path,
+      })),
     }
   })
 }

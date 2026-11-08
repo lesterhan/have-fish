@@ -40,17 +40,27 @@ export const spends = {
   noDescription: '—',
   /** A date field holding something that isn't a day, typed long or the short way. */
   dateUnread: "That isn't a day it can read. Try y, -3, mon or 10-31.",
-  /** Read out beside the ● on a spend with a draft. */
-  unsaved: 'unsaved changes',
-  /** A spend's details, open under its row. */
+  /** A spend's details, open under its row, as a sentence of chips. */
   card: {
     label: 'The spend',
-    description: 'What for',
-    amount: 'Amount',
-    date: 'Date',
-    to: 'To',
-    from: 'From',
-    save: 'Save',
+    /** The plain words between the chips. */
+    sentence: {
+      paid: 'Paid',
+      at: 'at',
+      from: 'from',
+      on: 'on',
+      into: 'into',
+      with: 'with',
+      and: 'and',
+    },
+    /** What each chip is called, read out. */
+    chip: {
+      amount: 'Amount',
+      description: 'What for',
+      from: 'From',
+      date: 'Date',
+      to: 'To',
+    },
     close: 'Close',
     /** Close's keycap. */
     esc: 'Esc',

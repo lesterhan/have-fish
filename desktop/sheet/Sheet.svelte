@@ -1,6 +1,7 @@
 <script lang="ts">
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
+  import Chip from '../renderer/parts/Chip.svelte'
   import Empty from '../renderer/parts/Empty.svelte'
   import Field from '../renderer/parts/Field.svelte'
   import Fold from '../renderer/parts/Fold.svelte'
@@ -14,7 +15,6 @@
   import Sidebar from '../renderer/parts/Sidebar.svelte'
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
-  import type { Drafts } from '../renderer/drafts'
   import type { ListedTransaction } from '../shared/commands'
   import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
@@ -41,8 +41,9 @@
     to: toPath.split(':').slice(1).join(':'),
     fromPath,
     toPath,
+    legs: [],
   })
-  // Rest, selected, being rewritten (●), just written; money in and a move between my accounts.
+  // Rest, selected, just written; money in and a move between my accounts.
   const ROWS = [
     row('a', TODAY, '16.76', 'liabilities:cibc:visa', 'expenses:health:pharmacy', 'Pharmacy'),
     row('b', TODAY, '15.93', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Lunch'),
@@ -50,19 +51,6 @@
     row('d', '2026-11-04', '26.32', 'liabilities:cibc:visa', 'expenses:home:supplies', 'Hardware store'),
     row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair'),
   ]
-  // Being rewritten: an amount that isn't one, refused.
-  const drafts: Drafts = new Map([
-    [
-      'd',
-      {
-        description: 'Hardware store',
-        amount: '26.3x',
-        to: 'home:supplies',
-        date: '2026-11-04',
-        error: { field: 'amount', words: copy.errors.codes.AMOUNT_INVALID },
-      },
-    ],
-  ])
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
@@ -71,11 +59,8 @@
 {#snippet card(t: ListedTransaction)}
   <SpendCard
     transaction={t}
-    draft={drafts.get(t.id)}
     toOptions={[]}
-    saving={false}
-    onedit={() => {}}
-    onsave={() => {}}
+    onSaved={async () => {}}
     onclose={() => {}}
     onremove={() => {}}
     idPrefix="sheet-card"
@@ -89,7 +74,7 @@
     <h2>Keys</h2>
     <div class="line">
       <Keys action="newSpend" />
-      <Keys action="saveAll" />
+      <Keys action="showLedger" />
       <Keys action="addAccount" />
       <Keys action="remove" />
     </div>
@@ -102,7 +87,7 @@
         <Button {variant}>{copy.spends.write.submit}</Button>
         <Button {variant} action="addAccount">{copy.accounts.add}</Button>
         <Button {variant} disabled>{copy.spends.write.submit}</Button>
-        <Button {variant} aria-disabled="true" action="saveAll">{copy.spends.card.save}</Button>
+        <Button {variant} aria-disabled="true" action="remove">{copy.spends.card.remove}</Button>
       </div>
     {/each}
     <div class="line">
@@ -155,6 +140,23 @@
     </div>
   </section>
 
+  <section aria-label="Chip">
+    <h2>A chip: rest, locked, just saved, changing, refused</h2>
+    <div class="line">
+      <Chip label="Amount" figures><Money of={cad('15.93')} code /></Chip>
+      <Chip label="From" locked><Path path="liabilities:cibc:visa" /></Chip>
+      <Chip label="Date" figures saved><Day date={TODAY} today={TODAY} /></Chip>
+      <Chip label="Amount" figures changing>
+        {#snippet editor()}<input value="15.93" aria-label="Amount" />{/snippet}
+        <Money of={cad('15.93')} code />
+      </Chip>
+      <Chip label="Amount" figures changing error={copy.errors.codes.AMOUNT_INVALID}>
+        {#snippet editor()}<input value="15.9x" aria-label="Amount" aria-invalid="true" />{/snippet}
+        <Money of={cad('15.93')} code />
+      </Chip>
+    </div>
+  </section>
+
   <section aria-label="Path">
     <h2>Path: each root's tag</h2>
     <div class="line">
@@ -181,13 +183,12 @@
   </section>
 
   <section aria-label="Rows">
-    <h2>Rows: rest, selected, ● being rewritten, just written; in and between</h2>
+    <h2>Rows: rest, selected, just written; in and between</h2>
     <div class="frame rows">
       <SpendList
         transactions={ROWS}
         selectedId="b"
         written="e"
-        {drafts}
         onselect={() => {}}
         opened={null}
         details={card}
@@ -206,7 +207,6 @@
       <SpendList
         transactions={ROWS}
         selectedId="d"
-        {drafts}
         onselect={() => {}}
         opened="d"
         details={card}

@@ -1,26 +1,21 @@
 // The menu's shortcuts, pressed as a person presses them, in the built app. Keys go through
 // xdotool: Electron's menu never sees a key that Playwright sends.
 
-import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
   launch,
+  openChip,
   openSelected,
   openSpend,
   PANE,
   rows,
-  shownDay,
-  unsavedInPane,
   WRITE,
   writeDown,
 } from './app'
 
-const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
-
 const LIST = 'ol[aria-label=Ledger]'
-const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
@@ -44,7 +39,7 @@ describe('shortcuts', () => {
     await twoSpends(page)
     await openSelected(page)
 
-    await page.focus(DESCRIPTION)
+    await openChip(page, 'description')
     press('ctrl+n')
 
     await expect.poll(() => focused(page)).toBe('Write down a spend amount')
@@ -75,56 +70,12 @@ describe('shortcuts', () => {
     await expect.poll(ratio).toBeLessThan(start)
   })
 
-  test('Ctrl+S saves the changes on every spend, and clears every ●', async () => {
-    const { page, press } = await launch(aHome())
-    await twoSpends(page)
-    await openSelected(page)
-
-    await page.fill(AMOUNT, '5')
-    await openSpend(row(page, 'Lunch'))
-    await page.fill(DESCRIPTION, 'Lunch with Sam')
-    await expect.poll(async () => (await rows(page)).filter((r) => r.includes('●'))).toHaveLength(2)
-
-    press('ctrl+s')
-
-    await expect
-      .poll(() => rows(page))
-      .toEqual([
-        `${shownDay(today())} | Coffee | 5.00`,
-        `${shownDay(today())} | Lunch with Sam | 12.00`,
-      ])
-    expect(await unsavedInPane(page)).toBe(0)
-  })
-
-  test('Ctrl+S: a change that is refused keeps its ●, says why, and holds back no other', async () => {
-    const { page, press } = await launch(aHome())
-    await twoSpends(page)
-    await openSelected(page)
-
-    await page.fill(AMOUNT, 'lots')
-    await openSpend(row(page, 'Lunch'))
-    await page.fill(AMOUNT, '15')
-    press('ctrl+s')
-
-    await expect
-      .poll(() => rows(page))
-      .toEqual([
-        `${shownDay(today())} | Coffee | 4.50 | ●unsaved changes`,
-        `${shownDay(today())} | Lunch | 15.00`,
-      ])
-
-    await openSpend(row(page, 'Coffee'))
-    expect(await page.inputValue(AMOUNT)).toBe('lots')
-    expect(await page.textContent(`${PANE} [role=alert]`)).toBe(
-      "That isn't an amount. Type a number, like 4.50.",
-    )
-  })
-
   // A dev run keeps Reload, so only a packaged build can show it's gone.
   test.runIf(process.env.E2E_APP)('a packaged build has no Reload to lose a change', async () => {
     const { page, press } = await launch(aHome())
     await twoSpends(page)
     await openSelected(page)
+    await openChip(page, 'description')
 
     await page.fill(DESCRIPTION, 'Not yet saved')
     press('ctrl+r')

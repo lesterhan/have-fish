@@ -4,13 +4,13 @@ import { ariaShortcut, shortcutText } from './shortcuts'
 
 describe('shortcutText', () => {
   test('Linux and Windows spell the modifiers out', () => {
-    expect(shortcutText('saveAll', false)).toBe('Ctrl+S')
+    expect(shortcutText('newSpend', false)).toBe('Ctrl+N')
     expect(shortcutText('redo', false)).toBe('Ctrl+Shift+Z')
     expect(shortcutText('zoomIn', false)).toBe('Ctrl+=')
   })
 
   test('macOS uses its symbols, in its order, with nothing between', () => {
-    expect(shortcutText('saveAll', true)).toBe('⌘S')
+    expect(shortcutText('newSpend', true)).toBe('⌘N')
     expect(shortcutText('redo', true)).toBe('⇧⌘Z')
     expect(shortcutText('zoomOut', true)).toBe('⌘-')
   })

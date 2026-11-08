@@ -40,12 +40,8 @@ export const otherText = (other: Values['report.spending']['other']) =>
  * The spends Reports asks main for: the week's under the level shown, so picking a line needs no
  * ask, and any with a draft, so a draft's spend is there to save. Ids, in no order.
  */
-export function idsWanted(
-  spent: readonly Spent[],
-  level: string,
-  drafted: Iterable<string>,
-): string[] {
-  return [...new Set([...spent.filter((s) => isUnder(s, level)).map((s) => s.id), ...drafted])]
+export function idsWanted(spent: readonly Spent[], level: string): string[] {
+  return [...new Set(spent.filter((s) => isUnder(s, level)).map((s) => s.id))]
 }
 
 /**

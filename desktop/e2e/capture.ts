@@ -8,7 +8,7 @@ import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { _electron as electron, type Page } from 'playwright-core'
 import { expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, openSpend, PANE, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, launch, openChip, openSpend, PANE, WRITE, writeDown } from './app'
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
@@ -78,12 +78,16 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await shot.take('spends-card')
   await shot.dark('spends-card')
+  await openChip(page, 'description')
   await page.fill(`${PANE} input[name=description]`, 'Groceries for the week, and flowers')
+  await openChip(page, 'amount')
   await page.fill(`${PANE} input[name=amount]`, '12x')
   await page.press(`${PANE} input[name=amount]`, 'Enter')
   await page.waitForSelector(`${PANE} [role=alert]`)
   await shot.take('spends-card-refused')
-  await page.press(`${PANE} input[name=description]`, 'Escape')
+  // Esc on the refused chip puts it back; Esc again closes the details.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
   await page.click(`${WRITE} input[name=to]`)
   await page.keyboard.type('fo')
   await shot.take('spends-picker')
@@ -143,7 +147,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('opens-spends')
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await shot.take('opens-spends-card')
-  await page.press(`${PANE} input[name=description]`, 'Escape')
+  await page.keyboard.press('Escape')
 
   // Half a screen: a spend opens in place just the same.
   await shot.size(NARROW)
@@ -152,7 +156,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await page.waitForTimeout(300)
   await shot.take('narrow-spends-card')
-  await page.press(`${PANE} input[name=description]`, 'Escape')
+  await page.keyboard.press('Escape')
   await go(page, 'Accounts')
   await shot.take('narrow-accounts')
   await go(page, 'Reports')

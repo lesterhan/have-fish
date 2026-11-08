@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openSelected, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, launch, openChip, openSelected, PANE, rows, WRITE, writeDown } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 
@@ -70,9 +70,12 @@ describe('fonts', () => {
     // A row reads in the interface's face; the serif is for titles (DESIGN.md, "Type").
     expect(await familyOf(page, `${LIST} >> text="Coffee"`)).toBe(SANS)
     await openSelected(page)
+    await openChip(page, 'date')
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
+    await openChip(page, 'amount')
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${PANE} >> text="CAD"`)).toBe(FIGURES)
+    await openChip(page, 'description')
     expect(await familyOf(page, `${PANE} input[name=description]`)).toBe(SANS)
   })
 
@@ -106,6 +109,7 @@ describe('fonts', () => {
     expect(await page.textContent(lunch)).toBe('Lunch -> Sam')
     expect(await ligatures(lunch)).toBe('none')
     await openSelected(page)
+    await openChip(page, 'description')
     expect(await ligatures(`${PANE} input[name=description]`)).toBe('none')
   })
 })

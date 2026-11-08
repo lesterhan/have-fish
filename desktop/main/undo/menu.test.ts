@@ -40,8 +40,8 @@ describe('undoItems', () => {
 
   test('every kind of step is named', () => {
     const history = new History<Step>()
-    history.record({ name: { kind: 'saveAll', count: 3 }, changes: [] })
-    expect(undoItems(history, NONE).undo.label).toBe('Undo save 3 spends')
+    history.record({ name: { kind: 'remove', description: 'Coffee' }, changes: [] })
+    expect(undoItems(history, NONE).undo.label).toBe('Undo remove Coffee')
     history.record({ name: { kind: 'edit', description: 'Tea' }, changes: [] })
     expect(undoItems(history, NONE).undo.label).toBe('Undo edit Tea')
   })

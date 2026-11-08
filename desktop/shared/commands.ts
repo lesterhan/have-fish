@@ -57,8 +57,6 @@ export const inputs = {
   /** The account a spend written now with no `from` would come out of. */
   'spend.assumedFrom': z.strictObject({}),
   'spend.edit': edit,
-  /** Several edits, each its own batch, and one step to undo. */
-  'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
   'spend.remove': z.strictObject({ id: z.uuid() }),
   /** `limit` rows of the ledger's list from row `from`, newest first: what a list draws. */
   'transaction.page': z.strictObject({
@@ -94,6 +92,15 @@ export const inputs = {
   'settings.theme.set': z.strictObject({ theme: z.enum(THEME_CHOICES) }),
 }
 
+/** One posting as a row's details read it: what it moved, and the account or category it touched. */
+export type ListedLeg = {
+  /** Signed: below zero is money leaving that account. */
+  amount: string
+  currency: string
+  /** Its account's or category's whole path; null when that account isn't here yet. */
+  path: string | null
+}
+
 /** One transaction as the list shows it. */
 export type ListedTransaction = {
   id: string
@@ -116,6 +123,8 @@ export type ListedTransaction = {
   /** `from` and `to` as whole paths, root and all, for their tags. */
   fromPath: string | null
   toPath: string | null
+  /** Each posting, in order: how a spend paid from more than one account says so. */
+  legs: ListedLeg[]
 }
 
 /** A day of the ledger's list, and how many rows it has. */
@@ -170,7 +179,6 @@ export interface Values {
   'spend.assumedFrom': { id: string | null }
   'spend.edit': { id: string }
   /** Each edit in the order sent: saved, or refused and why. */
-  'spend.saveAll': { id: string; refused: WireFailure | null }[]
   'spend.remove': { id: string }
   /** `total` is every live row, so a list's scrollbar is the whole list's. */
   /** With the net of each day it has a row of: the whole day's, not only its rows here. */

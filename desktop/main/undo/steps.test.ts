@@ -6,7 +6,7 @@ import { applyReceived } from '../ledger/apply'
 import { ok, tempLedger } from '../ledger/fixtures'
 import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
-import { editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
+import { editSpend, removeSpend, writeSpend } from '../services/spends'
 import { listTransactions } from '../services/transactions'
 import { nextSteps, redoLast, undoLast } from './steps'
 
@@ -159,44 +159,6 @@ describe('undo and redo', () => {
     later()
     expect(undoLast(ctx)).toMatchObject({ ok: false, failure: { code: 'CHANGED_SINCE' } })
     expect(listed()).toEqual(['From the phone'])
-  })
-
-  test('save all is one step: three drafts, one refused, and undo puts both saved back', () => {
-    const { ctx, later, listed } = setup()
-    const lunch = ok(writeSpend(ctx, { amount: '12', description: 'Lunch' })).id
-    later()
-    const coffee = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' })).id
-    later()
-    const tea = ok(writeSpend(ctx, { amount: '3', description: 'Tea' })).id
-    later()
-
-    const saved = ok(
-      saveAllSpends(ctx, {
-        edits: [
-          { id: lunch, amount: '13', description: 'Lunch out' },
-          { id: coffee, amount: 'abc', description: 'Coffee' },
-          { id: tea, amount: '3', description: 'Green tea' },
-        ],
-      }),
-    )
-    expect(saved).toEqual([
-      { id: lunch, refused: null },
-      { id: coffee, refused: { ok: false, error: 'AMOUNT_INVALID', detail: { amount: 'abc' } } },
-      { id: tea, refused: null },
-    ])
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'saveAll', count: 2 })
-
-    later()
-    expect(ok(undoLast(ctx))).toEqual({ spends: [lunch, tea], accounts: [] })
-    expect(listed()).toEqual(['Tea', 'Coffee', 'Lunch'])
-  })
-
-  test('save all with one spend saved is that spend’s edit', () => {
-    const { ctx, later } = setup()
-    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
-    later()
-    ok(saveAllSpends(ctx, { edits: [{ id, amount: '5', description: 'Tea' }] }))
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'edit', description: 'Tea' })
   })
 
   test('undo is refused whole when a spend in the step changed since, and writes nothing', () => {
