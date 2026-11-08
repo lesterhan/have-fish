@@ -44,7 +44,7 @@ optimise. A feature that adds a field to the common path had better remove two e
 When in doubt, count the interactions — literally, in the epic file.
 
 **Double-entry is an implementation detail, not a UI.** The ledger underneath is real and
-correct (it exports to hledger — see the Vision in the root `CLAUDE.md`). Nobody should have to
+correct (it exports to hledger — see the Vision in the root `AGENTS.md`). Nobody should have to
 think in debits and credits to record lunch. Expose the ledger; don't impose it.
 
 **Trust is earned by being checkable, and by being dated.** Every displayed figure must be

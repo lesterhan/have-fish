@@ -171,6 +171,6 @@ are tracked with the stories.
   directory, so neither app can open the other's file.
 - **No releases until it replaces the current app.** `v*` tags stay the Bun binary's, and the
   Flatpak (#518) keeps installing it.
-- **Two sets of conventions.** The root `CLAUDE.md` holds what both apps share and the
-  rewrite's rules; the current app's live in `backend/`, `frontend/` and `mobile/CLAUDE.md`, so
+- **Two sets of conventions.** The root `AGENTS.md` holds what both apps share and the
+  rewrite's rules; the current app's live in `backend/`, `frontend/` and `mobile/AGENTS.md`, so
   work in `core/` and `desktop/` never loads them.
