@@ -9,8 +9,21 @@ import { seed } from './month'
 
 const NAV = 'nav[aria-label=Places]'
 const LEDGER = 'ol[aria-label=Ledger]'
+const ACCOUNTS = 'ol[aria-label=Accounts]'
 const BREAKDOWN = 'ol[aria-label="Spending by category"]'
 const BEHIND = 'ol[aria-label="Its spends"]'
+const ADD_ACCOUNT = 'role=button[name="Add account"s]'
+const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
+
+/** Add account with a name and a kind, Enter: as a person does it, at the size the window opens. */
+async function addAccount(page: Page, name: string, kind: string) {
+  await page.click(ADD_ACCOUNT)
+  await page.locator(`${ADDING} input[name=name]`).focus()
+  await page.keyboard.type(name)
+  await page.selectOption(`${ADDING} select[name=kind]`, kind)
+  await page.locator(`${ADDING} input[name=name]`).focus()
+  await page.keyboard.press('Enter')
+}
 
 /** About a short word at the base size: more than the two letters the row once left. */
 const A_WORD = 64
@@ -69,6 +82,30 @@ describe("a row's columns", () => {
     const reported = await cellsIn(page, BEHIND)
     expect(reported.to?.width).toBeGreaterThanOrEqual(A_WORD)
     expect(reported.description?.width).toBeGreaterThanOrEqual(A_WORD)
+  })
+
+  test('at the size the window opens, each account name reads whole and the headings stand apart', async () => {
+    const { page } = await launch(aHome())
+    await page.click(`${NAV} button:has-text("Accounts")`)
+    await addAccount(page, 'tangerine:chequing', 'bank')
+    await addAccount(page, 'vacationfund', 'cash')
+    await addAccount(page, 'visa', 'card')
+    await page.waitForSelector(`${ACCOUNTS} [data-cell=name]`)
+    expect(await page.evaluate(() => innerWidth)).toBe(960)
+
+    // Kind goes before a name does: the pane already says it.
+    const headings = await headingsOver(page, ACCOUNTS)
+    expect(headings.map((h) => h.name)).toEqual(['Account', 'Balance'])
+
+    // tangerine, :chequing, vacationfund, visa: each whole, none cut off with an ellipsis.
+    const cut = await page.evaluate(
+      (list) =>
+        [...document.querySelectorAll<HTMLElement>(`${list} [data-cell=name]`)].map(
+          (cell) => cell.scrollWidth > cell.clientWidth + 1,
+        ),
+      ACCOUNTS,
+    )
+    expect(cut).toEqual([false, false, false, false])
   })
 
   test('a wide list leads with From, and the headings sit over their columns', {

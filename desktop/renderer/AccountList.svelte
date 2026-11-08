@@ -4,7 +4,7 @@
   // for its children's total, never selected.
   import { copy } from '../copy'
   import type { ListedAccount } from '../shared/commands'
-  import { ACCOUNT_COLUMNS as COLUMNS, type AccountRow, accountGroups } from './balances'
+  import { accountColumnsOf, type AccountRow, accountGroups } from './balances'
   import Band from './parts/Band.svelte'
   import Headings from './parts/Headings.svelte'
   import Listbox from './parts/Listbox.svelte'
@@ -27,11 +27,15 @@
 
   const groups = $derived(accountGroups(rows))
   const names = copy.accounts.list.columns
-  const headings = [
+  // The list's width, not the window's: beside the pane it runs out first, and Kind goes before a
+  // name does.
+  let width = $state(0)
+  const shown = $derived(accountColumnsOf(width))
+  const headings = $derived([
     { name: names.account },
-    { name: names.kind },
+    ...(shown.cells.includes('kind') ? [{ name: names.kind }] : []),
     { name: names.balance, end: true },
-  ]
+  ])
 
   export function focus() {
     listbox.focus()
@@ -45,8 +49,8 @@
   }
 </script>
 
-<div class="list">
-  <Headings columns={COLUMNS} names={headings} />
+<div class="list" bind:clientWidth={width}>
+  <Headings columns={shown.template} names={headings} />
   <Listbox
     bind:this={listbox}
     items={rows}
@@ -54,7 +58,7 @@
     active={selectedId}
     label={copy.accounts.list.label}
     idPrefix="account"
-    columns={COLUMNS}
+    columns={shown.template}
     groups={groups.map((g) => g.count)}
     disabled={(r) => r.account === undefined}
     onactive={onselect}
@@ -75,7 +79,9 @@
       <span data-cell="name" style:padding-inline-start="calc({r.depth} * var(--space-4))"
         >{r.depth > 0 ? `:${r.label}` : r.label}</span
       >
-      <span data-cell="kind">{a ? copy.accounts.kinds[a.kind] : ''}</span>
+      {#if shown.cells.includes('kind')}
+        <span data-cell="kind">{a ? copy.accounts.kinds[a.kind] : ''}</span>
+      {/if}
       <span data-cell="balance"
         >{#each r.balance as { money, owed }, i (money.currency)}{#if i > 0}{' · '}{/if}{#if owed}{`${copy.accounts.owed} `}{/if}<Money
             of={money}

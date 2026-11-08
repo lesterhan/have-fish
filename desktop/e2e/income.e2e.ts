@@ -72,7 +72,7 @@ describe('write down money coming in', () => {
     await openSelected(page)
     expect((await fromLine(page).textContent())?.replace(/\s+/g, ' ').trim()).toBe('income salary')
     expect(await page.inputValue(`${PANE} input[name=to]`)).toBe('chequing')
-    expect(await balances(page)).toEqual(['chequing | Bank account | 2,100.00'])
+    expect(await balances(page)).toEqual(['chequing | 2,100.00'])
 
     await page.click(`${NAV} button:has-text("Reports")`)
     await expect.poll(() => page.innerText('role=main')).toContain('No spending in this week.')
@@ -95,7 +95,7 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect(await balances(page)).toEqual(['chequing | Bank account | 70.00'])
+    expect(await balances(page)).toEqual(['chequing | 70.00'])
   })
 
   test('the next spend still comes out of the account used last, not the income source', async () => {

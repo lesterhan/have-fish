@@ -23,7 +23,26 @@ export type AccountRow = {
  * Name, Kind and Balance. An account's currency is in its pane; the balance says any code but the
  * home one.
  */
-export const ACCOUNT_COLUMNS = ['minmax(0,1fr)', '9rem', 'minmax(7rem,auto)'].join(' ')
+export type AccountCell = 'name' | 'kind' | 'balance'
+
+const WIDTHS: Record<AccountCell, string> = {
+  name: 'minmax(0,1fr)',
+  kind: '9rem',
+  balance: 'minmax(7rem,auto)',
+}
+
+/**
+ * Below this width of list, in CSS pixels, Kind goes: the pane says it, and a name needs the room
+ * more (DESIGN.md, "Layout"). The list is beside the pane, so it runs out before the window does.
+ */
+export const NARROW_ACCOUNTS = 480
+
+/** The cells an account row shows in a list this wide, and their grid columns. */
+export function accountColumnsOf(width: number): { cells: AccountCell[]; template: string } {
+  const cells: AccountCell[] = ['name', 'kind', 'balance']
+  const shown = width < NARROW_ACCOUNTS ? cells.filter((c) => c !== 'kind') : cells
+  return { cells: shown, template: shown.map((c) => WIDTHS[c]).join(' ') }
+}
 
 /** A root's band: how many rows are under it, and what they come to. */
 export type AccountGroup = { root: string; count: number; total: Balance[] }
