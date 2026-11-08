@@ -216,7 +216,8 @@
     {/snippet}
     {#snippet hint()}
       <Keys key={copy.spends.list.enter} />{copy.spends.list.details}
-      {#if onrefile}<Keys key={copy.spends.list.refileKey} />{copy.spends.list.refile}{/if}
+      {#if onrefile && selected()?.simple != null}<Keys key={copy.spends.list.refileKey} />{copy
+          .spends.list.refile}{/if}
     {/snippet}
     {#snippet row(t)}
       {#if !narrow}<span data-cell="from">{#if t.fromPath}<Path path={t.fromPath} />{/if}</span>{/if}
