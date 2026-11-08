@@ -7,7 +7,6 @@ import type { ActionId } from '../shared/actions'
 const labels: { [A in ActionId]: string } = {
   newSpend: 'New spend',
   addAccount: 'Add account',
-  saveAll: 'Save all changes',
   quit: 'Quit',
   undo: 'Undo',
   redo: 'Redo',

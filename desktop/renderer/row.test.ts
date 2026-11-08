@@ -32,12 +32,12 @@ describe('the days of a list held whole', () => {
 
 describe('the ledger’s columns', () => {
   test('a list narrower than the narrow list leaves From out; the details still show it', () => {
-    expect(columnsOf(NARROW_LIST - 1).cells).toEqual(['amount', 'to', 'description', 'draft'])
+    expect(columnsOf(NARROW_LIST - 1).cells).toEqual(['amount', 'to', 'description'])
     expect(columnsOf(329).cells).not.toContain('from')
   })
 
   test('from the narrow list up, From leads, as what happened reads', () => {
-    expect(columnsOf(NARROW_LIST).cells).toEqual(['from', 'amount', 'to', 'description', 'draft'])
+    expect(columnsOf(NARROW_LIST).cells).toEqual(['from', 'amount', 'to', 'description'])
   })
 
   test('a width for each cell, so the headings and rows share them', () => {

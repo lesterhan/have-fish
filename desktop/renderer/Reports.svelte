@@ -3,8 +3,6 @@
   import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
-  import type { Values } from './drafts'
-  import type { SpendEditor } from './editor'
   import { todayIn } from './format'
   import Day from './parts/Day.svelte'
   import type { LedgerState, LedgerStore } from './ledger'
@@ -31,10 +29,8 @@
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
-    /** Every spend I'm changing, in whichever place: one editor for the window. */
-    editor: SpendEditor
   }
-  let { hidden, ledger, editor }: Props = $props()
+  let { hidden, ledger }: Props = $props()
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
   let report = $state.raw<Returned['report.spending'] | null>(null)
@@ -64,7 +60,6 @@
     else dismissed = unloaded
   }
   let selectedId = $state<string | null>(null)
-  const drafts = $derived($editor.drafts)
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
 
@@ -78,7 +73,6 @@
   const shown = $derived(spendsBehind(transactions, spent, level, picked))
   // The spend picked while it's still behind the line; else the newest that is.
   const current = $derived(kept(shown, selectedId))
-  const selected = $derived(shown.find((t) => t.id === current))
   const opened = $derived(openedId !== null && openedId === current ? openedId : null)
 
   // Another row selected, the details close: a click selects, and only a second one opens.
@@ -108,7 +102,7 @@
     if (spending.ok) {
       report = spending.value
       reportFailure = null
-      await loadSpends(idsWanted(spentOf(spending.value), level, drafts.keys()))
+      await loadSpends(idsWanted(spentOf(spending.value), level))
     } else reportFailure = spending
   }
 
@@ -127,8 +121,8 @@
     else reportFailure = found
   }
 
-  // Another level, or a new draft: the spends it wants. A report's own load asks for them too.
-  const wanted = $derived(idsWanted(spent, level, drafts.keys()).sort().join(' '))
+  // Another level: the spends it wants. A report's own load asks for them too.
+  const wanted = $derived(idsWanted(spent, level).sort().join(' '))
   $effect(() => {
     const ids = wanted
     untrack(() => void loadSpends(ids === '' ? [] : ids.split(' ')))
@@ -141,7 +135,6 @@
   }
 
   // Showing, with a ledger the report hasn't seen: ask again. Hidden, it waits until it shows.
-  // Drafts are left alone: a draft is the window's until it is saved or put back.
   $effect(() => {
     const state = $ledger
     if (!hidden && state !== reportedFor) void reportFor(state)
@@ -188,18 +181,6 @@
     pickedKey = `category:${left}`
   }
 
-  function edit(field: keyof Values, value: string) {
-    if (selected !== undefined) editor.edit(selected, field, value)
-  }
-
-  function save() {
-    if (current !== null) void editor.save([current], false, caughtUp)
-  }
-
-  export function saveAll() {
-    void editor.save(editor.current().drafts.keys(), true, caughtUp)
-  }
-
   let removing = false
 
   /** The selected spend, gone; selection moves to the next one behind the line. */
@@ -208,10 +189,10 @@
     if (id === null || removing) return
     removing = true
     const next = afterRemoving(shown, id)
-    const refused = await editor.remove(id)
+    const removed = await window.haveFish.invoke('spend.remove', { id })
     removing = false
-    if (refused !== null) {
-      error = wordsFor(refused)
+    if (!removed.ok) {
+      error = wordsFor(removed)
       return
     }
     const wasOpen = opened === id
@@ -227,9 +208,8 @@
     card?.focus()
   }
 
-  /** Esc: what was typed goes back, the details close, and the row stays selected. */
+  /** Esc with no chip open: the details close, and the row stays selected. */
   function close() {
-    if (opened !== null) editor.revert(opened)
     openedId = null
     list.focus()
   }
@@ -296,7 +276,6 @@
     idPrefix="reported"
     transactions={shown}
     selectedId={current}
-    {drafts}
     onselect={(id) => (selectedId = id)}
     {opened}
     onopen={open}
@@ -309,11 +288,8 @@
         label={copy.reports.card.label}
         idPrefix="report-pane"
         transaction={t}
-        draft={drafts.get(t.id)}
         toOptions={toChoices}
-        saving={$editor.saving}
-        onedit={edit}
-        onsave={save}
+        onSaved={caughtUp}
         onclose={close}
         onremove={remove}
       />

@@ -16,9 +16,8 @@ export type PlaceView = {
   refused(words: string): void
 }
 
-/** A place that keeps drafts of spends: Save all and Remove spend act there. */
-export type DraftsView = PlaceView & {
-  saveAll(): void
+/** A place that lists the ledger's spends: Remove spend acts there. */
+export type SpendView = PlaceView & {
   remove(): Promise<void>
 }
 

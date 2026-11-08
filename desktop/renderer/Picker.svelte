@@ -16,6 +16,8 @@
     describedby: string | undefined
     /** I typed, or picked: the field holds my choice now, which is `text`. */
     onchoose: (text: string) => void
+    /** An option was picked: from the list, not typed. A card saves it at once. */
+    onpicked?: (() => void) | undefined
     /** Given, a name none of mine has is offered as a new one, in these words. */
     newOption?: ((name: string) => string) | undefined
   }
@@ -29,6 +31,7 @@
     invalid,
     describedby,
     onchoose,
+    onpicked,
     newOption,
   }: Props = $props()
 
@@ -72,6 +75,7 @@
     kept = text
     open = false
     onchoose(text)
+    onpicked?.()
   }
 
   function onkeydown(event: KeyboardEvent) {

@@ -6,13 +6,14 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
+  chip,
   launch,
+  openChip,
   openSelected,
   openSpend,
   PANE,
   rows,
   shownDay,
-  unsavedInPane,
   WRITE,
   writeDown,
 } from './app'
@@ -88,16 +89,15 @@ describe('move a spend to another day', () => {
     await expect.poll(() => rows(page)).toHaveLength(2)
 
     await openSpend(row(page, 'Lunch'))
+    await openChip(page, 'date')
     expect(await page.inputValue(PANE_DATE)).toBe(today())
     await page.fill(PANE_DATE, daysAgo(1))
-    expect(await unsavedInPane(page)).toBe(1)
     await page.press(PANE_DATE, 'Enter')
 
     await expect
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(1))} | Lunch | 12.00`])
-    expect(await unsavedInPane(page)).toBe(0)
-    expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
+    expect(await page.locator(chip('date')).innerText()).toContain(shownDay(daysAgo(1)))
   })
 
   test('Escape puts the date back', async () => {
@@ -106,11 +106,11 @@ describe('move a spend to another day', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
 
     await openSelected(page)
+    await openChip(page, 'date')
     await page.fill(PANE_DATE, daysAgo(3))
     await page.press(PANE_DATE, 'Escape')
 
-    await openSelected(page)
-    expect(await page.inputValue(PANE_DATE)).toBe(today())
+    expect(await page.locator(chip('date')).innerText()).toContain(shownDay(today()))
     expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
 
@@ -120,13 +120,14 @@ describe('move a spend to another day', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
 
     await openSelected(page)
+    await openChip(page, 'date')
     await page.fill(PANE_DATE, '')
     await page.press(PANE_DATE, 'Enter')
 
-    const error = page.locator('#pane-date-error')
+    const error = page.locator(`${PANE} [role=alert]`)
     await expect.poll(() => error.textContent()).toMatch(/isn't a day/)
     expect(await page.getAttribute(PANE_DATE, 'aria-invalid')).toBe('true')
-    expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50 | ●unsaved changes`])
+    expect(await rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
 })
 
@@ -179,6 +180,7 @@ describe('type a date quickly', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
     await openSelected(page)
+    await openChip(page, 'date')
 
     await page.fill(PANE_DATE, 'y')
     await expect
@@ -187,6 +189,6 @@ describe('type a date quickly', () => {
     await page.press(PANE_DATE, 'Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(daysAgo(1))} | Coffee | 4.50`])
-    expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
+    expect(await page.locator(chip('date')).innerText()).toContain(shownDay(daysAgo(1)))
   })
 })

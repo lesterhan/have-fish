@@ -56,6 +56,6 @@ describe('the list', () => {
   })
 
   test('an action is found by its id', () => {
-    expect(actionFor('saveAll').accelerator).toBe('CmdOrCtrl+S')
+    expect(actionFor('newSpend').accelerator).toBe('CmdOrCtrl+N')
   })
 })

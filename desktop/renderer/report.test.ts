@@ -68,6 +68,7 @@ describe('spendsBehind', () => {
     to: null,
     fromPath: null,
     toPath: null,
+    legs: [],
   })
   const listed = [t('coffee'), t('rent'), t('lunch'), t('bus'), t('transfer')]
   const spent: Spent[] = [
@@ -98,9 +99,9 @@ describe('spendsBehind', () => {
     expect(ids(spendsBehind(listed, spent, '', unsorted))).toEqual(['bus'])
   })
 
-  test("asks main for the level's spends, and any with a draft, once each", () => {
-    expect(idsWanted(spent, 'food', []).sort()).toEqual(['coffee', 'lunch'])
-    expect(idsWanted(spent, 'food', ['rent', 'lunch']).sort()).toEqual(['coffee', 'lunch', 'rent'])
-    expect(idsWanted(spent, '', []).sort()).toEqual(['bus', 'coffee', 'lunch', 'rent'])
+  test("asks main for the level's spends, once each", () => {
+    expect(idsWanted(spent, 'food').sort()).toEqual(['coffee', 'lunch'])
+    expect(idsWanted(spent, 'food').sort()).toEqual(['coffee', 'lunch'])
+    expect(idsWanted(spent, '').sort()).toEqual(['bus', 'coffee', 'lunch', 'rent'])
   })
 })

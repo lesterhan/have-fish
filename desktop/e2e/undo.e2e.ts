@@ -7,8 +7,8 @@ import { describe, expect, test } from 'vitest'
 import {
   aHome,
   launch,
+  openChip,
   openSelected,
-  openSpend,
   PANE,
   rows,
   shownDay,
@@ -112,6 +112,7 @@ describe('undo and redo', () => {
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
     await openSelected(page)
+    await openChip(page, 'description')
 
     await page.focus(P_DESCRIPTION)
     await page.keyboard.press('End')
@@ -121,33 +122,8 @@ describe('undo and redo', () => {
 
     press('ctrl+z')
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
+    await openChip(page, 'description')
     expect(await page.inputValue(P_DESCRIPTION)).toBe('Coffee')
-  })
-
-  test('Ctrl+S across two spends is one step: one Ctrl+Z puts both back', async () => {
-    const { page, press } = await launch(aHome())
-    await writeDown(page, '12', 'Lunch')
-    await expect.poll(() => rows(page)).toHaveLength(1)
-    await writeDown(page, '4.50', 'Coffee')
-    await expect.poll(() => rows(page)).toHaveLength(2)
-    for (const name of ['Coffee', 'Lunch']) {
-      await openSpend(row(page, name))
-      await page.focus(P_DESCRIPTION)
-      await page.keyboard.press('End')
-      await page.keyboard.type(' cake')
-    }
-    press('ctrl+s')
-    await expect
-      .poll(() => rows(page))
-      .toEqual([
-        `${shownDay(today())} | Coffee cake | 4.50`,
-        `${shownDay(today())} | Lunch cake | 12.00`,
-      ])
-
-    press('ctrl+z')
-    await expect
-      .poll(() => rows(page))
-      .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(today())} | Lunch | 12.00`])
   })
 
   test('choosing Undo from the Edit menu does what Ctrl+Z does', async () => {

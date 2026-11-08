@@ -174,12 +174,17 @@ export const cellsOf = (rows: Locator) =>
     items.map((row) => [...row.children].map((c) => c.textContent?.trim() ?? '')),
   )
 
-/** How many ● marks a spend's details show: 1 for a draft, found by its words. */
-export const unsavedInPane = (page: Page) =>
-  page.locator(PANE).getByText('unsaved changes', { exact: true }).count()
+/** An open spend's chip for one part: `amount`, `description`, `from`, `date` or `to`. */
+export const chip = (part: string, card = PANE) => `${card} [id$="-chip-${part}"]`
+
+/** Opens a chip in an open spend's details: a click, as a person does it. */
+export async function openChip(page: Page, part: string, card = PANE) {
+  await page.click(chip(part, card))
+  await page.waitForSelector(`${card} input[name=${part}], ${card} [role=combobox][name=${part}]`)
+}
 
 /** The details' From: the path the spend came out of, as words (`liabilities visa`). */
-export const fromLine = (page: Page) => page.locator(`${PANE} output`)
+export const fromLine = (page: Page) => page.locator(`${chip('from')}`)
 
 /** Opens the selected spend's details with Enter on its list, as the keys do. */
 export async function openSelected(page: Page, list = 'ol[aria-label=Ledger]', card = PANE) {
@@ -201,8 +206,8 @@ export async function writeDown(page: Page, amount: string, description: string)
 export const shownDay = (date: string) => day(date, todayIn())
 
 /**
- * Spend rows as cells: the day, from the band above its first row; the description; the amount;
- * and ● for a draft. Rows found by role, cells by what they hold.
+ * Spend rows as cells: the day, from the band above its first row; the description; the amount.
+ * Rows found by role, cells by what they hold.
  */
 export const spendCells = (rows: Locator) =>
   rows.evaluateAll((items) => {
@@ -211,11 +216,11 @@ export const spendCells = (rows: Locator) =>
       day = li.querySelector(':scope > div time')?.textContent?.trim() ?? day
       const cell = (name: string) =>
         li.querySelector(`[data-cell=${name}]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-      return [day, cell('description'), cell('amount'), ...(cell('draft') ? [cell('draft')] : [])]
+      return [day, cell('description'), cell('amount')]
     })
   })
 
-/** The ledger as text, one row per spend: its day, description, amount, and ● for a draft. */
+/** The ledger as text, one row per spend: its day, description, amount. */
 export const rows = (page: Page) =>
   spendCells(page.locator('ol[aria-label=Ledger] [role=option]')).then((all) =>
     all.map((cells) => cells.join(' | ')),

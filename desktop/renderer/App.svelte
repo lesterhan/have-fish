@@ -6,19 +6,18 @@
   import type { ThemeChoice } from '../shared/theme/theme'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
-  import { spendEditor } from './editor'
   import { ledgerStore } from './ledger'
   import Palette from './Palette.svelte'
   import { type PaletteItem, paletteItems } from './palette'
   import Sidebar from './parts/Sidebar.svelte'
-  import { type DraftsView, type Place, type PlaceView, shownBy } from './places'
+  import { type Place, type PlaceView, type SpendView, shownBy } from './places'
   import { wordsFor } from './refusals'
   import Reports from './Reports.svelte'
   import { MAC } from './shortcuts'
   import Spends from './Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
 
-  // Every place stays mounted, hidden while another shows, so its drafts and typing stay too.
+  // Every place stays mounted, hidden while another shows, so its selection and typing stay too.
   let place = $state<Place>('ledger')
   let spends: Spends
   let accounts: Accounts
@@ -26,18 +25,11 @@
 
   // Typed, so a place that stops doing what App asks of it fails the check.
   const view = (p: Place): PlaceView => ({ ledger: spends, accounts, reports })[p]
-  const drafts = (p: Exclude<Place, 'accounts'>): DraftsView => ({ ledger: spends, reports })[p]
+  const spendPlace = (p: Exclude<Place, 'accounts'>): SpendView => ({ ledger: spends, reports })[p]
 
   // One copy of the ledger's lists for every place, loaded once per change.
   const lists = ledgerStore(window.haveFish)
   onMount(() => lists.start())
-
-  // One editor for every spend I'm changing, so a draft is the same in the ledger and Reports.
-  const editor = spendEditor({
-    bridge: window.haveFish,
-    accounts: () => lists.current().accounts,
-    forgetTyping,
-  })
 
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
@@ -47,13 +39,11 @@
     palette: () => void togglePalette(),
     newSpend,
     addAccount,
-    // Every draft, wherever it was typed; the place I'm in catches its lists up.
-    saveAll: () => drafts(place === 'reports' ? 'reports' : 'ledger').saveAll(),
     undo,
     redo,
     // Remove spend means nothing where spends aren't showing.
     remove: () => {
-      if (place !== 'accounts') void drafts(place).remove()
+      if (place !== 'accounts') void spendPlace(place).remove()
     },
     showLedger: () => void go('ledger'),
     showAccounts: () => void go('accounts'),
@@ -225,11 +215,10 @@
     bind:this={spends}
     hidden={place !== 'ledger'}
     ledger={lists}
-    {editor}
     {forgetTyping}
   />
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
-  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} {editor} />
+  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} />
 </div>
 {#if palette !== null}
   <Palette items={palette} onrun={(id) => void runFromPalette(id)} onclose={closePalette} />

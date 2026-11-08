@@ -2,7 +2,17 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, openSelected, openSpend, PANE, rows, WRITE } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  launch,
+  openChip,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  WRITE,
+} from './app'
 
 const CATEGORY = `${WRITE} input[name=to]`
 const OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories and accounts"]`
@@ -31,6 +41,7 @@ const offered = (page: Page) => page.locator(`${OPTIONS} [role=option]`).allInne
 /** Where the selected spend went, as its details say. */
 const categoryOfSelected = async (page: Page) => {
   if (!(await page.isVisible(PANE))) await openSelected(page)
+  await openChip(page, 'to')
   return page.inputValue(PANE_CATEGORY)
 }
 
@@ -119,19 +130,15 @@ describe('a category for a spend I write down', () => {
 })
 
 describe('changing the category in its details', () => {
-  test('a draft, with ●, until it is saved; Ctrl+Z puts it back', async () => {
+  test('change the category, Enter: it saves at once; Ctrl+Z puts it back', async () => {
     const { page, press } = await launch(aHome())
     await writeIn(page, '12', 'Lunch', 'food')
     await openSelected(page)
 
-    await page.locator(PANE_CATEGORY).focus()
+    await openChip(page, 'to')
     await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.type('fun')
     await page.keyboard.press('Enter')
-    expect((await rows(page))[0]).toContain('●')
-    await page.keyboard.press('Enter')
-
-    await expect.poll(async () => (await rows(page))[0]).not.toContain('●')
     expect(await categoryOfSelected(page)).toBe('fun')
 
     await page.locator('ol[aria-label=Ledger]').focus()
@@ -153,7 +160,8 @@ describe('changing the category in its details', () => {
     await page.click('nav button:has-text("Ledger")')
     await openSpend(page.locator('ol[aria-label=Ledger] li'))
 
-    await expect.poll(() => page.locator(`${PANE} input[name=amount]`).isVisible()).toBe(true)
-    expect(await page.locator(PANE_CATEGORY).count()).toBe(0)
+    await expect.poll(() => page.locator(PANE).isVisible()).toBe(true)
+    expect(await page.locator(`${PANE} [id$="-chip-amount"]`).count()).toBe(1)
+    expect(await page.locator(`${PANE} [id$="-chip-to"]`).count()).toBe(0)
   })
 })

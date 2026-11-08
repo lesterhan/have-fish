@@ -10,7 +10,7 @@ import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
-import { type InputOf, type To, type Values, wireFailure } from '../../shared/commands'
+import type { InputOf, To } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { getDocument, liveAccountAt } from '../ledger/store'
@@ -126,29 +126,6 @@ export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{
   const { edited, changes } = edit(ctx, input)
   record(ctx, { kind: 'edit', description: input.description.trim() }, changes)
   return edited
-}
-
-/** Each edit as its own batch, so one refused doesn't hold back the rest, and one step to undo. */
-export function saveAllSpends(
-  ctx: Context,
-  input: InputOf<'spend.saveAll'>,
-): Outcome<Values['spend.saveAll']> {
-  const saves = input.edits.map((e) => ({ id: e.id, ...edit(ctx, e) }))
-  const changes = saves.flatMap((s) => s.changes)
-  // One spend saved reads as that spend's edit.
-  const only = changes.length === 1 ? changes[0]?.after.doc : undefined
-  record(
-    ctx,
-    only?.type === 'transaction'
-      ? { kind: 'edit', description: only.description }
-      : { kind: 'saveAll', count: changes.length },
-    changes,
-  )
-  const value = saves.map(({ id, edited }) => ({
-    id,
-    refused: edited.ok ? null : wireFailure(edited.failure),
-  }))
-  return { ok: true, value }
 }
 
 /** An edit, applied, and what it changed for the history. */

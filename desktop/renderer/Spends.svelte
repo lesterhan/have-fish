@@ -2,8 +2,6 @@
   import { onMount, tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
-  import type { Values } from './drafts'
-  import type { SpendEditor } from './editor'
   import { dayOf, todayIn, understood } from './format'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import Picker from './Picker.svelte'
@@ -23,12 +21,10 @@
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
-    /** Every spend I'm changing, in whichever place: one editor for the window. */
-    editor: SpendEditor
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, ledger, editor, forgetTyping }: Props = $props()
+  let { hidden, ledger, forgetTyping }: Props = $props()
 
   let amount = $state('')
   let description = $state('')
@@ -81,14 +77,12 @@
   let selectedId = $state<string | null>(null)
   /** The spend written last, while it slides into its row. */
   let justWritten = $state<string | null>(null)
-  const drafts = $derived($editor.drafts)
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
   const opened = $derived(openedId !== null && openedId === selectedId ? openedId : null)
   let list: SpendList
   let card: SpendCard | undefined = $state()
 
-  const selected = $derived(rowWithId($ledger, selectedId))
   /** The day the date field means, said under it. */
   const meant = $derived(understood(date))
   const refusalOf = (field: Where) => (error?.field === field ? error.words : null)
@@ -109,9 +103,9 @@
     })
   })
 
-  // The selection and the drafts stay held however far the list scrolls from them, and the open
-  // spend keeps its place in the list, so its details stay drawn.
-  $effect(() => ledger.keep([selectedId, ...drafts.keys()]))
+  // The selection stays held however far the list scrolls from it, and the open spend keeps its
+  // place in the list, so its details stay drawn.
+  $effect(() => ledger.keep([selectedId]))
   $effect(() => ledger.hold(opened))
 
   // Another row selected, the details close: a click selects, and only a second one opens.
@@ -184,21 +178,9 @@
     else amountInput.focus()
   }
 
-  function edit(field: keyof Values, value: string) {
-    if (selected !== undefined) editor.edit(selected, field, value)
-  }
-
-  function save() {
-    if (selectedId !== null) void editor.save([selectedId], false, ledger.caughtUp)
-  }
-
-  export function saveAll() {
-    void editor.save(editor.current().drafts.keys(), true, ledger.caughtUp)
-  }
-
   let removing = false
 
-  /** The selected spend, gone; selection moves to the next row, and its draft goes too. */
+  /** The selected spend, gone; selection moves to the next row. */
   export async function remove() {
     const id = selectedId
     if (id === null || removing) return
@@ -207,10 +189,10 @@
     const at = await ledger.locate(id)
     const next =
       at === null ? null : ((await ledger.rowAt(at + 1)) ?? (await ledger.rowAt(at - 1)))?.id ?? null
-    const refused = await editor.remove(id)
+    const removed = await window.haveFish.invoke('spend.remove', { id })
     removing = false
-    if (refused !== null) {
-      error = { field: 'form', words: wordsFor(refused) }
+    if (!removed.ok) {
+      error = { field: 'form', words: wordsFor(removed) }
       return
     }
     const wasOpen = opened === id
@@ -234,9 +216,8 @@
     card?.focus()
   }
 
-  /** Esc: what was typed goes back, the details close, and the row stays selected. */
+  /** Esc with no chip open: the details close, and the row stays selected. */
   function close() {
-    if (opened !== null) editor.revert(opened)
     openedId = null
     list.focus()
   }
@@ -353,7 +334,6 @@
     nets={$ledger.nets}
     {selectedId}
     written={justWritten}
-    {drafts}
     onselect={(id) => (selectedId = id)}
     {opened}
     onopen={open}
@@ -364,11 +344,8 @@
       <SpendCard
         bind:this={card}
         transaction={t}
-        draft={drafts.get(t.id)}
         toOptions={toChoices}
-        saving={$editor.saving}
-        onedit={edit}
-        onsave={save}
+        onSaved={() => ledger.caughtUp()}
         onclose={close}
         onremove={remove}
       />

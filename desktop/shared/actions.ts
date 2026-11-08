@@ -41,7 +41,6 @@ export type Action = {
 export const ACTIONS = [
   { id: 'newSpend', menu: 'file', accelerator: 'CmdOrCtrl+N' },
   { id: 'addAccount', menu: 'file', accelerator: 'CmdOrCtrl+Shift+N' },
-  { id: 'saveAll', menu: 'file', accelerator: 'CmdOrCtrl+S' },
   { id: 'quit', menu: 'file', accelerator: 'CmdOrCtrl+Q', role: 'quit', grouped: 'apart' },
 
   // The window's, not Electron's roles: it decides between a field's typing and the ledger.

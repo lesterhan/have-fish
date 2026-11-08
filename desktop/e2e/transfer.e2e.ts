@@ -7,6 +7,7 @@ import {
   aHome,
   fromLine,
   launch,
+  openChip,
   openSelected,
   PANE,
   rows,
@@ -87,6 +88,7 @@ describe('moving money between my accounts', () => {
     await expect.poll(() => rows(page)).toHaveLength(2)
     expect((await rows(page))[0]).toBe(`${shownDay(today())} | Cash out | ⇄ 100.00`)
     expect(await paidFrom(page)).toBe('assets chequing')
+    await openChip(page, 'to')
     expect(await page.inputValue(PANE_TO)).toBe('cash')
   })
 
@@ -131,24 +133,27 @@ describe('changing where it went, in its details', () => {
     await twoAccounts(page)
     await openSelected(page)
 
+    await openChip(page, 'to')
     await page.locator(PANE_TO).focus()
     await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.type('cheq')
     await page.keyboard.press('Enter')
-    expect(await page.inputValue(PANE_TO)).toBe('chequing')
-    await page.keyboard.press('Enter')
-    await expect.poll(async () => (await rows(page))[0]).not.toContain('●')
+    await expect
+      .poll(async () => (await rows(page))[0])
+      .toBe(`${shownDay(today())} | Coffee | ⇄ 4.50`)
 
+    await openChip(page, 'amount')
     await page.fill(`${PANE} input[name=amount]`, '5')
     await page.locator(`${PANE} input[name=amount]`).press('Enter')
     await expect
       .poll(async () => (await rows(page))[0])
       .toBe(`${shownDay(today())} | Coffee | ⇄ 5.00`)
-    expect(await page.inputValue(PANE_TO)).toBe('chequing')
+    expect(await page.locator(`${PANE} [id$="-chip-to"]`).innerText()).toContain('chequing')
 
     await page.locator('ol[aria-label=Ledger]').focus()
     press('ctrl+z')
     press('ctrl+z')
+    await openChip(page, 'to')
     await expect.poll(() => page.inputValue(PANE_TO)).toBe('unsorted')
   })
 })

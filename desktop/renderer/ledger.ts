@@ -1,7 +1,7 @@
 // The ledger as the window holds it, loaded once per change and shared by every place: the lists
 // the pickers offer, and the ledger's list a page at a time. The window holds the pages a list
-// draws, the page of the row a place holds open, and the rows a place keeps (its selection, its
-// drafts), never the whole list (see #608).
+// draws, the page of the row a place holds open, and the rows a place keeps (its selection),
+// never the whole list (see #608).
 
 import type {
   Bridge,
@@ -292,7 +292,7 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       holding = { id, page: at === -1 ? -1 : Math.floor(at / PAGE) }
       if (at === -1) void find(id)
     },
-    /** Keeps these rows wherever the list is: a place's selection and drafts. */
+    /** Keeps these rows wherever the list is: a place's selection. */
     keep(ids: Iterable<string | null>): void {
       keeping = new Set([...ids].filter((id): id is string => id !== null))
       const kept = new Map<string, ListedTransaction>()

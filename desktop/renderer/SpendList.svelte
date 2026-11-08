@@ -4,7 +4,6 @@
   import type { Snippet } from 'svelte'
   import { copy } from '../copy'
   import type { ListedDay, ListedTransaction, Money as Amount } from '../shared/commands'
-  import type { Drafts } from './drafts'
   import { todayIn } from './format'
   import Band from './parts/Band.svelte'
   import Headings from './parts/Headings.svelte'
@@ -14,7 +13,6 @@
   import Money from './parts/Money.svelte'
   import Path from './parts/Path.svelte'
   import { columnsOf, daysOf, wayOf } from './row'
-  import Unsaved from './Unsaved.svelte'
 
   type Props = {
     /** The spends, all of them here; or `paged`, the ledger's list a page at a time. */
@@ -31,7 +29,6 @@
     selectedId: string | null
     /** The row just written, which slides in. */
     written?: string | null
-    drafts: Drafts
     onselect: (id: string) => void
     /** The spend whose details are open under its row. */
     opened: string | null
@@ -57,7 +54,6 @@
     onmissing,
     selectedId,
     written = null,
-    drafts,
     onselect,
     opened,
     details,
@@ -150,7 +146,6 @@
       <span data-cell="amount"><Money of={t.simple ?? t.amounts} way={wayOf(t)} /></span>
       <span data-cell="to">{#if t.toPath}<Path path={t.toPath} />{/if}</span>
       <span data-cell="description">{t.description || copy.spends.noDescription}</span>
-      <span data-cell="draft">{#if drafts.has(t.id)}<Unsaved />{/if}</span>
     {/snippet}
   </Listbox>
 </div>

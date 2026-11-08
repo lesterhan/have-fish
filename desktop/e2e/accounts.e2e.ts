@@ -2,7 +2,17 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, BACK, launch, openSelected, PANE, rows, writeDown } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  BACK,
+  launch,
+  openChip,
+  openSelected,
+  PANE,
+  rows,
+  writeDown,
+} from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -71,20 +81,22 @@ describe('the places', () => {
     await expect.poll(() => accounts(page)).toEqual(['cash | −4.50'])
   })
 
-  test('an unsaved change on a spend is still there after a visit to Accounts', async () => {
+  test('a change saved in the Ledger is what Accounts shows', async () => {
     const { page, press } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
     await openSelected(page)
-    await page.fill(`${PANE} input[name=description]`, 'Coffee and cake')
+    await openChip(page, 'amount')
+    await page.fill(`${PANE} input[name=amount]`, '6')
+    await page.press(`${PANE} input[name=amount]`, 'Enter')
+    await expect.poll(async () => (await rows(page))[0]).toContain('6.00')
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
+    expect(await accounts(page)).toEqual(['cash | 6.00'])
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
-
-    expect(await page.inputValue(`${PANE} input[name=description]`)).toBe('Coffee and cake')
-    expect((await rows(page))[0]).toContain('●')
+    expect((await rows(page))[0]).toContain('6.00')
   })
 })
 

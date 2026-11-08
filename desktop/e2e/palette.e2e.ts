@@ -45,10 +45,9 @@ describe('do anything from Ctrl+K', () => {
     await open(page, press)
 
     const all = await listed(page)
-    expect(all.slice(0, 6)).toEqual([
+    expect(all.slice(0, 5)).toEqual([
       'Actions: New spend Ctrl+N',
       'Actions: Add account Ctrl+Shift+N',
-      'Actions: Save all changes Ctrl+S',
       // Undo names its step, as the menu does.
       'Actions: Undo write Coffee Ctrl+Z',
       'Actions: Redo Ctrl+Shift+Z',

@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest'
 import {
   aHome,
   launch,
+  openChip,
   openSelected,
   openSpend,
   PANE,
@@ -87,25 +88,26 @@ describe('removing a spend', () => {
     await expect.poll(() => rows(page)).toEqual(before)
     await expect.poll(() => selected(page)).toEqual(['Coffee'])
     await openSelected(page)
+    await openChip(page, 'amount')
     expect(await page.inputValue(P_AMOUNT)).toBe('4.50')
   })
 
-  test('removing a spend with a draft drops the draft; undo brings back what was saved', async () => {
+  test('removing a spend with a chip open drops what was typed; undo brings back what was saved', async () => {
     const { page, press } = await launch(aHome())
     await threeSpends(page)
 
     await openSpend(row(page, 'Coffee'))
+    await openChip(page, 'description')
     await page.fill(P_DESCRIPTION, 'Coffee, not saved')
-    await expect.poll(async () => (await rows(page)).some((r) => r.includes('●'))).toBe(true)
     await page.click(REMOVE)
     await expect.poll(() => rows(page)).toHaveLength(2)
 
     await row(page, 'Tea').click()
     press('ctrl+z')
     await expect.poll(() => rows(page)).toHaveLength(3)
-    expect((await rows(page)).filter((r) => r.includes('●'))).toEqual([])
     await expect.poll(() => selected(page)).toEqual(['Coffee'])
     await openSelected(page)
+    await openChip(page, 'description')
     expect(await page.inputValue(P_DESCRIPTION)).toBe('Coffee')
   })
 
@@ -113,6 +115,7 @@ describe('removing a spend', () => {
     const { page, press } = await launch(aHome())
     await threeSpends(page)
     await openSelected(page)
+    await openChip(page, 'description')
 
     await page.focus(P_DESCRIPTION)
     await page.keyboard.press('Home')

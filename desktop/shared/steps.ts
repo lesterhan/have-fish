@@ -4,7 +4,6 @@
 export type StepName =
   | { kind: 'write'; description: string }
   | { kind: 'edit'; description: string }
-  | { kind: 'saveAll'; count: number }
   | { kind: 'remove'; description: string }
   | { kind: 'addAccount'; name: string }
   | { kind: 'start'; name: string }

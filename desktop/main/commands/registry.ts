@@ -9,7 +9,7 @@ import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listCategories, listIncome } from '../services/categories'
 import { spendingIn } from '../services/reports'
 import { setTheme } from '../services/settings'
-import { assumedFrom, editSpend, removeSpend, saveAllSpends, writeSpend } from '../services/spends'
+import { assumedFrom, editSpend, removeSpend, writeSpend } from '../services/spends'
 import {
   daysOfTransactions,
   pageOfTransactions,
@@ -26,7 +26,6 @@ export const handlers: Handlers = {
   'spend.write': writeSpend,
   'spend.assumedFrom': (ctx) => ({ ok: true, value: assumedFrom(ctx) }),
   'spend.edit': editSpend,
-  'spend.saveAll': saveAllSpends,
   'spend.remove': removeSpend,
   'transaction.page': (ctx, input) => ({
     ok: true,
