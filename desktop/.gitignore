@@ -3,3 +3,5 @@ out/
 sheet-out/
 # The capture script's screenshots (e2e/capture.ts).
 shots/
+# Seeded ledgers for trying the app by hand (tools/seed/).
+.sandbox/

@@ -22,7 +22,9 @@
     "themes": "bun tools/themes.ts",
     "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts",
     "capture": "electron-vite build && bun run sheet && vitest run --config vitest.capture.config.ts",
-    "sheet": "vite build -c vite.sheet.config.ts"
+    "sheet": "vite build -c vite.sheet.config.ts",
+    "seed": "bun tools/seed/run.ts seed",
+    "try": "bun tools/seed/run.ts try"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"
