@@ -327,6 +327,25 @@ describe('the ledger list, a page at a time, over 50,000 rows', () => {
     expect(indexIn(ledger.current(), 't5')).toBe(155)
   })
 
+  test('an opened row moved onto another page held is held there too', async () => {
+    const { fake, ledger } = await started(500)
+    ledger.hold('t95')
+    ledger.view(80, 120)
+    await fake.answerAll()
+    expect(indexIn(ledger.current(), 't95')).toBe(95)
+
+    // Ten new spends move it to row 105, on the next page, which the list already draws.
+    fake.write(10)
+    fake.notify()
+    await fake.answerAll()
+    expect(indexIn(ledger.current(), 't95')).toBe(105)
+
+    // Scrolling away keeps the page it moved to, so its details stay drawn.
+    ledger.view(10_000, 10_040)
+    await fake.answerAll()
+    expect(indexIn(ledger.current(), 't95')).toBe(105)
+  })
+
   test("an opened row that isn't held is found and its page fetched", async () => {
     const { fake, ledger } = await started(SIZE)
     fake.forget()
