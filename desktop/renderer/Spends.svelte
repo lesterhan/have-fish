@@ -170,6 +170,22 @@
     else amountInput.focus()
   }
 
+  /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
+  async function refile(t: ListedTransaction, typed: string): Promise<void> {
+    if (t.simple === null) return
+    const saved = await window.haveFish.invoke('spend.edit', {
+      id: t.id,
+      amount: t.simple.amount,
+      description: t.description,
+      to: toOf(accountOptions, typed),
+    })
+    if (!saved.ok) {
+      refusal = spendWordsFor(saved)
+      return
+    }
+    await ledger.caughtUp()
+  }
+
   let removing = false
 
   /** The selected spend, gone; selection moves to the next row. */
@@ -334,6 +350,8 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
+    onrefile={refile}
+    loadPaths={() => ledger.paths()}
   >
     {#snippet details(t: ListedTransaction)}
       <SpendCard

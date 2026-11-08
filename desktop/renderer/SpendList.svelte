@@ -1,10 +1,16 @@
 <script lang="ts">
   // A list of spends: the ledger's, or a report's. Click a row to select it, and again, or Enter,
   // to open its details under it; Esc closes them, and Delete removes the spend.
-  import type { Snippet } from 'svelte'
+  import { type Snippet, tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedDay, ListedTransaction, Money as Amount } from '../shared/commands'
+  import type {
+    ListedDay,
+    ListedPath,
+    ListedTransaction,
+    Money as Amount,
+  } from '../shared/commands'
   import { todayIn } from './format'
+  import PathPicker from './parts/PathPicker.svelte'
   import Band from './parts/Band.svelte'
   import Headings from './parts/Headings.svelte'
   import Keys from './parts/Keys.svelte'
@@ -42,6 +48,10 @@
     onclose: () => void
     /** Delete on the list: remove the selected spend. */
     onremove: () => void
+    /** R on the selected row: its To becomes a path picker. */
+    onrefile?: (t: ListedTransaction, typed: string) => Promise<void>
+    /** Every path, with its last use; the ledger reads it once per change. */
+    loadPaths: () => Promise<ListedPath[]>
     /** What it's called, where there's more than one list of spends. */
     label?: string
     /** Starts each row's id, unique in the window. */
@@ -63,6 +73,8 @@
     oncardkey,
     onclose,
     onremove,
+    onrefile,
+    loadPaths,
     label = copy.spends.list.label,
     idPrefix = 'spend',
   }: Props = $props()
@@ -76,6 +88,11 @@
   })
   const shownDays = $derived(days ?? (transactions ? daysOf(transactions) : []))
   const groups = $derived(shownDays.map((d) => d.count))
+
+  /** The row whose To is a picker, and what it holds. */
+  let refiling = $state<string | null>(null)
+  let refileText = $state('')
+  let refilePicker: PathPicker | undefined = $state()
 
   // A narrow list leaves From out (the details still show it): the list's width, not the window's.
   let width = $state(0)
@@ -93,7 +110,50 @@
     listbox.focus()
   }
 
+  /** The selected row, from whichever list this is. */
+  function selected(): ListedTransaction | undefined {
+    if (selectedId === null) return undefined
+    if (transactions !== undefined) return transactions.find((t) => t.id === selectedId)
+    if (paged !== undefined) {
+      const at = paged.indexOf(selectedId)
+      return at === -1 ? undefined : paged.at(at)
+    }
+    return undefined
+  }
+
+  /** R: the selected row's To becomes a path picker. Only a spend of one amount can move. */
+  function startRefile(): boolean {
+    const t = selected()
+    if (t === undefined || t.simple === null || onrefile === undefined) return false
+    refiling = t.id
+    refileText = t.to ?? ''
+    void tick().then(() => refilePicker?.focus())
+    return true
+  }
+
+  /** A path was picked for the row: save it at once, then give the list the cursor back. */
+  async function saveRefile(t: ListedTransaction): Promise<void> {
+    const typed = refileText
+    refiling = null
+    await onrefile?.(t, typed)
+    listbox.focus()
+  }
+
+  // Another row selected, or the list replaced: the picker closes.
+  $effect(() => {
+    if (refiling !== null && refiling !== selectedId) refiling = null
+  })
+
   function onkey(event: KeyboardEvent): boolean {
+    if (refiling !== null) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        refiling = null
+        listbox.focus()
+        return true
+      }
+      return false
+    }
     if (event.key === 'Enter') {
       event.preventDefault()
       onopen(true)
@@ -109,6 +169,16 @@
     if (event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault()
       onremove()
+      return true
+    }
+    // R refiles the selected row's To, where its To cell is.
+    if (
+      (event.key === 'r' || event.key === 'R') &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      if (startRefile()) event.preventDefault()
       return true
     }
     return false
@@ -144,17 +214,45 @@
       {@const day = shownDays[g]}
       {#if day}<Band date={day.date} {today} net={nets?.get(day.date)} />{/if}
     {/snippet}
-    {#snippet hint()}<Keys key={copy.spends.list.enter} />{copy.spends.list.details}{/snippet}
+    {#snippet hint()}
+      <Keys key={copy.spends.list.enter} />{copy.spends.list.details}
+      {#if onrefile}<Keys key={copy.spends.list.refileKey} />{copy.spends.list.refile}{/if}
+    {/snippet}
     {#snippet row(t)}
       {#if !narrow}<span data-cell="from">{#if t.fromPath}<Path path={t.fromPath} />{/if}</span>{/if}
       <span data-cell="amount"><Money of={t.simple ?? t.amounts} way={wayOf(t)} /></span>
-      <span data-cell="to">{#if t.toPath}<Path path={t.toPath} />{/if}</span>
+      <span data-cell="to" class:refiling={refiling === t.id}>
+        {#if refiling === t.id}
+          <PathPicker
+            bind:this={refilePicker}
+            id={`${idPrefix}-refile`}
+            name="to"
+            mode="to"
+            {loadPaths}
+            bind:text={refileText}
+            placeholder={copy.spends.write.unsorted}
+            listLabel={copy.spends.write.toList}
+            invalid={false}
+            describedby={undefined}
+            onchoose={() => {}}
+            onpicked={() => void saveRefile(t)}
+          />
+        {:else if t.toPath}
+          <Path path={t.toPath} />
+        {/if}
+      </span>
       <span data-cell="description">{t.description || copy.spends.noDescription}</span>
     {/snippet}
   </Listbox>
 </div>
 
 <style>
+  /* The To cell holding the refile picker: its path may spill over the row. */
+  [data-cell='to'].refiling {
+    overflow: visible;
+    white-space: normal;
+  }
+
   .list {
     grid-area: list;
     display: grid;

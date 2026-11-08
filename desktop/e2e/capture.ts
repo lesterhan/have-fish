@@ -74,6 +74,13 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.click(`${SPENDS} li >> nth=2`)
   await shot.take('spends-selected')
   await shot.dark('spends-selected')
+  // R: the selected row's To becomes a path picker, under the cell.
+  await page.locator(SPENDS).focus()
+  await page.keyboard.press('r')
+  await page.waitForSelector(`${SPENDS} [role=listbox] [role=option]`)
+  await shot.take('spends-refile')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
   // Opened: the details under the row, lifted with it, and the rest stepped back.
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await shot.take('spends-card')
