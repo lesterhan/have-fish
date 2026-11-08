@@ -165,8 +165,13 @@ export function ledgerStore(bridge: Pick<Bridge, 'invoke' | 'onChanged'>) {
       failure: all.find((a): a is WireFailure => !a.ok) ?? null,
       loaded: true,
     })
-    // A change can move the open row onto another page: find it there.
-    if (holding !== null && indexIn(state, holding.id) === -1) void find(holding.id)
+    // A change can move the open row onto another page: note where it is now, and fetch it if no
+    // held page has it.
+    if (holding !== null) {
+      const at = indexIn(state, holding.id)
+      if (at === -1) void find(holding.id)
+      else holding = { id: holding.id, page: Math.floor(at / PAGE) }
+    }
   }
 
   /** Where the open row is now, its page fetched and held. */

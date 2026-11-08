@@ -300,6 +300,46 @@ describe('open a transaction where it sits', () => {
     expect(await focusedName(page)).toBe('description')
     expect(await page.inputValue(DESCRIPTION)).toBe(`${was} typed`)
   })
+
+  test('a change that moves an open spend onto another drawn page keeps its details', {
+    timeout: 120_000,
+  }, async () => {
+    const { page } = await launch(aHome())
+    // Two full pages of the ledger, all today: row 95 sits on the first, and a day earlier it
+    // moves onto the second, which is drawn because the view spans the boundary.
+    await manySpends(page, 110)
+    await expect.poll(async () => (await rows(page)).length).toBeGreaterThan(0)
+    const scroll = (to: number) =>
+      page.locator(LIST).evaluate((ol, to) => {
+        ;(ol.parentElement as HTMLElement).scrollTop = to
+      }, to)
+    // The band above the first row is 26px, each row 33px: row 90 at the top of the view.
+    await scroll(26 + 90 * 33)
+    await page.waitForSelector(`${LIST} li:has-text("Spend 20")`)
+
+    await openSpend(row(page, 'Spend 15'))
+    const was = await page.inputValue(DESCRIPTION)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const day = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+    await page.fill(`${PANE} input[name=date]`, day)
+    await page.press(`${PANE} input[name=date]`, 'Enter')
+    await expect.poll(() => unsavedInPane(page)).toBe(0)
+
+    // Focus the description, then scroll the list a page away and type.
+    await page.click(DESCRIPTION)
+    await page.keyboard.press('End')
+    await scroll(0)
+    await page.waitForFunction((list) => {
+      const first = document.querySelector(`${list} li`)
+      return first !== null && first.getAttribute('aria-posinset') === '1'
+    }, LIST)
+    await page.keyboard.type(' typed')
+
+    expect(await isOpen(page)).toBe(true)
+    expect(await focusedName(page)).toBe('description')
+    expect(await page.inputValue(DESCRIPTION)).toBe(`${was} typed`)
+  })
 })
 
 /** `n` spends through the bridge, all today, numbered so the newest is `Spend n`. */
