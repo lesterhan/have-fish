@@ -13,6 +13,7 @@ const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => (
   fromPath: 'assets:cash',
   toPath: 'expenses:food',
   legs: [],
+  origin: { source: 'manual', at: 0, here: true, file: null, line: null },
   ...fields,
 })
 

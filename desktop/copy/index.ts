@@ -19,6 +19,9 @@ import { errors } from './errors'
 import { palette } from './palette'
 import { reports } from './reports'
 import { spends } from './spends'
+
+export type { OriginPart } from './spends'
+
 import { steps } from './steps'
 
 export const copy = {

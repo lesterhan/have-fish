@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { contextFor } from '../context'
 import type { Ledger } from '../db/ledger'
-import { aLedgerOf, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { aLedgerOf, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { liveAccountAt } from '../ledger/store'
 import { addAccount } from './accounts'
 import { removeSpend, writeSpend } from './spends'
 import {
@@ -93,6 +94,43 @@ describe('a row as the list draws it', () => {
       fromPath: 'assets:cash',
       to: 'unsorted',
       toPath: 'expenses:unsorted',
+    })
+  })
+
+  test('where it came from: by hand, when, and on this computer', () => {
+    const { ledger } = aWeek()
+    expect(listTransactions(ledger.db)[0]?.origin).toMatchObject({
+      source: 'manual',
+      here: true,
+      file: null,
+      line: null,
+    })
+  })
+
+  test('an import says its file and line, and that another computer made it', () => {
+    const { ledger, ctx } = aWeek()
+    const from = liveAccountAt(ledger.db, 'assets:cash')
+    const to = liveAccountAt(ledger.db, 'expenses:unsorted')
+    if (from === undefined || to === undefined) throw new Error('the wallet has no accounts')
+    const imported = aSpend(from, to, '4.50', {
+      date: '2026-11-04',
+      description: 'Cafe',
+      origin: {
+        source: 'import',
+        createdAt: NOW,
+        deviceId: 'aabbccddeeff0011',
+        file: 'wise-statement.csv',
+        line: 15,
+        text: 'CAFE',
+      },
+    })
+    ok(ctx.apply([imported], NOW + 1_000_000))
+    expect(listTransactions(ledger.db)[0]?.origin).toEqual({
+      source: 'import',
+      at: NOW,
+      here: false,
+      file: 'wise-statement.csv',
+      line: 15,
     })
   })
 

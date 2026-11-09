@@ -5,6 +5,8 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
+import { postingsText } from '../renderer/postings'
 import {
   aHome,
   chip,
@@ -132,6 +134,59 @@ describe('fix a spend', () => {
         `${shownDay(today())} | Lunch with Sam | 12.00`,
       ])
     expect(await page.textContent(SELECTED)).toContain('Lunch with Sam')
+  })
+
+  test('the foot says it was written by hand, when, and on this computer', async () => {
+    const { page } = await launch(aHome())
+    await twoSpends(page)
+    await openSelected(page)
+
+    await expect.poll(() => page.getByText(/^Written by hand · /).isVisible()).toBe(true)
+    await expect.poll(() => page.getByText(/ · this computer$/).isVisible()).toBe(true)
+  })
+
+  test('P shows the postings, balanced, and Copy puts the same text on the clipboard', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    // Opened by clicking its row: the cursor stays on the row, and P still reaches the details.
+    await openSpend(row(page, 'Lunch'))
+
+    await page.keyboard.press('p')
+    const postings = page.getByLabel(copy.spends.card.postings)
+    await expect.poll(() => postings.isVisible()).toBe(true)
+    expect(await postings.innerText()).toContain('expenses:unsorted')
+    expect(await postings.innerText()).toContain('12.00 CAD')
+    expect(await page.getByLabel(copy.spends.card.balanced('CAD')).isVisible()).toBe(true)
+
+    const legs = [
+      { amount: '12.00', currency: 'CAD', path: 'expenses:unsorted' },
+      { amount: '-12.00', currency: 'CAD', path: 'assets:cash' },
+    ]
+    const expected = postingsText(
+      { date: today(), description: 'Lunch', legs },
+      copy.spends.card.missingAccount,
+    )
+    await page.getByRole('button', { name: copy.spends.card.copy }).click()
+    await expect
+      .poll(() => page.getByRole('button', { name: copy.spends.card.copied }).isVisible())
+      .toBe(true)
+
+    // Paste it into a field of the test's own: what the clipboard holds, as the system gives it.
+    await page.evaluate(() => {
+      const area = document.createElement('textarea')
+      area.id = 'clipboard-check'
+      document.body.append(area)
+      area.focus()
+    })
+    await page.keyboard.press('Control+V')
+    expect(await page.inputValue('#clipboard-check')).toBe(expected)
+
+    // Esc puts the postings away first; the details stay open.
+    await page.getByRole('button', { name: copy.spends.card.postings }).focus()
+    await page.keyboard.press('Escape')
+    await expect.poll(() => postings.isVisible()).toBe(false)
+    expect(await isOpen(page)).toBe(true)
   })
 
   test('Esc on a chip puts back what was typed and closes it; Esc again closes the details', async () => {

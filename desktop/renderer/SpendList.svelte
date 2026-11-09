@@ -36,6 +36,8 @@
     details: Snippet<[ListedTransaction]>
     /** Open the selected spend's details; with `focus`, put the cursor in them. */
     onopen: (focus: boolean) => void
+    /** A key the open details take first, while the cursor stays on their row. */
+    oncardkey?: (event: KeyboardEvent) => boolean
     /** Esc on the list: close them. */
     onclose: () => void
     /** Delete on the list: remove the selected spend. */
@@ -58,6 +60,7 @@
     opened,
     details,
     onopen,
+    oncardkey,
     onclose,
     onremove,
     label = copy.spends.list.label,
@@ -96,6 +99,7 @@
       onopen(true)
       return true
     }
+    if (opened !== null && oncardkey?.(event) === true) return true
     if (event.key === 'Escape' && opened !== null) {
       event.preventDefault()
       onclose()

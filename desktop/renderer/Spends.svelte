@@ -337,6 +337,7 @@
     onselect={(id) => (selectedId = id)}
     {opened}
     onopen={open}
+    oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
   >

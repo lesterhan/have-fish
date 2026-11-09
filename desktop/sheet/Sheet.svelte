@@ -12,6 +12,7 @@
   import Day from '../renderer/parts/Day.svelte'
   import Money from '../renderer/parts/Money.svelte'
   import Path from '../renderer/parts/Path.svelte'
+  import Postings from '../renderer/parts/Postings.svelte'
   import Sidebar from '../renderer/parts/Sidebar.svelte'
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
@@ -42,6 +43,7 @@
     fromPath,
     toPath,
     legs: [],
+    origin: { source: 'manual', at: Date.UTC(2026, 10, 5, 12, 40), here: true, file: null, line: null },
   })
   // Rest, selected, just written; money in and a move between my accounts.
   const ROWS = [
@@ -51,6 +53,13 @@
     row('d', '2026-11-04', '26.32', 'liabilities:cibc:visa', 'expenses:home:supplies', 'Hardware store'),
     row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair'),
   ]
+  const POSTED: ListedTransaction = {
+    ...row('p', TODAY, '35.00', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Cafe'),
+    legs: [
+      { amount: '35.00', currency: 'CAD', path: 'expenses:food:restaurants' },
+      { amount: '-35.00', currency: 'CAD', path: 'liabilities:cibc:visa' },
+    ],
+  }
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
@@ -94,6 +103,11 @@
       <Button variant="quiet" key={copy.spends.card.esc}>{copy.spends.card.close}</Button>
       <Button variant="quiet" danger action="remove">{copy.spends.card.remove}</Button>
     </div>
+  </section>
+
+  <section aria-label="Postings">
+    <h2>Postings: a balance check per currency and Copy, then the transaction as text</h2>
+    <Postings transaction={POSTED} />
   </section>
 
   <section aria-label="Header">

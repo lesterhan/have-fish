@@ -4,13 +4,17 @@ import { contextFor } from '../context'
 import { NOW, tempLedger } from '../ledger/fixtures'
 import { type Log, runCommand } from './run'
 
-function setup() {
+function setup(copied: string[] = []) {
   const ledger = tempLedger()
   const announced: Changed[][] = []
-  const ctx = contextFor(ledger, (changed) => announced.push(changed), {
-    now: () => NOW,
-    timeZone: () => 'UTC',
-  })
+  const ctx = contextFor(
+    ledger,
+    (changed) => announced.push(changed),
+    { now: () => NOW, timeZone: () => 'UTC' },
+    undefined,
+    undefined,
+    (text) => copied.push(text),
+  )
   const lines: string[] = []
   const errors: unknown[] = []
   const log: Log = { info: (line) => lines.push(line), error: (_, e) => errors.push(e) }
@@ -64,6 +68,17 @@ describe('runCommand', () => {
       detail: { path, issue },
     })
     expect(ledger.db.prepare('SELECT count(*) FROM transactions').pluck().get()).toBe(0)
+  })
+
+  test('text for the clipboard is written, and nothing in the ledger changes', () => {
+    const copied: string[] = []
+    const { ctx, log, announced } = setup(copied)
+    expect(runCommand(ctx, 'clipboard.copy', { text: '2026-11-04 Cafe' }, log)).toEqual({
+      ok: true,
+      value: null,
+    })
+    expect(copied).toEqual(['2026-11-04 Cafe'])
+    expect(announced).toEqual([])
   })
 
   test('the categories in use cross as a list', () => {

@@ -32,6 +32,8 @@ export type Context = Time & {
   machine: Machine
   /** Repaints the window in a theme. Electron's, so tests pass their own. */
   showTheme(choice: ThemeChoice): void
+  /** Writes text to the system clipboard. Electron's, so tests pass their own. */
+  copy(text: string): void
 }
 
 export function contextFor(
@@ -40,6 +42,7 @@ export function contextFor(
   time: Time = systemTime,
   machine: Machine = forgetful(),
   showTheme: (choice: ThemeChoice) => void = () => {},
+  copy: (text: string) => void = () => {},
 ): Context {
   let written: Written[] = []
   return {
@@ -60,6 +63,7 @@ export function contextFor(
     history: new History(),
     machine,
     showTheme,
+    copy,
   }
 }
 

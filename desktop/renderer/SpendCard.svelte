@@ -7,7 +7,7 @@
   import { tick } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction, Wire } from '../shared/commands'
-  import { dayOf, understood } from './format'
+  import { dayOf, moment, understood } from './format'
   import { chipKey } from './parts/chip'
   import Button from './parts/Button.svelte'
   import Card from './parts/Card.svelte'
@@ -17,6 +17,8 @@
   import Path from './parts/Path.svelte'
   import Picker from './Picker.svelte'
   import { type Option, toOf } from './picker'
+  import Postings from './parts/Postings.svelte'
+  import { provenanceOf } from './postings'
   import { spendWordsFor } from './refusals'
   import { type Changable, changeOf, savedValues } from './sentence'
 
@@ -54,6 +56,8 @@
   /** The chip just saved, while its flash and tick show. */
   let justSaved = $state<Changable | null>(null)
   let saving = $state(false)
+  /** Whether the postings show as text. */
+  let postingsOpen = $state(false)
 
   /** The parts of a spend paid from more than one account, read only: each account it came from. */
   const payments = $derived(
@@ -68,6 +72,9 @@
     transaction.legs.find((leg) => !leg.amount.startsWith('-') && leg.path !== null)?.path ?? null,
   )
   const meant = $derived(changing === 'date' ? understood(value) : null)
+  /** Where it came from, when, and on which computer; its file set in the code face. */
+  const originParts = $derived(provenanceOf(transaction.origin, moment))
+
 
   const fieldId = (part: string) => `${idPrefix}-${part}`
   const chipId = (part: string) => `${idPrefix}-chip-${part}`
@@ -137,6 +144,20 @@
     if (part !== null) focusChip(part)
   }
 
+  /** P shows the postings, unless a field is taking what's typed. */
+  function postingsKey(event: KeyboardEvent): boolean {
+    if (changing !== null || event.ctrlKey || event.metaKey || event.altKey) return false
+    const target = event.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]') !== null) return false
+    return event.key.toLowerCase() === 'p'
+  }
+
+  /** The card's keys, for a row that has the cursor while its details are open. */
+  export function keydown(event: KeyboardEvent): boolean {
+    onkeydown(event)
+    return event.defaultPrevented
+  }
+
   function onkeydown(event: KeyboardEvent) {
     const key = chipKey(event)
     if (key === 'commit') {
@@ -147,7 +168,11 @@
     } else if (key === 'cancel') {
       event.preventDefault()
       if (changing !== null) putBack()
+      else if (postingsOpen) postingsOpen = false
       else onclose()
+    } else if (postingsKey(event)) {
+      event.preventDefault()
+      postingsOpen = !postingsOpen
     }
   }
 </script>
@@ -310,7 +335,27 @@
     <p class="note">{words.notSimple}</p>
   {/if}
 
+  {#if postingsOpen}
+    <Postings {transaction} />
+  {/if}
+
+  {#snippet where()}
+    <span>
+      {#each originParts as part, i (i)}
+        {#if part.code}<code>{part.text}</code>{:else}{part.text}{/if}
+      {/each}
+    </span>
+  {/snippet}
+
   {#snippet foot()}
+    <Button
+      variant="quiet"
+      key={words.postingsKey}
+      aria-expanded={postingsOpen}
+      onclick={() => (postingsOpen = !postingsOpen)}
+    >
+      {words.postings}
+    </Button>
     <Button variant="quiet" key={words.esc} onclick={onclose}>{words.close}</Button>
     <Button variant="quiet" danger action="remove" onclick={onremove}>{words.remove}</Button>
   {/snippet}

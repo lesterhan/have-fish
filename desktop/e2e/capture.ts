@@ -78,6 +78,11 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await shot.take('spends-card')
   await shot.dark('spends-card')
+  // P: the postings as text, with a balance check per currency and Copy.
+  await page.keyboard.press('p')
+  await shot.take('spends-card-postings')
+  await shot.dark('spends-card-postings')
+  await page.keyboard.press('p')
   await openChip(page, 'description')
   await page.fill(`${PANE} input[name=description]`, 'Groceries for the week, and flowers')
   await openChip(page, 'amount')

@@ -50,4 +50,8 @@ export const handlers: Handlers = {
   'ledger.redo': redoLast,
   'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
   'settings.theme.set': setTheme,
+  'clipboard.copy': (ctx, { text }) => {
+    ctx.copy(text)
+    return { ok: true, value: null }
+  },
 }

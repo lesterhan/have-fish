@@ -6,18 +6,23 @@
   type Props = {
     label: string
     children: Snippet
+    /** Where it came from, at the foot's start. */
+    where?: Snippet
     /** The actions, at the end of the foot. */
     foot: Snippet
     onkeydown?: (event: KeyboardEvent) => void
   }
-  let { label, children, foot, onkeydown }: Props = $props()
+  let { label, children, where, foot, onkeydown }: Props = $props()
 </script>
 
 <!-- Keys bubble up from the fields inside; the card itself never takes focus. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section class="card" aria-label={label} {onkeydown}>
   <div class="body">{@render children()}</div>
-  <div class="foot">{@render foot()}</div>
+  <div class="foot">
+    {#if where}<div class="where">{@render where()}</div>{/if}
+    <div class="actions">{@render foot()}</div>
+  </div>
 </section>
 
 <style>
@@ -46,11 +51,29 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: end;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     border-radius: 0 0 var(--radius-card) var(--radius-card);
     background: var(--color-band);
+  }
+
+  .where {
+    min-width: 0;
+    margin-inline-end: auto;
+    color: var(--color-muted);
+    font-size: var(--text-quiet);
+  }
+
+  .where :global(code) {
+    font-family: var(--font-code);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-inline-start: auto;
   }
 
   @keyframes open {
