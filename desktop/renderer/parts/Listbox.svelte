@@ -277,7 +277,8 @@
     style:--below="{offsets.top(count) - offsets.top(shown.to)}px"
     {onfocus}
     onkeydown={(event) => {
-      if (owner === undefined) press(event)
+      // A field in a row (a refile) keeps its keys: the arrows are its list's, not the rows'.
+      if (owner === undefined && event.target === event.currentTarget) press(event)
     }}
     {onmousedown}
     {onclick}
