@@ -237,6 +237,7 @@
             describedby={undefined}
             onchoose={() => {}}
             onpicked={() => void saveRefile(t)}
+            inRow
             onclose={() => {
               refiling = null
               void tick().then(() => listbox.focus())

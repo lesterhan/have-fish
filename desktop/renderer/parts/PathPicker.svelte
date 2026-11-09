@@ -43,6 +43,8 @@
     newOption?: ((name: string) => string) | undefined
     /** Escape when the list is open: close the whole field, not only the list (refile). */
     onclose?: (() => void) | undefined
+    /** In a list cell: the focus ring sits inside the field, where the row can't clip it. */
+    inRow?: boolean
   }
   let {
     id,
@@ -58,6 +60,7 @@
     onpicked,
     newOption,
     onclose,
+    inRow = false,
   }: Props = $props()
 
   const words = copy.spends.picker
@@ -271,6 +274,7 @@
     aria-describedby={describedby}
     autocomplete="off"
     maxlength="200"
+    class:in-row={inRow}
     {onfocus}
     onblur={() => (open = false)}
     {oninput}
@@ -365,6 +369,11 @@
   input:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  /* In a list cell the row clips an outside ring: keep it inside the field. */
+  input.in-row:focus-visible {
+    outline-offset: -2px;
   }
 
   .options {

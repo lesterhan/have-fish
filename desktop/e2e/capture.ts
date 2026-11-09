@@ -79,6 +79,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.keyboard.press('r')
   await page.waitForSelector(`${SPENDS} [role=listbox] [role=option]`)
   await shot.take('spends-refile')
+  await shot.dark('spends-refile')
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   // Opened: the details under the row, lifted with it, and the rest stepped back.
