@@ -222,7 +222,7 @@
     {#snippet row(t)}
       {#if !narrow}<span data-cell="from">{#if t.fromPath}<Path path={t.fromPath} />{/if}</span>{/if}
       <span data-cell="amount"><Money of={t.simple ?? t.amounts} way={wayOf(t)} /></span>
-      <span data-cell="to" class:refiling={refiling === t.id}>
+      <span data-cell="to">
         {#if refiling === t.id}
           <PathPicker
             bind:this={refilePicker}
@@ -253,12 +253,6 @@
 </div>
 
 <style>
-  /* The To cell holding the refile picker: its path may spill over the row. */
-  [data-cell='to'].refiling {
-    overflow: visible;
-    white-space: normal;
-  }
-
   .list {
     grid-area: list;
     display: grid;
