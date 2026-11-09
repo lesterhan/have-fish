@@ -13,6 +13,7 @@
     parentsOf,
     relativeOf,
     searching,
+    textOf,
     trailOf,
     type Mode,
     type Pick,
@@ -165,7 +166,7 @@
   }
 
   function pick(pick: Pick) {
-    text = pick.name
+    text = textOf(pick)
     kept = text
     open = false
     onchoose(text)

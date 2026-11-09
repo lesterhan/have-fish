@@ -42,6 +42,9 @@ export const relativeOf = (path: string) => {
   return at === -1 ? '' : path.slice(at + 1)
 }
 
+/** What a pick puts in the field: its path without the root, never a level's name alone. */
+export const textOf = (pick: Pick) => relativeOf(pick.path)
+
 /** The path a level is under: `assets:tangerine` in `assets:tangerine:chequing`; '' at a root. */
 export const parentsOf = (path: string) => {
   const at = path.lastIndexOf(':')

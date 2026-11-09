@@ -8,6 +8,7 @@ import {
   offered,
   rootOf,
   searching,
+  textOf,
   trailOf,
 } from './pathPicker'
 
@@ -149,5 +150,16 @@ describe('a name not used yet', () => {
 
   test('nothing typed creates nothing', () => {
     expect(createPath('to', 'expenses:food', '  ')).toBeNull()
+  })
+})
+
+describe('what a pick puts in the field', () => {
+  test('its path without the root, at a level as from a search', () => {
+    expect(childrenAt(offered(PATHS, 'from'), 'assets:tangerine').map(textOf)).toEqual([
+      'tangerine:chequing',
+      'tangerine:savings',
+    ])
+    expect(childrenAt(PATHS, 'expenses:food').map(textOf)).toContain('food:coffee')
+    expect(searching(PATHS, 'visa').map(textOf)).toEqual(['cibc:visa'])
   })
 })

@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  fromLine,
   launch,
   offeredPaths,
   openChip,
@@ -45,7 +46,8 @@ async function addAccount(page: Page, name: string, kind: string) {
   await page.fill('section[aria-label="The account"] input[name=name]', name)
   await page.selectOption('section[aria-label="The account"] select[name=kind]', kind)
   await page.locator('section[aria-label="The account"] input[name=name]').press('Enter')
-  await page.waitForSelector(`ol[aria-label=Accounts] li:has-text("${name}")`)
+  // Accounts shows a path as a tree, so the row says its last part.
+  await page.waitForSelector(`ol[aria-label=Accounts] li:has-text("${name.split(':').pop()}")`)
   await page.click('nav[aria-label=Places] button:has-text("Ledger")')
 }
 
@@ -108,5 +110,94 @@ describe('picking From by its path', () => {
     await page.keyboard.press('Escape')
     await openComposer(page)
     expect(await page.inputValue(WRITE_FROM)).toBe('cash')
+  })
+})
+
+// A pick from a level's list, with the arrows rather than typed, puts the whole path in the field.
+describe('a pick from a level is the path picked', () => {
+  const COMPOSER_TO_OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories and accounts"]`
+
+  test("in a spend's To chip", async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Coffee', 'food:coffee')
+    await writeIn(page, '12', 'Lunch', 'food:restaurants')
+
+    await openSpend(row(page, 'Lunch'))
+    await openChip(page, 'to')
+    await expect
+      .poll(() => offered(page))
+      .toEqual(['expenses:food:restaurants', 'expenses:food:coffee'])
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => row(page, 'Lunch').innerText()).toContain('food:coffee')
+  })
+
+  test('in a refile', async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '2', 'Tea', 'food:tea')
+    await writeIn(page, '4', 'Coffee', 'food:coffee')
+
+    await page.locator(LIST).focus()
+    await page.keyboard.press('r')
+    const refile = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
+    await expect
+      .poll(() => offered(page, refile))
+      .toEqual(['expenses:food:coffee', 'expenses:food:tea'])
+    // The arrows move in the picker's list, not the ledger's rows.
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:tea')
+  })
+
+  test("in the line's To", async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Coffee', 'food:coffee')
+    await writeIn(page, '12', 'Lunch', 'food:restaurants')
+
+    await openComposer(page)
+    await page.fill(`${WRITE} input[name=amount]`, '3')
+    await page.fill(`${WRITE} input[name=description]`, 'Muffin')
+    await page.fill(WRITE_TO, 'food:restaurants')
+    // Entered again, it opens at the level its value is in.
+    await page.focus(`${WRITE} input[name=amount]`)
+    await page.focus(WRITE_TO)
+    await page.keyboard.press('ArrowDown')
+    await expect
+      .poll(() => offered(page, COMPOSER_TO_OPTIONS))
+      .toEqual(['expenses:food:restaurants', 'expenses:food:coffee'])
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    expect(await page.inputValue(WRITE_TO)).toBe('food:coffee')
+
+    await page.locator(`${WRITE} input[name=amount]`).press('Enter')
+    await expect.poll(() => row(page, 'Muffin').innerText()).toContain('food:coffee')
+  })
+
+  test("in the line's From", async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Coffee', 'food')
+    await addAccount(page, 'tangerine:chequing', 'bank')
+    await addAccount(page, 'tangerine:savings', 'bank')
+
+    await openComposer(page)
+    await page.fill(`${WRITE} input[name=amount]`, '5')
+    await page.fill(`${WRITE} input[name=description]`, 'Rent')
+    await page.fill(WRITE_FROM, 'tangerine:chequing')
+    await page.focus(`${WRITE} input[name=amount]`)
+    await page.focus(WRITE_FROM)
+    await page.keyboard.press('ArrowDown')
+    await expect
+      .poll(() => offered(page, FROM_OPTIONS))
+      .toEqual(['assets:tangerine:chequing', 'assets:tangerine:savings'])
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    expect(await page.inputValue(WRITE_FROM)).toBe('tangerine:savings')
+
+    await page.locator(`${WRITE} input[name=amount]`).press('Enter')
+    await expect.poll(() => rows(page)).toHaveLength(2)
+    await openSpend(row(page, 'Rent'))
+    expect(await fromLine(page).innerText()).toMatch(/tangerine\W+savings/)
   })
 })
