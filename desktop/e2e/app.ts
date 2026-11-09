@@ -174,6 +174,17 @@ export const cellsOf = (rows: Locator) =>
     items.map((row) => [...row.children].map((c) => c.textContent?.trim() ?? '')),
   )
 
+/** A path picker's options as whole paths: `expenses:food`, or the path a new one would make. */
+export const offeredPaths = (options: Locator) =>
+  options.evaluateAll((items) =>
+    items.map(
+      (option) =>
+        option.querySelector('[data-path]')?.getAttribute('data-path') ??
+        option.querySelector('[data-create]')?.getAttribute('data-create') ??
+        '',
+    ),
+  )
+
 /** An open spend's chip for one part: `amount`, `description`, `from`, `date` or `to`. */
 export const chip = (part: string, card = PANE) => `${card} [id$="-chip-${part}"]`
 

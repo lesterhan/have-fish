@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { finds, fromOf, fromOptions, matching, named, offered, toOf, toOptions } from './picker'
+import { finds, fromOf, named, toOf } from './picker'
 
 const cash = { id: 'c', name: 'cash' }
 const chequing = { id: 'q', name: 'Chequing' }
@@ -29,35 +29,6 @@ describe('finds', () => {
   })
 })
 
-describe('matching', () => {
-  test('keeps the order given', () => {
-    expect(matching(MINE, 'c')).toEqual([cash, chequing, wise])
-  })
-
-  test('nothing typed finds them all', () => {
-    expect(matching(MINE, '  ')).toEqual(MINE)
-  })
-})
-
-describe('offered', () => {
-  test('mine first, then what I typed as a new one', () => {
-    expect(offered(MINE, 'ca', true)).toEqual([
-      { kind: 'mine', option: cash },
-      { kind: 'mine', option: wise },
-      { kind: 'new', name: 'ca' },
-    ])
-  })
-
-  test('never a new one with the name of one I have, or with nothing typed', () => {
-    expect(offered(MINE, ' Visa ', true)).toEqual([{ kind: 'mine', option: visa }])
-    expect(offered(MINE, ' ', true)).toHaveLength(MINE.length)
-  })
-
-  test('nothing new where new ones aren’t made', () => {
-    expect(offered(MINE, 'amex', false)).toEqual([])
-  })
-})
-
 describe('named', () => {
   test('the one whose name it is, without regard to case or spaces around it', () => {
     expect(named(MINE, ' VISA ')).toBe(visa)
@@ -65,25 +36,6 @@ describe('named', () => {
 
   test('a part of a name names nothing', () => {
     expect(named(MINE, 'vis')).toBeUndefined()
-  })
-})
-
-describe('toOptions', () => {
-  const food = { id: 'f', name: 'food' }
-  const mine = [
-    { ...cash, hint: 'Cash' },
-    { ...visa, hint: 'Card' },
-  ]
-
-  test('categories first, as given, then my accounts with their hints', () => {
-    expect(toOptions([food], mine)).toEqual([{ ...food, hint: '' }, ...mine])
-  })
-
-  test('a category with the name of an account of mine is left out', () => {
-    expect(toOptions([{ id: 'x', name: 'Visa' }, food], mine)).toEqual([
-      { ...food, hint: '' },
-      ...mine,
-    ])
   })
 })
 
@@ -110,23 +62,5 @@ describe('fromOf', () => {
   test('anything else is an income source, as typed', () => {
     expect(fromOf(MINE, 'salary')).toEqual({ income: 'salary' })
     expect(fromOf([], 'cash')).toEqual({ income: 'cash' })
-  })
-})
-
-describe('fromOptions', () => {
-  const accounts = [
-    { id: 'v', name: 'visa', hint: 'Card' },
-    { id: 'c', name: 'cash', hint: 'Cash' },
-  ]
-
-  test('my accounts first, then the income sources, each said as income', () => {
-    expect(fromOptions(accounts, [{ id: 's', name: 'salary' }], 'Income')).toEqual([
-      ...accounts,
-      { id: 's', name: 'salary', hint: 'Income' },
-    ])
-  })
-
-  test('a source with an account’s name is left out: the name means the account', () => {
-    expect(fromOptions(accounts, [{ id: 'x', name: 'Visa' }], 'Income')).toEqual(accounts)
   })
 })

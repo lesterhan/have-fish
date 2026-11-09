@@ -6,7 +6,7 @@
   // locked, and a second line says where each part came from.
   import { tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedTransaction, Wire } from '../shared/commands'
+  import type { ListedPath, ListedTransaction, Wire } from '../shared/commands'
   import { dayOf, moment, understood } from './format'
   import { chipKey } from './parts/chip'
   import Button from './parts/Button.svelte'
@@ -15,8 +15,8 @@
   import Day from './parts/Day.svelte'
   import Money from './parts/Money.svelte'
   import Path from './parts/Path.svelte'
-  import Picker from './Picker.svelte'
   import { type Option, toOf } from './picker'
+  import PathPicker from './parts/PathPicker.svelte'
   import Postings from './parts/Postings.svelte'
   import { provenanceOf } from './postings'
   import { spendWordsFor } from './refusals'
@@ -24,8 +24,10 @@
 
   type Props = {
     transaction: ListedTransaction
-    /** What its To offers: categories, then my accounts. */
+    /** What its To can name as an account: one of mine, by id. */
     toOptions: (Option & { hint: string })[]
+    /** Every path, with its last use; the ledger reads it once per change. */
+    loadPaths: () => Promise<ListedPath[]>
     /** After a chip saves: the places catch their lists up. */
     onSaved: () => Promise<void>
     /** Esc when no chip is open: the details close. */
@@ -40,6 +42,7 @@
   let {
     transaction,
     toOptions,
+    loadPaths,
     onSaved,
     onclose,
     onremove,
@@ -274,10 +277,11 @@
           onopen={() => open('to')}
         >
           {#snippet editor()}
-            <Picker
+            <PathPicker
               id={fieldId('to')}
               name="to"
-              options={toOptions}
+              mode="to"
+              {loadPaths}
               bind:text={value}
               placeholder={copy.spends.write.unsorted}
               listLabel={copy.spends.write.toList}

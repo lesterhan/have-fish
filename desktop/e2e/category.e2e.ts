@@ -6,6 +6,7 @@ import {
   ADD_ACCOUNT,
   aHome,
   launch,
+  offeredPaths,
   openChip,
   openSelected,
   openSpend,
@@ -37,7 +38,7 @@ async function writeIn(page: Page, amount: string, description: string, category
   await expect.poll(() => rows(page)).toHaveLength(before + 1)
 }
 
-const offered = (page: Page) => page.locator(`${OPTIONS} [role=option]`).allInnerTexts()
+const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
 /** Where the selected spend went, as its details say. */
 const categoryOfSelected = async (page: Page) => {
   if (!(await page.isVisible(PANE))) await openSelected(page)
@@ -51,7 +52,7 @@ describe('a category for a spend I write down', () => {
 
     await upToCategory(page, '12', 'Lunch')
     await page.keyboard.type('food')
-    await expect.poll(() => offered(page)).toEqual(['Create food'])
+    await expect.poll(() => offered(page)).toEqual(['expenses:food'])
     await page.keyboard.press('Enter')
     expect(await page.inputValue(CATEGORY)).toBe('food')
     expect(await rows(page)).toEqual([])
@@ -70,7 +71,9 @@ describe('a category for a spend I write down', () => {
 
     await upToCategory(page, '5', 'Cake')
     await page.keyboard.type('o')
-    await expect.poll(() => offered(page)).toEqual(['food', 'transport', 'Create o'])
+    await expect
+      .poll(() => offered(page))
+      .toEqual(['expenses:food', 'expenses:transport', 'expenses:o'])
     await page.keyboard.press('ArrowDown')
     await page.keyboard.press('Enter')
     expect(await page.inputValue(CATEGORY)).toBe('transport')
@@ -86,7 +89,7 @@ describe('a category for a spend I write down', () => {
 
     await upToCategory(page, '4', 'Tea')
     await page.keyboard.type('FOOD')
-    await expect.poll(() => offered(page)).toEqual(['food'])
+    await expect.poll(() => offered(page)).toEqual(['expenses:food'])
   })
 
   test('skipped, the spend is still saved, as unsorted, in three steps', async () => {

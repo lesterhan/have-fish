@@ -7,6 +7,7 @@ import type { CommandName, inputs, Values } from '../../shared/commands'
 import type { Context } from '../context'
 import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listCategories, listIncome } from '../services/categories'
+import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
 import { setTheme } from '../services/settings'
 import { assumedFrom, editSpend, removeSpend, writeSpend } from '../services/spends'
@@ -44,6 +45,7 @@ export const handlers: Handlers = {
   'account.start': startAccount,
   'category.list': (ctx) => ({ ok: true, value: listCategories(ctx.ledger.db) }),
   'income.list': (ctx) => ({ ok: true, value: listIncome(ctx.ledger.db) }),
+  'path.list': (ctx) => ({ ok: true, value: listPaths(ctx.ledger.db) }),
   'account.list': (ctx) => ({ ok: true, value: listAccounts(ctx.ledger.db) }),
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,

@@ -5,9 +5,9 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
-  cellsOf,
   fromLine,
   launch,
+  offeredPaths,
   openSelected,
   rows,
   shownDay,
@@ -47,8 +47,7 @@ async function upToFrom(page: Page, amount: string, description: string) {
   await page.keyboard.press('Backspace')
 }
 
-const offered = (page: Page) =>
-  cellsOf(page.locator(`${OPTIONS} [role=option]`)).then((rows) => rows.map(([name]) => name))
+const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
 const from = (page: Page) => page.inputValue(FROM)
 /** The account the selected spend came out of, as its details say it: the path, in words. */
 const paidFrom = async (page: Page) => {
@@ -63,7 +62,7 @@ describe('picking the account that paid', () => {
 
     await upToFrom(page, '30', 'Dinner')
     await page.keyboard.type('vi')
-    await expect.poll(() => offered(page)).toEqual(['visa', 'Create income:vi'])
+    await expect.poll(() => offered(page)).toEqual(['liabilities:visa', 'income:vi'])
     await page.keyboard.press('Enter')
     expect(await from(page)).toBe('visa')
     expect(await rows(page)).toEqual([])
@@ -82,11 +81,11 @@ describe('picking the account that paid', () => {
 
     await upToFrom(page, '1', 'Gum')
     await page.keyboard.type('c')
-    await expect.poll(() => offered(page)).toEqual(['cash', 'Chequing', 'Create income:c'])
+    await expect.poll(() => offered(page)).toEqual(['assets:cash', 'assets:Chequing', 'income:c'])
     await page.keyboard.press('Backspace')
     await page.keyboard.type('unsorted')
     // A name none of mine has is offered only as somewhere money comes in from.
-    await expect.poll(() => offered(page)).toEqual(['Create income:unsorted'])
+    await expect.poll(() => offered(page)).toEqual(['income:unsorted'])
   })
 
   test('Down shows them all; the arrows move; Escape puts back what was there', async () => {
@@ -97,10 +96,12 @@ describe('picking the account that paid', () => {
 
     await page.locator(FROM).focus()
     expect(await from(page)).toBe('cash')
+    // Emptied, the picker opens with every account, not only cash's part of the tree.
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Backspace')
+    await expect.poll(() => offered(page)).toEqual(['assets:cash', 'liabilities:visa'])
     await page.keyboard.press('ArrowDown')
-    await expect.poll(() => offered(page)).toEqual(['cash', 'visa'])
-    await page.keyboard.press('ArrowDown')
-    expect(await page.locator(`${OPTIONS} [aria-selected=true]`).innerText()).toMatch(/^visa/)
+    expect(await page.locator(`${OPTIONS} [aria-selected=true]`).innerText()).toMatch(/visa/)
     await page.keyboard.type('xyz')
     await page.keyboard.press('Escape')
 
@@ -201,7 +202,8 @@ describe('leaving it alone', () => {
 
     await upToFrom(page, '4.50', 'Coffee')
     expect(await page.getAttribute(FROM, 'placeholder')).toBe('visa')
-    await page.keyboard.press('Enter')
+    // Left alone: Enter from the amount submits, and main assumes the account used last.
+    await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
     expect(await paidFrom(page)).toBe('liabilities visa')

@@ -7,6 +7,7 @@ import {
   aHome,
   fromLine,
   launch,
+  offeredPaths,
   openChip,
   openSelected,
   PANE,
@@ -44,15 +45,7 @@ async function upToFrom(page: Page, amount: string, description: string, to: str
   await page.keyboard.press('Backspace')
 }
 
-const offered = (page: Page) =>
-  page.locator(`${OPTIONS} [role=option]`).evaluateAll((items) =>
-    items.map((li) =>
-      [...li.children]
-        .map((c) => c.textContent?.trim() ?? '')
-        .join(' ')
-        .trim(),
-    ),
-  )
+const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
 const balances = async (page: Page) => {
   await page.click(`${NAV} button:has-text("Accounts")`)
   const listed = await page
@@ -73,7 +66,7 @@ describe('write down money coming in', () => {
 
     await upToFrom(page, '2000', 'Pay', 'chequing')
     await page.keyboard.type('salary')
-    await expect.poll(() => offered(page)).toEqual(['Create income:salary'])
+    await expect.poll(() => offered(page)).toEqual(['income:salary'])
     await page.keyboard.press('Enter')
     await page.keyboard.press('Enter')
 
@@ -99,8 +92,7 @@ describe('write down money coming in', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
 
     await upToFrom(page, '20', 'Birthday', 'chequing')
-    await page.keyboard.press('ArrowDown')
-    await expect.poll(() => offered(page)).toEqual(['chequing Bank account', 'gifts Income'])
+    await expect.poll(() => offered(page)).toEqual(['assets:chequing', 'income:gifts'])
     await page.keyboard.press('ArrowDown')
     await page.keyboard.press('Enter')
     await page.keyboard.press('Enter')

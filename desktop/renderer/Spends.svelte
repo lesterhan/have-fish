@@ -4,8 +4,8 @@
   import type { ListedTransaction } from '../shared/commands'
   import { dayOf, todayIn, understood } from './format'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
-  import Picker from './Picker.svelte'
-  import { fromOf, fromOptions, toOf, toOptions } from './picker'
+  import PathPicker from './parts/PathPicker.svelte'
+  import { fromOf, toOf } from './picker'
   import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import Button from './parts/Button.svelte'
   import Header from './parts/Header.svelte'
@@ -43,23 +43,15 @@
   let fromText = $state('')
   /** Whether From holds my choice: until a spend is written, a refresh leaves it alone. */
   let fromChosen = false
-  let fromPicker: Picker
+  let fromPicker: PathPicker | undefined
 
-  /** The categories in use, most used first; what To holds as typed. */
-  const categories = $derived($ledger.categories)
-  /** The income sources money has come from, most used first. */
-  const income = $derived($ledger.income)
   let toText = $state('')
-  let toPicker: Picker
+  let toPicker: PathPicker | undefined
 
   const assumedName = $derived(payers.find((a) => a.id === assumed)?.name)
   const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
-  /** My accounts, then income sources: one of those makes it income. */
-  const fromChoices = $derived(fromOptions(accountOptions, income, copy.spends.write.income))
-  /** Categories, then my accounts: one of mine makes it a transfer. */
-  const toChoices = $derived(toOptions(categories, accountOptions))
 
   /** The ledger's list, a page at a time: the store holds the pages the list draws. */
   const paged = $derived({
@@ -172,8 +164,8 @@
     } else {
       error = { field: fieldOf(written, to), words: spendWordsFor(written) }
     }
-    if (error?.field === 'from') fromPicker.focus()
-    else if (error?.field === 'to') toPicker.focus()
+    if (error?.field === 'from') fromPicker?.focus()
+    else if (error?.field === 'to') toPicker?.focus()
     else if (error?.field === 'date') dateInput.focus()
     else amountInput.focus()
   }
@@ -264,11 +256,12 @@
 
     <Field id="to" label={copy.spends.write.to} error={refusalOf('to')}>
       {#snippet children(describedby)}
-        <Picker
+        <PathPicker
           bind:this={toPicker}
           id="to"
           name="to"
-          options={toChoices}
+          mode="to"
+          loadPaths={() => ledger.paths()}
           bind:text={toText}
           placeholder={copy.spends.write.unsorted}
           listLabel={copy.spends.write.toList}
@@ -282,11 +275,12 @@
 
     <Field id="from" label={copy.spends.write.from} error={refusalOf('from')}>
       {#snippet children(describedby)}
-        <Picker
+        <PathPicker
           bind:this={fromPicker}
           id="from"
           name="from"
-          options={fromChoices}
+          mode="from"
+          loadPaths={() => ledger.paths()}
           bind:text={fromText}
           placeholder={assumedName ?? copy.spends.write.wallet}
           listLabel={copy.spends.write.fromList}
@@ -345,7 +339,8 @@
       <SpendCard
         bind:this={card}
         transaction={t}
-        toOptions={toChoices}
+        toOptions={accountOptions}
+        loadPaths={() => ledger.paths()}
         onSaved={() => ledger.caughtUp()}
         onclose={close}
         onremove={remove}
