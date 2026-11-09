@@ -262,7 +262,7 @@
       class:refused={error?.part === 'from'}
       onfocusin={() => (active = 'from')}
     >
-      {#if marked === 'from'}<Keys key={copy.spends.composer.tab} />{/if}
+      <span class="tab" class:shown={marked === 'from'}><Keys key={copy.spends.composer.tab} /></span>
       <PathPicker
         id="composer-from"
         name="from"
@@ -293,7 +293,7 @@
       class:refused={error?.part === 'date'}
       onfocusin={() => (active = 'date')}
     >
-      {#if marked === 'date'}<Keys key={copy.spends.composer.tab} />{/if}
+      <span class="tab" class:shown={marked === 'date'}><Keys key={copy.spends.composer.tab} /></span>
       <input
         bind:this={dateInput}
         id="composer-date"
@@ -331,7 +331,7 @@
       class:refused={error?.part === 'amount'}
       onfocusin={() => (active = 'amount')}
     >
-      {#if marked === 'amount'}<Keys key={copy.spends.composer.tab} />{/if}
+      <span class="tab" class:shown={marked === 'amount'}><Keys key={copy.spends.composer.tab} /></span>
       <input
         id="composer-amount"
         bind:value={amount}
@@ -359,7 +359,7 @@
       class:refused={error?.part === 'description'}
       onfocusin={() => (active = 'description')}
     >
-      {#if marked === 'description'}<Keys key={copy.spends.composer.tab} />{/if}
+      <span class="tab" class:shown={marked === 'description'}><Keys key={copy.spends.composer.tab} /></span>
       <input
         id="composer-description"
         bind:value={description}
@@ -385,7 +385,7 @@
       class:refused={error?.part === 'to'}
       onfocusin={() => (active = 'to')}
     >
-      {#if marked === 'to'}<Keys key={copy.spends.composer.tab} />{/if}
+      <span class="tab" class:shown={marked === 'to'}><Keys key={copy.spends.composer.tab} /></span>
       <PathPicker
         id="composer-to"
         name="to"
@@ -486,6 +486,16 @@
     border-bottom-color: var(--color-accent);
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
+  }
+
+  /* Hidden, never removed: a node added or taken away beside a field splits Chromium's undo of
+     what was typed in it, so one Ctrl+Z would leave the first letter (see #628). */
+  .tab {
+    display: none;
+  }
+
+  .tab.shown {
+    display: contents;
   }
 
   .part.next {

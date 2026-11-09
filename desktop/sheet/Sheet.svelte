@@ -125,9 +125,9 @@
     <h2>Button: rest, then disabled; with and without keys</h2>
     {#each VARIANTS as variant (variant)}
       <div class="line">
-        <Button {variant}>{copy.spends.write.submit}</Button>
+        <Button {variant}>{copy.spends.composer.new}</Button>
         <Button {variant} action="addAccount">{copy.accounts.add}</Button>
-        <Button {variant} disabled>{copy.spends.write.submit}</Button>
+        <Button {variant} disabled>{copy.spends.composer.new}</Button>
         <Button {variant} aria-disabled="true" action="remove">{copy.spends.card.remove}</Button>
       </div>
     {/each}
