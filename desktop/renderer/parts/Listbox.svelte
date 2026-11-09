@@ -7,6 +7,7 @@
   // for them: inside the scroller, outside the listbox, which holds only options. The rules are in
   // `listbox.ts`; each row is a `Row`.
   import { onMount, type Snippet, untrack } from 'svelte'
+  import { onDensity } from '../density'
   import {
     groupedOf,
     type Layout,
@@ -168,13 +169,24 @@
     scrollTop = 0
   }
 
-  onMount(() => {
+  /** Reads `--row` and `--band` again: a new density re-lays the list out under the row on top. */
+  function measure() {
+    const top = offsets.indexAt(scroller.scrollTop)
     const css = (name: string) => Number.parseFloat(getComputedStyle(list).getPropertyValue(name))
     if (css('--row') > 0) rowHeight = css('--row')
     if (css('--band') > 0) bandHeight = css('--band')
+    scroller.scrollTop = offsets.top(top)
+  }
+
+  onMount(() => {
+    measure()
+    const stop = onDensity(measure)
     const resized = new ResizeObserver(() => (viewport = scroller.clientHeight))
     resized.observe(scroller)
-    return () => resized.disconnect()
+    return () => {
+      stop()
+      resized.disconnect()
+    }
   })
 
   // The keys move the active item past what's drawn; the list scrolls to keep it in view. Only

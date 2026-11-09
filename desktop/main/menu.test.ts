@@ -19,7 +19,7 @@ const rolesOf = (template: MenuItemConstructorOptions[]) =>
 const UNDO = { undo: { label: 'Undo', enabled: false }, redo: { label: 'Redo', enabled: false } }
 
 const build = (packaged: boolean, mac = false, run = () => {}, undo = UNDO) =>
-  menuTemplate({ packaged, mac, run, undo, theme: 'system' })
+  menuTemplate({ packaged, mac, run, undo, theme: 'system', density: 'regular' })
 
 const DEVELOPER = ['reload', 'forceReload', 'toggleDevTools']
 
@@ -51,6 +51,7 @@ describe('the menu', () => {
       run: () => {},
       undo: UNDO,
       theme: 'graphite-dark',
+      density: 'regular',
     })
     const themes = (view?.submenu as MenuItemConstructorOptions[] | undefined)?.find(
       (i) => i.label === copy.actions.menus.theme,
@@ -61,6 +62,40 @@ describe('the menu', () => {
       ['Graphite dark', 'radio', true],
       ['Follow the system', 'radio', false],
     ])
+  })
+
+  test('the menu built with density large: View has Density after Reset zoom and before Theme, Large checked', () => {
+    const [, , view] = menuTemplate({
+      packaged: true,
+      mac: false,
+      run: () => {},
+      undo: UNDO,
+      theme: 'system',
+      density: 'large',
+    })
+    const submenu = (view?.submenu ?? []) as MenuItemConstructorOptions[]
+    const labels = submenu.flatMap((i) => (i.type === 'separator' ? [] : [i.label]))
+    // The last three: the zoom's last item, then Density, then Theme.
+    expect(labels.slice(-3)).toEqual([
+      'Actual size',
+      copy.actions.menus.density,
+      copy.actions.menus.theme,
+    ])
+    const choices = (submenu.find((i) => i.label === copy.actions.menus.density)?.submenu ??
+      []) as MenuItemConstructorOptions[]
+    expect(choices.map((c) => [c.label, c.type, c.checked])).toEqual([
+      ['Compact', 'radio', false],
+      ['Regular', 'radio', false],
+      ['Comfortable', 'radio', false],
+      ['Large', 'radio', true],
+    ])
+  })
+
+  test('choosing a density runs its action in the window, which sets it', () => {
+    const run = vi.fn()
+    const large = itemsOf(build(true, false, run)).find((i) => i.label === 'Large')
+    large?.click?.(undefined as never, undefined, undefined as never)
+    expect(run).toHaveBeenCalledWith('densityLarge')
   })
 
   test('choosing a theme runs its action in the window, which sets it', () => {

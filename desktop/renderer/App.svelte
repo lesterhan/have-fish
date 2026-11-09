@@ -3,9 +3,11 @@
   import { copy } from '../copy'
   import type { Typing } from '../shared/commands'
   import type { WindowActionId } from '../shared/actions'
+  import type { Density } from '../shared/density'
   import type { ThemeChoice } from '../shared/theme/theme'
   import Accounts from './Accounts.svelte'
   import { runAction } from './actions'
+  import { showDensity } from './density'
   import { ledgerStore } from './ledger'
   import Palette from './Palette.svelte'
   import { type PaletteItem, paletteItems } from './palette'
@@ -48,6 +50,11 @@
     showLedger: () => void go('ledger'),
     showAccounts: () => void go('accounts'),
     showReports: () => void go('reports'),
+    // Main remembers the density and the window sets it on the page; the stylesheet does the rest.
+    densityCompact: () => void setDensity('compact'),
+    densityRegular: () => void setDensity('regular'),
+    densityComfortable: () => void setDensity('comfortable'),
+    densityLarge: () => void setDensity('large'),
     // Main remembers it and repaints; the stylesheet already holds both schemes.
     themeGraphiteLight: () => void setTheme('graphite-light'),
     themeGraphiteDark: () => void setTheme('graphite-dark'),
@@ -93,6 +100,17 @@
   }
 
   const setTheme = (theme: ThemeChoice) => window.haveFish.invoke('settings.theme.set', { theme })
+
+  /** Main keeps the density; the window shows what it kept, and each list measures again. */
+  async function setDensity(density: Density) {
+    const kept = await window.haveFish.invoke('settings.density.set', { density })
+    if (kept.ok) showDensity(kept.value.density)
+  }
+
+  onMount(async () => {
+    const kept = await window.haveFish.invoke('settings.density.get', {})
+    if (kept.ok) showDensity(kept.value.density)
+  })
 
   /** Shows `to`, with the cursor in it. */
   async function go(to: Place) {
