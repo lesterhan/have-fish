@@ -281,8 +281,8 @@ describe('open a transaction where it sits', () => {
     expect(Math.abs((at.card?.top ?? 0) - (at.row?.bottom ?? 0))).toBeLessThanOrEqual(1)
     expect(at.card?.left).toBeGreaterThanOrEqual(at.list?.left ?? 0)
     expect(at.card?.right).toBeLessThanOrEqual(at.list?.right ?? 0)
-    // Nothing slides over the list: the form above it is still there to use.
-    expect(await page.isVisible('form[aria-label="Write down a spend"]')).toBe(true)
+    // Nothing slides over the list: the line that writes one is closed.
+    expect(await page.locator('form[aria-label="Write down a spend"]').count()).toBe(0)
   })
 
   test('details taller than a narrow list: the row stays in view above them', async () => {
@@ -320,6 +320,10 @@ describe('open a transaction where it sits', () => {
     const { page } = await launch(aHome())
     // Three pages of the ledger's list, so scrolling drops the page the open spend is on.
     await manySpends(page, 300)
+    // Writing through the commands leaves the first run's line open; close it as a click would.
+    if (await page.isVisible('form[aria-label="Write down a spend"]')) {
+      await page.keyboard.press('Escape')
+    }
     await expect.poll(async () => (await rows(page)).length).toBeGreaterThan(0)
 
     await openSelected(page)
@@ -356,6 +360,9 @@ describe('open a transaction where it sits', () => {
     // Two full pages of the ledger, all today: row 95 sits on the first, and a day earlier it
     // moves onto the second, which is drawn because the view spans the boundary.
     await manySpends(page, 110)
+    if (await page.isVisible('form[aria-label="Write down a spend"]')) {
+      await page.keyboard.press('Escape')
+    }
     await expect.poll(async () => (await rows(page)).length).toBeGreaterThan(0)
     const scroll = (to: number) =>
       page.locator(LIST).evaluate((ol, to) => {
@@ -365,7 +372,11 @@ describe('open a transaction where it sits', () => {
     await scroll(26 + 90 * 33)
     await page.waitForSelector(`${LIST} li:has-text("Spend 20")`)
 
-    await openSpend(row(page, 'Spend 15'))
+    const spend = row(page, 'Spend 15')
+    await spend.click()
+    await expect.poll(() => page.locator(SELECTED).innerText()).toContain('Spend 15')
+    await spend.click()
+    await page.waitForSelector(PANE)
     const was = await chipText(page, 'description')
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)

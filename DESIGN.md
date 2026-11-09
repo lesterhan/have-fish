@@ -161,7 +161,8 @@ screen that needs it, not copied until a third copy forces it out.
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
 | `Band` | A day, or a root of accounts by its `Path`, with what its rows come to; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
-| `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, the form that writes a spend, Accounts' pane |
+| `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
+| `Composer` | Empty with its word, next (its Tab key), in it (an accent underline), filled (a chip on the band), refused (underlined red, two words of why); the date list; a half-screen line that wraps | The ledger |
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |

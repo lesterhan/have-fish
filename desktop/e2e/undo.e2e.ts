@@ -8,6 +8,7 @@ import {
   aHome,
   launch,
   openChip,
+  openComposer,
   openSelected,
   PANE,
   rows,
@@ -43,7 +44,7 @@ describe('undo and redo', () => {
 
     press('ctrl+z')
     await expect.poll(() => rows(page)).toEqual([])
-    expect(await focused(page)).toBe('Write down a spend amount')
+    expect(await focused(page)).toBe('Ledger OL')
 
     press('ctrl+shift+z')
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
@@ -66,6 +67,7 @@ describe('undo and redo', () => {
     await writeDown(page, '12', 'Lunch')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openComposer(page)
     await page.focus(W_AMOUNT)
     await page.keyboard.type('7')
     await page.keyboard.press('Tab')
@@ -84,6 +86,7 @@ describe('undo and redo', () => {
     await writeDown(page, '12', 'Lunch')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openComposer(page)
     await page.focus(W_DESCRIPTION)
     await page.keyboard.type('Tea')
     press('ctrl+z')
@@ -141,6 +144,7 @@ describe('undo and redo', () => {
 
   test('with nothing to undo, Ctrl+Z changes nothing and moves nothing', async () => {
     const { page, press } = await launch(aHome())
+    await openComposer(page)
     await page.focus(W_AMOUNT)
     press('ctrl+z')
     await settle(page)

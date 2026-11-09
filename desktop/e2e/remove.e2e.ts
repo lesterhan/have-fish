@@ -7,6 +7,7 @@ import {
   aHome,
   launch,
   openChip,
+  openComposer,
   openSelected,
   openSpend,
   PANE,
@@ -122,6 +123,7 @@ describe('removing a spend', () => {
     press('Delete')
     await expect.poll(() => page.inputValue(P_DESCRIPTION)).toBe('ea')
 
+    await openComposer(page)
     await page.focus(`${WRITE} input[name=amount]`)
     press('Delete')
     await page.waitForTimeout(400)

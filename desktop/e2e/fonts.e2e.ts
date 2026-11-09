@@ -2,7 +2,17 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openChip, openSelected, PANE, rows, WRITE, writeDown } from './app'
+import {
+  aHome,
+  launch,
+  openChip,
+  openComposer,
+  openSelected,
+  PANE,
+  rows,
+  WRITE,
+  writeDown,
+} from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 
@@ -60,11 +70,12 @@ describe('fonts', () => {
   test('each role is in its font', async () => {
     const { page } = await launch(aHome())
     await twoSpends(page)
+    await openComposer(page)
 
-    expect(await familyOf(page, `${WRITE} label`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=description]`)).toBe(SANS)
     expect(await familyOf(page, `${WRITE} input[name=amount]`)).toBe(FIGURES)
     expect(await familyOf(page, `${WRITE} input[name=date]`)).toBe(FIGURES)
+    expect(await familyOf(page, `${WRITE} input[name=from]`)).toBe(CODE)
     expect(await familyOf(page, `${LIST} >> text=/^\\w{3} \\d{1,2} \\w{3}$/`)).toBe(FIGURES)
     expect(await familyOf(page, `${LIST} >> text="4.50"`)).toBe(FIGURES)
     // A row reads in the interface's face; the serif is for titles (DESIGN.md, "Type").

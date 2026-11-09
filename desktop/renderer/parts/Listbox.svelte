@@ -48,6 +48,8 @@
     onpick: (id: string) => void
     /** A key the list doesn't move by, first: true if it was handled. */
     onkey?: (event: KeyboardEvent) => boolean
+    /** The list itself took the cursor (a click, Tab): a place may step something back. */
+    onfocus?: (() => void) | undefined
     /**
      * How many rows each group has, in order: a day's. Each group's first row carries `band`
      * above it. Ignored unless they add up to the list's rows.
@@ -67,6 +69,8 @@
     /** The item whose details show under its row, lifted with it; the rest step back. */
     opened?: string | null | undefined
     details?: Snippet<[T]> | undefined
+    /** The composer is open: the list steps back, and reaching for it closes the line. */
+    dimmed?: boolean
   }
   let {
     items,
@@ -88,11 +92,13 @@
     onactive,
     onpick,
     onkey,
+    onfocus,
     wrap = false,
     owner,
     hidden = false,
     opened = null,
     details,
+    dimmed = false,
   }: Props = $props()
 
   let list: HTMLOListElement
@@ -154,6 +160,12 @@
 
   export function focus() {
     list.focus()
+  }
+
+  /** The top of the list: the newest rows, where a new line opens above today. */
+  export function toTop() {
+    scroller.scrollTop = 0
+    scrollTop = 0
   }
 
   onMount(() => {
@@ -235,6 +247,7 @@
   bind:this={scroller}
   {hidden}
   data-opened={openItem === undefined ? undefined : true}
+  data-dimmed={dimmed || undefined}
   onscroll={() => (scrollTop = scroller.scrollTop)}
 >
   {#if grouped && band && topGroup >= 0}
@@ -250,6 +263,7 @@
     aria-activedescendant={owner === undefined ? descendant : undefined}
     style:--above="{offsets.top(shown.from)}px"
     style:--below="{offsets.top(count) - offsets.top(shown.to)}px"
+    {onfocus}
     onkeydown={(event) => {
       if (owner === undefined) press(event)
     }}
@@ -342,6 +356,11 @@
   .stays > div {
     position: absolute;
     inset-inline: 0;
+  }
+
+  /* The composer is open: the rest of the ledger isn't for reading, and reaching for it closes it. */
+  .scroller[data-dimmed] > ol > :global(li) {
+    opacity: 0.42;
   }
 
   .details {

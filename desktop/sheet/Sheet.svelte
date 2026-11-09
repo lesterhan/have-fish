@@ -2,6 +2,7 @@
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
   import Chip from '../renderer/parts/Chip.svelte'
+  import Composer from '../renderer/parts/Composer.svelte'
   import Empty from '../renderer/parts/Empty.svelte'
   import Field from '../renderer/parts/Field.svelte'
   import Fold from '../renderer/parts/Fold.svelte'
@@ -153,6 +154,20 @@
         newOption={copy.spends.write.newCategory}
       />
     </div>
+  </section>
+
+  <section aria-label="Composer">
+    <h2>Composer: first run, examples in the parts, then a line to fill</h2>
+    <Composer
+      open
+      firstRun
+      accounts={[]}
+      assumedName={undefined}
+      {loadPaths}
+      onclose={() => {}}
+      onsaved={async () => {}}
+      forgetTyping={() => {}}
+    />
   </section>
 
   <section aria-label="Postings">

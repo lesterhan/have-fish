@@ -101,9 +101,9 @@ const MADE = /(^|[;{\s"'])(opacity|filter|color|background(?:-color)?)\s*:\s*([^
 
 /**
  * A disabled control, which WCAG 1.4.3 doesn't hold to a contrast; and the rest of a list while a
- * row is open, which steps back and isn't for reading (DESIGN.md, "Surfaces").
+ * row is open or the composer is, which steps back and isn't for reading (DESIGN.md, "Surfaces").
  */
-const DISABLED = /:disabled|aria-disabled|\[data-opened\]/
+const DISABLED = /:disabled|aria-disabled|\[data-opened\]|\[data-dimmed\]/
 
 /**
  * Finds a colour a component makes from the tokens rather than reads from them: text at an

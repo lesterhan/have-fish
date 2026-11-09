@@ -32,6 +32,12 @@
     onrange?: (from: number, to: number) => void
     /** The keys moved to a row whose page isn't here yet. */
     onmissing?: (index: number) => void
+    /** The line that writes a spend, above the list while it's open. */
+    composer?: Snippet
+    /** The composer is open: the list steps back. */
+    dimmed?: boolean
+    /** The list took the cursor: close what's open, as reaching for it does. */
+    onstepback?: () => void
     selectedId: string | null
     /** The row just written, which slides in. */
     written?: string | null
@@ -64,6 +70,9 @@
     nets,
     onrange,
     onmissing,
+    composer,
+    dimmed = false,
+    onstepback,
     selectedId,
     written = null,
     onselect,
@@ -108,6 +117,11 @@
 
   export function focus() {
     listbox.focus()
+  }
+
+  /** The newest rows: opening the composer brings today's page in. */
+  export function toTop() {
+    listbox.toTop()
   }
 
   /** The selected row, from whichever list this is. */
@@ -185,14 +199,17 @@
   }
 </script>
 
-<div class="list" bind:clientWidth={width}>
+<div class="list" class:composing={composer !== undefined} bind:clientWidth={width}>
   <Headings columns={shown.template} names={headings} />
+  {#if composer}{@render composer()}{/if}
   <Listbox
     bind:this={listbox}
     items={transactions}
     {paged}
     {onrange}
     {onmissing}
+    {dimmed}
+    onfocus={onstepback}
     idOf={(t) => t.id}
     active={selectedId}
     {label}
@@ -258,6 +275,10 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
+  }
+
+  .list.composing {
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
 
   [data-cell='amount'] {

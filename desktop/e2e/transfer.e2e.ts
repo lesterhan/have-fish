@@ -9,6 +9,7 @@ import {
   launch,
   offeredPaths,
   openChip,
+  openComposer,
   openSelected,
   PANE,
   rows,
@@ -45,6 +46,7 @@ async function twoAccounts(page: Page) {
 
 /** Amount, Tab, what for, Tab: the cursor in To. */
 async function upToTo(page: Page, amount: string, description: string) {
+  await openComposer(page)
   await page.locator(`${WRITE} input[name=amount]`).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')
@@ -111,9 +113,7 @@ describe('moving money between my accounts', () => {
     await page.keyboard.press('Enter')
     await page.keyboard.press('Enter')
 
-    await expect
-      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
-      .toBe("That's the account it comes from.")
+    await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('same account')
     expect(await page.getAttribute(TO, 'aria-invalid')).toBe('true')
     expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
     expect(await rows(page)).toHaveLength(1)

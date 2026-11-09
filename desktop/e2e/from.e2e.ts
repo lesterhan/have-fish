@@ -8,6 +8,7 @@ import {
   fromLine,
   launch,
   offeredPaths,
+  openComposer,
   openSelected,
   rows,
   shownDay,
@@ -37,6 +38,7 @@ async function addAccount(page: Page, name: string, kind: string, currency?: str
 
 /** Amount, Tab, what for, Tab past To, Tab: the cursor in From, emptied. */
 async function upToFrom(page: Page, amount: string, description: string) {
+  await openComposer(page)
   await page.locator(AMOUNT).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')
@@ -94,6 +96,7 @@ describe('picking the account that paid', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
     await addAccount(page, 'visa', 'card')
 
+    await openComposer(page)
     await page.locator(FROM).focus()
     expect(await from(page)).toBe('cash')
     // Emptied, the picker opens with every account, not only cash's part of the tree.
@@ -104,7 +107,9 @@ describe('picking the account that paid', () => {
     expect(await page.locator(`${OPTIONS} [aria-selected=true]`).innerText()).toMatch(/visa/)
     await page.keyboard.type('xyz')
     await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
 
+    await openComposer(page)
     expect(await from(page)).toBe('cash')
     expect(await page.isVisible(OPTIONS)).toBe(false)
   })
@@ -119,8 +124,8 @@ describe('picking the account that paid', () => {
     await page.keyboard.press('Enter')
 
     await expect
-      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
-      .toBe('Money coming in goes into one of your accounts. Pick one in To.')
+      .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
+      .toBe('not an account')
     expect(await page.getAttribute(`${WRITE} input[name=to]`, 'aria-invalid')).toBe('true')
     expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
     expect(await rows(page)).toEqual([])
@@ -147,9 +152,7 @@ describe('picking the account that paid', () => {
     await page.keyboard.press('Enter')
     await page.keyboard.press('Enter')
 
-    await expect
-      .poll(() => page.locator(`${WRITE} #amount-error`).innerText())
-      .toBe('That currency has no cents. Type a whole amount, like 1500.')
+    await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('too precise')
     expect(await rows(page)).toEqual([])
 
     await page.fill(`${WRITE} input[name=amount]`, '1500')
@@ -161,14 +164,16 @@ describe('picking the account that paid', () => {
 describe('leaving it alone', () => {
   test('the first spend, before any account, comes out of the wallet', async () => {
     const { page } = await launch(aHome())
+    await page.waitForSelector(WRITE)
     expect(await from(page)).toBe('')
-    expect(await page.getAttribute(FROM, 'placeholder')).toBe('cash')
+    expect(await page.getAttribute(FROM, 'placeholder')).toBe('assets:wallet')
 
     await writeDown(page, '4.50', 'Coffee')
 
     await expect.poll(() => rows(page)).toHaveLength(1)
     expect(await paidFrom(page)).toBe('assets cash')
-    await expect.poll(() => from(page)).toBe('cash')
+    await openComposer(page)
+    expect(await from(page)).toBe('cash')
   })
 
   test('the account used last is assumed, and still is after the app starts again', async () => {
@@ -180,6 +185,7 @@ describe('leaving it alone', () => {
     await first.page.keyboard.press('Enter')
     await first.page.keyboard.press('Enter')
     await expect.poll(() => rows(first.page)).toHaveLength(1)
+    await openComposer(first.page)
     expect(await from(first.page)).toBe('visa')
 
     await writeDown(first.page, '4.50', 'Coffee')
@@ -188,6 +194,7 @@ describe('leaving it alone', () => {
     await first.quit()
 
     const again = await launch(home)
+    await openComposer(again.page)
     await expect.poll(() => from(again.page)).toBe('visa')
   })
 
@@ -201,7 +208,7 @@ describe('leaving it alone', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
 
     await upToFrom(page, '4.50', 'Coffee')
-    expect(await page.getAttribute(FROM, 'placeholder')).toBe('visa')
+    expect(await page.getAttribute(FROM, 'placeholder')).toBe('from')
     // Left alone: Enter from the amount submits, and main assumes the account used last.
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 

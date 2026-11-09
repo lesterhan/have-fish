@@ -53,4 +53,30 @@ export function spendWordsFor(failure: WireFailure): string {
   return isIncome(failure.detail.path) ? copy.spends.write.badIncome : copy.spends.write.badCategory
 }
 
+/** Two words of why, for the composer's refused part: short enough to sit inside the line. */
+export function composerWordsFor(failure: WireFailure): string {
+  const refused = copy.spends.composer.refused
+  switch (failure.error) {
+    case 'AMOUNT_INVALID':
+      return refused.amount
+    case 'AMOUNT_NOT_POSITIVE':
+      return refused.positive
+    case 'AMOUNT_TOO_PRECISE':
+      return refused.precise
+    case 'DATE_INVALID':
+      return refused.date
+    case 'PATH_INVALID':
+      return isIncome(failure.detail.path) ? refused.from : refused.to
+    case 'TRANSFER_TO_ITSELF':
+      return refused.same
+    case 'ACCOUNT_NOT_FOUND':
+    case 'ACCOUNT_DELETED':
+    case 'ACCOUNT_CURRENCY_LOCKED':
+    case 'INCOME_NOT_TO_ACCOUNT':
+      return refused.account
+    default:
+      return refused.form
+  }
+}
+
 const isIncome = (path: string) => path.startsWith('income:')

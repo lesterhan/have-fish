@@ -2,7 +2,7 @@ import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
 import { copy } from '../copy'
 import type { WireFailure } from '../shared/commands'
-import { fieldOf, spendWordsFor, wordsFor } from './refusals'
+import { composerWordsFor, fieldOf, spendWordsFor, wordsFor } from './refusals'
 
 const refused = <C extends FailureCode>(error: C, detail: FailureDetails[C]) =>
   ({ ok: false, error, detail }) as WireFailure
@@ -83,6 +83,23 @@ describe('fieldOf', () => {
     )
     expect(fieldOf(refused('TRANSFER_TO_ITSELF', { accountId: 'a' }))).toBe('to')
     expect(fieldOf(refused('INPUT_MALFORMED', { path: 'to', issue: 'invalid_union' }))).toBe('to')
+  })
+})
+
+describe('the composer’s two words', () => {
+  test('say which part, in the words the line has room for', () => {
+    expect(composerWordsFor(refused('AMOUNT_INVALID', { amount: 'abc' }))).toBe('not an amount')
+    expect(composerWordsFor(refused('AMOUNT_NOT_POSITIVE', { amount: '0' }))).toBe('not positive')
+    const yen = { amount: '1500.50', currency: 'JPY' }
+    expect(composerWordsFor(refused('AMOUNT_TOO_PRECISE', yen))).toBe('too precise')
+    expect(composerWordsFor(refused('DATE_INVALID', { date: 'soon' }))).toBe('not a day')
+    expect(composerWordsFor(refused('PATH_INVALID', { path: 'income:a::b' }))).toBe('not an income')
+    expect(composerWordsFor(refused('PATH_INVALID', { path: 'expenses:a::b' }))).toBe(
+      'not a category',
+    )
+    expect(composerWordsFor(refused('TRANSFER_TO_ITSELF', { accountId: 'a' }))).toBe('same account')
+    expect(composerWordsFor(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toBe('not an account')
+    expect(composerWordsFor(refused('UNEXPECTED', undefined))).toBe('not saved')
   })
 })
 

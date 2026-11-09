@@ -4,6 +4,7 @@ import {
   bandDay,
   day,
   dayOf,
+  dayParts,
   moment,
   money,
   moneyParts,
@@ -46,6 +47,15 @@ describe('day', () => {
   test("with the year when it isn't this one", () => {
     expect(day('2025-11-05', '2026-11-06')).toBe('Wed 5 Nov 2025')
     expect(day('2026-11-05', '2027-01-02')).toBe('Thu 5 Nov 2026')
+  })
+
+  test('in pieces, the year apart for the date list', () => {
+    expect(dayParts('2026-11-05')).toEqual({
+      weekday: 'Thu',
+      day: '5',
+      month: 'Nov',
+      year: '2026',
+    })
   })
 })
 

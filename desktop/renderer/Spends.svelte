@@ -1,19 +1,14 @@
 <script lang="ts">
-  import { onMount, tick, untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
-  import { dayOf, todayIn, understood } from './format'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
-  import PathPicker from './parts/PathPicker.svelte'
-  import { fromOf, toOf } from './picker'
+  import { toOf } from './picker'
   import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import Button from './parts/Button.svelte'
+  import Composer from './parts/Composer.svelte'
   import Header from './parts/Header.svelte'
-  import Keys from './parts/Keys.svelte'
   import Notice from './parts/Notice.svelte'
-  import { ariaShortcut, MAC } from './shortcuts'
-  import Day from './parts/Day.svelte'
-  import Field from './parts/Field.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
 
@@ -26,31 +21,18 @@
   }
   let { hidden, ledger, forgetTyping }: Props = $props()
 
-  let amount = $state('')
-  let description = $state('')
-  /** The day the spend happened: today, until I change it. */
-  let date = $state(todayIn())
-  /** Whether Date holds my choice: until then it follows the calendar, and main dates it. */
-  let dateChosen = false
-  let error = $state<{ field: Where; words: string } | null>(null)
-  let saving = $state(false)
-  let amountInput: HTMLInputElement
-  let dateInput: HTMLInputElement
+  /** The line that writes a spend, open above today's rows. */
+  let composing = $state(false)
+  let line: Composer | undefined = $state()
+  /** The first run's line opens by itself, once. */
+  let openedFirstRun = false
 
-  /** The accounts that can pay, and the one a spend comes out of when From is left alone. */
-  const payers = $derived($ledger.accounts)
-  const assumed = $derived($ledger.assumedFrom)
-  let fromText = $state('')
-  /** Whether From holds my choice: until a spend is written, a refresh leaves it alone. */
-  let fromChosen = false
-  let fromPicker: PathPicker | undefined
-
-  let toText = $state('')
-  let toPicker: PathPicker | undefined
-
-  const assumedName = $derived(payers.find((a) => a.id === assumed)?.name)
+  const accounts = $derived($ledger.accounts)
+  const assumedName = $derived(accounts.find((a) => a.id === $ledger.assumedFrom)?.name)
+  /** No accounts and no spends: the line teaches with examples in its parts. */
+  const firstRun = $derived($ledger.loaded && $ledger.total === 0 && accounts.length === 0)
   const accountOptions = $derived(
-    payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
+    accounts.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
 
   /** The ledger's list, a page at a time: the store holds the pages the list draws. */
@@ -75,22 +57,12 @@
   let list: SpendList
   let card: SpendCard | undefined = $state()
 
-  /** The day the date field means, said under it. */
-  const meant = $derived(understood(date))
-  const refusalOf = (field: Where) => (error?.field === field ? error.words : null)
-
-  // Each load: Date follows the calendar and From the account used last, unless I chose them,
-  // and the selection stays while it's in the ledger, else goes to the newest. Drafts are left
-  // alone: they're the window's.
+  // Each load: the selection stays while it's in the ledger, else goes to the newest.
   $effect(() => {
     const state = $ledger
     untrack(() => {
-      if (!dateChosen) date = todayIn()
       if (state.loaded && rowWithId(state, selectedId) === undefined) {
         selectedId = rowAt(state, 0)?.id ?? null
-      }
-      if (!fromChosen) {
-        fromText = state.accounts.find((a) => a.id === state.assumedFrom)?.name ?? ''
       }
     })
   })
@@ -105,12 +77,33 @@
     if (openedId !== null && openedId !== selectedId) openedId = null
   })
 
-  onMount(() => amountInput.focus())
+  // The first run shows the line open, with examples, so writing one is the only thing to do.
+  $effect(() => {
+    if (firstRun && !openedFirstRun) {
+      openedFirstRun = true
+      void openLine()
+    }
+  })
 
-  /** Coming here from another place: the list, or the amount field while there's nothing in it. */
+  // Once the ledger is in, the place has the cursor: the list, or the line when nothing is written.
+  let tookCursor = false
+  $effect(() => {
+    const state = $ledger
+    if (!state.loaded || tookCursor) return
+    tookCursor = true
+    untrack(() => {
+      if (document.activeElement === document.body) {
+        if (state.total > 0) list.focus()
+        else void openLine()
+      }
+    })
+  })
+
+  /** Coming here from another place: the line if it's open, else the list. */
   export function focus() {
-    if ($ledger.total > 0) list.focus()
-    else amountInput.focus()
+    if (composing) line?.focus()
+    else if ($ledger.total > 0) list.focus()
+    else void openLine()
   }
 
   /** After an undo or redo: the list as it is now, with the spend that came back selected. */
@@ -129,45 +122,43 @@
     else dismissed = unloaded
   }
 
-  async function write(event: SubmitEvent) {
-    event.preventDefault()
-    if (saving) return
-    const from = fromOf(payers, fromText)
-    saving = true
-    const to = toOf(payers, toText)
-    // Left to itself, Date sends nothing: main dates it today, even past midnight.
-    const written = await window.haveFish.invoke('spend.write', {
-      amount,
-      description,
-      to,
-      from,
-      date: dateChosen ? dayOf(date) : '',
-    })
-    saving = false
-    if (written.ok) {
-      amount = ''
-      description = ''
-      toText = ''
-      date = todayIn()
-      dateChosen = false
-      error = null
-      // From stays on the account that paid: it's the one used last now.
-      fromChosen = false
-      forgetTyping()
-      await ledger.caughtUp()
-      await ledger.locate(written.value.id)
-      selectedId = written.value.id
-      justWritten = written.value.id
-      setTimeout(() => {
-        if (justWritten === written.value.id) justWritten = null
-      }, 1500)
-    } else {
-      error = { field: fieldOf(written, to), words: spendWordsFor(written) }
+  /** Ctrl+N or + New: today's page comes in first, then the line opens above it. */
+  export async function newSpend() {
+    if (composing) {
+      line?.focus()
+      return
     }
-    if (error?.field === 'from') fromPicker?.focus()
-    else if (error?.field === 'to') toPicker?.focus()
-    else if (error?.field === 'date') dateInput.focus()
-    else amountInput.focus()
+    await openLine()
+  }
+
+  async function openLine() {
+    openedId = null
+    composing = true
+    await tick()
+    // The line takes the cursor once its carried-over parts are in (Composer's open effect).
+    list.toTop()
+  }
+
+  /** Esc, or reaching for the ledger: the line closes, and its half-typed draft stays. */
+  function closeLine() {
+    if (!composing) return
+    composing = false
+    if ($ledger.total > 0) list.focus()
+  }
+
+  /** Written: the line closes, and the new spend shows selected and lit. */
+  async function saved(id: string) {
+    composing = false
+    await ledger.caughtUp()
+    await ledger.locate(id)
+    selectedId = id
+    justWritten = id
+    setTimeout(() => {
+      if (justWritten === id) justWritten = null
+    }, 1500)
+    await tick()
+    // A new line opened while the ledger caught up keeps the cursor: it isn't done with it.
+    if (!composing) list.focus()
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
@@ -200,21 +191,15 @@
     const removed = await window.haveFish.invoke('spend.remove', { id })
     removing = false
     if (!removed.ok) {
-      error = { field: 'form', words: wordsFor(removed) }
+      refusal = wordsFor(removed)
       return
     }
     const wasOpen = opened === id
     selectedId = next
     await ledger.caughtUp()
-    // Removed from its card, the cursor goes back to the list; with nothing left, to Amount.
-    if (selectedId === null) amountInput.focus()
+    // Removed from its card, the cursor goes back to the list; with nothing left, to the line.
+    if (selectedId === null) await openLine()
     else if (wasOpen) list.focus()
-  }
-
-  /** Ctrl+N: the amount field, with the details out of its way. Any draft stays. */
-  export function newSpend() {
-    openedId = null
-    amountInput.focus()
   }
 
   async function open(focus: boolean) {
@@ -233,104 +218,17 @@
 
 <main class="spends" {hidden}>
   <div class="top">
-    <Header title={copy.app.places.ledger} />
+    <Header title={copy.app.places.ledger}>
+      <Button
+        action="newSpend"
+        variant={composing ? 'plain' : 'primary'}
+        onclick={() => void newSpend()}
+      >
+        {copy.spends.composer.new}
+      </Button>
+    </Header>
     {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
   </div>
-
-  <form class="write" aria-label={copy.spends.write.label} onsubmit={write} novalidate>
-    <Field id="amount" label={copy.spends.write.amount} error={refusalOf('amount')} figures>
-      {#snippet keys()}<Keys action="newSpend" />{/snippet}
-      {#snippet children(describedby)}
-        <input
-          bind:this={amountInput}
-          id="amount"
-          aria-keyshortcuts={ariaShortcut('newSpend', MAC)}
-          bind:value={amount}
-          name="amount"
-          inputmode="decimal"
-          autocomplete="off"
-          maxlength="64"
-          aria-invalid={error?.field === 'amount'}
-          aria-describedby={describedby}
-        />
-      {/snippet}
-    </Field>
-
-    <Field id="description" label={copy.spends.write.description} error={refusalOf('description')}>
-      {#snippet children(describedby)}
-        <input
-          id="description"
-          bind:value={description}
-          name="description"
-          autocomplete="off"
-          maxlength="500"
-          aria-invalid={error?.field === 'description'}
-          aria-describedby={describedby}
-        />
-      {/snippet}
-    </Field>
-
-    <Field id="to" label={copy.spends.write.to} error={refusalOf('to')}>
-      {#snippet children(describedby)}
-        <PathPicker
-          bind:this={toPicker}
-          id="to"
-          name="to"
-          mode="to"
-          loadPaths={() => ledger.paths()}
-          bind:text={toText}
-          placeholder={copy.spends.write.unsorted}
-          listLabel={copy.spends.write.toList}
-          invalid={error?.field === 'to'}
-          {describedby}
-          onchoose={() => {}}
-          newOption={copy.spends.write.newCategory}
-        />
-      {/snippet}
-    </Field>
-
-    <Field id="from" label={copy.spends.write.from} error={refusalOf('from')}>
-      {#snippet children(describedby)}
-        <PathPicker
-          bind:this={fromPicker}
-          id="from"
-          name="from"
-          mode="from"
-          loadPaths={() => ledger.paths()}
-          bind:text={fromText}
-          placeholder={assumedName ?? copy.spends.write.wallet}
-          listLabel={copy.spends.write.fromList}
-          invalid={error?.field === 'from'}
-          {describedby}
-          onchoose={() => (fromChosen = true)}
-          newOption={copy.spends.write.newIncome}
-        />
-      {/snippet}
-    </Field>
-
-    <!-- Typed the short way too (`y`, `-3`, `mon`, `10-31`); what it means shows under it. -->
-    <Field id="date" label={copy.spends.write.date} error={refusalOf('date')} figures>
-      {#snippet note()}{#if meant !== null}<Day date={meant} />{/if}{/snippet}
-      {#snippet children(describedby)}
-        <input
-          id="date"
-          bind:this={dateInput}
-          bind:value={date}
-          oninput={() => (dateChosen = true)}
-          name="date"
-          autocomplete="off"
-          maxlength="10"
-          aria-invalid={error?.field === 'date'}
-          aria-describedby={describedby}
-        />
-      {/snippet}
-    </Field>
-
-    <Button type="submit" variant="primary" disabled={saving}>{copy.spends.write.submit}</Button>
-    {#if error?.field === 'form'}
-      <p class="error" role="alert">{error.words}</p>
-    {/if}
-  </form>
 
   <SpendList
     bind:this={list}
@@ -352,7 +250,22 @@
     onremove={remove}
     onrefile={refile}
     loadPaths={() => ledger.paths()}
+    dimmed={composing}
+    onstepback={closeLine}
   >
+    {#snippet composer()}
+      <Composer
+        bind:this={line}
+        open={composing}
+        {firstRun}
+        {accounts}
+        {assumedName}
+        loadPaths={() => ledger.paths()}
+        onclose={closeLine}
+        onsaved={saved}
+        {forgetTyping}
+      />
+    {/snippet}
     {#snippet details(t: ListedTransaction)}
       <SpendCard
         bind:this={card}
@@ -368,16 +281,16 @@
 </main>
 
 <style>
-  /* The form beside the list, which has the rest: a spend's details open inside it. */
+  /* The header, then the ledger with its line at the top. */
   main {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
-      'top top'
-      'write list';
-    gap: var(--space-4) var(--space-6);
+      'top'
+      'list';
+    gap: var(--space-3);
     padding: var(--space-4);
   }
 
@@ -394,26 +307,7 @@
   /* NARROW in narrow.ts. */
   @media (max-width: 44rem) {
     main {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto auto minmax(0, 1fr);
-      grid-template-areas:
-        'top'
-        'write'
-        'list';
       padding: var(--space-3);
     }
-  }
-
-  form {
-    grid-area: write;
-    align-self: start;
-    display: grid;
-    gap: var(--space-2);
-  }
-
-  .error {
-    margin: 0;
-    font-size: var(--text-small);
-    color: var(--color-error);
   }
 </style>
