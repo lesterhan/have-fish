@@ -78,3 +78,56 @@ describe('type and timing live in tokens.css too', () => {
     expect(found(rawTimingsIn), 'Use a --duration-* token from tokens.css').toEqual([])
   })
 })
+
+/** The row, band and base type each density sets: `tokens.css`'s first `:root` is Regular. */
+function densitySteps(source: string) {
+  const block = (selector: string) => {
+    const at = source.indexOf(selector)
+    return at === -1 ? '' : source.slice(at, source.indexOf('}', at))
+  }
+  const px = (text: string, name: string) => {
+    const value = new RegExp(`--${name}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(text)?.[1]
+    return Number.parseFloat(value ?? 'NaN')
+  }
+  const steps = (text: string) => ({
+    row: px(text, 'row'),
+    band: px(text, 'band'),
+    type: px(text, 'text-base'),
+  })
+  return {
+    compact: steps(block("[data-density='compact']")),
+    regular: steps(block(':root {')),
+    comfortable: steps(block("[data-density='comfortable']")),
+    large: steps(block("[data-density='large']")),
+  }
+}
+
+/** DESIGN.md's density table, as the same steps. */
+function tabledSteps(source: string) {
+  const steps: Record<string, { row: number; band: number; type: number }> = {}
+  for (const line of source.split('\n')) {
+    const cells = line.split('|').map((cell) => cell.trim())
+    if (!/^\| (Compact|Regular \(default\)|Comfortable|Large) \|/.test(line)) continue
+    const name = cells[1] === 'Regular (default)' ? 'regular' : (cells[1]?.toLowerCase() ?? '')
+    steps[name] = {
+      row: Number.parseFloat(cells[2] ?? ''),
+      band: Number.parseFloat(cells[3] ?? ''),
+      type: Number.parseFloat(cells[4] ?? ''),
+    }
+  }
+  return steps
+}
+
+describe('the four densities are the ones DESIGN.md says', () => {
+  const css = densitySteps(readFileSync(join(DESKTOP, TOKENS), 'utf8'))
+  const table = tabledSteps(readFileSync(join(DESKTOP, '..', 'DESIGN.md'), 'utf8'))
+
+  test('it read all four', () => {
+    expect(Object.keys(css).sort()).toEqual(['comfortable', 'compact', 'large', 'regular'])
+    expect(Object.keys(table).sort()).toEqual(['comfortable', 'compact', 'large', 'regular'])
+  })
+
+  test('Compact 30/26/13, Regular 33/26/14, Comfortable 40/26/14, Large 46/32/16', () => {
+    expect(css).toEqual(table)
+  })
+})

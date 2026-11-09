@@ -47,8 +47,6 @@ export const ACTIONS = [
   { id: 'quit', menu: 'file', accelerator: 'CmdOrCtrl+Q', role: 'quit', grouped: 'apart' },
 
   // The window's, not Electron's roles: it decides between a field's typing and the ledger.
-
-  // The window's, not Electron's roles: it decides between a field's typing and the ledger.
   { id: 'undo', menu: 'edit', accelerator: 'CmdOrCtrl+Z' },
   { id: 'redo', menu: 'edit', accelerator: 'CmdOrCtrl+Shift+Z', alternate: 'Ctrl+Y' },
   { id: 'cut', menu: 'edit', accelerator: 'CmdOrCtrl+X', role: 'cut', grouped: 'apart' },
@@ -70,7 +68,7 @@ export const ACTIONS = [
   { id: 'zoomOut', menu: 'view', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
   { id: 'resetZoom', menu: 'view', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
 
-  // The four densities, in the ladder's order, then the built-in themes and following the system.
+  // The four densities, in the ladder's order.
   { id: 'densityCompact', menu: 'view', density: 'compact' },
   { id: 'densityRegular', menu: 'view', density: 'regular' },
   { id: 'densityComfortable', menu: 'view', density: 'comfortable' },

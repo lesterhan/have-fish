@@ -93,6 +93,21 @@ async function manySpends(page: Page, n: number) {
     .toBe(String(n))
 }
 
+/** The end of the list: where a row has the least room below it. */
+async function scrollToEnd(page: Page) {
+  await page.locator(LEDGER).evaluate((ol) => {
+    if (ol.parentElement) ol.parentElement.scrollTop = ol.parentElement.scrollHeight
+  })
+  await page.waitForFunction(
+    (list) => {
+      const first = document.querySelector(`${list} li[role=option]`)
+      return first !== null && Number(first.getAttribute('aria-posinset')) > 100
+    },
+    LEDGER,
+    { timeout: 30_000 },
+  )
+}
+
 describe('how dense the ledger is', () => {
   test('View, Density, Large: a row is 46px, the type 16px, a day band 32px, and settings.json says large', async () => {
     const home = aHome()
@@ -114,6 +129,9 @@ describe('how dense the ledger is', () => {
     await first.quit()
 
     const again = await launch(home)
+    // Set before App mounts (renderer/main.ts), so the first frame is at the density kept rather
+    // than Regular first: no list lays out twice on launch.
+    expect(await again.page.evaluate(() => document.documentElement.dataset.density)).toBe('large')
     await expect.poll(() => measured(again.page)).toMatchObject({ row: 46, type: 16 })
     // The menu's tick is the menu's: menu.test.ts holds that the one in use is checked.
     expect(JSON.parse(readFileSync(settingsIn(home), 'utf8')).density).toBe('large')
@@ -139,6 +157,15 @@ describe('how dense the ledger is', () => {
     await chooseDensity(app, app.page, 1)
 
     await expect.poll(() => measured(app.page)).toEqual({ row: 30, band: 26, type: 13 })
+  })
+
+  test('View, Density, Comfortable: the rows are 40px, the type 14px, a day band 26px', async () => {
+    const app = await launch(aHome())
+    await twoSpends(app.page)
+
+    await chooseDensity(app, app.page, 3)
+
+    await expect.poll(() => measured(app.page)).toEqual({ row: 40, band: 26, type: 14 })
   })
 
   test('scrolled past the first page, Comfortable then Compact: the rows meet, the list stays inside the window, and the top row stays on top', {
@@ -174,5 +201,29 @@ describe('how dense the ledger is', () => {
       expect(after?.bottom ?? 0).toBeLessThanOrEqual(after?.height ?? 0)
       expect(after?.pageScrolls).toBe(false)
     }
+  })
+
+  test('150 spends, scrolled to the end with row 134 on top, Regular then Large: row 134 is still on top', {
+    timeout: 180_000,
+  }, async () => {
+    const app = await launch(aHome())
+    const page = app.page
+    await manySpends(page, 150)
+
+    // The end of the list: the place a scroll set before the rows have grown is capped at the
+    // height the list had, which loses the row altogether.
+    await scrollToEnd(page)
+    const before = await atTop(page)
+    expect(before?.posinset).toBe(134)
+    expect(before?.pageScrolls).toBe(false)
+
+    await chooseDensity(app, page, 2)
+    await chooseDensity(app, page, 4)
+
+    await expect.poll(async () => (await atTop(page))?.posinset).toBe(134)
+    const after = await atTop(page)
+    expect(Math.abs(after?.top ?? 99)).toBeLessThanOrEqual(1)
+    expect(after?.gaps).toEqual([0])
+    expect(after?.bottom ?? 0).toBeLessThanOrEqual(after?.height ?? 0)
   })
 })

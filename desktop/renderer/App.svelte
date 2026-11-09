@@ -107,11 +107,6 @@
     if (kept.ok) showDensity(kept.value.density)
   }
 
-  onMount(async () => {
-    const kept = await window.haveFish.invoke('settings.density.get', {})
-    if (kept.ok) showDensity(kept.value.density)
-  })
-
   /** Shows `to`, with the cursor in it. */
   async function go(to: Place) {
     place = to

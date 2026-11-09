@@ -27,8 +27,8 @@
   --weight-strong: 600;
   --line-height: 1.4;
 
-  /* Density: Regular. The page's `data-density` sets these, and nothing else moves: the type
-     steps and the space steps derive from them. */
+  /* Density: Regular. The page's `data-density` sets these; the type steps are the base plus or
+     minus, so they move with it, while the space steps are fixed. */
   --row: 33px;
   /* A day band over its rows: shorter than a row, and moves with it. */
   --band: 26px;
