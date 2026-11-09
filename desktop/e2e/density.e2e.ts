@@ -108,6 +108,21 @@ async function scrollToEnd(page: Page) {
   )
 }
 
+/** What `<html data-density>` said when the app mounted, after a load of the page from scratch. */
+async function densityAtMount(page: Page): Promise<string | undefined> {
+  await page.addInitScript(() => {
+    const seen: string[] = []
+    ;(window as unknown as { seen: string[] }).seen = seen
+    new MutationObserver(() => {
+      if (document.querySelector('nav[aria-label=Places]') !== null)
+        seen.push(document.documentElement.dataset.density ?? 'none')
+    }).observe(document, { childList: true, subtree: true, attributes: true })
+  })
+  await page.reload()
+  await page.waitForSelector('nav[aria-label=Places]')
+  return page.evaluate(() => (window as unknown as { seen: string[] }).seen[0])
+}
+
 describe('how dense the ledger is', () => {
   test('View, Density, Large: a row is 46px, the type 16px, a day band 32px, and settings.json says large', async () => {
     const home = aHome()
@@ -129,9 +144,9 @@ describe('how dense the ledger is', () => {
     await first.quit()
 
     const again = await launch(home)
-    // Set before App mounts (renderer/main.ts), so the first frame is at the density kept rather
+    // Shown before App mounts (renderer/main.ts), so the first frame is at the density kept rather
     // than Regular first: no list lays out twice on launch.
-    expect(await again.page.evaluate(() => document.documentElement.dataset.density)).toBe('large')
+    expect(await densityAtMount(again.page)).toBe('large')
     await expect.poll(() => measured(again.page)).toMatchObject({ row: 46, type: 16 })
     // The menu's tick is the menu's: menu.test.ts holds that the one in use is checked.
     expect(JSON.parse(readFileSync(settingsIn(home), 'utf8')).density).toBe('large')
