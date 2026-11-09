@@ -50,17 +50,25 @@ describe('refiling a spend from the list', () => {
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:coffee')
   })
 
-  test('Esc puts the To back and leaves the row selected', async () => {
+  test('Esc closes the picker and gives the list its cursor, and arrows select rows', async () => {
     const { page } = await launch(aHome())
+    await writeIn(page, '3', 'Bus', 'transport:transit')
     await writeIn(page, '4', 'Coffee', 'food:coffee')
     await page.locator(LIST).focus()
+    expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Coffee')
 
     await page.keyboard.press('r')
     await expect.poll(() => page.locator(OPTIONS).isVisible()).toBe(true)
     await page.keyboard.press('Escape')
-    await expect.poll(() => page.locator(OPTIONS).isVisible()).toBe(false)
-    await page.keyboard.press('Escape')
-    expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Coffee')
-    expect(await rows(page)).toEqual(expect.arrayContaining([expect.stringContaining('Coffee')]))
+    await expect.poll(() => page.locator(REFILE).isVisible()).toBe(false)
+    expect(
+      await page.evaluate(() => {
+        const el = document.activeElement
+        return `${el?.tagName} ${el?.getAttribute('role')} ${el?.getAttribute('aria-label')}`
+      }),
+    ).toBe('OL listbox Ledger')
+
+    await page.keyboard.press('ArrowDown')
+    expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Bus')
   })
 })

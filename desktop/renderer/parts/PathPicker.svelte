@@ -41,6 +41,8 @@
     onpicked?: (() => void) | undefined
     /** Given, a name none has is offered as a new one, in these words. */
     newOption?: ((name: string) => string) | undefined
+    /** Escape when the list is open: close the whole field, not only the list (refile). */
+    onclose?: (() => void) | undefined
   }
   let {
     id,
@@ -55,6 +57,7 @@
     onchoose,
     onpicked,
     newOption,
+    onclose,
   }: Props = $props()
 
   const words = copy.spends.picker
@@ -191,12 +194,13 @@
       else if (entry.pick?.pickable) pick(entry.pick)
       else if (entry.pick !== null) drill(entry.pick)
     } else if (event.key === 'Escape') {
-      // Only the list: the form's or chip's own Escape waits for the next press.
       event.preventDefault()
       event.stopPropagation()
       text = kept
       open = false
       onchoose(text)
+      // A refile has no chip under it: one Escape puts the whole picker away.
+      onclose?.()
     } else if (event.key === 'Tab') {
       open = false
     }

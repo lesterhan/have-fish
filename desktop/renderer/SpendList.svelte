@@ -237,6 +237,10 @@
             describedby={undefined}
             onchoose={() => {}}
             onpicked={() => void saveRefile(t)}
+            onclose={() => {
+              refiling = null
+              void tick().then(() => listbox.focus())
+            }}
           />
         {:else if t.toPath}
           <Path path={t.toPath} />
