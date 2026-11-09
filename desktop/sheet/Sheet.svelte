@@ -259,6 +259,8 @@
         onopen={() => {}}
         onclose={() => {}}
         onremove={() => {}}
+        onrefile={async () => {}}
+        {loadPaths}
         label="Rows"
         idPrefix="sheet"
       />
@@ -277,6 +279,8 @@
         onopen={() => {}}
         onclose={() => {}}
         onremove={() => {}}
+        onrefile={async () => {}}
+        {loadPaths}
         label="Open"
         idPrefix="sheet-open"
       />

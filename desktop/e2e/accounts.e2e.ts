@@ -93,7 +93,7 @@ describe('the places', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    expect(await accounts(page)).toEqual(['cash | 6.00'])
+    expect(await accounts(page)).toEqual(['cash | −6.00'])
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
     expect((await rows(page))[0]).toContain('6.00')

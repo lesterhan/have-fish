@@ -39,11 +39,19 @@ async function writeIn(page: Page, amount: string, description: string, category
 }
 
 const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
-/** Where the selected spend went, as its details say. */
+/**
+ * Where the selected spend went, as its details say. It opens the chip to read it, then puts
+ * the chip away: an editor left open would keep showing what was typed, not what the ledger
+ * holds after an undo.
+ */
 const categoryOfSelected = async (page: Page) => {
   if (!(await page.isVisible(PANE))) await openSelected(page)
   await openChip(page, 'to')
-  return page.inputValue(PANE_CATEGORY)
+  const value = await page.inputValue(PANE_CATEGORY)
+  // The list closes first, then the chip's editor.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  return value
 }
 
 describe('a category for a spend I write down', () => {

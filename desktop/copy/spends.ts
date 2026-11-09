@@ -35,9 +35,11 @@ export const spends = {
     label: 'Ledger',
     /** The headings over the ledger's columns. */
     columns: { from: 'From', amount: 'Amount', to: 'To', description: 'Description' },
-    /** On the selected row's keycap, and beside it: Enter shows its details. */
+    /** On the selected row's keycap, and beside it: Enter shows its details, R refiles it. */
     enter: 'Enter',
     details: 'details',
+    refileKey: 'R',
+    refile: 'refile',
   },
   /** In a path picker: how long ago a path was used, and the key that opens a part of it. */
   picker: {

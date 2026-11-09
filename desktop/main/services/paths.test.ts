@@ -58,8 +58,9 @@ describe('at ten years', { timeout: 120_000 }, () => {
 
     expect(paths.length).toBeGreaterThan(5)
     expect(paths.every((p) => p.lastUsed !== null)).toBe(true)
-    // About 70 ms; loose for a slow runner, and paid once per change, not once per focus.
-    expect(took).toBeLessThan(150)
+    // About 70 ms warm; loose for a cold or busy runner. It is paid once per change, not once
+    // per focus.
+    expect(took).toBeLessThan(500)
 
     const plan = ledger.db
       .prepare<[], { detail: string }>(

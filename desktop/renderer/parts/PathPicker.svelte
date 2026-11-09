@@ -41,6 +41,10 @@
     onpicked?: (() => void) | undefined
     /** Given, a name none has is offered as a new one, in these words. */
     newOption?: ((name: string) => string) | undefined
+    /** Escape when the list is open: close the whole field, not only the list (refile). */
+    onclose?: (() => void) | undefined
+    /** In a list cell: the focus ring sits inside the field, where the row can't clip it. */
+    inRow?: boolean
   }
   let {
     id,
@@ -55,6 +59,8 @@
     onchoose,
     onpicked,
     newOption,
+    onclose,
+    inRow = false,
   }: Props = $props()
 
   const words = copy.spends.picker
@@ -191,12 +197,13 @@
       else if (entry.pick?.pickable) pick(entry.pick)
       else if (entry.pick !== null) drill(entry.pick)
     } else if (event.key === 'Escape') {
-      // Only the list: the form's or chip's own Escape waits for the next press.
       event.preventDefault()
       event.stopPropagation()
       text = kept
       open = false
       onchoose(text)
+      // A refile has no chip under it: one Escape puts the whole picker away.
+      onclose?.()
     } else if (event.key === 'Tab') {
       open = false
     }
@@ -267,6 +274,7 @@
     aria-describedby={describedby}
     autocomplete="off"
     maxlength="200"
+    class:in-row={inRow}
     {onfocus}
     onblur={() => (open = false)}
     {oninput}
@@ -363,6 +371,11 @@
     outline-offset: 2px;
   }
 
+  /* In a list cell the row clips an outside ring: keep it inside the field. */
+  input.in-row:focus-visible {
+    outline-offset: -2px;
+  }
+
   .options {
     position: absolute;
     inset-inline-start: 0;
@@ -374,6 +387,8 @@
     min-inline-size: 100%;
     max-inline-size: min(24rem, 90vw);
     max-height: 14rem;
+    /* A row clips and keeps its text on one line; the list reads normally inside it. */
+    white-space: normal;
   }
 
   .options.empty {

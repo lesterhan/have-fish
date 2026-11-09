@@ -7,6 +7,7 @@
   import Day from './parts/Day.svelte'
   import type { LedgerState, LedgerStore } from './ledger'
 
+  import { toOf } from './picker'
   import { wordsFor } from './refusals'
   import {
     idsWanted,
@@ -145,6 +146,22 @@
     await (state === reportedFor ? reporting : reportFor(state))
   }
 
+  /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
+  async function refile(t: ListedTransaction, typed: string): Promise<void> {
+    if (t.simple === null) return
+    const saved = await window.haveFish.invoke('spend.edit', {
+      id: t.id,
+      amount: t.simple.amount,
+      description: t.description,
+      to: toOf(accountOptions, typed),
+    })
+    if (!saved.ok) {
+      error = wordsFor(saved)
+      return
+    }
+    await caughtUp()
+  }
+
   /** Coming here from another place: the breakdown. */
   export function focus() {
     breakdown.focus()
@@ -280,6 +297,8 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
+    onrefile={refile}
+    loadPaths={() => ledger.paths()}
   >
     {#snippet details(t: ListedTransaction)}
       <SpendCard
