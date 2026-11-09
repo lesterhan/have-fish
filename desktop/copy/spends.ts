@@ -4,32 +4,60 @@
 export type OriginPart = { text: string; code?: boolean }
 
 export const spends = {
+  /** The line that writes a spend, in the ledger: its parts, examples and refusals. */
+  composer: {
+    new: '+ New',
+    /** The line's own pill, which isn't the header's button. */
+    pill: 'New',
+    done: 'Done',
+    esc: 'Esc',
+    tab: 'Tab',
+    /** The parts, in the order they read, until each is filled. */
+    parts: {
+      from: 'from',
+      date: 'date',
+      amount: 'amount',
+      description: 'description',
+      to: 'to',
+    },
+    /** The first time, with no accounts yet: examples in the format to type. */
+    examples: {
+      from: 'assets:wallet',
+      date: 'today',
+      amount: '4.50',
+      description: 'coffee',
+      to: 'expenses:food:coffee',
+    },
+    /** What the date list is called, read out. */
+    dateList: 'Days it can read',
+    /** Two words of why a part was refused; the input is underlined red beside them. */
+    refused: {
+      amount: 'not an amount',
+      positive: 'not positive',
+      date: 'not a day',
+      from: 'not an income',
+      to: 'not a category',
+      account: 'not an account',
+      same: 'same account',
+      precise: 'too precise',
+      form: 'not saved',
+    },
+  },
   write: {
+    /** The line's label, read out. */
     label: 'Write down a spend',
-    amount: 'Amount',
-    description: 'What for',
-    /** The day it happened; today unless I change it. */
-    date: 'Date',
-    /** Where the money goes: a category, or another account of mine. */
-    to: 'To',
-    /** What the To field offers, read out. */
+    /** What the To part offers, read out. */
     toList: 'Your categories and accounts',
-    /** In an empty To field: where a spend with no category goes. */
+    /** In a spend with no category: where it went. */
     unsorted: 'unsorted',
     /** The last option, for a name I haven't used: made when the spend is saved. */
     newCategory: (name: string) => `Create ${name}`,
     badCategory: "That isn't a name a category can have.",
-    from: 'From',
-    /** What the From field offers, read out: my accounts, then where money comes in from. */
+    /** What the From part offers, read out: my accounts, then where money comes in from. */
     fromList: 'Your accounts and income',
-    /** Beside an income source in From's list. */
-    income: 'Income',
     /** From's last option, for a name none of mine has: money coming in from it, made on save. */
     newIncome: (name: string) => `Create income:${name}`,
     badIncome: "That isn't a name an income source can have.",
-    /** In an empty From field before there's any account: the wallet the first spend makes. */
-    wallet: 'cash',
-    submit: 'Write it down',
   },
   list: {
     label: 'Ledger',

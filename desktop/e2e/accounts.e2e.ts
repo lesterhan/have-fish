@@ -69,7 +69,8 @@ describe('the places', () => {
 
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
-    expect(await focused(page)).toBe('Write down a spend amount')
+    // A fresh ledger: the line is open and every part is empty, so the cursor is in the first.
+    expect(await focused(page)).toBe('Write down a spend from')
   })
 
   test('the wallet the first spend made is already there, as cash', async () => {

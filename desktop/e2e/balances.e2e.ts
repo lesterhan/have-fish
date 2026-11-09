@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, launch, openComposer, rows, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -33,6 +33,7 @@ async function addAccount(
 async function spend(page: Page, amount: string, from: string, to = '') {
   await page.click(`${NAV} button:has-text("Ledger")`)
   const before = (await rows(page)).length
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=to]`, to)
   await page.fill(`${WRITE} input[name=from]`, from)

@@ -9,6 +9,7 @@ import {
   chip,
   launch,
   openChip,
+  openComposer,
   openSelected,
   openSpend,
   PANE,
@@ -32,31 +33,37 @@ const focusedName = (page: Page) =>
   page.evaluate(() => document.activeElement?.getAttribute('name'))
 
 describe('write down a spend from another day', () => {
-  test('the date is filled with today, and amount, what for, Enter never touches it', async () => {
+  test('the date starts as today, and amount, what for, Enter never touches it', async () => {
     const { page } = await launch(aHome())
-    expect(await page.inputValue(WRITE_DATE)).toBe(today())
+    await page.waitForSelector(WRITE)
+    expect(await page.inputValue(WRITE_DATE)).toBe('')
+    expect(await page.getAttribute(WRITE_DATE, 'placeholder')).toBe('today')
 
     await writeDown(page, '4.50', 'Coffee')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
   })
 
-  test('the date is last in the Tab order, so What for still Tabs straight to To', async () => {
+  test('the date is second in the Tab order, then amount and what for, then To', async () => {
     const { page } = await launch(aHome())
-    await page.focus(`${WRITE} input[name=description]`)
-    await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('to')
-    await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('from')
+    await openComposer(page)
+    await page.focus(`${WRITE} input[name=from]`)
     await page.keyboard.press('Tab')
     expect(await focusedName(page)).toBe('date')
+    await page.keyboard.press('Tab')
+    expect(await focusedName(page)).toBe('amount')
+    await page.keyboard.press('Tab')
+    expect(await focusedName(page)).toBe('description')
+    await page.keyboard.press('Tab')
+    expect(await focusedName(page)).toBe('to')
   })
 
-  test('set a date, Enter: saved on that day, sorted below today, and the field is today again', async () => {
+  test('set a date, Enter: saved on that day, and the next line carries the date', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
 
+    await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '12')
     await page.fill(`${WRITE} input[name=description]`, 'Lunch')
     await page.fill(WRITE_DATE, daysAgo(2))
@@ -65,12 +72,14 @@ describe('write down a spend from another day', () => {
     await expect
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(2))} | Lunch | 12.00`])
-    expect(await page.inputValue(WRITE_DATE)).toBe(today())
+    await openComposer(page)
+    expect(await page.inputValue(WRITE_DATE)).toBe(daysAgo(2))
     expect(await focusedName(page)).toBe('amount')
   })
 
   test('a date cleared from the field is today', async () => {
     const { page } = await launch(aHome())
+    await openComposer(page)
 
     await page.fill(`${WRITE} input[name=amount]`, '3')
     await page.fill(WRITE_DATE, '')
@@ -132,8 +141,8 @@ describe('move a spend to another day', () => {
 })
 
 describe('type a date quickly', () => {
-  const WRITE_UNDERSTOOD = `${WRITE} #date-note`
-  /** What a short form means today, here, and how the field says it. */
+  const WRITE_LIST = `${WRITE} [role=listbox][aria-label="Days it can read"]`
+  /** What a short form means today, here. */
   const means = (typed: string) => {
     const date = dateFrom(typed, today())
     if (date === null) throw new Error(`can't read ${typed}`)
@@ -141,36 +150,37 @@ describe('type a date quickly', () => {
   }
 
   test.each(['y', '-3', 'mon', 'fri', '10-31'])(
-    '%s: the field says the day it understood, and Enter saves it on that day',
+    '%s: the list says the day it means, and Enter saves it on that day',
     async (typed) => {
       const { page } = await launch(aHome())
       const { date, said } = means(typed)
 
+      await openComposer(page)
       await page.fill(`${WRITE} input[name=amount]`, '5')
       await page.fill(WRITE_DATE, typed)
-      await expect.poll(() => page.innerText(WRITE_UNDERSTOOD)).toBe(said)
+      await expect.poll(() => page.locator(WRITE_LIST).innerText()).toContain(said)
       await page.press(WRITE_DATE, 'Enter')
 
       await expect.poll(() => rows(page)).toEqual([`${shownDay(date)} | — | 5.00`])
-      expect(await page.inputValue(WRITE_DATE)).toBe(today())
     },
   )
 
   test('today is said as a day before I touch it', async () => {
     const { page } = await launch(aHome())
-    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe(shownDay(today()))
+    await writeDown(page, '4.50', 'Coffee')
+    await openComposer(page)
+    await page.focus(WRITE_DATE)
+    await expect.poll(() => page.locator(WRITE_LIST).innerText()).toContain(shownDay(today()))
   })
 
-  test('something it can’t read: nothing is saved, and Date says how to type one', async () => {
+  test('something it can’t read: nothing is saved, and Date says why in two words', async () => {
     const { page } = await launch(aHome())
+    await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '5')
     await page.fill(WRITE_DATE, 'soon')
-    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe('')
     await page.press(WRITE_DATE, 'Enter')
 
-    await expect
-      .poll(() => page.locator(`${WRITE} #date-error`).innerText())
-      .toBe("That isn't a day it can read. Try y, -3, mon or 10-31.")
+    await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('not a day')
     expect(await page.getAttribute(WRITE_DATE, 'aria-invalid')).toBe('true')
     expect(await rows(page)).toEqual([])
   })

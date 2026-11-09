@@ -8,6 +8,7 @@ import {
   launch,
   offeredPaths,
   openChip,
+  openComposer,
   openSelected,
   openSpend,
   PANE,
@@ -21,6 +22,7 @@ const PANE_CATEGORY = `${PANE} input[name=to]`
 
 /** Amount, Tab, what for, Tab: the cursor in To. */
 async function upToCategory(page: Page, amount: string, description: string) {
+  await openComposer(page)
   await page.locator(`${WRITE} input[name=amount]`).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')
@@ -68,6 +70,7 @@ describe('a category for a spend I write down', () => {
 
     await expect.poll(() => rows(page)).toHaveLength(1)
     expect(await categoryOfSelected(page)).toBe('food')
+    await openComposer(page)
     expect(await page.inputValue(CATEGORY)).toBe('')
   })
 
@@ -102,7 +105,7 @@ describe('a category for a spend I write down', () => {
 
   test('skipped, the spend is still saved, as unsorted, in three steps', async () => {
     const { page } = await launch(aHome())
-    expect(await page.getAttribute(CATEGORY, 'placeholder')).toBe('unsorted')
+    expect(await page.getAttribute(CATEGORY, 'placeholder')).toBe('expenses:food:coffee')
 
     await page.locator(`${WRITE} input[name=amount]`).focus()
     await page.keyboard.type('4.50')
@@ -117,6 +120,7 @@ describe('a category for a spend I write down', () => {
   test('typed and never picked, it is made all the same', async () => {
     const { page } = await launch(aHome())
 
+    await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '30')
     await page.fill(CATEGORY, 'gifts')
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
@@ -128,13 +132,14 @@ describe('a category for a spend I write down', () => {
   test('a name with an empty part is refused, and To says why', async () => {
     const { page } = await launch(aHome())
 
+    await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '30')
     await page.fill(CATEGORY, 'food::x')
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 
     await expect
-      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
-      .toBe("That isn't a name a category can have.")
+      .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
+      .toBe('not a category')
     expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
     expect(await rows(page)).toEqual([])
   })

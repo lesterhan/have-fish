@@ -85,6 +85,7 @@ describe('a colour made in a component', () => {
     const css = ':global([data-opened] > ol) > li:not(.open) { opacity: 0.5; }'
     expect(madeColoursIn(css)).toEqual([])
     expect(madeColoursIn('[data-opened] > .stays { opacity: 0.5; }')).toEqual([])
+    expect(madeColoursIn('[data-dimmed] > ol > li { opacity: 0.42; }')).toEqual([])
     expect(madeColoursIn('li:not(.open) { opacity: 0.5; }')).toEqual(['opacity: 0.5'])
   })
 

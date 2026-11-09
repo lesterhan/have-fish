@@ -3,7 +3,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, offeredPaths, rows, WRITE } from './app'
+import { aHome, launch, offeredPaths, openComposer, rows, WRITE } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const OPTIONS = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
@@ -15,6 +15,7 @@ const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=opti
 /** A spend in `category`, written through the form. */
 async function writeIn(page: Page, amount: string, description: string, category: string) {
   const before = (await rows(page)).length
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
   await page.fill(`${WRITE} input[name=to]`, category)

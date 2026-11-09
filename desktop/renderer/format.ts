@@ -68,12 +68,27 @@ const DAY = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
 })
 
+/** A day in its pieces: the date list shows the year always, and quiet. */
+export type DayParts = {
+  weekday: string
+  day: string
+  month: string
+  year: string
+}
+
+/** The pieces of a day: `Thu`, `5`, `Nov`, `2026`. */
+export function dayParts(date: string): DayParts {
+  const parts = DAY.formatToParts(new Date(`${date}T00:00:00Z`))
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value as string
+  return { weekday: part('weekday'), day: part('day'), month: part('month'), year: part('year') }
+}
+
 /** A day as it reads: `Thu 5 Nov`, with the year when it isn't `today`'s. */
 export function day(date: string, today: string): string {
-  const parts = DAY.formatToParts(new Date(`${date}T00:00:00Z`))
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
-  const words = [part('weekday'), part('day'), part('month')]
-  if (date.slice(0, 4) !== today.slice(0, 4)) words.push(part('year'))
+  const parts = dayParts(date)
+  const words = [parts.weekday, parts.day, parts.month]
+  if (date.slice(0, 4) !== today.slice(0, 4)) words.push(parts.year)
   return words.join(' ')
 }
 

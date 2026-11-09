@@ -20,6 +20,7 @@
   import Listbox from './Listbox.svelte'
   import Path from './Path.svelte'
   import Popover from './Popover.svelte'
+  import { floating } from './floating'
 
   type Props = {
     /** The field's id, for its label; the list's is built from it. */
@@ -33,6 +34,8 @@
     placeholder: string
     /** What the list of paths is called, read out. */
     listLabel: string
+    /** The input's accessible name, where no label names it. */
+    label?: string | undefined
     invalid: boolean
     describedby: string | undefined
     /** I typed, or picked: the field holds my choice now. */
@@ -45,6 +48,12 @@
     onclose?: (() => void) | undefined
     /** In a list cell: the focus ring sits inside the field, where the row can't clip it. */
     inRow?: boolean
+    /** A part of the composer: no field border or ring; the part it sits in draws those. */
+    inline?: boolean
+    /** Opens its list when focused. Off in the composer, where a list per part would cover the line. */
+    openOnFocus?: boolean
+    /** Where its list starts, when that isn't the field: the composer's whole line. */
+    below?: HTMLElement | undefined
   }
   let {
     id,
@@ -54,6 +63,7 @@
     text = $bindable(),
     placeholder,
     listLabel,
+    label,
     invalid,
     describedby,
     onchoose,
@@ -61,6 +71,9 @@
     newOption,
     onclose,
     inRow = false,
+    inline = false,
+    openOnFocus = true,
+    below,
   }: Props = $props()
 
   const words = copy.spends.picker
@@ -114,28 +127,29 @@
 
   function onfocus() {
     kept = text
-    open = true
     active = null
     // Typing starts a new path over the value, rather than after it.
     input?.select()
+    if (openOnFocus) open = true
     void load()
   }
 
   /** The paths, fresh, and the level the field's value sits in. */
   async function load() {
     const mine = ++fetching
+    const value = text
     const all = await loadPaths()
     if (mine !== fetching) return
     paths = all
-    const found = valueIn(all)
+    const found = valueIn(all, value)
     level = found === undefined ? null : parentsOf(found.path)
     // The current path is where the keys start; with none, the first.
     active = found?.path ?? null
   }
 
   /** The path a field's text names, without regard to case. */
-  function valueIn(all: readonly ListedPath[]): ListedPath | undefined {
-    const typed = text.trim().toLowerCase()
+  function valueIn(all: readonly ListedPath[], value = text): ListedPath | undefined {
+    const typed = value.trim().toLowerCase()
     if (typed === '') return undefined
     return all.find(
       (p) => relativeOf(p.path).toLowerCase() === typed || p.path.toLowerCase() === typed,
@@ -182,7 +196,8 @@
     if (!open && event.key === 'ArrowDown') {
       event.preventDefault()
       open = true
-      active = entries[0]?.key ?? null
+      active = null
+      void load()
       return
     }
     if (!open) return
@@ -209,40 +224,6 @@
     }
   }
 
-  /**
-   * The list floats above wherever the field sits, fixed to the window: a card or a list row
-   * clips what is inside it, and a picker must be able to spill over both.
-   */
-  function floating(node: HTMLElement, anchor: HTMLInputElement | undefined) {
-    let field = anchor
-    const place = () => {
-      if (field === undefined) return
-      const rect = field.getBoundingClientRect()
-      node.style.position = 'fixed'
-      node.style.insetInlineStart = `${rect.left}px`
-      node.style.top = `${rect.bottom + 4}px`
-      node.style.minInlineSize = `${rect.width}px`
-    }
-    place()
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
-    const observer = new ResizeObserver(place)
-    if (field !== undefined) observer.observe(field)
-    return {
-      update(next: HTMLInputElement | undefined) {
-        if (field !== undefined) observer.unobserve(field)
-        field = next
-        if (field !== undefined) observer.observe(field)
-        place()
-      },
-      destroy() {
-        window.removeEventListener('scroll', place, true)
-        window.removeEventListener('resize', place)
-        observer.disconnect()
-      },
-    }
-  }
-
   /** How long ago a path was used, in the picker's words. */
   function used(lastUsed: number | null): string {
     if (lastUsed === null) return ''
@@ -264,6 +245,7 @@
     bind:this={input}
     {id}
     {name}
+    aria-label={label}
     bind:value={text}
     {placeholder}
     role="combobox"
@@ -274,13 +256,20 @@
     aria-describedby={describedby}
     autocomplete="off"
     maxlength="200"
+    size={Math.max(text.length, placeholder.length, 4)}
     class:in-row={inRow}
+    class:in-line={inline}
+    class:filled={text.trim() !== ''}
     {onfocus}
     onblur={() => (open = false)}
     {oninput}
     {onkeydown}
   />
-  <span class="options" class:empty={!open || entries.length === 0} use:floating={input}>
+  <span
+    class="options"
+    class:empty={!open || entries.length === 0}
+    use:floating={below === undefined ? input : { field: input, below }}
+  >
     <Popover>
       {#if trail.length > 0}
         <div class="trail">
@@ -376,11 +365,25 @@
     outline-offset: -2px;
   }
 
+  /* A composer part: the part around it draws the chip, the underline or the refusal. */
+  input.in-line {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-family: var(--font-code);
+    background: none;
+  }
+
+  input.in-line:focus-visible {
+    outline: none;
+  }
+
   .options {
     position: absolute;
     inset-inline-start: 0;
     top: calc(100% + var(--space-1));
-    z-index: 1;
+    /* Above the band that stays over the list, which shares a z-index with the picker. */
+    z-index: 2;
     display: grid;
     /* Wider than a chip's field, so a whole path reads; never wider than the window. */
     inline-size: max-content;

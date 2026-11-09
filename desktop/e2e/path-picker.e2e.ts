@@ -10,6 +10,7 @@ import {
   launch,
   offeredPaths,
   openChip,
+  openComposer,
   openSpend,
   PANE,
   rows,
@@ -30,6 +31,7 @@ const offered = (page: Page, options = OPTIONS) =>
 /** A spend in `category`, written through the form. */
 async function writeIn(page: Page, amount: string, description: string, category: string) {
   const before = (await rows(page)).length
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
   await page.fill(WRITE_TO, category)
@@ -95,13 +97,16 @@ describe('picking From by its path', () => {
     await writeIn(page, '4.50', 'Coffee', 'food')
     await addAccount(page, 'visa', 'card')
 
+    await openComposer(page)
     await page.focus(WRITE_FROM)
     expect(await page.inputValue(WRITE_FROM)).toBe('cash')
+    await page.press(WRITE_FROM, 'ArrowDown')
     await expect.poll(() => offered(page, FROM_OPTIONS)).toEqual(['assets:cash'])
 
     await page.fill(WRITE_FROM, 'vi')
     await expect.poll(() => offered(page, FROM_OPTIONS)).toEqual(['liabilities:visa', 'income:vi'])
     await page.keyboard.press('Escape')
+    await openComposer(page)
     expect(await page.inputValue(WRITE_FROM)).toBe('cash')
   })
 })

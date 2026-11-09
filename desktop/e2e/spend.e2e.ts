@@ -1,14 +1,28 @@
-// Writing down a spend, as a person does it, in the built app.
+// Writing down a spend, as a person does it, in the built app: the line, its parts and its keys.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { describe, expect, test } from 'vitest'
-import { aHome, commandFor, launch, ledgerDirIn, rows, shownDay, WRITE, writeDown } from './app'
+import {
+  aHome,
+  commandFor,
+  launch,
+  ledgerDirIn,
+  openComposer,
+  rows,
+  shownDay,
+  WRITE,
+  writeDown,
+} from './app'
+import { seed } from './month'
 
 const AMOUNT = `${WRITE} input[name=amount]`
 const DESCRIPTION = `${WRITE} input[name=description]`
+const FROM = `${WRITE} input[name=from]`
+const DATE = `${WRITE} input[name=date]`
+const LEDGER = 'ol[aria-label=Ledger]'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -20,31 +34,69 @@ describe("a day's band", () => {
     await expect.poll(() => rows(page)).toHaveLength(2)
 
     // The band rides in the day's first row, and isn't in the second.
-    const bands = page.locator('ol[aria-label=Ledger] [role=option] > div')
+    const bands = page.locator(`${LEDGER} [role=option] > div`)
     await expect.poll(() => bands.allInnerTexts()).toEqual([`Today · ${shownDay(today())}\n−16.50`])
   })
 })
 
-describe('write down a spend', () => {
-  test('the amount field is ready to type into when the app opens', async () => {
+describe('the line', () => {
+  test('a fresh ledger opens it by itself, with examples in its parts', async () => {
     const { page } = await launch(aHome())
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
+    await page.waitForSelector(WRITE)
+
+    expect(await page.inputValue(FROM)).toBe('')
+    expect(await page.inputValue(DATE)).toBe('')
+    expect(await page.inputValue(AMOUNT)).toBe('')
+    expect(await page.getAttribute(FROM, 'placeholder')).toBe('assets:wallet')
+    expect(await page.getAttribute(DATE, 'placeholder')).toBe('today')
+    expect(await page.getAttribute(AMOUNT, 'placeholder')).toBe('4.50')
+    expect(await page.getAttribute(`${WRITE} input[name=description]`, 'placeholder')).toBe(
+      'coffee',
+    )
+    expect(await page.getAttribute(`${WRITE} input[name=to]`, 'placeholder')).toBe(
+      'expenses:food:coffee',
+    )
+    // The first empty part is where the run starts.
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('from')
+    expect(await rows(page)).toEqual([])
+  })
+
+  test('+ New opens it above today, and Esc closes it without writing', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+
+    await page.getByRole('button', { name: /\+ New/ }).click()
+    await page.waitForSelector(WRITE)
+    const line = await page.locator(WRITE).boundingBox()
+    const first = await page.locator(`${LEDGER} [role=option]`).first().boundingBox()
+    expect(line?.y).toBeLessThan(first?.y ?? 0)
+    expect(await page.locator(WRITE).innerText()).toContain('Done')
+
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
+    await expect.poll(() => rows(page)).toHaveLength(1)
   })
 
   test('an amount, what it was for, Enter: it is at the top of the list, dated today', async () => {
     const { page } = await launch(aHome())
+    await openComposer(page)
 
-    await writeDown(page, '12', 'Lunch')
+    await page.locator(AMOUNT).focus()
+    await page.keyboard.type('12')
+    await page.keyboard.press('Tab')
+    await page.keyboard.type('Lunch')
+    await page.keyboard.press('Enter')
+
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
-    await writeDown(page, '4.50', 'Coffee')
+    // The line closes, and the list has the new row selected.
+    expect(await page.locator(WRITE).count()).toBe(0)
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).toBe('listbox')
 
+    await writeDown(page, '4.50', 'Coffee')
     await expect
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(today())} | Lunch | 12.00`])
-    // Cleared and ready for the next one.
-    expect(await page.inputValue(AMOUNT)).toBe('')
-    expect(await page.inputValue(DESCRIPTION)).toBe('')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
   })
 
   test('quit and reopen: they are all still there, newest first', async () => {
@@ -72,15 +124,59 @@ describe('write down a spend', () => {
     expect(existsSync(join(ledgerDirIn(home), 'ledger.sqlite'))).toBe(true)
   })
 
-  test('something that is not an amount: nothing is saved, and the field says why', async () => {
+  test('Tab walks the parts, and the next one carries its key', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    await page.getByRole('button', { name: /\+ New/ }).click()
+    await page.waitForSelector(WRITE)
+
+    // From and Date carried over; the run starts at Amount.
+    expect(await page.inputValue(FROM)).toBe('cash')
+    expect(await page.inputValue(DATE)).toBe('today')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
+    expect(await page.locator('[data-part=amount]').innerText()).toContain('Tab')
+
+    await page.keyboard.type('7')
+    expect(await page.locator('[data-part=description]').innerText()).toContain('Tab')
+
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe(
+      'description',
+    )
+    expect(await page.locator('[data-part=description]').innerText()).toContain('Tab')
+
+    await page.keyboard.type('Tea')
+    expect(await page.locator('[data-part=to]').innerText()).toContain('Tab')
+
+    await page.keyboard.press('Shift+Tab')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
+  })
+
+  test('Esc keeps what was typed, and the next + New opens on it', async () => {
+    const { page } = await launch(aHome())
+    await openComposer(page)
+    await page.fill(AMOUNT, '4.50')
+    await page.fill(DESCRIPTION, 'Coffee')
+
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
+    expect(await rows(page)).toEqual([])
+
+    await page.getByRole('button', { name: /\+ New/ }).click()
+    await page.waitForSelector(WRITE)
+    expect(await page.inputValue(AMOUNT)).toBe('4.50')
+    expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
+  })
+
+  test('something that is not an amount: nothing is saved, and the part says why', async () => {
     const { page } = await launch(aHome())
 
     await writeDown(page, 'abc', 'Coffee')
 
-    const error = page.locator('#amount-error')
-    await expect.poll(() => error.textContent()).toMatch(/isn't an amount/)
+    const error = page.locator(`${WRITE} [role=alert]`)
+    await expect.poll(() => error.textContent()).toBe('not an amount')
     expect(await page.getAttribute(AMOUNT, 'aria-invalid')).toBe('true')
-    expect(await page.getAttribute(AMOUNT, 'aria-describedby')).toBe('amount-error')
     expect(await rows(page)).toEqual([])
     // What was typed stays, to be fixed.
     expect(await page.inputValue(AMOUNT)).toBe('abc')
@@ -90,13 +186,51 @@ describe('write down a spend', () => {
   test('fixing the amount clears the message and saves', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '0', 'Coffee')
-    await expect.poll(() => page.locator('#amount-error').textContent()).toMatch(/more than zero/)
+    await expect
+      .poll(() => page.locator(`${WRITE} [role=alert]`).textContent())
+      .toBe('not positive')
 
     await page.fill(AMOUNT, '4.50')
     await page.press(AMOUNT, 'Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
-    expect(await page.locator('#amount-error').count()).toBe(0)
+    expect(await page.locator(`${WRITE} [role=alert]`).count()).toBe(0)
+  })
+
+  test('Ctrl+N with the list scrolled brings today in, and the line stays through a scroll', async () => {
+    const { page } = await launch(aHome())
+    // The first run opens the line by itself; seeding through commands leaves it open.
+    await seed(page)
+    if (await page.isVisible(WRITE)) await page.keyboard.press('Escape')
+    await expect.poll(async () => (await rows(page)).length).toBeGreaterThan(10)
+    const scroller = page.locator(LEDGER).locator('..')
+    await scroller.evaluate((list) => {
+      list.scrollTop = 600
+    })
+    await expect.poll(() => scroller.evaluate((list) => list.scrollTop)).toBe(600)
+
+    await page.getByRole('button', { name: /\+ New/ }).click()
+    await page.waitForSelector(WRITE)
+    await expect.poll(() => scroller.evaluate((list) => list.scrollTop)).toBe(0)
+
+    await page.fill(AMOUNT, '4.50')
+    await scroller.evaluate((list) => {
+      list.scrollTop = 400
+    })
+    expect(await page.isVisible(WRITE)).toBe(true)
+    expect(await page.inputValue(AMOUNT)).toBe('4.50')
+    await page.keyboard.press('Escape')
+  })
+
+  test('From and the date carry over from the last line', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    await page.getByRole('button', { name: /\+ New/ }).click()
+    await page.waitForSelector(WRITE)
+
+    expect(await page.inputValue(FROM)).toBe('cash')
+    expect(await page.inputValue(DATE)).toBe('today')
   })
 })
 

@@ -12,6 +12,8 @@ import { ADD_ACCOUNT, aHome, launch, openChip, openSpend, PANE, WRITE, writeDown
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
+/** The palette needs a real key press through xdotool; a machine without it can skip it. */
+const KEYS = process.env.SKIP_KEYS !== '1'
 
 const NAV = 'nav[aria-label=Places]'
 const SPENDS = 'ol[aria-label=Ledger]'
@@ -107,29 +109,57 @@ test('every place and state', { timeout: 300_000 }, async () => {
   // Esc on the refused chip puts it back; Esc again closes the details.
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
-  await page.click(`${WRITE} input[name=to]`)
-  await page.keyboard.type('fo')
-  await shot.take('spends-picker')
-  await page.keyboard.press('Escape')
-  await page.fill(`${WRITE} input[name=to]`, '')
-  const today = await page.inputValue(`${WRITE} input[name=date]`)
+
+  // The line that writes a spend: its parts, the next one's Tab, the date list, a refusal, a picker.
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=amount]`, '4.5')
+  await shot.take('spends-composing')
+  await shot.dark('spends-composing')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('Bean There')
+  await page.locator(`${WRITE} input[name=date]`).focus()
   await page.fill(`${WRITE} input[name=date]`, 'mon')
-  await shot.take('spends-date')
-  await page.fill(`${WRITE} input[name=date]`, today)
+  await page.waitForSelector(`${WRITE} [role=listbox][aria-label="Days it can read"] [role=option]`)
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  await shot.take('spends-composer-date')
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=amount]`, '4.5x')
+  await page.press(`${WRITE} input[name=amount]`, 'Enter')
+  await page.waitForSelector(`${WRITE} [role=alert]`)
+  await shot.take('spends-composer-refused')
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.locator(`${WRITE} input[name=to]`).focus()
+  await page.keyboard.type('fo')
+  await page.waitForSelector(
+    `${WRITE} [role=listbox][aria-label="Your categories and accounts"] [role=option]`,
+  )
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  await shot.take('spends-composer-picker')
+  await shot.dark('spends-composer-picker')
+  await page.keyboard.press('Escape')
 
   // The palette, Ctrl+K: over the blurred, dimmed ledger; the letters typed marked; none.
-  await page.mouse.move(0, 0)
-  second.press('ctrl+k')
-  await page.waitForSelector(PALETTE)
-  await page.waitForFunction(() => document.getAnimations().length === 0)
-  await shot.take('palette')
-  await shot.dark('palette')
-  await page.keyboard.type('n')
-  await shot.take('palette-typed')
-  await page.keyboard.type('zqx')
-  await shot.take('palette-none')
-  await page.keyboard.press('Escape')
-  await page.waitForSelector(PALETTE, { state: 'detached' })
+  if (KEYS) {
+    await page.mouse.move(0, 0)
+    second.press('ctrl+k')
+    await page.waitForSelector(PALETTE)
+    await page.waitForFunction(() => document.getAnimations().length === 0)
+    await shot.take('palette')
+    await shot.dark('palette')
+    await page.keyboard.type('n')
+    await shot.take('palette-typed')
+    await page.keyboard.type('zqx')
+    await shot.take('palette-none')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(PALETTE, { state: 'detached' })
+  }
 
   // Accounts.
   await go(page, 'Accounts')
@@ -164,6 +194,14 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('opens-accounts')
   await go(page, 'Ledger')
   await shot.take('opens-spends')
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=amount]`, '')
+  await page.fill(`${WRITE} input[name=description]`, '')
+  await page.fill(`${WRITE} input[name=date]`, 'today')
+  await page.keyboard.press('Tab')
+  await shot.take('opens-composer')
+  await page.keyboard.press('Escape')
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await shot.take('opens-spends-card')
   await page.keyboard.press('Escape')
@@ -172,6 +210,14 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.size(NARROW)
   await go(page, 'Ledger')
   await shot.take('narrow-spends')
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=amount]`, '')
+  await page.fill(`${WRITE} input[name=description]`, '')
+  await page.fill(`${WRITE} input[name=date]`, 'today')
+  await page.keyboard.press('Tab')
+  await shot.take('narrow-composer')
+  await page.keyboard.press('Escape')
   await openSpend(page.locator(`${SPENDS} li >> nth=2`))
   await page.waitForTimeout(300)
   await shot.take('narrow-spends-card')
@@ -194,7 +240,7 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.size(WIDE)
   await go(page, 'Ledger')
   await writeDown(page, 'abc', 'Coffee')
-  await page.waitForSelector('#amount-error')
+  await page.waitForSelector(`${WRITE} [role=alert]`)
   await shot.take('spends-refused')
 })
 
@@ -245,6 +291,8 @@ async function go(page: Page, place: string) {
 }
 
 async function shooter(page: Page) {
+  // Design shots are light unless they say dark; the app itself follows the machine.
+  await page.emulateMedia({ colorScheme: 'light' })
   const cdp = await page.context().newCDPSession(page)
   return {
     /** The window's size in CSS pixels, and how many device pixels each takes. */

@@ -4,7 +4,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, rows, WRITE } from './app'
+import { aHome, launch, openComposer, rows, WRITE } from './app'
 import { seed } from './month'
 
 const NAV = 'nav[aria-label=Places]'
@@ -30,6 +30,7 @@ const A_WORD = 64
 
 async function spend(page: Page, amount: string, description: string, to: string) {
   const before = (await rows(page)).length
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
   await page.fill(`${WRITE} input[name=to]`, to)
@@ -52,8 +53,8 @@ const cellsIn = (page: Page, list: string) =>
 /** The headings over a list, each with its edges. */
 const headingsOver = (page: Page, list: string) =>
   page.evaluate((list) => {
-    // Over the list's scroller, which holds the listbox.
-    const headings = document.querySelector(list)?.parentElement?.previousElementSibling
+    // The list's own block holds the headings, then maybe the composer, then the scroller.
+    const headings = document.querySelector(list)?.parentElement?.parentElement?.firstElementChild
     return [...(headings?.children ?? [])].map((h) => {
       const { left, right } = h.getBoundingClientRect()
       return { name: h.textContent, left, right }
@@ -68,7 +69,8 @@ describe("a row's columns", () => {
     expect(await page.evaluate(() => innerWidth)).toBe(960)
 
     const ledger = await cellsIn(page, LEDGER)
-    expect(Object.keys(ledger), 'From goes in a narrow list').not.toContain('from')
+    // With the form gone the list has the width at 960, so From leads as it does wide.
+    expect(Object.keys(ledger), 'the ledger at 960').toContain('from')
     expect(ledger.to?.width).toBeGreaterThanOrEqual(A_WORD)
     expect(ledger.description?.width).toBeGreaterThanOrEqual(A_WORD)
     // A path says its root's word, which the tag stands for, as a screen reader hears it.
@@ -80,6 +82,7 @@ describe("a row's columns", () => {
     await page.click(`${BREAKDOWN} li:has-text("food")`)
     await page.waitForSelector(`${BEHIND} [data-cell=to]`)
     const reported = await cellsIn(page, BEHIND)
+    expect(Object.keys(reported), 'From goes in a narrow list').not.toContain('from')
     expect(reported.to?.width).toBeGreaterThanOrEqual(A_WORD)
     expect(reported.description?.width).toBeGreaterThanOrEqual(A_WORD)
   })
@@ -115,6 +118,9 @@ describe("a row's columns", () => {
     await page.setViewportSize({ width: 1440, height: 800 })
     // A month, so the list scrolls and its scrollbar takes room the headings must keep too.
     await seed(page)
+    if (await page.isVisible('form[aria-label="Write down a spend"]')) {
+      await page.keyboard.press('Escape')
+    }
     await page.waitForSelector(`${LEDGER} [data-cell=from]`)
     await page.waitForFunction(() => document.getAnimations().length === 0)
     const scrolls = await page

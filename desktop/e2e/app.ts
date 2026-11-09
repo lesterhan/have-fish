@@ -89,7 +89,7 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
   const page = context.pages()[0] ?? (await context.waitForEvent('page'))
   // Playwright pins a page it connects to at light; the app's theme decides instead.
   await page.emulateMedia({ colorScheme: null })
-  await page.waitForSelector('input[name=amount]')
+  await page.waitForSelector('nav[aria-label=Places]')
   // The page is ready before the window shows (see #582); keys need the window on screen.
   await page.waitForFunction(() => document.visibilityState === 'visible')
 
@@ -156,8 +156,20 @@ export const ADD_ACCOUNT = 'role=button[name="Add account"s]'
 /** The button that closes a pane, scoped to its pane. */
 export const BACK = 'role=button[name="Back to the list"s]'
 
-/** The form that writes a spend down. */
+/** The line that writes a spend, open above the ledger's today. */
 export const WRITE = 'form[aria-label="Write down a spend"]'
+
+/** Opens the line if it isn't open, then puts the cursor in its amount. */
+export async function openComposer(page: Page): Promise<void> {
+  if ((await page.locator(WRITE).count()) === 0) {
+    await page.getByRole('button', { name: /\+ New/ }).click()
+  }
+  await page.locator(`${WRITE} input[name=amount]`).waitFor()
+  // The line takes the cursor once it's drawn; a test can then move it where it wants.
+  await page.waitForFunction(
+    () => document.activeElement?.closest('form[aria-label="Write down a spend"]') !== null,
+  )
+}
 /** A spend's details, open under its row in the ledger. */
 export const PANE = 'section[aria-label="The spend"]'
 
@@ -204,8 +216,9 @@ export async function openSelected(page: Page, list = 'ol[aria-label=Ledger]', c
   await page.waitForSelector(card)
 }
 
-/** Types a spend the way a person does: amount, Tab, what for, Enter. */
+/** Types a spend the way a person does: + New, amount, Tab, what for, Enter. */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {
+  await openComposer(page)
   await page.locator(`${WRITE} input[name=amount]`).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')

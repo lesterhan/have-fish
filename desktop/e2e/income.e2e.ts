@@ -9,6 +9,7 @@ import {
   launch,
   offeredPaths,
   openChip,
+  openComposer,
   openSelected,
   PANE,
   rows,
@@ -37,12 +38,14 @@ async function addAccount(page: Page, name: string, kind: string, start = '') {
 
 /** Amount, what for and To typed; the cursor in From, emptied. */
 async function upToFrom(page: Page, amount: string, description: string, to: string) {
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
   await page.fill(`${WRITE} input[name=to]`, to)
   await page.locator(FROM).focus()
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.press('Backspace')
+  if (!(await page.isVisible(OPTIONS))) await page.press(FROM, 'ArrowDown')
 }
 
 const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
@@ -117,6 +120,7 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
     await expect.poll(() => rows(page)).toHaveLength(3)
 
+    await openComposer(page)
     expect(await page.inputValue(FROM)).toBe('visa')
   })
 
@@ -129,8 +133,8 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
 
     await expect
-      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
-      .toBe('Money coming in goes into one of your accounts. Pick one in To.')
+      .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
+      .toBe('not an account')
     expect(await rows(page)).toEqual([])
   })
 })

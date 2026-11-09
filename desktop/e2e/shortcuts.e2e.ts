@@ -3,17 +3,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import {
-  aHome,
-  launch,
-  openChip,
-  openSelected,
-  openSpend,
-  PANE,
-  rows,
-  WRITE,
-  writeDown,
-} from './app'
+import { aHome, launch, openChip, openSelected, openSpend, PANE, rows, writeDown } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const DESCRIPTION = `${PANE} input[name=description]`
@@ -85,6 +75,6 @@ describe('shortcuts', () => {
     // Give a reload the time it would take, then look.
     await page.waitForTimeout(1_000)
     expect(await page.inputValue(DESCRIPTION)).toBe('Not yet saved')
-    expect(await page.isVisible(`${WRITE} input[name=amount]`)).toBe(true)
+    expect(await page.isVisible('ol[aria-label=Ledger]')).toBe(true)
   })
 })

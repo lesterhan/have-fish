@@ -9,6 +9,7 @@ import {
   cellsOf,
   launch,
   openChip,
+  openComposer,
   openSpend,
   rows,
   spendCells,
@@ -38,6 +39,7 @@ async function spend(
 ) {
   await page.click(`${NAV} button:has-text("Ledger")`)
   const before = (await rows(page)).length
+  await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
   await page.fill(`${WRITE} input[name=to]`, to)
