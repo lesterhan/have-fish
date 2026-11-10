@@ -25,10 +25,10 @@ const FROM = `${WRITE} input[name=from]`
 const DATE = `${WRITE} input[name=date]`
 const LEDGER = 'ol[aria-label=Ledger]'
 
-// The cursor and the Tab mark that goes with it land a flush after the key that moves them.
-const focused = (page: Page, attribute = 'name') =>
-  page.evaluate((name) => document.activeElement?.getAttribute(name), attribute)
-const hint = (page: Page, part: string) => page.locator(`[data-part=${part}]`).innerText()
+const focusedName = (page: Page) =>
+  page.evaluate(() => document.activeElement?.getAttribute('name'))
+/** What a part of the line reads, its Tab mark among it while that shows. */
+const partText = (page: Page, part: string) => page.locator(`[data-part=${part}]`).innerText()
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -63,7 +63,7 @@ describe('the line', () => {
       'expenses:food:coffee',
     )
     // The first empty part is where the run starts.
-    await expect.poll(() => focused(page)).toBe('from')
+    await expect.poll(() => focusedName(page)).toBe('from')
     expect(await rows(page)).toEqual([])
   })
 
@@ -97,7 +97,9 @@ describe('the line', () => {
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
     // The line closes, and the list has the new row selected.
     expect(await page.locator(WRITE).count()).toBe(0)
-    await expect.poll(() => focused(page, 'role')).toBe('listbox')
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')))
+      .toBe('listbox')
 
     await writeDown(page, '4.50', 'Coffee')
     await expect
@@ -138,23 +140,23 @@ describe('the line', () => {
     await page.waitForSelector(WRITE)
 
     // From and Date carried over; the run starts at Amount.
-    await expect.poll(() => page.inputValue(FROM)).toBe('cash')
-    await expect.poll(() => page.inputValue(DATE)).toBe('today')
-    await expect.poll(() => focused(page)).toBe('amount')
-    await expect.poll(() => hint(page, 'amount')).toContain('Tab')
+    expect(await page.inputValue(FROM)).toBe('cash')
+    expect(await page.inputValue(DATE)).toBe('today')
+    await expect.poll(() => focusedName(page)).toBe('amount')
+    await expect.poll(() => partText(page, 'amount')).toContain('Tab')
 
     await page.keyboard.type('7')
-    await expect.poll(() => hint(page, 'description')).toContain('Tab')
+    await expect.poll(() => partText(page, 'description')).toContain('Tab')
 
     await page.keyboard.press('Tab')
-    await expect.poll(() => focused(page)).toBe('description')
-    await expect.poll(() => hint(page, 'description')).toContain('Tab')
+    await expect.poll(() => focusedName(page)).toBe('description')
+    await expect.poll(() => partText(page, 'description')).toContain('Tab')
 
     await page.keyboard.type('Tea')
-    await expect.poll(() => hint(page, 'to')).toContain('Tab')
+    await expect.poll(() => partText(page, 'to')).toContain('Tab')
 
     await page.keyboard.press('Shift+Tab')
-    await expect.poll(() => focused(page)).toBe('amount')
+    await expect.poll(() => focusedName(page)).toBe('amount')
   })
 
   test('Esc keeps what was typed, and the next + New opens on it', async () => {
