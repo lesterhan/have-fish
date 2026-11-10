@@ -38,8 +38,8 @@ export function cursorFor(moment: CursorMoment, state: CursorState): Cursor | nu
     case 'newSpend':
       return 'line'
     case 'written':
-      // A line opened while the ledger caught up isn't done with the cursor.
-      return state.composing ? null : 'list'
+      // The line stays open, so a write gives the cursor back to its fresh line.
+      return state.composing ? 'line' : 'list'
     case 'lineClosed':
       return state.total === 0 ? null : 'list'
     case 'removed':
