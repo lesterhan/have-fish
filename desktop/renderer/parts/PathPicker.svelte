@@ -4,14 +4,14 @@
   // for a name none has. It replaces Picker everywhere; the rules are in `pathPicker.ts`.
   import { copy } from '../../copy'
   import type { ListedPath } from '../../shared/commands'
+  import { daysSince, todayIn } from '../format'
   import {
     childrenAt,
     createPath,
     levelOfTyped,
-    needleOf,
     offered,
     parentsOf,
-    relativeOf,
+    pathNamed,
     searching,
     textOf,
     trailOf,
@@ -37,22 +37,22 @@
     listLabel: string
     /** The input's accessible name, where no label names it. */
     label?: string | undefined
-    invalid: boolean
-    describedby: string | undefined
+    invalid?: boolean
+    describedby?: string | undefined
     /** I typed, or picked: the field holds my choice now. */
-    onchoose: (text: string) => void
+    onchoose?: ((text: string) => void) | undefined
     /** A path was picked: from the list, not typed. A card saves it at once. */
     onpicked?: (() => void) | undefined
     /** Given, a name none has is offered as a new one, in these words. */
     newOption?: ((name: string) => string) | undefined
     /** Escape when the list is open: close the whole field, not only the list (refile). */
     onclose?: (() => void) | undefined
-    /** In a list cell: the focus ring sits inside the field, where the row can't clip it. */
-    inRow?: boolean
-    /** A part of the composer: no field border or ring; the part it sits in draws those. */
-    inline?: boolean
-    /** Opens its list when focused. Off in the composer, where a list per part would cover the line. */
-    openOnFocus?: boolean
+    /**
+     * Where it sits. A field opens its list when focused. In a list `row` its focus ring sits
+     * inside, where the row can't clip it. A part of the composer's `line` has no border or ring,
+     * since the part draws those, and opens no list on focus, which would cover the line.
+     */
+    sits?: 'field' | 'row' | 'line'
     /** Where its list starts, when that isn't the field: the composer's whole line. */
     below?: HTMLElement | undefined
   }
@@ -65,15 +65,13 @@
     placeholder,
     listLabel,
     label,
-    invalid,
+    invalid = false,
     describedby,
     onchoose,
     onpicked,
     newOption,
     onclose,
-    inRow = false,
-    inline = false,
-    openOnFocus = true,
+    sits = 'field',
     below,
   }: Props = $props()
 
@@ -91,11 +89,7 @@
   let fetching = 0
 
   const available = $derived(offered(paths, mode))
-  const current = $derived(
-    text.trim() === ''
-      ? undefined
-      : available.find((p) => relativeOf(p.path) === text.trim() || p.path === text.trim()),
-  )
+  const current = $derived(pathNamed(available, text))
   /** What was typed, once it differs from what the field held: then letters find paths. */
   const typed = $derived(text !== kept && text.trim() !== '')
   const at = $derived(typed ? levelOfTyped(level, text, mode) : level)
@@ -103,12 +97,7 @@
   const picks = $derived(typed ? searching(available, text) : childrenAt(available, level))
   const made = $derived(typed && newOption !== undefined ? createPath(mode, at, text) : null)
   /** A name an account already has is not offered as a new one. */
-  const created = $derived(
-    made !== null &&
-      !available.some((p) => relativeOf(p.path).toLowerCase() === made.name.toLowerCase())
-      ? made
-      : null,
-  )
+  const created = $derived(made !== null && pathNamed(available, made.name) === undefined ? made : null)
 
   type Entry = { key: string; pick: Pick | null; create: { name: string; path: string } | null }
   const entries = $derived<Entry[]>([
@@ -116,6 +105,13 @@
     ...(created === null ? [] : [{ key: `new:${created.path}`, pick: null, create: created }]),
   ])
   const listId = $derived(`${id}-path-list`)
+  /** How many days ago each use was, once per load: a part's last use is one of its paths'. */
+  const daysAgo = $derived.by(() => {
+    const today = todayIn()
+    return new Map(
+      paths.flatMap((p) => (p.lastUsed === null ? [] : [[p.lastUsed, daysSince(p.lastUsed, today)]])),
+    )
+  })
 
   $effect(() => {
     const keys = entries.map((e) => e.key)
@@ -131,7 +127,7 @@
     active = null
     // Typing starts a new path over the value, rather than after it.
     input?.select()
-    if (openOnFocus) open = true
+    if (sits !== 'line') open = true
     void load()
   }
 
@@ -142,19 +138,10 @@
     const all = await loadPaths()
     if (mine !== fetching) return
     paths = all
-    const found = valueIn(all, value)
+    const found = pathNamed(all, value)
     level = found === undefined ? null : parentsOf(found.path)
     // The current path is where the keys start; with none, the first.
     active = found?.path ?? null
-  }
-
-  /** The path a field's text names, without regard to case. */
-  function valueIn(all: readonly ListedPath[], value = text): ListedPath | undefined {
-    const typed = value.trim().toLowerCase()
-    if (typed === '') return undefined
-    return all.find(
-      (p) => relativeOf(p.path).toLowerCase() === typed || p.path.toLowerCase() === typed,
-    )
   }
 
   function oninput() {
@@ -162,29 +149,29 @@
     active = null
     // Emptied, it opens again with every path, not the part of the tree it was in.
     if (text.trim() === '') level = null
-    onchoose(text)
+    onchoose?.(text)
   }
 
-  function pick(pick: Pick) {
-    text = textOf(pick)
+  /** A path picked from the list, or the new one offered: the field holds it, and the list closes. */
+  function pick(value: string) {
+    text = value
     kept = text
     open = false
-    onchoose(text)
+    onchoose?.(text)
     onpicked?.()
+  }
+
+  /** An entry taken: a path or a new one is chosen, and a part with nothing to pick opens. */
+  function take(entry: Entry) {
+    if (entry.create !== null) pick(entry.create.name)
+    else if (entry.pick?.pickable) pick(textOf(entry.pick))
+    else if (entry.pick !== null) drill(entry.pick)
   }
 
   function drill(pick: Pick) {
     level = pick.path
     active = null
     input?.focus()
-  }
-
-  function create(name: string) {
-    text = name
-    kept = text
-    open = false
-    onchoose(text)
-    onpicked?.()
   }
 
   function go(part: string) {
@@ -209,15 +196,13 @@
       // Picks, and doesn't send the form.
       event.preventDefault()
       event.stopPropagation()
-      if (entry.create !== null) create(entry.create.name)
-      else if (entry.pick?.pickable) pick(entry.pick)
-      else if (entry.pick !== null) drill(entry.pick)
+      take(entry)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
       text = kept
       open = false
-      onchoose(text)
+      onchoose?.(text)
       // A refile has no chip under it: one Escape puts the whole picker away.
       onclose?.()
     } else if (event.key === 'Tab') {
@@ -227,14 +212,8 @@
 
   /** How long ago a path was used, in the picker's words. */
   function used(lastUsed: number | null): string {
-    if (lastUsed === null) return ''
-    const today = new Date()
-    const then = new Date(lastUsed)
-    const days = Math.floor(
-      (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
-        Date.UTC(then.getFullYear(), then.getMonth(), then.getDate())) /
-        86_400_000,
-    )
+    const days = lastUsed === null ? undefined : daysAgo.get(lastUsed)
+    if (days === undefined) return ''
     if (days <= 0) return words.used.today
     if (days === 1) return words.used.yesterday
     return words.used.days(days)
@@ -258,8 +237,8 @@
     autocomplete="off"
     maxlength="200"
     size={Math.max(text.length, placeholder.length, 4)}
-    class:in-row={inRow}
-    class:in-line={inline}
+    class:in-row={sits === 'row'}
+    class:in-line={sits === 'line'}
     class:filled={text.trim() !== ''}
     {onfocus}
     onblur={() => (open = false)}
@@ -301,9 +280,7 @@
         onactive={(key) => (active = key)}
         onpick={(key) => {
           const entry = entries.find((e) => e.key === key)
-          if (entry?.create) create(entry.create.name)
-          else if (entry?.pick?.pickable) pick(entry.pick)
-          else if (entry?.pick !== null && entry !== undefined) drill(entry.pick)
+          if (entry !== undefined) take(entry)
         }}
       >
         {#snippet row(entry)}

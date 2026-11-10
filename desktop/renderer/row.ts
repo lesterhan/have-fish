@@ -2,13 +2,13 @@
 
 import type { ListedDay, ListedTransaction } from '../shared/commands'
 import type { Way } from './format'
+import { rootOfPath } from './pathPicker'
 
 const MINE = new Set(['assets', 'liabilities'])
-const rootOf = (path: string | null) => path?.split(':')[0]
 
 /** In from an income source; between two accounts of mine; out otherwise, which has no sign. */
 export function wayOf({ fromPath, toPath }: Pick<ListedTransaction, 'fromPath' | 'toPath'>): Way {
-  const [from, to] = [rootOf(fromPath), rootOf(toPath)]
+  const [from, to] = [fromPath, toPath].map((path) => path && rootOfPath(path))
   if (from === 'income') return 'in'
   return from && to && MINE.has(from) && MINE.has(to) ? 'between' : 'out'
 }

@@ -5,6 +5,7 @@ import {
   day,
   dayOf,
   dayParts,
+  daysSince,
   moment,
   money,
   moneyParts,
@@ -56,6 +57,22 @@ describe('day', () => {
       month: 'Nov',
       year: '2026',
     })
+  })
+})
+
+describe('days since a use', () => {
+  const at = Date.UTC(2026, 10, 5, 23, 30)
+
+  test('counts calendar days to today, not hours', () => {
+    expect(daysSince(at, '2026-11-05', 'UTC')).toBe(0)
+    expect(daysSince(at, '2026-11-06', 'UTC')).toBe(1)
+    expect(daysSince(at, '2026-11-15', 'UTC')).toBe(10)
+    expect(daysSince(at, '2027-01-01', 'UTC')).toBe(57)
+  })
+
+  test("the use's day is where I am", () => {
+    expect(daysSince(at, '2026-11-06', 'America/Toronto')).toBe(1)
+    expect(daysSince(at, '2026-11-06', 'Asia/Tokyo')).toBe(0)
   })
 })
 

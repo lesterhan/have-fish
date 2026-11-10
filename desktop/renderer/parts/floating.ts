@@ -3,12 +3,13 @@
 // list scrolls, the window resizes, or the field itself changes size. `below` is where the layer
 // starts when that isn't the field's own bottom: the composer's whole line, so it clears the ring.
 
-export type Anchor =
-  | HTMLElement
-  | { field: HTMLElement | undefined; below: HTMLElement | undefined }
+/** An element bound with `bind:this`: undefined until drawn, and null once it's gone. */
+type Bound = HTMLElement | null | undefined
 
-export function floating(node: HTMLElement, anchor: Anchor | undefined) {
-  const parts = (from: Anchor | undefined) =>
+export type Anchor = Bound | { field: Bound; below: Bound }
+
+export function floating(node: HTMLElement, anchor: Anchor) {
+  const parts = (from: Anchor) =>
     from instanceof HTMLElement
       ? { field: from, below: from }
       : from === undefined || from === null
@@ -30,7 +31,7 @@ export function floating(node: HTMLElement, anchor: Anchor | undefined) {
   const observer = new ResizeObserver(place)
   for (const el of [field, below]) if (el instanceof HTMLElement) observer.observe(el)
   return {
-    update(next: Anchor | undefined) {
+    update(next: Anchor) {
       for (const el of [field, below]) if (el instanceof HTMLElement) observer.unobserve(el)
       ;({ field, below } = parts(next))
       for (const el of [field, below]) if (el instanceof HTMLElement) observer.observe(el)

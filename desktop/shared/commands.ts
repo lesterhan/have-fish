@@ -81,8 +81,6 @@ export const inputs = {
   /** A starting balance for an account that has none. */
   'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
   'account.list': z.strictObject({}),
-  'category.list': z.strictObject({}),
-  'income.list': z.strictObject({}),
   /** Every account and category, for a path picker: its whole path, kind and last use. */
   'path.list': z.strictObject({}),
   /** What went to each category from `start` to `end`, both days in it. */
@@ -166,15 +164,6 @@ export type ListedPath = {
   lastUsed: number | null
 }
 
-/** A category I've put a spend in, or an income source money came from, as a picker offers it. */
-export type ListedCategory = {
-  id: string
-  /** Its path without the root: `food:coffee`, `salary`. */
-  name: string
-  /** How many live transactions are in it. */
-  uses: number
-}
-
 export type Money = { amount: string; currency: string }
 
 /** An account I added, as the Accounts list shows it. */
@@ -226,10 +215,6 @@ export interface Values {
   'account.start': { id: string | null }
   /** Sorted by name, without regard to case. */
   'account.list': ListedAccount[]
-  /** The ones in use, most used first; never unsorted, which is what none means. */
-  'category.list': ListedCategory[]
-  /** The income sources money has come from, most used first. */
-  'income.list': ListedCategory[]
   /** Every live account and category, by path. */
   'path.list': ListedPath[]
   /**

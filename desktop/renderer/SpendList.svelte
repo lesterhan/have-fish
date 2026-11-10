@@ -250,11 +250,8 @@
             bind:text={refileText}
             placeholder={copy.spends.write.unsorted}
             listLabel={copy.spends.write.toList}
-            invalid={false}
-            describedby={undefined}
-            onchoose={() => {}}
             onpicked={() => void saveRefile(t)}
-            inRow
+            sits="row"
             onclose={() => {
               refiling = null
               void tick().then(() => listbox.focus())

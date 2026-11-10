@@ -92,6 +92,16 @@ export function day(date: string, today: string): string {
   return words.join(' ')
 }
 
+/** How many days before `today` a moment's day was, where I am: 0 the same day, 1 yesterday. */
+export function daysSince(
+  at: number,
+  today: string,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): number {
+  const then = calendarDateAt(at, timeZone)
+  return (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${then}T00:00:00Z`)) / 86_400_000
+}
+
 const MOMENT: Intl.DateTimeFormatOptions = {
   weekday: 'short',
   day: 'numeric',

@@ -18,7 +18,7 @@ import type { Changed, Typing } from '../shared/commands'
 import { backgroundFor } from '../shared/theme/derive'
 import { type ThemeChoice, themeSourceOf } from '../shared/theme/theme'
 import { runCommand } from './commands/run'
-import { type Context, contextFor, systemTime } from './context'
+import { type Context, contextFor } from './context'
 import { type Ledger, openLedger } from './db/ledger'
 import { readOrCreateInstallId } from './install-id'
 import { settingsIn } from './machine'
@@ -77,9 +77,13 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.on('updated', () =>
       window?.setBackgroundColor(backgroundFor(machine.theme(), nativeTheme.shouldUseDarkColors)),
     )
-    const ctx = contextFor(ledger, announce, systemTime, machine, showTheme, (text) =>
-      clipboard.writeText(text),
-    )
+    const ctx = contextFor({
+      ledger,
+      announce,
+      machine,
+      showTheme,
+      copy: (text) => clipboard.writeText(text),
+    })
     let typing: Typing = { undo: false, redo: false }
     // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.
     const showMenu = () => {

@@ -148,9 +148,6 @@
         bind:text={picked}
         placeholder={copy.spends.write.unsorted}
         listLabel={copy.spends.write.toList}
-        invalid={false}
-        describedby={undefined}
-        onchoose={() => {}}
         newOption={copy.spends.write.newCategory}
       />
     </div>

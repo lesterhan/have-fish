@@ -265,8 +265,6 @@
               placeholder={copy.spends.write.unsorted}
               listLabel={copy.spends.write.toList}
               invalid={refused('to') !== null}
-              describedby={undefined}
-              onchoose={() => {}}
               onpicked={() => void commit()}
               newOption={copy.spends.write.newCategory}
             />

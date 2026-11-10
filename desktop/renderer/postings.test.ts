@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import type { ListedLeg, ListedOrigin } from '../shared/commands'
-import { balancesOf, postingsOf, postingsText, provenanceOf, rootOf, widthsOf } from './postings'
+import {
+  balancesOf,
+  postingsOf,
+  postingsText,
+  provenanceOf,
+  rootAndRest,
+  widthsOf,
+} from './postings'
 
 const leg = (path: string | null, amount: string, currency = 'CAD'): ListedLeg => ({
   path,
@@ -104,10 +111,10 @@ describe('where it came from', () => {
 
 describe('an account path for colour', () => {
   test('the root keeps its colon, and the rest follows', () => {
-    expect(rootOf('expenses:food:coffee')).toEqual({ root: 'expenses:', rest: 'food:coffee' })
+    expect(rootAndRest('expenses:food:coffee')).toEqual({ root: 'expenses:', rest: 'food:coffee' })
   })
 
   test('a root alone is all root', () => {
-    expect(rootOf('equity')).toEqual({ root: 'equity', rest: '' })
+    expect(rootAndRest('equity')).toEqual({ root: 'equity', rest: '' })
   })
 })

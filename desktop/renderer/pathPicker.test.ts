@@ -6,7 +6,8 @@ import {
   levelOfTyped,
   needleOf,
   offered,
-  rootOf,
+  pathNamed,
+  rootOfPath,
   searching,
   textOf,
   trailOf,
@@ -108,6 +109,23 @@ describe('letters find paths', () => {
   })
 })
 
+describe('the path a field names', () => {
+  const named = (text: string) => pathNamed(PATHS, text)?.path
+
+  test('by its name or its whole path, without regard to case or spaces', () => {
+    expect(named('food:coffee')).toBe('expenses:food:coffee')
+    expect(named('Food:Coffee')).toBe('expenses:food:coffee')
+    expect(named('expenses:food:coffee')).toBe('expenses:food:coffee')
+    expect(named(' cash ')).toBe('assets:cash')
+  })
+
+  test('none for nothing, or a name no path has', () => {
+    expect(named('')).toBeUndefined()
+    expect(named('  ')).toBeUndefined()
+    expect(named('tea')).toBeUndefined()
+  })
+})
+
 describe('the trail', () => {
   test('the root and each part under it, each a way back', () => {
     expect(trailOf('expenses:food')).toEqual([
@@ -118,7 +136,7 @@ describe('the trail', () => {
   })
 
   test('the root is the first part of a path', () => {
-    expect(rootOf('liabilities:cibc:visa')).toBe('liabilities')
+    expect(rootOfPath('liabilities:cibc:visa')).toBe('liabilities')
   })
 
   test('a typed path walks to its deepest existing part', () => {

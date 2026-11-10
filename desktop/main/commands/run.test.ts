@@ -7,14 +7,12 @@ import { type Log, runCommand } from './run'
 function setup(copied: string[] = []) {
   const ledger = tempLedger()
   const announced: Changed[][] = []
-  const ctx = contextFor(
+  const ctx = contextFor({
     ledger,
-    (changed) => announced.push(changed),
-    { now: () => NOW, timeZone: () => 'UTC' },
-    undefined,
-    undefined,
-    (text) => copied.push(text),
-  )
+    announce: (changed) => announced.push(changed),
+    time: { now: () => NOW, timeZone: () => 'UTC' },
+    copy: (text) => copied.push(text),
+  })
   const lines: string[] = []
   const errors: unknown[] = []
   const log: Log = { info: (line) => lines.push(line), error: (_, e) => errors.push(e) }
@@ -81,12 +79,14 @@ describe('runCommand', () => {
     expect(announced).toEqual([])
   })
 
-  test('the categories in use cross as a list', () => {
+  test('the paths cross as a list', () => {
     const { ctx, log } = setup()
     runCommand(ctx, 'spend.write', { amount: '1', description: '', to: { category: 'food' } }, log)
-    expect(runCommand(ctx, 'category.list', {}, log)).toEqual({
+    expect(runCommand(ctx, 'path.list', {}, log)).toMatchObject({
       ok: true,
-      value: [{ id: expect.any(String), name: 'food', uses: 1 }],
+      value: expect.arrayContaining([
+        { id: expect.any(String), path: 'expenses:food', kind: 'category', lastUsed: NOW },
+      ]),
     })
   })
 

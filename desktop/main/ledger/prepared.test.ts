@@ -101,7 +101,11 @@ describe('a warmed ledger prepares no SQL', () => {
 
   test('in writing down a spend, editing it, and listing them', () => {
     const ledger = tempLedger()
-    const ctx = contextFor(ledger, () => {}, { now: () => NOW, timeZone: () => 'UTC' })
+    const ctx = contextFor({
+      ledger,
+      announce: () => {},
+      time: { now: () => NOW, timeZone: () => 'UTC' },
+    })
     let n = 0
 
     const prepared = preparedOnSecondRun(ledger, () => {

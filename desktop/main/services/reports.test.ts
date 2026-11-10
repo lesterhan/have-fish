@@ -9,7 +9,7 @@ import { removeSpend, writeSpend } from './spends'
 function setup() {
   const ledger = tempLedger()
   const clock: Time = { now: () => NOW, timeZone: () => 'UTC' }
-  const ctx = contextFor(ledger, () => {}, clock)
+  const ctx = contextFor({ ledger, announce: () => {}, time: clock })
   /** A spend from `from` (the wallet when left out) to a category, or to an account of mine. */
   const spend = (
     amount: string,
