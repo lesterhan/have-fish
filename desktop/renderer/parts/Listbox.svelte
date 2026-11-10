@@ -4,7 +4,8 @@
   // whole list's. A list is `items`, or `paged` when the window holds only some of it (see #608).
   // Rows can come in groups, each under a band, and the top one's band stays while its rows pass
   // under it (see #611). A row can open, its details under it in the room the rows below make
-  // for them: inside the scroller, outside the listbox, which holds only options. The rules are in
+  // for them: inside the scroller, outside the listbox, which holds only options. With `tree`, it
+  // is a tree instead, each row an item of it at its level (see #640). The rules are in
   // `listbox.ts`; each row is a `Row`.
   import { onMount, type Snippet, tick, untrack } from 'svelte'
   import { onDensity } from '../density'
@@ -16,6 +17,7 @@
     offsetsOf,
     type Paged,
     scrolledTo,
+    type TreeSpot,
     uniformOf,
     windowOf,
     withRoom,
@@ -75,6 +77,8 @@
     details?: Snippet<[T]> | undefined
     /** The composer is open: the list steps back, and reaching for it closes the line. */
     dimmed?: boolean
+    /** A tree's rows: what each says to a screen reader. With it the list is a tree. */
+    tree?: ((item: T) => TreeSpot) | undefined
   }
   let {
     items,
@@ -104,6 +108,7 @@
     opened = null,
     details,
     dimmed = false,
+    tree,
   }: Props = $props()
 
   let list: HTMLOListElement
@@ -245,7 +250,7 @@
   }
 
   function chosen(event: MouseEvent): string | undefined {
-    const option = (event.target as Element).closest<HTMLElement>('[role=option]')
+    const option = (event.target as Element).closest<HTMLElement>('[role=option],[role=treeitem]')
     if (option === null || option.getAttribute('aria-disabled') === 'true') return undefined
     return option.dataset.id
   }
@@ -277,10 +282,11 @@
     <!-- The top row's band, staying while its rows pass under. Takes no room in the list. -->
     <div class="stays" aria-hidden="true"><div>{@render band(topGroup)}</div></div>
   {/if}
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex (a tree takes the cursor, as the listbox does) -->
   <ol
     bind:this={list}
     id={`${idPrefix}-list`}
-    role="listbox"
+    role={tree ? 'tree' : 'listbox'}
     aria-label={label}
     tabindex={owner === undefined ? 0 : -1}
     aria-activedescendant={owner === undefined ? descendant : undefined}
@@ -312,6 +318,7 @@
           onlanded={() => onlanded?.(id)}
           setsize={count}
           posinset={index + 1}
+          spot={tree?.(item)}
           {columns}
           {height}
           {band}

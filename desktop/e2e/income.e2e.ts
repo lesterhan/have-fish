@@ -82,7 +82,9 @@ describe('write down money coming in', () => {
     expect(await balances(page)).toEqual(['chequing | 2,100.00'])
 
     await page.click(`${NAV} button:has-text("Reports")`)
-    await expect.poll(() => page.innerText('role=main')).toContain('No spending in this week.')
+    await expect
+      .poll(() => page.innerText('role=main'))
+      .toContain('No spending in this week or the week before.')
   })
 
   test('a source used once is offered after my accounts, said as income', async () => {

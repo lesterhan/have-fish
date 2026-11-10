@@ -2,8 +2,10 @@
   // One option of a Listbox, and its states (DESIGN.md, "Parts"): at rest; a lighter step under
   // the pointer; selected, a tint, with an accent edge and its keys while its list has focus;
   // landed, lit where it lands; open, lifted with its details under it, while the rest of the
-  // list steps back. A row that starts a day carries the day's band above it.
+  // list steps back. A row that starts a day carries the day's band above it. In a tree it is an
+  // item of it, at its level and open or closed (#640).
   import type { Snippet } from 'svelte'
+  import type { TreeSpot } from './listbox'
 
   type Props = {
     /** The element id `aria-activedescendant` names; none while it can't be chosen. */
@@ -20,6 +22,8 @@
     onlanded?: (() => void) | undefined
     setsize: number
     posinset: number
+    /** What it says in a tree: its level, where among its siblings, and whether it's open. */
+    spot?: TreeSpot | undefined
     columns?: string | undefined
     /** Its whole height in px, its band's included. */
     height: number
@@ -42,6 +46,7 @@
     onlanded,
     setsize,
     posinset,
+    spot,
     columns,
     height,
     band,
@@ -54,12 +59,14 @@
 
 <li
   {id}
-  role="option"
+  role={spot ? 'treeitem' : 'option'}
   aria-selected={selected}
   aria-disabled={disabled || undefined}
   aria-busy={busy || undefined}
-  aria-setsize={setsize}
-  aria-posinset={posinset}
+  aria-level={spot?.level}
+  aria-expanded={spot?.open}
+  aria-setsize={spot?.setsize ?? setsize}
+  aria-posinset={spot?.posinset ?? posinset}
   data-id={dataId}
   data-landed={landed || undefined}
   class:banded={band !== undefined && group !== undefined}

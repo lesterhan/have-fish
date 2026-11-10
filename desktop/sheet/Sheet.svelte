@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { comparedAt } from '@have-fish/core/spending'
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
   import Chip from '../renderer/parts/Chip.svelte'
@@ -18,6 +19,8 @@
   import Sidebar from '../renderer/parts/Sidebar.svelte'
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
+  import SpendingTree from '../renderer/SpendingTree.svelte'
+  import { treeRows } from '../renderer/report'
   import { spendActions } from '../renderer/spendActions'
   import Batch from '../renderer/Batch.svelte'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
@@ -101,6 +104,26 @@
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+
+  // The tree's fixed weeks: food open, one child with a dash this week, and a row each of more,
+  // less and same.
+  const counted = (category: string, cents: number) => ({ id: `${category}-${cents}`, category, cents })
+  const TREE_SHOWN = [
+    counted('food:groceries', 5000),
+    counted('food:coffee', 450),
+    counted('food', 500),
+    counted('transport', 3000),
+    counted('entertainment', 1000),
+  ]
+  const TREE_BEFORE = [
+    counted('food:groceries', 4476),
+    counted('food:restaurants', 389),
+    counted('food:coffee', 389),
+    counted('transport', 3000),
+    counted('entertainment', 2500),
+  ]
+  const TREE_ROWS = treeRows(TREE_SHOWN, TREE_BEFORE, new Set(['food']))
+  const TREE_SUMS = comparedAt(TREE_SHOWN, TREE_BEFORE, '')
 </script>
 
 {#snippet card(t: ListedTransaction)}
@@ -202,7 +225,22 @@
 
   <section aria-label="Empty">
     <h2>Empty</h2>
-    <div class="frame"><Empty>{copy.reports.breakdown.nothing}</Empty></div>
+    <div class="frame"><Empty>{copy.reports.tree.empty}</Empty></div>
+  </section>
+
+  <section aria-label="SpendingTree">
+    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same</h2>
+    <div class="frame"><SpendingTree
+        rows={TREE_ROWS}
+        total={TREE_SUMS.total}
+        before={TREE_SUMS.before}
+        currency="CAD"
+        thisWeek
+        selectedKey="category:food"
+        onpick={() => {}}
+        onselect={() => {}}
+        onkey={() => false}
+      /></div>
   </section>
 
   <section aria-label="Money">
