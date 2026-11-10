@@ -131,3 +131,28 @@ describe('the four densities are the ones DESIGN.md says', () => {
     expect(css).toEqual(table)
   })
 })
+
+/** Each `[data-density]` block and the custom properties it declares. */
+function densityDeclarations(source: string) {
+  const blocks = [...source.matchAll(/\[data-density='(\w+)'\]\s*\{([^}]*)\}/g)]
+  return Object.fromEntries(
+    blocks.map(([, name, body]) => [
+      name ?? '',
+      [...(body ?? '').matchAll(/(--[\w-]+)\s*:/g)].map((declared) => declared[1]),
+    ]),
+  ) as Record<string, string[]>
+}
+
+describe('a density sets only the row, the band and the base type', () => {
+  const blocks = densityDeclarations(readFileSync(join(DESKTOP, TOKENS), 'utf8'))
+
+  test('it read the three that are not Regular', () => {
+    expect(Object.keys(blocks).sort()).toEqual(['comfortable', 'compact', 'large'])
+  })
+
+  test('each block declares --row, --band and --text-base, and nothing else', () => {
+    for (const [density, declared] of Object.entries(blocks)) {
+      expect(declared.sort(), density).toEqual(['--band', '--row', '--text-base'])
+    }
+  })
+})

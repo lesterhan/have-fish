@@ -37,6 +37,7 @@ const atTop = (page: Page) =>
     const box = scroller.getBoundingClientRect()
     const rows = [...ol.querySelectorAll<HTMLElement>('li[role=option]')]
     const first = rows.find((r) => r.getBoundingClientRect().bottom > box.top + 1)
+    const startsDay = rows.find((r) => r.querySelector(':scope > div') !== null)
     const gaps = rows.slice(1).map((row, i) => {
       const above = rows[i]?.getBoundingClientRect().bottom ?? 0
       return Math.round(row.getBoundingClientRect().top - above)
@@ -45,6 +46,8 @@ const atTop = (page: Page) =>
       posinset: Number(first?.getAttribute('aria-posinset')),
       top: Math.round((first?.getBoundingClientRect().top ?? 0) - box.top),
       gaps: [...new Set(gaps)],
+      // A day's first row, under its band, wherever one is drawn.
+      dayStart: startsDay === undefined ? 0 : Math.round(startsDay.getBoundingClientRect().height),
       bottom: Math.round(box.bottom),
       height: innerHeight,
       pageScrolls: (document.scrollingElement?.scrollHeight ?? 0) > innerHeight,
@@ -91,6 +94,38 @@ async function manySpends(page: Page, n: number) {
       timeout: 30_000,
     })
     .toBe(String(n))
+}
+
+/** Spends through the window's own commands, five a day for `days` days, so day bands recur. */
+async function fiveADay(page: Page, days: number) {
+  await page.evaluate(async (days) => {
+    type Out = { ok: boolean; value: unknown }
+    const bridge = (
+      window as unknown as { haveFish: { invoke(name: string, input: unknown): Promise<Out> } }
+    ).haveFish
+    const day = (back: number) => {
+      const d = new Date()
+      d.setDate(d.getDate() - back)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    }
+    for (let back = days - 1; back >= 0; back--) {
+      for (let i = 1; i <= 5; i++) {
+        const out = await bridge.invoke('spend.write', {
+          amount: '1.00',
+          description: `Day ${back} spend ${i}`,
+          to: { category: 'food' },
+          date: day(back),
+        })
+        if (!out.ok) throw new Error(JSON.stringify(out))
+      }
+    }
+  }, days)
+  await expect
+    .poll(() => page.locator(`${LEDGER} li[role=option]`).first().getAttribute('aria-setsize'), {
+      timeout: 30_000,
+    })
+    .toBe(String(days * 5))
 }
 
 /** The end of the list: where a row has the least room below it. */
@@ -184,7 +219,7 @@ describe('how dense the ledger is', () => {
   })
 
   test('scrolled past the first page, Comfortable then Compact: the rows meet, the list stays inside the window, and the top row stays on top', {
-    timeout: 180_000,
+    timeout: 30_000,
   }, async () => {
     const app = await launch(aHome())
     const page = app.page
@@ -219,7 +254,7 @@ describe('how dense the ledger is', () => {
   })
 
   test('150 spends, scrolled to the end with row 134 on top, Regular then Large: row 134 is still on top', {
-    timeout: 180_000,
+    timeout: 30_000,
   }, async () => {
     const app = await launch(aHome())
     const page = app.page
@@ -240,5 +275,36 @@ describe('how dense the ledger is', () => {
     expect(Math.abs(after?.top ?? 99)).toBeLessThanOrEqual(1)
     expect(after?.gaps).toEqual([0])
     expect(after?.bottom ?? 0).toBeLessThanOrEqual(after?.height ?? 0)
+  })
+
+  test("5 spends a day, scrolled mid-list, Regular then Large: the rows meet, and a day's first row is 78px", {
+    timeout: 30_000,
+  }, async () => {
+    const app = await launch(aHome())
+    const page = app.page
+    await fiveADay(page, 30)
+
+    // Mid-list, where day bands pass through the view: one day of five leaves only one band a
+    // row's height can lose.
+    await page.locator(LEDGER).evaluate((ol) => {
+      if (ol.parentElement) ol.parentElement.scrollTop = 1_200
+    })
+    await page.waitForFunction(
+      (list) => {
+        const first = document.querySelector(`${list} li[role=option]`)
+        return first !== null && Number(first.getAttribute('aria-posinset')) > 20
+      },
+      LEDGER,
+      { timeout: 30_000 },
+    )
+
+    // Regular first, so the change is the one that moves the band: only Large does.
+    await chooseDensity(app, page, 2)
+    await chooseDensity(app, page, 4)
+
+    const after = await atTop(page)
+    expect(after?.gaps).toEqual([0])
+    // A day's first row carries its band: 32px in Large, over a 46px row.
+    expect(after?.dayStart).toBe(78)
   })
 })
