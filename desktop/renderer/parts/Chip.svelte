@@ -21,6 +21,8 @@
     /** Why the last save was refused: underlined, and the words under it. */
     error?: string | null
     onopen?: () => void
+    /** Its flash has ended: the tick can go. */
+    onflashed?: () => void
     editor?: Snippet
     children: Snippet
   }
@@ -33,6 +35,7 @@
     figures = false,
     error = null,
     onopen,
+    onflashed,
     editor,
     children,
   }: Props = $props()
@@ -54,6 +57,9 @@
     disabled={locked}
     aria-label={label}
     onclick={() => onopen?.()}
+    onanimationend={(event) => {
+      if (saved && event.target === event.currentTarget) onflashed?.()
+    }}
   >
     {@render children()}
     {#if saved}<span class="tick" aria-hidden="true">✓</span>{/if}

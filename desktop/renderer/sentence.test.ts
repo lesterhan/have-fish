@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { ListedTransaction } from '../shared/commands'
-import { type Changable, changeOf, savedValues } from './sentence'
+import { changeOf, destinationOf, paymentsOf, savedValues } from './sentence'
 
 const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => ({
   id: 'a',
@@ -46,27 +46,52 @@ describe('a spend as a sentence', () => {
   test('To sends only when it moved, as an account when it names one', () => {
     const accounts = (typed: string) =>
       typed === 'visa' ? { account: 'visa-id' } : { category: typed }
-    expect(changeOf(listed(), values(), 'to', 'visa', accounts).to).toEqual({ account: 'visa-id' })
-    expect(changeOf(listed(), values(), 'to', 'food', accounts)).not.toHaveProperty('to')
+    expect(changeOf(listed(), values(), 'to', 'visa', accounts)?.to).toEqual({ account: 'visa-id' })
+    // Another part changed: To stays out, so a name a category and an account share can't move it.
+    expect(changeOf(listed(), values(), 'amount', '5', accounts)).not.toHaveProperty('to')
   })
 
   test('the day sends only when it moved, read the short way from today', () => {
     expect(changeOf(listed(), values(), 'date', '2026-10-30', toOf)).toMatchObject({
       date: '2026-10-30',
     })
-    expect(changeOf(listed(), values(), 'date', '2026-10-29', toOf)).not.toHaveProperty('date')
-    // Typed short: today means today, and yesterday is where it already is.
+    expect(changeOf(listed(), values(), 'amount', '5', toOf)).not.toHaveProperty('date')
+    // Typed short: today means today.
     expect(changeOf(listed(), values(), 'date', 't', toOf, '2026-10-30')).toMatchObject({
       date: '2026-10-30',
     })
-    expect(changeOf(listed(), values(), 'date', 'y', toOf, '2026-10-30')).not.toHaveProperty('date')
   })
 
-  test('a part that sends nothing but its own value still sends the amount and description', () => {
-    const parts: Changable[] = ['amount', 'description', 'date', 'to']
-    for (const part of parts) {
-      const input = changeOf(listed(), values(), part, values()[part] ?? '', toOf)
-      expect(input).toMatchObject({ id: 'a', description: 'Coffee', amount: '4.50' })
-    }
+  test('a part left as it was sends nothing', () => {
+    expect(changeOf(listed(), values(), 'amount', '4.50', toOf)).toBeNull()
+    expect(changeOf(listed(), values(), 'description', 'Coffee', toOf)).toBeNull()
+    expect(changeOf(listed(), values(), 'to', ' food ', toOf)).toBeNull()
+    expect(changeOf(listed(), values(), 'date', '2026-10-29', toOf)).toBeNull()
+    // Yesterday, typed short, is the day it already is.
+    expect(changeOf(listed(), values(), 'date', 'y', toOf, '2026-10-30')).toBeNull()
+  })
+})
+
+describe('a spend paid from more than one account', () => {
+  const split = listed({
+    simple: null,
+    legs: [
+      { amount: '-30.00', currency: 'CAD', path: 'assets:cash' },
+      { amount: '-20.00', currency: 'CAD', path: 'liabilities:visa' },
+      { amount: '50.00', currency: 'CAD', path: 'expenses:food' },
+      { amount: '-1.00', currency: 'CAD', path: null },
+    ],
+  })
+
+  test('each account it came from, with what came out of it, unsigned', () => {
+    expect(paymentsOf(split.legs)).toEqual([
+      { path: 'assets:cash', money: { amount: '30.00', currency: 'CAD' } },
+      { path: 'liabilities:visa', money: { amount: '20.00', currency: 'CAD' } },
+    ])
+  })
+
+  test('where the money went: the first leg in, with a path', () => {
+    expect(destinationOf(split.legs)).toBe('expenses:food')
+    expect(destinationOf([{ amount: '5.00', currency: 'CAD', path: null }])).toBeNull()
   })
 })
