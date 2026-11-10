@@ -103,7 +103,7 @@ describe("a row's columns", () => {
     expect(reported.description?.width).toBeGreaterThanOrEqual(A_WORD)
   })
 
-  test('at the size the window opens, each account name reads whole and the headings stand apart', async () => {
+  test('at the size the window opens, account names read whole', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
     await addAccount(page, 'tangerine:chequing', 'bank')
@@ -127,7 +127,7 @@ describe("a row's columns", () => {
     expect(cut).toEqual([false, false, false, false])
   })
 
-  test('at the size the window opens, the tree keeps its three columns and its names whole', async () => {
+  test('at the size the window opens, the tree keeps three columns and whole names', async () => {
     const { page } = await launch(aHome())
     await spend(page, '30', 'Bus pass', 'transport')
     await spend(page, '25', 'Cinema night', 'entertainment')
@@ -136,9 +136,11 @@ describe("a row's columns", () => {
     await page.waitForSelector(`${TREE} [data-cell=name]`)
     expect(await page.evaluate(() => innerWidth)).toBe(960)
 
-    // Last week goes before a name does: the change still says it.
-    const headings = await headingsOver(page, TREE)
-    expect(headings.map((h) => h.name)).toEqual(['Where it went', 'This week', 'Change'])
+    // Last week goes before a name does: the change still says it. The width binds after it
+    // draws, so the headings are read when they say the narrow set.
+    await expect
+      .poll(() => headingsOver(page, TREE).then((all) => all.map((h) => h.name)))
+      .toEqual(['Where it went', 'This week', 'Change'])
     expect(Object.keys(await cellsIn(page, TREE))).toEqual(['name', 'shown', 'change'])
 
     // Food open, so a child's name reads whole too.
@@ -186,14 +188,11 @@ describe("a row's columns", () => {
     // The tree has all four at a wide window, each heading over its column.
     await page.click(`${NAV} button:has-text("Reports")`)
     await page.waitForSelector(`${TREE} [data-cell=name]`)
+    await expect
+      .poll(() => headingsOver(page, TREE).then((all) => all.map((h) => h.name)))
+      .toEqual(['Where it went', 'This week', 'Last week', 'Change'])
     const treeCells = await cellsIn(page, TREE)
     const treeHeadings = await headingsOver(page, TREE)
-    expect(treeHeadings.map((h) => h.name)).toEqual([
-      'Where it went',
-      'This week',
-      'Last week',
-      'Change',
-    ])
     const [where, shown, before, change] = treeHeadings
     expect(where?.left).toBeCloseTo(treeCells.name?.left ?? 0, 0)
     expect(shown?.right).toBeCloseTo(treeCells.shown?.right ?? 0, 0)

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { comparedAt } from '@have-fish/core/spending'
   import { format } from '@have-fish/core/money'
-  import { tick, untrack } from 'svelte'
+  import { tick } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
   import { todayIn } from './format'
@@ -11,7 +11,6 @@
   import { toOf } from './picker'
   import { wordsFor } from './refusals'
   import {
-    closedOver,
     idsWanted,
     otherText,
     spendsBehind,
@@ -222,12 +221,10 @@
     void reportFor(ledger.current())
   }
 
-  /** A category opens or closes; what was selected under it becomes the category's own row. */
+  /** A category opens or closes. */
   function toggle(category: string) {
-    const before = rows
     const next = new Set(opened)
-    if (next.delete(category)) selectedKey = closedOver(before, selectedKey, category)
-    else next.add(category)
+    if (!next.delete(category)) next.add(category)
     opened = next
   }
 
@@ -434,9 +431,8 @@
   }
 
   .other {
-    color: var(--color-muted);
-  }  .other {
     font-size: var(--text-quiet);
+    color: var(--color-muted);
   }
 
   .top {

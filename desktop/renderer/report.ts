@@ -60,16 +60,18 @@ export function treeRows(
   const rows: TreeRow[] = []
   const add = (level: string, depth: number, parent: string | null) => {
     const at = comparedAt(shown, before, level)
-    const here: TreeRow[] = at.lines.map((line, i) => ({
-      ...line,
-      parent,
-      level: depth,
-      open: line.opens ? opened.has(line.category) : undefined,
-      setsize: at.lines.length,
-      posinset: i + 1,
-    }))
-    rows.push(...here)
-    for (const row of here) if (row.open === true) add(row.category, depth + 1, row.key)
+    at.lines.forEach((line, i) => {
+      const row: TreeRow = {
+        ...line,
+        parent,
+        level: depth,
+        open: line.opens ? opened.has(line.category) : undefined,
+        setsize: at.lines.length,
+        posinset: i + 1,
+      }
+      rows.push(row)
+      if (row.open === true) add(row.category, depth + 1, row.key)
+    })
   }
   add('', 1, null)
   return rows
@@ -98,26 +100,6 @@ export function treeKey(rows: readonly TreeRow[], active: string | null, key: st
     return row.parent === null ? null : { active: row.parent }
   }
   return null
-}
-
-/**
- * The selection once `category` closes: its own row when what was selected was under it, and
- * nothing above it moves.
- */
-export function closedOver(
-  rows: readonly TreeRow[],
-  selected: string | null,
-  category: string,
-): string | null {
-  if (selected === null) return null
-  const closing = `category:${category}`
-  const at = new Map(rows.map((r) => [r.key, r]))
-  let row = at.get(selected)
-  while (row !== undefined && row.parent !== null) {
-    if (row.parent === closing) return closing
-    row = at.get(row.parent)
-  }
-  return selected
 }
 
 /** A line's change: how much, and which way, never below zero. */

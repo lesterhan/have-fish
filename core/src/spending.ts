@@ -17,7 +17,7 @@ export type SpendingLine = {
   /** The last part of its name: what it shows as at this level. */
   label: string
   cents: number
-  /** Whether it has categories under it with money in them, so picking it goes in. */
+  /** Whether it has categories under it with money in them, so the tree can open it. */
   opens: boolean
 }
 

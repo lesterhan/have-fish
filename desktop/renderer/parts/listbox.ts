@@ -13,7 +13,7 @@ export type Paged<T> = {
   indexOf: (id: string) => number
 }
 
-/** What a tree's row says to a screen reader: its level, where among its siblings, and whether it's open. */
+/** What a tree's row says to a screen reader: its level, where it sits, and whether it's open. */
 export type TreeSpot = {
   /** 1 at the top. */
   level: number
@@ -71,7 +71,7 @@ export function withRoom<L extends Layout>(layout: L, index: number, extra: numb
   }
 }
 
-/** A layout of rows in groups, each under a band: which group a row is in, and if it's the first. */
+/** A layout of rows in groups, each under a band: which group a row is in, and if it starts it. */
 export type Grouped = Layout & { groupAt(row: number): number; starts(row: number): boolean }
 
 /**

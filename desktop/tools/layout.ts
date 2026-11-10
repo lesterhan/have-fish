@@ -9,7 +9,7 @@ export function kbdsIn(source: string): number {
   return [...strip(source).matchAll(/<kbd[\s>]/g)].length
 }
 
-/** Each `role="listbox"`, `role="option"`, `role="tree"`, `role="treeitem"` and `aria-activedescendant` in markup. */
+/** Each `role` of a listbox, an option, a tree or a treeitem, and each `aria-activedescendant`. */
 export function listboxesIn(source: string): string[] {
   return [
     ...strip(source).matchAll(

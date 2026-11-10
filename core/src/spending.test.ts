@@ -147,6 +147,15 @@ describe('comparedAt', () => {
     const at = comparedAt([spent('fun', 1000), spent('fun', -1000)], [], '')
     expect(at.lines.map(compared)).toEqual(['fun 0 –'])
   })
+
+  test('a tie in both weeks goes by name', () => {
+    const at = comparedAt(
+      [spent('fun', 500), spent('food', 500)],
+      [spent('fun', 300), spent('food', 300)],
+      '',
+    )
+    expect(at.lines.map((l) => l.label)).toEqual(['food', 'fun'])
+  })
 })
 
 describe('which spends are behind a line', () => {

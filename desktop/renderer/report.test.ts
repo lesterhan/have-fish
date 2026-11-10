@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest'
 import type { ListedTransaction } from '../shared/commands'
 import {
   changeOf,
-  closedOver,
   idsWanted,
   lineLabel,
   otherText,
@@ -79,17 +78,16 @@ describe('treeRows', () => {
     ])
   })
 
-  test('a category opened: its own rows under it, a level deeper, then the next top row', () => {
-    const shown = [spent('food:coffee', 450), spent('fun', 2000)]
-    const before = [spent('food:groceries', 500)]
-    const rows = treeRows(shown, before, new Set(['food']))
+  test('a category opened: its children straight under it, the sibling after them', () => {
+    const shown = [spent('food:groceries', 5000), spent('food:coffee', 450), spent('fun', 2000)]
+    const rows = treeRows(shown, [], new Set(['food']))
     expect(rows.map(row)).toEqual([
-      '1 category:fun – 1/2',
-      '1 category:food open 2/2',
-      '2 category:food:coffee – 1/2',
-      '2 category:food:groceries – 2/2',
+      '1 category:food open 1/2',
+      '2 category:food:groceries – 1/2',
+      '2 category:food:coffee – 2/2',
+      '1 category:fun – 2/2',
     ])
-    expect(rows[2]?.parent).toBe('category:food')
+    expect(rows[1]?.parent).toBe('category:food')
   })
 
   test('a category opened inside another is a level deeper again', () => {
@@ -149,19 +147,6 @@ describe('treeKey', () => {
   })
 })
 
-describe('closedOver', () => {
-  const shown = [spent('food:coffee', 450), spent('fun', 2000)]
-  const rows = treeRows(shown, [], new Set(['food']))
-
-  test('a child selected: the category takes the selection', () => {
-    expect(closedOver(rows, 'category:food:coffee', 'food')).toBe('category:food')
-  })
-
-  test('a row outside it keeps the selection', () => {
-    expect(closedOver(rows, 'category:fun', 'food')).toBe('category:fun')
-  })
-})
-
 describe('changeOf', () => {
   test('less than the week before', () => {
     expect(changeOf(6000, 8000)).toEqual({ cents: 2000, way: 'less' })
@@ -200,6 +185,14 @@ describe('idsWanted', () => {
   test('each spend of the week once, whatever is selected', () => {
     const week = [spent('food:coffee', 450), spent('fun', 2000), spent('food', 100)]
     expect(idsWanted(week)).toEqual([week[0]?.id, week[1]?.id, week[2]?.id])
+  })
+
+  test('one spend split across food and fun is asked for once', () => {
+    const split = [
+      { id: 'split', category: 'food:coffee', cents: 450 },
+      { id: 'split', category: 'fun', cents: 550 },
+    ]
+    expect(idsWanted(split)).toEqual(['split'])
   })
 })
 
