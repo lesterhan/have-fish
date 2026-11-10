@@ -68,6 +68,8 @@
   let dateActive = $state<string | null>(null)
 
   let form: HTMLFormElement | undefined = $state()
+  /** Each part's field but the date's (`dateInput`), so the cursor goes to it by part. */
+  const fields: Partial<Record<Exclude<Part, 'date'>, { focus(): void }>> = $state({})
   let dateInput: HTMLInputElement | undefined = $state()
   let dateListbox: ReturnType<typeof Listbox<DayChoice>> | undefined = $state()
 
@@ -87,13 +89,11 @@
     if (dateActive === null || !keys.includes(dateActive)) dateActive = keys[0] ?? null
   })
 
-  // Opening the line: the parts From and Date carry over, and the cursor starts at the first
-  // part still empty. With no accounts yet, every part stays empty to show its example. A line
-  // already open when the part mounts (the sheet) doesn't take the cursor.
+  // Opening the line: the parts From and Date carry over, and the part to start in is the first
+  // one still empty. With no accounts yet, every part stays empty to show its example. The ledger
+  // gives it the cursor (`focus`) once it's drawn.
   let primed = false
   let wasOpen = untrack(() => open)
-  /** Set when the line opens here: the form, once drawn, takes the cursor. */
-  let takesCursor = false
   $effect(() => {
     if (open === wasOpen) return
     wasOpen = open
@@ -103,7 +103,6 @@
     }
     if (primed) return
     primed = true
-    takesCursor = true
     untrack(() => {
       if (!firstRun) {
         if (fromText.trim() === '') fromText = assumedName ?? ''
@@ -116,16 +115,6 @@
     })
   })
 
-  /** The form has just been drawn: it takes the cursor, once the parts carried over are in. */
-  function takeCursor(node: HTMLElement) {
-    const drawn = requestAnimationFrame(() => {
-      if (!takesCursor) return
-      takesCursor = false
-      if (!node.contains(document.activeElement)) focus()
-    })
-    return { destroy: () => cancelAnimationFrame(drawn) }
-  }
-
   export function focus() {
     if (!open) return
     focusPart(startPart(values))
@@ -133,11 +122,8 @@
 
   function focusPart(part: Part) {
     active = part
-    // A bound form from before the line closed is detached: find the one on the page.
-    const line = form?.isConnected
-      ? form
-      : document.querySelector<HTMLFormElement>(`form[aria-label="${copy.spends.write.label}"]`)
-    line?.querySelector<HTMLElement>(`[name="${part}"]`)?.focus()
+    if (part === 'date') dateInput?.focus()
+    else fields[part]?.focus()
   }
 
   /** The word a part shows until it's filled: its own, or the example the first time. */
@@ -244,7 +230,6 @@
   <form
     bind:this={form}
     class="composer"
-    use:takeCursor
     class:example={firstRun}
     aria-label={copy.spends.write.label}
     onsubmit={save}
@@ -264,6 +249,7 @@
     >
       <span class="tab" class:shown={marked === 'from'}><Keys key={copy.spends.composer.tab} /></span>
       <PathPicker
+        bind:this={fields.from}
         id="composer-from"
         name="from"
         mode="from"
@@ -333,6 +319,7 @@
     >
       <span class="tab" class:shown={marked === 'amount'}><Keys key={copy.spends.composer.tab} /></span>
       <input
+        bind:this={fields.amount}
         id="composer-amount"
         bind:value={amount}
         name="amount"
@@ -361,6 +348,7 @@
     >
       <span class="tab" class:shown={marked === 'description'}><Keys key={copy.spends.composer.tab} /></span>
       <input
+        bind:this={fields.description}
         id="composer-description"
         bind:value={description}
         name="description"
@@ -387,6 +375,7 @@
     >
       <span class="tab" class:shown={marked === 'to'}><Keys key={copy.spends.composer.tab} /></span>
       <PathPicker
+        bind:this={fields.to}
         id="composer-to"
         name="to"
         mode="to"
