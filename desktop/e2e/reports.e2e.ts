@@ -144,6 +144,11 @@ describe('see this week against last', () => {
         'expenses fun | 20.00 | – | 20.00 more',
       ])
     expect(await treeRow(page, 'expenses fun').getAttribute('aria-expanded')).toBeNull()
+    // A tree, and its rows items of it, which is why the tree is the Listbox.
+    expect(await page.locator(TREE).getAttribute('role')).toBe('tree')
+    expect(await treeRow(page, 'expenses fun').getAttribute('role')).toBe('treeitem')
+    expect(await treeRow(page, 'expenses fun').getAttribute('aria-level')).toBe('1')
+    expect(await treeRow(page, 'expenses food').getAttribute('aria-expanded')).toBe('false')
 
     // A click selects it; a second opens it.
     await treeRow(page, 'expenses food').click()
@@ -161,6 +166,7 @@ describe('see this week against last', () => {
         'expenses fun | 20.00 | – | 20.00 more',
       ])
     expect(await page.locator(`${TREE} li[aria-level="2"]`).count()).toBe(3)
+    expect(await treeRow(page, 'expenses food').getAttribute('aria-expanded')).toBe('true')
 
     // ← on a child goes to its category, its spends beside; ← again closes it, Enter opens it.
     await treeRow(page, ':coffee').click()

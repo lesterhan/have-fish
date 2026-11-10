@@ -59,16 +59,16 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
     children.set(category, child)
   }
 
-  const lines: SpendingLine[] = [...children]
-    .map(([category, { cents, opens }]) => ({
-      key: `category:${category}`,
-      kind: 'category' as const,
-      category,
-      label: labelOf(category),
-      cents,
-      opens,
-    }))
-    .sort((a, b) => b.cents - a.cents || byName.compare(a.label, b.label))
+  // Their order is `comparedAt`'s: this level's lines are worked out once, then sorted with the
+  // week before beside them.
+  const lines: SpendingLine[] = [...children].map(([category, { cents, opens }]) => ({
+    key: `category:${category}`,
+    kind: 'category' as const,
+    category,
+    label: labelOf(category),
+    cents,
+    opens,
+  }))
   if (hasOwn) {
     lines.push({
       key: `own:${level}`,

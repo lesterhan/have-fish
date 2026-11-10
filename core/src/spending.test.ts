@@ -16,6 +16,9 @@ const spent = (category: string, cents: number): Spent => ({ id: `s${++n}`, cate
 const line = (l: SpendingLine) =>
   `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents}`
 
+/** A level's lines by name: their order is `comparedAt`'s rule, not `spendingAt`'s. */
+const rolled = (level: { lines: SpendingLine[] }) => level.lines.map(line).sort()
+
 /** A compared line as `label › this before`, each a sum or `–`. */
 const compared = (l: ComparedLine) =>
   `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents ?? '–'} ${l.before ?? '–'}`
@@ -30,13 +33,13 @@ describe('spendingAt', () => {
     expect(first).not.toHaveProperty('share')
   })
 
-  test('the top: each category its total, biggest first; the total is their sum', () => {
+  test('the top: each category its total, and the total is their sum', () => {
     const level = spendingAt(
       [spent('food', 1000), spent('transport', 3000), spent('food', 500), spent('fun', 500)],
       '',
     )
     expect(level.total).toBe(5000)
-    expect(level.lines.map(line)).toEqual(['transport 3000', 'food 1500', 'fun 500'])
+    expect(rolled(level)).toEqual(['food 1500', 'fun 500', 'transport 3000'])
   })
 
   test('a category with categories under it rolls them in, and opens', () => {
@@ -44,7 +47,7 @@ describe('spendingAt', () => {
       [spent('food:coffee', 450), spent('food:groceries', 5000), spent('fun', 1000)],
       '',
     )
-    expect(level.lines.map(line)).toEqual(['food › 5450', 'fun 1000'])
+    expect(rolled(level)).toEqual(['food › 5450', 'fun 1000'])
   })
 
   test('unsorted is a line of its own, last, whatever its size', () => {
@@ -63,7 +66,7 @@ describe('spendingAt', () => {
       spent('', 1),
     ]
     const level = spendingAt(all, 'food')
-    expect(level.lines.map(line)).toEqual(['groceries › 1350', 'coffee 450', 'own food 200'])
+    expect(level.lines.map(line)).toEqual(['coffee 450', 'groceries › 1350', 'own food 200'])
     expect(level.total).toBe(2000)
     expect(spendingAt(all, 'food:groceries').lines.map(line)).toEqual([
       'produce 1000',
@@ -71,14 +74,9 @@ describe('spendingAt', () => {
     ])
   })
 
-  test('equal amounts go by name, without regard to case', () => {
-    const level = spendingAt([spent('rent', 100), spent('Books', 100), spent('art', 100)], '')
-    expect(level.lines.map((l) => l.label)).toEqual(['art', 'Books', 'rent'])
-  })
-
   test('money back into a category lowers it', () => {
     const level = spendingAt([spent('food', 1000), spent('fun', 500), spent('fun', -800)], '')
-    expect(level.lines.map(line)).toEqual(['food 1000', 'fun -300'])
+    expect(rolled(level)).toEqual(['food 1000', 'fun -300'])
     expect(level.total).toBe(700)
   })
 
@@ -148,13 +146,19 @@ describe('comparedAt', () => {
     expect(at.lines.map(compared)).toEqual(['fun 0 –'])
   })
 
-  test('a tie in both weeks goes by name', () => {
+  test('a tie in both weeks goes by name, and the order is this rule’s alone', () => {
+    // `spendingAt` doesn't sort, so a tie here only orders if the comparison does.
     const at = comparedAt(
       [spent('fun', 500), spent('food', 500)],
       [spent('fun', 300), spent('food', 300)],
       '',
     )
     expect(at.lines.map((l) => l.label)).toEqual(['food', 'fun'])
+  })
+
+  test('a tie goes by name without regard to case', () => {
+    const at = comparedAt([spent('Fun', 500), spent('food', 500)], [], '')
+    expect(at.lines.map((l) => l.label)).toEqual(['food', 'Fun'])
   })
 })
 

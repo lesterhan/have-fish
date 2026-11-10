@@ -103,7 +103,7 @@ describe("a row's columns", () => {
     expect(reported.description?.width).toBeGreaterThanOrEqual(A_WORD)
   })
 
-  test('at the size the window opens, account names read whole', async () => {
+  test('at the size the window opens, each account name reads whole and the headings stand apart', async () => {
     const { page } = await launch(aHome())
     await page.click(`${NAV} button:has-text("Accounts")`)
     await addAccount(page, 'tangerine:chequing', 'bank')
