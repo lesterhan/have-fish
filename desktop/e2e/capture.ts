@@ -303,6 +303,10 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
   try {
     const page = await sheet.firstWindow()
     await page.waitForSelector('main h1')
+    // The batch on the sheet's own today: the line dated today has no pill, the one before it does.
+    const pills = page.locator('section[aria-label=Composer] ol[aria-label="Just written"] time')
+    await expect.poll(() => pills.count()).toBe(1)
+    expect(await pills.getAttribute('datetime')).toBe('2026-11-04')
     const shot = await shooter(page)
     await shot.size({ width: 1280, height: 2300, scale: 1 })
     await shot.take('sheet')

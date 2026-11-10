@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import electron from 'electron'
 import { chromium, type Locator, type Page } from 'playwright-core'
-import { expect, onTestFinished } from 'vitest'
+import { onTestFinished } from 'vitest'
 import { day, todayIn } from '../renderer/format'
 
 const desktop = join(import.meta.dirname, '..')
@@ -222,7 +222,8 @@ export async function openSelected(page: Page, list = 'ol[aria-label=Ledger]', c
 
 /**
  * Types a spend the way a person does: + New, amount, Tab, what for, Enter, then Esc. The line
- * stays open after Enter, its spend in the batch under it; Esc lands the batch and closes it.
+ * stays open after Enter, its spend in the batch under it; Esc closes it, waiting for that spend
+ * to join the batch first, and returns once the line is gone.
  */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {
   await openComposer(page)
@@ -231,8 +232,6 @@ export async function writeDown(page: Page, amount: string, description: string)
   await page.keyboard.press('Tab')
   await page.keyboard.type(description)
   await page.keyboard.press('Enter')
-  // Written and in the batch: the fresh line is empty, and no longer saving.
-  await expect.poll(() => page.inputValue(`${WRITE} input[name=amount]`)).toBe('')
   await page.keyboard.press('Escape')
   await page.waitForSelector(WRITE, { state: 'detached' })
 }

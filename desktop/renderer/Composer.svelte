@@ -41,8 +41,10 @@
     loadPaths: () => Promise<ListedPath[]>
     /** Esc, or reaching for the ledger: close it, keeping what's half-typed. */
     onclose: () => void
-    /** Written: the row drops into the batch, and a fresh line stays open for the next spend. */
+    /** Written: the row joins the batch under the line, with the ledger caught up. */
     onsaved: (id: string) => Promise<void> | void
+    /** The fresh line is cleared and keeping what carries over: the place puts the cursor in it. */
+    onfresh: () => void
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
@@ -55,6 +57,7 @@
     loadPaths,
     onclose,
     onsaved,
+    onfresh,
     forgetTyping,
   }: Props = $props()
 
@@ -67,6 +70,8 @@
   let active = $state<Part>('amount')
   let error = $state<{ part: Where; words: string } | null>(null)
   let saving = $state(false)
+  /** A close was asked for while the line was saving: it waits for that row to join the batch. */
+  let closing = $state(false)
   /** The line has just written a spend: its parts fade in as the fresh one for the next. */
   let fresh = $state(false)
 
@@ -105,6 +110,7 @@
     wasOpen = open
     if (!open) {
       primed = false
+      closing = false
       return
     }
     if (primed) return
@@ -125,6 +131,15 @@
   export function focus() {
     if (!open) return
     focusPart(startPart(values))
+  }
+
+  /** A close asked for, by Esc, Done, a picker's Esc or the list: now, or once the row is in. */
+  export function close() {
+    if (saving) {
+      closing = true
+      return
+    }
+    onclose()
   }
 
   function focusPart(part: Part) {
@@ -158,16 +173,13 @@
       return
     }
     if (event.key === 'Escape') {
-      // A line that's saving stays: it mustn't miss the batch it was written in.
-      if (saving) return
       event.preventDefault()
       dateOpen = false
-      onclose()
+      close()
     }
   }
 
-  async function write(event?: SubmitEvent) {
-    event?.preventDefault()
+  async function write() {
     if (saving) return
     saving = true
     const from = fromOf(accounts, fromText)
@@ -181,14 +193,15 @@
     })
     if (!written.ok) {
       saving = false
+      closing = false
       error = { part: written.part, words: written.words }
       await tick()
       if (written.part !== 'form') focusPart(written.part)
       return
     }
-    // The line keeps what was typed until its row is in the batch: nothing can close it meanwhile.
+    // The row joins the batch and the ledger catches up, then the parts carry over and clear, and
+    // the cursor goes back to the fresh line — in that order, so it lands on Amount.
     await onsaved(written.id)
-    saving = false
     amount = ''
     description = ''
     toText = ''
@@ -199,12 +212,14 @@
     if (dateText.trim() === '') dateText = 'today'
     if (fromText.trim() === '' || income) fromText = assumedName ?? ''
     forgetTyping()
-    // The fresh line starts where a line starts: the amount, since From and the date carried over.
-    active = startPart({ from: fromText, date: dateText, amount, description, to: toText })
-    focusPart(active)
-    // A fresh fade each time, even when a line is written faster than the last one faded.
-    fresh = false
-    await tick()
+    saving = false
+    if (closing) {
+      closing = false
+      onclose()
+      return
+    }
+    onfresh()
+    // `animationend` clears this, so the next write's fade starts again.
     fresh = true
   }
 
@@ -245,9 +260,8 @@
     } else if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
-      if (saving) return
       dateOpen = false
-      onclose()
+      close()
     } else if (event.key === 'Tab') {
       dateOpen = false
     }
@@ -262,7 +276,6 @@
     class:example={firstRun}
     class:fresh
     aria-label={copy.spends.write.label}
-    onsubmit={write}
     {onkeydown}
     onanimationend={faded}
     novalidate
@@ -301,7 +314,7 @@
         newOption={copy.spends.write.newIncome}
         sits="line"
         below={form}
-        onclose={onclose}
+        onclose={close}
       />
     {/snippet}
     {@render part('from', fromField)}
@@ -389,15 +402,13 @@
         newOption={copy.spends.write.newCategory}
         sits="line"
         below={form}
-        onclose={onclose}
+        onclose={close}
       />
     {/snippet}
     {@render part('to', toField)}
     {#if error?.part === 'form'}<span class="why" role="alert">{error.words}</span>{/if}
 
-    <Button key={copy.spends.composer.esc} disabled={saving} onclick={onclose}
-      >{copy.spends.composer.done}</Button
-    >
+    <Button key={copy.spends.composer.esc} onclick={close}>{copy.spends.composer.done}</Button>
 
     {#if dateOpen && suggestions.length > 0}
       <span

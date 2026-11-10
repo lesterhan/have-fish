@@ -64,8 +64,8 @@
       { amount: '-35.00', currency: 'CAD', path: 'liabilities:cibc:visa' },
     ],
   }
-  // The batch under the line: the newest first, and one dated yesterday.
-  const BATCH = { lines: [ROWS[1], ROWS[2]] as ListedTransaction[], takenBack: [] }
+  // The batch under the line: the newest first, one on the sheet's today and one before it.
+  const BATCH = { lines: ROWS.slice(1, 3), takenBack: [] }
 
   const DAY = 86_400_000
   /** Paths for the picker's states: used today, yesterday, days ago, and never. */
@@ -172,10 +172,11 @@
       {loadPaths}
       onclose={() => {}}
       onsaved={async () => {}}
+      onfresh={() => {}}
       forgetTyping={() => {}}
     />
     <h2 class="apart">The batch under it: the lines this opening wrote, newest first</h2>
-    <div class="frame"><Batch batch={BATCH} /></div>
+    <div class="frame"><Batch batch={BATCH} today={TODAY} /></div>
   </section>
 
   <section aria-label="Postings">

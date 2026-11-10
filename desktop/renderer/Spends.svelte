@@ -4,6 +4,7 @@
   import type { ListedTransaction } from '../shared/commands'
   import { added, EMPTY, landing, movedBy } from './batch'
   import { type Cursor, type CursorMoment, cursorFor } from './cursor'
+  import { todayIn } from './format'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { toOf } from './picker'
   import { wordsFor } from './refusals'
@@ -153,8 +154,14 @@
     await move('newSpend')
   }
 
-  /** Esc, Done, or reaching for the ledger: the line closes, and its batch lands on its days. */
-  async function closeLine() {
+  /** Esc, Done, a picker's Esc, or reaching for the ledger: close now, or once the row is in. */
+  function closeLine() {
+    if (!composing) return
+    line?.close()
+  }
+
+  /** The line is done: it closes, and its batch lands on its days. */
+  async function land() {
     if (!composing) return
     composing = false
     if (batch.lines.length === 0) {
@@ -170,15 +177,17 @@
     await move('lineClosed')
   }
 
-  /** Written: the line stays open, and its row drops into the batch under it. */
+  /** Written: the row drops into the batch under the line, once the ledger has caught up. */
   async function saved(id: string) {
     await ledger.caughtUp()
-    // Reaching for the list can close the line mid-save: its batch has landed without this row.
-    if (!composing) return
     const at = await ledger.locate(id)
     const row = at === null ? undefined : await ledger.rowAt(at)
     if (row !== undefined) batch = added(batch, row)
-    await move('written')
+  }
+
+  /** The fresh line is ready: the cursor comes back to it, by cursor.ts, as after a write. */
+  function freshLine() {
+    void move('written')
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
@@ -263,7 +272,7 @@
     nets={$ledger.nets}
     {selectedId}
     {landed}
-    onlanded={(id) => (landed = new Set([...landed].filter((each) => each !== id)))}
+    onlanded={() => (landed = new Set())}
     onselect={(id) => (selectedId = id)}
     {opened}
     onopen={open}
@@ -285,11 +294,12 @@
           {accounts}
           {assumedName}
           loadPaths={() => ledger.paths()}
-          onclose={closeLine}
+          onclose={land}
           onsaved={saved}
+          onfresh={freshLine}
           {forgetTyping}
         />
-        {#if batch.lines.length > 0}<Batch {batch} />{/if}
+        {#if batch.lines.length > 0}<Batch {batch} today={todayIn()} />{/if}
       </div>
     {/snippet}
     {#snippet details(t: ListedTransaction)}

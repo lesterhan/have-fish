@@ -4,7 +4,6 @@
   // and the tick and Saved at its end. It drops a new line in, scrolls past six rows, and stops.
   import { copy } from '../copy'
   import type { Batch } from './batch'
-  import { todayIn } from './format'
   import { columnsOf, wayOf } from './row'
   import Day from './parts/Day.svelte'
   import Money from './parts/Money.svelte'
@@ -13,17 +12,14 @@
   type Props = {
     /** The lines the line has written, and what was taken back: only the lines show. */
     batch: Batch
+    /** The day it is, so a line on any other carries its own: the caller asks again per change. */
+    today: string
   }
-  let { batch }: Props = $props()
+  let { batch, today }: Props = $props()
 
   // Its own width, as the list's: where the columns would run out, From goes from both.
   let width = $state(0)
   const shown = $derived(columnsOf(width))
-  // Asked again with each change, so a line dated today stops saying its day past midnight.
-  const today = $derived.by(() => {
-    void batch
-    return todayIn()
-  })
 </script>
 
 <ol class="batch" bind:clientWidth={width} aria-label={copy.spends.batch.label}>

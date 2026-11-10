@@ -161,7 +161,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
 | `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`), and equity's `q`, since `e` is expenses'; a screen reader hears the word; colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
 | `Listbox` | Windowed, keyboard, active option; empty | The ledger, Accounts, Reports, pickers, the palette |
-| `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); just written (wash) | Every list |
+| `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); landed where it lands (the selection tint and the accent edge, fading) | Every list |
 | `Band` | A day, or a root of accounts by its `Path`, with what its rows come to; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
