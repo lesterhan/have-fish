@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
+import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
@@ -23,6 +24,11 @@ const DESCRIPTION = `${WRITE} input[name=description]`
 const FROM = `${WRITE} input[name=from]`
 const DATE = `${WRITE} input[name=date]`
 const LEDGER = 'ol[aria-label=Ledger]'
+
+const focusedName = (page: Page) =>
+  page.evaluate(() => document.activeElement?.getAttribute('name'))
+/** What a part of the line reads, its Tab mark among it while that shows. */
+const partText = (page: Page, part: string) => page.locator(`[data-part=${part}]`).innerText()
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -57,7 +63,7 @@ describe('the line', () => {
       'expenses:food:coffee',
     )
     // The first empty part is where the run starts.
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('from')
+    await expect.poll(() => focusedName(page)).toBe('from')
     expect(await rows(page)).toEqual([])
   })
 
@@ -91,7 +97,9 @@ describe('the line', () => {
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
     // The line closes, and the list has the new row selected.
     expect(await page.locator(WRITE).count()).toBe(0)
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).toBe('listbox')
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')))
+      .toBe('listbox')
 
     await writeDown(page, '4.50', 'Coffee')
     await expect
@@ -134,23 +142,21 @@ describe('the line', () => {
     // From and Date carried over; the run starts at Amount.
     expect(await page.inputValue(FROM)).toBe('cash')
     expect(await page.inputValue(DATE)).toBe('today')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
-    expect(await page.locator('[data-part=amount]').innerText()).toContain('Tab')
+    await expect.poll(() => focusedName(page)).toBe('amount')
+    await expect.poll(() => partText(page, 'amount')).toContain('Tab')
 
     await page.keyboard.type('7')
-    expect(await page.locator('[data-part=description]').innerText()).toContain('Tab')
+    await expect.poll(() => partText(page, 'description')).toContain('Tab')
 
     await page.keyboard.press('Tab')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe(
-      'description',
-    )
-    expect(await page.locator('[data-part=description]').innerText()).toContain('Tab')
+    await expect.poll(() => focusedName(page)).toBe('description')
+    await expect.poll(() => partText(page, 'description')).toContain('Tab')
 
     await page.keyboard.type('Tea')
-    expect(await page.locator('[data-part=to]').innerText()).toContain('Tab')
+    await expect.poll(() => partText(page, 'to')).toContain('Tab')
 
     await page.keyboard.press('Shift+Tab')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
+    await expect.poll(() => focusedName(page)).toBe('amount')
   })
 
   test('Esc keeps what was typed, and the next + New opens on it', async () => {
