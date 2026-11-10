@@ -66,7 +66,6 @@ export const spends = {
     /** On the selected row's keycap, and beside it: Enter shows its details, R refiles it. */
     enter: 'Enter',
     details: 'details',
-    refileKey: 'R',
     refile: 'refile',
   },
   /** In a path picker: how long ago a path was used, and the key that opens a part of it. */
@@ -125,9 +124,8 @@ export const spends = {
       here: 'this computer',
       elsewhere: 'another computer',
     },
-    /** The postings block's name, and the key that shows it. */
+    /** The postings block's name. */
     postings: 'Postings',
-    postingsKey: 'P',
     copy: 'Copy',
     /** Copy's word just after it is pressed. */
     copied: 'Copied',

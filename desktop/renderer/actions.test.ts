@@ -7,6 +7,8 @@ describe('runAction', () => {
     undo: vi.fn(),
     redo: vi.fn(),
     remove: vi.fn(),
+    postings: vi.fn(),
+    refile: vi.fn(),
     showLedger: vi.fn(),
     showAccounts: vi.fn(),
     showReports: vi.fn(),

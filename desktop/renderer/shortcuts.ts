@@ -1,7 +1,7 @@
 // An action's shortcut, from the list, as a hint shows it and as `aria-keyshortcuts` says it.
 
 import { copy } from '../copy'
-import { actionFor, type KeyedActionId } from '../shared/actions'
+import { ACTIONS, actionFor, type KeyedActionId, type WindowKeyId } from '../shared/actions'
 
 /** Whether the window is on macOS, whose shortcuts use ⌘. */
 export const MAC = typeof navigator !== 'undefined' && /^Mac/.test(navigator.platform)
@@ -42,4 +42,18 @@ function keysOf(id: KeyedActionId, mac: boolean): { modifiers: Modifier[]; key: 
     throw new Error(`the list uses only CmdOrCtrl, Shift and Alt, not ${p}`)
   })
   return { modifiers: ORDER.filter((m) => modifiers.includes(m)), key }
+}
+
+const WINDOW_KEYS = ACTIONS.filter((a) => 'windowKey' in a)
+
+/**
+ * The action a plain key press is, where the window takes the key itself: Delete, P, R. None
+ * with Ctrl, Cmd or Alt held. Whether it applies where the cursor is stays the caller's to say.
+ */
+export function windowKeyOf(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>,
+): WindowKeyId | null {
+  if (event.ctrlKey || event.metaKey || event.altKey) return null
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
+  return WINDOW_KEYS.find((a) => a.accelerator === key)?.id ?? null
 }

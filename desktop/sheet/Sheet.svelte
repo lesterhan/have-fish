@@ -2,7 +2,7 @@
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
   import Chip from '../renderer/parts/Chip.svelte'
-  import Composer from '../renderer/parts/Composer.svelte'
+  import Composer from '../renderer/Composer.svelte'
   import Empty from '../renderer/parts/Empty.svelte'
   import Field from '../renderer/parts/Field.svelte'
   import Fold from '../renderer/parts/Fold.svelte'

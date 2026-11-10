@@ -54,6 +54,8 @@ export const ACTIONS = [
   { id: 'paste', menu: 'edit', accelerator: 'CmdOrCtrl+V', role: 'paste' },
   { id: 'selectAll', menu: 'edit', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
   { id: 'remove', menu: 'edit', accelerator: 'Delete', windowKey: true, grouped: 'apart' },
+  { id: 'postings', menu: 'edit', accelerator: 'P', windowKey: true },
+  { id: 'refile', menu: 'edit', accelerator: 'R', windowKey: true },
 
   // Every action the window carries out, searched by its letters.
   { id: 'palette', menu: 'view', accelerator: 'CmdOrCtrl+K' },
@@ -89,6 +91,9 @@ type Listed = (typeof ACTIONS)[number]
 
 /** The actions a key reaches. */
 export type KeyedActionId = Extract<Listed, { accelerator: string }>['id']
+
+/** The actions whose key the window takes itself, where it means them. */
+export type WindowKeyId = Extract<Listed, { windowKey: true }>['id']
 
 /** The action, typed by its id: one with a key is known to have it. */
 export function actionFor<I extends ActionId>(id: I): Extract<Listed, { id: I }> & Action {

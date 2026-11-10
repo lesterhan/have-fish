@@ -5,13 +5,14 @@
   import { type Cursor, type CursorMoment, cursorFor } from './cursor'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { toOf } from './picker'
-  import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
+  import { wordsFor } from './refusals'
+  import Composer from './Composer.svelte'
   import Button from './parts/Button.svelte'
-  import Composer from './parts/Composer.svelte'
   import Header from './parts/Header.svelte'
   import Notice from './parts/Notice.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
+  import { spendActions } from './spendActions'
 
   type Props = {
     hidden: boolean
@@ -36,6 +37,7 @@
   const accountOptions = $derived(
     accounts.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
+  const actions = spendActions(window.haveFish)
 
   /** The ledger's list, a page at a time: the store holds the pages the list draws. */
   const paged = $derived({
@@ -164,19 +166,23 @@
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
-  async function refile(t: ListedTransaction, typed: string): Promise<void> {
-    if (t.simple === null) return
-    const saved = await window.haveFish.invoke('spend.edit', {
-      id: t.id,
-      amount: t.simple.amount,
-      description: t.description,
-      to: toOf(accountOptions, typed),
-    })
+  async function refileTo(t: ListedTransaction, typed: string): Promise<void> {
+    const saved = await actions.refile(t, typed, (typed) => toOf(accountOptions, typed))
     if (!saved.ok) {
-      refusal = spendWordsFor(saved)
+      refusal = saved.words
       return
     }
     await ledger.caughtUp()
+  }
+
+  /** R from the menu: the selected row's To becomes a path picker. */
+  export function refile() {
+    list.refile()
+  }
+
+  /** P from the menu: the open spend's postings, shown or hidden. */
+  export function postings() {
+    card?.togglePostings()
   }
 
   let removing = false
@@ -190,10 +196,10 @@
     const at = await ledger.locate(id)
     const next =
       at === null ? null : ((await ledger.rowAt(at + 1)) ?? (await ledger.rowAt(at - 1)))?.id ?? null
-    const removed = await window.haveFish.invoke('spend.remove', { id })
+    const removed = await actions.remove(id)
     removing = false
     if (!removed.ok) {
-      refusal = wordsFor(removed)
+      refusal = removed.words
       return
     }
     const wasOpen = opened === id
@@ -247,7 +253,7 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
-    onrefile={refile}
+    onrefile={refileTo}
     loadPaths={() => ledger.paths()}
     dimmed={composing}
     onstepback={closeLine}

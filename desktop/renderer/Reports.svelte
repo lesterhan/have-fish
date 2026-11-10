@@ -25,6 +25,7 @@
   import SpendingList from './SpendingList.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
+  import { spendActions } from './spendActions'
 
   type Props = {
     hidden: boolean
@@ -85,6 +86,7 @@
   const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
+  const actions = spendActions(window.haveFish)
 
   /** The store load the report was last asked for, and that ask. */
   let reportedFor: LedgerState | null = null
@@ -147,16 +149,10 @@
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
-  async function refile(t: ListedTransaction, typed: string): Promise<void> {
-    if (t.simple === null) return
-    const saved = await window.haveFish.invoke('spend.edit', {
-      id: t.id,
-      amount: t.simple.amount,
-      description: t.description,
-      to: toOf(accountOptions, typed),
-    })
+  async function refileTo(t: ListedTransaction, typed: string): Promise<void> {
+    const saved = await actions.refile(t, typed, (typed) => toOf(accountOptions, typed))
     if (!saved.ok) {
-      error = wordsFor(saved)
+      error = saved.words
       return
     }
     await caughtUp()
@@ -196,6 +192,16 @@
     pickedKey = `category:${left}`
   }
 
+  /** R from the menu: the selected row's To becomes a path picker. */
+  export function refile() {
+    list.refile()
+  }
+
+  /** P from the menu: the open spend's postings, shown or hidden. */
+  export function postings() {
+    card?.togglePostings()
+  }
+
   let removing = false
 
   /** The selected spend, gone; selection moves to the next one behind the line. */
@@ -204,10 +210,10 @@
     if (id === null || removing) return
     removing = true
     const next = afterRemoving(shown, id)
-    const removed = await window.haveFish.invoke('spend.remove', { id })
+    const removed = await actions.remove(id)
     removing = false
     if (!removed.ok) {
-      error = wordsFor(removed)
+      error = removed.words
       return
     }
     const wasOpen = opened === id
@@ -297,7 +303,7 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
-    onrefile={refile}
+    onrefile={refileTo}
     loadPaths={() => ledger.paths()}
   >
     {#snippet details(t: ListedTransaction)}

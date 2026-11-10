@@ -4,8 +4,8 @@
   // and a part it can't read is underlined red with two words of why. Enter writes it and closes
   // the line; Esc closes it without writing. While it's open, the rest of the ledger steps back.
   import { type Snippet, tick, untrack } from 'svelte'
-  import { copy } from '../../copy'
-  import type { ListedAccount, ListedPath } from '../../shared/commands'
+  import { copy } from '../copy'
+  import type { ListedAccount, ListedPath } from '../shared/commands'
   import {
     after,
     before,
@@ -14,17 +14,18 @@
     type Part,
     startPart,
     tabMark,
-  } from '../composer'
-  import { dayOf, todayIn } from '../format'
-  import { fromOf, toOf } from '../picker'
-  import { composerWordsFor, type Field as Where, fieldOf } from '../refusals'
-  import Button from './Button.svelte'
-  import Day from './Day.svelte'
-  import Keys from './Keys.svelte'
-  import Listbox from './Listbox.svelte'
-  import PathPicker from './PathPicker.svelte'
-  import Popover from './Popover.svelte'
-  import { floating } from './floating'
+  } from './composer'
+  import { dayOf, todayIn } from './format'
+  import Button from './parts/Button.svelte'
+  import Day from './parts/Day.svelte'
+  import { floating } from './parts/floating'
+  import Keys from './parts/Keys.svelte'
+  import Listbox from './parts/Listbox.svelte'
+  import PathPicker from './parts/PathPicker.svelte'
+  import Popover from './parts/Popover.svelte'
+  import { fromOf, toOf } from './picker'
+  import type { Field as Where } from './refusals'
+  import { spendActions } from './spendActions'
 
   type Props = {
     /** Open: the line shows, and the ledger under it steps back. */
@@ -53,6 +54,8 @@
     onsaved,
     forgetTyping,
   }: Props = $props()
+
+  const actions = spendActions(window.haveFish)
 
   let fromText = $state('')
   let dateText = $state('')
@@ -157,21 +160,19 @@
     if (saving) return
     saving = true
     const from = fromOf(accounts, fromText)
-    const to = toOf(accounts, toText)
     const income = typeof from === 'object' && from !== null
-    const written = await window.haveFish.invoke('spend.write', {
+    const written = await actions.write({
       amount,
       description,
       from,
-      to,
+      to: toOf(accounts, toText),
       date: dateText.trim() === '' ? '' : dayOf(dateText),
     })
     saving = false
     if (!written.ok) {
-      const part = fieldOf(written, to)
-      error = { part, words: composerWordsFor(written) }
+      error = { part: written.part, words: written.words }
       await tick()
-      if (part !== 'form') focusPart(part)
+      if (written.part !== 'form') focusPart(written.part)
       return
     }
     amount = ''
@@ -184,7 +185,7 @@
     if (dateText.trim() === '') dateText = 'today'
     if (fromText.trim() === '' || income) fromText = assumedName ?? ''
     forgetTyping()
-    await onsaved(written.value.id)
+    await onsaved(written.id)
   }
 
   function pickDate(choice: DayChoice | undefined) {

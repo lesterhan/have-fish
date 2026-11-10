@@ -55,6 +55,17 @@ describe('the list', () => {
     expect(Object.keys(copy.actions.labels).filter((id) => !ids.includes(id))).toEqual([])
   })
 
+  test('P and R are keys the window takes, under Edit beside Delete', () => {
+    const edit = ACTIONS.filter((a) => a.menu === 'edit').map((a) => a.id)
+    expect(edit.slice(edit.indexOf('remove'))).toEqual(['remove', 'postings', 'refile'])
+    for (const [id, key] of [
+      ['postings', 'P'],
+      ['refile', 'R'],
+    ] as const) {
+      expect(actionFor(id)).toMatchObject({ accelerator: key, windowKey: true })
+    }
+  })
+
   test('an action is found by its id', () => {
     expect(actionFor('newSpend').accelerator).toBe('CmdOrCtrl+N')
   })

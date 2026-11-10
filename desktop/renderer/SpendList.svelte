@@ -19,6 +19,7 @@
   import Money from './parts/Money.svelte'
   import Path from './parts/Path.svelte'
   import { columnsOf, daysOf, wayOf } from './row'
+  import { windowKeyOf } from './shortcuts'
 
   type Props = {
     /** The spends, all of them here; or `paged`, the ledger's list a page at a time. */
@@ -136,7 +137,7 @@
   }
 
   /** R: the selected row's To becomes a path picker. Only a spend of one amount can move. */
-  function startRefile(): boolean {
+  export function refile(): boolean {
     const t = selected()
     if (t === undefined || t.simple === null || onrefile === undefined) return false
     refiling = t.id
@@ -180,19 +181,15 @@
       return true
     }
     // Here and not in the menu, so Delete in a text field still deletes text.
-    if (event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    const key = windowKeyOf(event)
+    if (key === 'remove') {
       event.preventDefault()
       onremove()
       return true
     }
     // R refiles the selected row's To, where its To cell is.
-    if (
-      (event.key === 'r' || event.key === 'R') &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
-      if (startRefile()) event.preventDefault()
+    if (key === 'refile') {
+      if (refile()) event.preventDefault()
       return true
     }
     return false
@@ -233,7 +230,7 @@
     {/snippet}
     {#snippet hint()}
       <Keys key={copy.spends.list.enter} />{copy.spends.list.details}
-      {#if onrefile && selected()?.simple != null}<Keys key={copy.spends.list.refileKey} />{copy
+      {#if onrefile && selected()?.simple != null}<Keys action="refile" />{copy
           .spends.list.refile}{/if}
     {/snippet}
     {#snippet row(t)}

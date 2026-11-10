@@ -36,6 +36,11 @@
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
 
+  /** An action on spends, which means nothing where spends aren't showing. */
+  const onSpends = (act: (p: SpendView) => unknown) => () => {
+    if (place !== 'accounts') void act(spendPlace(place))
+  }
+
   /** Every action the window carries out: the menu's, and the palette's. */
   const handlers = {
     palette: () => void togglePalette(),
@@ -43,10 +48,9 @@
     addAccount,
     undo,
     redo,
-    // Remove spend means nothing where spends aren't showing.
-    remove: () => {
-      if (place !== 'accounts') void spendPlace(place).remove()
-    },
+    remove: onSpends((p) => p.remove()),
+    postings: onSpends((p) => p.postings()),
+    refile: onSpends((p) => p.refile()),
     showLedger: () => void go('ledger'),
     showAccounts: () => void go('accounts'),
     showReports: () => void go('reports'),
