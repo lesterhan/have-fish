@@ -40,8 +40,10 @@
     /** The list took the cursor: close what's open, as reaching for it does. */
     onstepback?: () => void
     selectedId: string | null
-    /** The row just written, which slides in. */
-    written?: string | null
+    /** The rows a batch landed on, lit where they land. */
+    landed?: ReadonlySet<string>
+    /** One of them has finished lighting: it goes back to rest. */
+    onlanded?: (id: string) => void
     onselect: (id: string) => void
     /** The spend whose details are open under its row. */
     opened: string | null
@@ -75,7 +77,8 @@
     dimmed = false,
     onstepback,
     selectedId,
-    written = null,
+    landed,
+    onlanded,
     onselect,
     opened,
     details,
@@ -213,7 +216,8 @@
     {idPrefix}
     columns={shown.template}
     {groups}
-    {written}
+    {landed}
+    {onlanded}
     onactive={onselect}
     onpick={(id) => {
       // Once to select, again to open.

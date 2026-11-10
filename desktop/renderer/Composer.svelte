@@ -1,8 +1,8 @@
 <script lang="ts">
   // The line that writes a spend, in the ledger: From, Date, Amount, Description, To, in the order
   // you think of them. Every part shows its word until filled, the next one carries its Tab key,
-  // and a part it can't read is underlined red with two words of why. Enter writes it and closes
-  // the line; Esc closes it without writing. While it's open, the rest of the ledger steps back.
+  // and a part it can't read is underlined red with two words of why. Enter writes it, the line
+  // stays open for the next one, and Esc or Done closes it. While it's open, the ledger steps back.
   import { type Snippet, tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedAccount, ListedPath } from '../shared/commands'
@@ -41,8 +41,10 @@
     loadPaths: () => Promise<ListedPath[]>
     /** Esc, or reaching for the ledger: close it, keeping what's half-typed. */
     onclose: () => void
-    /** Written: the ledger catches up, selects the new row, and closes the line. */
+    /** Written: the row joins the batch under the line, with the ledger caught up. */
     onsaved: (id: string) => Promise<void> | void
+    /** The fresh line is cleared and keeping what carries over: the place puts the cursor in it. */
+    onfresh: () => void
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
@@ -55,6 +57,7 @@
     loadPaths,
     onclose,
     onsaved,
+    onfresh,
     forgetTyping,
   }: Props = $props()
 
@@ -66,7 +69,11 @@
   /** The part the cursor is in, and the one Tab would mark. */
   let active = $state<Part>('amount')
   let error = $state<{ part: Where; words: string } | null>(null)
-  let saving = $state(false)
+  let saving = false
+  /** A close was asked for while the line was saving: it waits for that row to join the batch. */
+  let closing = false
+  /** The line has just written a spend: its parts fade in as the fresh one for the next. */
+  let fresh = $state(false)
 
   let dateOpen = $state(false)
   let dateActive = $state<string | null>(null)
@@ -103,6 +110,7 @@
     wasOpen = open
     if (!open) {
       primed = false
+      closing = false
       return
     }
     if (primed) return
@@ -114,6 +122,7 @@
       }
       error = null
       dateOpen = false
+      fresh = false
       // Read the parts afresh: what carried over may not have reached `values` yet.
       active = startPart({ from: fromText, date: dateText, amount, description, to: toText })
     })
@@ -122,6 +131,15 @@
   export function focus() {
     if (!open) return
     focusPart(startPart(values))
+  }
+
+  /** A close asked for, by Esc, Done, a picker's Esc or the list: now, or once the row is in. */
+  export function close() {
+    if (saving) {
+      closing = true
+      return
+    }
+    onclose()
   }
 
   function focusPart(part: Part) {
@@ -149,15 +167,19 @@
       focusPart(event.shiftKey ? before(active) : after(active))
       return
     }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void write()
+      return
+    }
     if (event.key === 'Escape') {
       event.preventDefault()
       dateOpen = false
-      onclose()
+      close()
     }
   }
 
-  async function save(event: SubmitEvent) {
-    event.preventDefault()
+  async function write() {
     if (saving) return
     saving = true
     const from = fromOf(accounts, fromText)
@@ -169,13 +191,17 @@
       to: toOf(accounts, toText),
       date: dateText.trim() === '' ? '' : dayOf(dateText),
     })
-    saving = false
     if (!written.ok) {
+      saving = false
+      closing = false
       error = { part: written.part, words: written.words }
       await tick()
       if (written.part !== 'form') focusPart(written.part)
       return
     }
+    // The row joins the batch and the ledger catches up, then the parts carry over and clear, and
+    // the cursor goes back to the fresh line — in that order, so it lands on Amount.
+    await onsaved(written.id)
     amount = ''
     description = ''
     toText = ''
@@ -186,7 +212,22 @@
     if (dateText.trim() === '') dateText = 'today'
     if (fromText.trim() === '' || income) fromText = assumedName ?? ''
     forgetTyping()
-    await onsaved(written.id)
+    saving = false
+    if (closing) {
+      closing = false
+      onclose()
+      return
+    }
+    onfresh()
+    // `animationend` clears this, so the next write's fade starts again.
+    fresh = true
+  }
+
+  /** The parts have faded in: the next write starts their fade again. */
+  function faded(event: AnimationEvent) {
+    if (event.target instanceof HTMLElement && event.target.classList.contains('part')) {
+      fresh = false
+    }
   }
 
   function pickDate(choice: DayChoice | undefined) {
@@ -220,7 +261,7 @@
       event.preventDefault()
       event.stopPropagation()
       dateOpen = false
-      onclose()
+      close()
     } else if (event.key === 'Tab') {
       dateOpen = false
     }
@@ -233,9 +274,10 @@
     bind:this={form}
     class="composer"
     class:example={firstRun}
+    class:fresh
     aria-label={copy.spends.write.label}
-    onsubmit={save}
     {onkeydown}
+    onanimationend={faded}
     novalidate
   >
     <span class="new" aria-hidden="true">{copy.spends.composer.pill}</span>
@@ -272,7 +314,7 @@
         newOption={copy.spends.write.newIncome}
         sits="line"
         below={form}
-        onclose={onclose}
+        onclose={close}
       />
     {/snippet}
     {@render part('from', fromField)}
@@ -360,15 +402,13 @@
         newOption={copy.spends.write.newCategory}
         sits="line"
         below={form}
-        onclose={onclose}
+        onclose={close}
       />
     {/snippet}
     {@render part('to', toField)}
     {#if error?.part === 'form'}<span class="why" role="alert">{error.words}</span>{/if}
 
-    <Button type="submit" key={copy.spends.composer.esc} disabled={saving}
-      >{copy.spends.composer.done}</Button
-    >
+    <Button key={copy.spends.composer.esc} onclick={close}>{copy.spends.composer.done}</Button>
 
     {#if dateOpen && suggestions.length > 0}
       <span
@@ -526,5 +566,16 @@
 
   .means {
     color: var(--color-text);
+  }
+
+  /* A fresh line, after a write: its parts fade in as the last one drops into the batch. */
+  .fresh .part {
+    animation: fresh var(--duration-fade) var(--ease-out);
+  }
+
+  @keyframes fresh {
+    from {
+      opacity: 0;
+    }
   }
 </style>

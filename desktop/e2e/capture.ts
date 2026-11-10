@@ -11,13 +11,13 @@ import { expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  BATCH,
   launch,
   openChip,
   openSpend,
   PANE,
   type Running,
   WRITE,
-  writeDown,
 } from './app'
 import { seed } from './month'
 
@@ -134,6 +134,27 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await page.waitForFunction(() => document.getAnimations().length === 0)
   await shot.take('spends-composer-date')
   await page.keyboard.press('Escape')
+
+  // The line staying open: two spends drop into the batch under it, then land on their days.
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=date]`, 'today')
+  await page.fill(`${WRITE} input[name=amount]`, '4.50')
+  await page.fill(`${WRITE} input[name=description]`, 'Coffee')
+  await page.locator(`${WRITE} input[name=amount]`).press('Enter')
+  await expect.poll(() => page.inputValue(`${WRITE} input[name=amount]`)).toBe('')
+  await page.fill(`${WRITE} input[name=date]`, 'y')
+  await page.fill(`${WRITE} input[name=amount]`, '12')
+  await page.fill(`${WRITE} input[name=description]`, 'Lunch')
+  await page.locator(`${WRITE} input[name=amount]`).press('Enter')
+  await expect.poll(() => page.locator(BATCH).locator('li').count()).toBe(2)
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  await shot.take('batch-saved')
+  await shot.dark('batch-saved')
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(`${SPENDS} li[data-landed]`)
+  await shot.take('batch-landed')
+  await shot.dark('batch-landed')
 
   await page.getByRole('button', { name: /\+ New/ }).click()
   await page.waitForSelector(WRITE)
@@ -260,7 +281,11 @@ test('every place and state', { timeout: 300_000 }, async () => {
   // Refused, last: the refusal stays until the next spend is written.
   await shot.size(WIDE)
   await go(page, 'Ledger')
-  await writeDown(page, 'abc', 'Coffee')
+  await page.getByRole('button', { name: /\+ New/ }).click()
+  await page.waitForSelector(WRITE)
+  await page.fill(`${WRITE} input[name=amount]`, 'abc')
+  await page.fill(`${WRITE} input[name=description]`, 'Coffee')
+  await page.locator(`${WRITE} input[name=amount]`).press('Enter')
   await page.waitForSelector(`${WRITE} [role=alert]`)
   await shot.take('spends-refused')
 })
@@ -278,6 +303,10 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
   try {
     const page = await sheet.firstWindow()
     await page.waitForSelector('main h1')
+    // The batch on the sheet's own today: the line dated today has no pill, the one before it does.
+    const pills = page.locator('section[aria-label=Composer] ol[aria-label="Just written"] time')
+    await expect.poll(() => pills.count()).toBe(1)
+    expect(await pills.getAttribute('datetime')).toBe('2026-11-04')
     const shot = await shooter(page)
     await shot.size({ width: 1280, height: 2300, scale: 1 })
     await shot.take('sheet')

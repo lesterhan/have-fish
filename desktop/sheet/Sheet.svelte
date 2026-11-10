@@ -19,6 +19,7 @@
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
   import { spendActions } from '../renderer/spendActions'
+  import Batch from '../renderer/Batch.svelte'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
   import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
@@ -48,7 +49,7 @@
     legs: [],
     origin: { source: 'manual', at: Date.UTC(2026, 10, 5, 12, 40), here: true, file: null, line: null },
   })
-  // Rest, selected, just written; money in and a move between my accounts.
+  // Rest, selected, landed; money in and a move between my accounts.
   const ROWS = [
     row('a', TODAY, '16.76', 'liabilities:cibc:visa', 'expenses:health:pharmacy', 'Pharmacy'),
     row('b', TODAY, '15.93', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Lunch'),
@@ -63,6 +64,9 @@
       { amount: '-35.00', currency: 'CAD', path: 'liabilities:cibc:visa' },
     ],
   }
+  // The batch under the line: the newest first, one on the sheet's today and one before it.
+  const BATCH = { lines: ROWS.slice(1, 3), takenBack: [] }
+
   const DAY = 86_400_000
   /** Paths for the picker's states: used today, yesterday, days ago, and never. */
   const PATHS: ListedPath[] = [
@@ -168,8 +172,11 @@
       {loadPaths}
       onclose={() => {}}
       onsaved={async () => {}}
+      onfresh={() => {}}
       forgetTyping={() => {}}
     />
+    <h2 class="apart">The batch under it: the lines this opening wrote, newest first</h2>
+    <div class="frame"><Batch batch={BATCH} today={TODAY} /></div>
   </section>
 
   <section aria-label="Postings">
@@ -264,12 +271,12 @@
   </section>
 
   <section aria-label="Rows">
-    <h2>Rows: rest, selected, just written; in and between</h2>
+    <h2>Rows: rest, selected, landed; in and between</h2>
     <div class="frame rows">
       <SpendList
         transactions={ROWS}
         selectedId="b"
-        written="e"
+        landed={new Set(['e'])}
         onselect={() => {}}
         opened={null}
         details={card}
@@ -394,6 +401,10 @@
     font-size: var(--text-quiet);
     font-weight: var(--weight-label);
     color: var(--color-muted);
+  }
+
+  h2.apart {
+    margin-block-start: var(--space-6);
   }
 
   .line {

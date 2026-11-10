@@ -69,11 +69,9 @@
   --duration-pop: 120ms;
   --duration-open: 160ms;
   --duration-slide: 150ms;
-  --duration-slide-in: 220ms;
   --duration-fade: 250ms;
   --duration-drop: 420ms;
   --duration-confirm: 500ms;
-  --duration-wash: 900ms;
   --duration-flash: 1.4s;
   --duration-land: 2.4s;
 }
@@ -105,11 +103,9 @@
     --duration-pop: 0ms;
     --duration-open: 0ms;
     --duration-slide: 0ms;
-    --duration-slide-in: 0ms;
     --duration-fade: 0ms;
     --duration-drop: 0ms;
     --duration-confirm: 0ms;
-    --duration-wash: 1s;
     --duration-flash: 1s;
     --duration-land: 1s;
   }

@@ -51,6 +51,11 @@ async function upToFrom(page: Page, amount: string, description: string) {
 
 const offered = (page: Page) => offeredPaths(page.locator(`${OPTIONS} [role=option]`))
 const from = (page: Page) => page.inputValue(FROM)
+/** Esc on the line: the batches land on their days, and the list has the cursor. */
+async function closeLine(page: Page) {
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(WRITE, { state: 'detached' })
+}
 /** The account the selected spend came out of, as its details say it: the path, in words. */
 const paidFrom = async (page: Page) => {
   await openSelected(page)
@@ -71,6 +76,7 @@ describe('picking the account that paid', () => {
 
     await page.keyboard.press('Enter')
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Dinner | 30.00`])
+    await closeLine(page)
     expect(await paidFrom(page)).toBe('liabilities visa')
   })
 
@@ -213,6 +219,7 @@ describe('leaving it alone', () => {
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
+    await closeLine(page)
     expect(await paidFrom(page)).toBe('liabilities visa')
   })
 })

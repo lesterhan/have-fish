@@ -38,9 +38,9 @@ describe('where the cursor goes in the ledger', () => {
     expect(cursorFor('cardOpened', state())).toBe('card')
   })
 
-  test('a spend written: the list, unless a new line opened meanwhile, which keeps it', () => {
+  test('a spend written: the fresh line, which stays open; the list once it has closed', () => {
+    expect(cursorFor('written', state({ composing: true }))).toBe('line')
     expect(cursorFor('written', state())).toBe('list')
-    expect(cursorFor('written', state({ composing: true }))).toBeNull()
   })
 
   test('the line closed: the list, if there is one', () => {

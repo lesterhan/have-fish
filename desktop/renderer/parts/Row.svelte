@@ -1,7 +1,7 @@
 <script lang="ts">
   // One option of a Listbox, and its states (DESIGN.md, "Parts"): at rest; a lighter step under
-  // the pointer; selected, a tint, with an accent edge and its keys while its list has focus; just
-  // written, sliding in and washed; open, lifted with its details under it, while the rest of the
+  // the pointer; selected, a tint, with an accent edge and its keys while its list has focus;
+  // landed, lit where it lands; open, lifted with its details under it, while the rest of the
   // list steps back. A row that starts a day carries the day's band above it.
   import type { Snippet } from 'svelte'
 
@@ -14,7 +14,10 @@
     disabled?: boolean
     /** Its page hasn't arrived: an empty row, so the rows below don't move. */
     busy?: boolean
-    written?: boolean
+    /** Landing on its day: the selection tint and the accent edge, fading where it lands. */
+    landed?: boolean
+    /** Its landing light has faded. */
+    onlanded?: (() => void) | undefined
     setsize: number
     posinset: number
     columns?: string | undefined
@@ -35,7 +38,8 @@
     selected = false,
     disabled = false,
     busy = false,
-    written = false,
+    landed = false,
+    onlanded,
     setsize,
     posinset,
     columns,
@@ -57,12 +61,15 @@
   aria-setsize={setsize}
   aria-posinset={posinset}
   data-id={dataId}
-  data-written={written || undefined}
+  data-landed={landed || undefined}
   class:banded={band !== undefined && group !== undefined}
   class:open={room > 0}
   style:grid-template-columns={columns}
   style:block-size="{height}px"
   style:margin-block-end={room > 0 ? `${room}px` : undefined}
+  onanimationend={(event) => {
+    if (landed && event.target === event.currentTarget) onlanded?.()
+  }}
 >
   {#if band && group !== undefined}<div class="band">{@render band(group)}</div>{/if}
   {@render children?.()}
@@ -148,21 +155,14 @@
     color: var(--color-muted);
   }
 
-  li[data-written] {
-    animation:
-      slide-in var(--duration-slide-in) var(--ease-out),
-      wash var(--duration-wash) var(--ease-out);
+  li[data-landed] {
+    animation: land var(--duration-land) var(--ease-out);
   }
 
-  @keyframes slide-in {
-    from {
-      translate: -32px 0;
-    }
-  }
-
-  @keyframes wash {
+  @keyframes land {
     from {
       background: var(--color-selected);
+      box-shadow: inset 3px 0 0 var(--color-accent);
     }
   }
 

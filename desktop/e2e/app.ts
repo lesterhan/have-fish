@@ -160,6 +160,8 @@ export const BACK = 'role=button[name="Back to the list"s]'
 
 /** The line that writes a spend, open above the ledger's today. */
 export const WRITE = 'form[aria-label="Write down a spend"]'
+/** The batch under the line: the spends this opening of the line has written. */
+export const BATCH = 'ol[aria-label="Just written"]'
 
 /** Opens the line if it isn't open, then puts the cursor in its amount. */
 export async function openComposer(page: Page): Promise<void> {
@@ -218,7 +220,11 @@ export async function openSelected(page: Page, list = 'ol[aria-label=Ledger]', c
   await page.waitForSelector(card)
 }
 
-/** Types a spend the way a person does: + New, amount, Tab, what for, Enter. */
+/**
+ * Types a spend the way a person does: + New, amount, Tab, what for, Enter, then Esc. The line
+ * stays open after Enter, its spend in the batch under it; Esc closes it, waiting for that spend
+ * to join the batch first, and returns once the line is gone.
+ */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {
   await openComposer(page)
   await page.locator(`${WRITE} input[name=amount]`).focus()
@@ -226,6 +232,8 @@ export async function writeDown(page: Page, amount: string, description: string)
   await page.keyboard.press('Tab')
   await page.keyboard.type(description)
   await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(WRITE, { state: 'detached' })
 }
 
 /** A day as the window shows it, today being today where this machine is. */
