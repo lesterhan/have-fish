@@ -130,7 +130,6 @@ describe('write', () => {
     const { actions } = fakeBridge({
       'spend.write': refusal({ error: 'ACCOUNT_DELETED', detail: { accountId: to.account } }),
     })
-    const written = await actions.write({ ...values, to })
-    expect(written.ok === false && written.part).toBe('to')
+    expect(await actions.write({ ...values, to })).toMatchObject({ ok: false, part: 'to' })
   })
 })

@@ -12,16 +12,18 @@
   import Notice from './parts/Notice.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
-  import { spendActions } from './spendActions'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
+    /** What a spend can do, shared with the others. */
+    actions: SpendActions
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, ledger, forgetTyping }: Props = $props()
+  let { hidden, ledger, actions, forgetTyping }: Props = $props()
 
   /** The line that writes a spend, open above today's rows. */
   let composing = $state(false)
@@ -37,7 +39,6 @@
   const accountOptions = $derived(
     accounts.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
-  const actions = spendActions(window.haveFish)
 
   /** The ledger's list, a page at a time: the store holds the pages the list draws. */
   const paged = $derived({
@@ -166,8 +167,8 @@
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
-  async function refileTo(t: ListedTransaction, typed: string): Promise<void> {
-    const saved = await actions.refile(t, typed, (typed) => toOf(accountOptions, typed))
+  async function saveRefile(t: ListedTransaction, typed: string): Promise<void> {
+    const saved = await actions.refile(t, typed, (text) => toOf(accountOptions, text))
     if (!saved.ok) {
       refusal = saved.words
       return
@@ -253,7 +254,7 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
-    onrefile={refileTo}
+    onrefile={saveRefile}
     loadPaths={() => ledger.paths()}
     dimmed={composing}
     onstepback={closeLine}
@@ -261,6 +262,7 @@
     {#snippet composer()}
       <Composer
         bind:this={line}
+        {actions}
         open={composing}
         {firstRun}
         {accounts}
@@ -274,6 +276,7 @@
     {#snippet details(t: ListedTransaction)}
       <SpendCard
         bind:this={card}
+        {actions}
         transaction={t}
         toOptions={accountOptions}
         loadPaths={() => ledger.paths()}

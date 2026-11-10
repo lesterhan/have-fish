@@ -18,6 +18,7 @@
   import Sidebar from '../renderer/parts/Sidebar.svelte'
   import SpendCard from '../renderer/SpendCard.svelte'
   import SpendList from '../renderer/SpendList.svelte'
+  import { spendActions } from '../renderer/spendActions'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
   import type { Place } from '../renderer/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
@@ -90,6 +91,8 @@
     { id: 'chequing', path: 'assets:tangerine:chequing', kind: 'bank', lastUsed: Date.now() },
   ]
   const loadPaths = async () => PATHS
+  /** The sheet saves nothing: a bridge that never answers. */
+  const actions = spendActions({ invoke: () => new Promise(() => {}) })
   let picked = $state('food:restaurants')
   const VARIANTS = ['primary', 'plain', 'quiet'] as const
   const value = (token: string) =>
@@ -98,6 +101,7 @@
 
 {#snippet card(t: ListedTransaction)}
   <SpendCard
+    {actions}
     transaction={t}
     toOptions={[]}
     {loadPaths}
@@ -156,6 +160,7 @@
   <section aria-label="Composer">
     <h2>Composer: first run, examples in the parts, then a line to fill</h2>
     <Composer
+      {actions}
       open
       firstRun
       accounts={[]}

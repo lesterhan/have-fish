@@ -39,7 +39,7 @@ export function menuTemplate({
   const items = (actions: readonly Listed[]): MenuItemConstructorOptions[] =>
     actions.flatMap((a, i) => [
       ...('grouped' in a && i > 0 ? [{ type: 'separator' as const }] : []),
-      { ...item(a, run), ...(a.id === 'undo' || a.id === 'redo' ? undo[a.id] : {}) },
+      { ...item(a, run, mac), ...(a.id === 'undo' || a.id === 'redo' ? undo[a.id] : {}) },
     ])
 
   // The densities are one item under View, opening to a choice between them, as the themes are.
@@ -48,7 +48,7 @@ export function menuTemplate({
     {
       label: copy.actions.menus.density,
       submenu: ACTIONS.filter(isDensity).map((a) => ({
-        ...item(a, run),
+        ...item(a, run, mac),
         type: 'radio' as const,
         checked: a.density === density,
       })),
@@ -61,7 +61,7 @@ export function menuTemplate({
     {
       label: copy.actions.menus.theme,
       submenu: ACTIONS.filter(isTheme).map((a) => ({
-        ...item(a, run),
+        ...item(a, run, mac),
         type: 'radio' as const,
         checked: a.theme === theme,
       })),
@@ -84,12 +84,14 @@ export function menuTemplate({
 const isTheme = (a: Listed): a is Extract<Listed, { theme: ThemeChoice }> => 'theme' in a
 const isDensity = (a: Listed): a is Extract<Listed, { density: Density }> => 'density' in a
 
-function item(action: Listed, run: Options['run']): MenuItemConstructorOptions {
+function item(action: Listed, run: Options['run'], mac: boolean): MenuItemConstructorOptions {
   const label = copy.actions.labels[action.id]
   const { accelerator }: Action = action
-  const keys = accelerator === undefined ? {} : { accelerator }
+  const windowKey = 'windowKey' in action
+  // macOS registers every accelerator it shows, and R typed in a field must stay an R there.
+  const keys = accelerator === undefined || (windowKey && mac) ? {} : { accelerator }
   if ('role' in action) return { label, ...keys, role: action.role }
-  const shownOnly = 'windowKey' in action ? { registerAccelerator: false } : {}
+  const shownOnly = windowKey ? { registerAccelerator: false } : {}
   return { label, ...keys, ...shownOnly, click: () => run(action.id) }
 }
 

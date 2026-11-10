@@ -51,6 +51,19 @@ describe('refiling a spend from the list', () => {
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:coffee')
   })
 
+  test('R and P typed in a field are letters, never Refile or Show postings', async () => {
+    const { page, press } = await launch(aHome())
+    await writeIn(page, '4', 'Coffee', 'food:coffee')
+    await openComposer(page)
+    await page.focus(`${WRITE} input[name=description]`)
+
+    // Through xdotool, as the menu would see them.
+    press('r')
+    press('p')
+    await expect.poll(() => page.inputValue(`${WRITE} input[name=description]`)).toBe('rp')
+    expect(await page.locator(REFILE).count()).toBe(0)
+  })
+
   test('Esc closes the picker and gives the list its cursor, and arrows select rows', async () => {
     const { page } = await launch(aHome())
     await writeIn(page, '3', 'Bus', 'transport:transit')

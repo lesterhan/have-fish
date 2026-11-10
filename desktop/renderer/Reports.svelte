@@ -25,14 +25,16 @@
   import SpendingList from './SpendingList.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
-  import { spendActions } from './spendActions'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
+    /** What a spend can do, shared with the others. */
+    actions: SpendActions
   }
-  let { hidden, ledger }: Props = $props()
+  let { hidden, ledger, actions }: Props = $props()
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
   let report = $state.raw<Returned['report.spending'] | null>(null)
@@ -86,7 +88,6 @@
   const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
-  const actions = spendActions(window.haveFish)
 
   /** The store load the report was last asked for, and that ask. */
   let reportedFor: LedgerState | null = null
@@ -149,13 +150,23 @@
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
-  async function refileTo(t: ListedTransaction, typed: string): Promise<void> {
-    const saved = await actions.refile(t, typed, (typed) => toOf(accountOptions, typed))
+  async function saveRefile(t: ListedTransaction, typed: string): Promise<void> {
+    const saved = await actions.refile(t, typed, (text) => toOf(accountOptions, text))
     if (!saved.ok) {
       error = saved.words
       return
     }
     await caughtUp()
+  }
+
+  /** R from the menu: the selected row's To becomes a path picker. */
+  export function refile() {
+    list.refile()
+  }
+
+  /** P from the menu: the open spend's postings, shown or hidden. */
+  export function postings() {
+    card?.togglePostings()
   }
 
   /** Coming here from another place: the breakdown. */
@@ -190,16 +201,6 @@
     const left = trailTo(level)[trailTo(to).length] ?? level
     level = to
     pickedKey = `category:${left}`
-  }
-
-  /** R from the menu: the selected row's To becomes a path picker. */
-  export function refile() {
-    list.refile()
-  }
-
-  /** P from the menu: the open spend's postings, shown or hidden. */
-  export function postings() {
-    card?.togglePostings()
   }
 
   let removing = false
@@ -303,12 +304,13 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
-    onrefile={refileTo}
+    onrefile={saveRefile}
     loadPaths={() => ledger.paths()}
   >
     {#snippet details(t: ListedTransaction)}
       <SpendCard
         bind:this={card}
+        {actions}
         label={copy.reports.card.label}
         idPrefix="report-pane"
         transaction={t}

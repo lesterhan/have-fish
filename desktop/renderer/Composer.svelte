@@ -25,9 +25,11 @@
   import Popover from './parts/Popover.svelte'
   import { fromOf, toOf } from './picker'
   import type { Field as Where } from './refusals'
-  import { spendActions } from './spendActions'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
+    /** What a spend can do: the place's. */
+    actions: SpendActions
     /** Open: the line shows, and the ledger under it steps back. */
     open: boolean
     /** With no accounts and no spends: the parts show examples in the format to type. */
@@ -45,6 +47,7 @@
     forgetTyping: () => void
   }
   let {
+    actions,
     open,
     firstRun,
     accounts,
@@ -54,8 +57,6 @@
     onsaved,
     forgetTyping,
   }: Props = $props()
-
-  const actions = spendActions(window.haveFish)
 
   let fromText = $state('')
   let dateText = $state('')

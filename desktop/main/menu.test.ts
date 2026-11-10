@@ -149,6 +149,19 @@ describe('the menu', () => {
     expect(newSpend?.registerAccelerator).toBeUndefined()
   })
 
+  test('on macOS, which registers every accelerator, a key the window takes has none', () => {
+    const labels = itemsOf(build(true, true))
+      .filter((i) =>
+        ['Remove spend', 'Show or hide postings', 'Refile spend'].includes(`${i.label}`),
+      )
+      .map((i) => [i.label, i.accelerator])
+    expect(labels).toEqual([
+      ['Remove spend', undefined],
+      ['Show or hide postings', undefined],
+      ['Refile spend', undefined],
+    ])
+  })
+
   test('on macOS, Quit is in the app menu, which comes first', () => {
     const [app, file] = build(true, true)
     expect(app?.label).toBe(copy.app.name)

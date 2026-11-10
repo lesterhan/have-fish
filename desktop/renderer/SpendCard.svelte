@@ -31,9 +31,11 @@
   import { provenanceOf } from './postings'
   import { type Changable, destinationOf, paymentsOf, savedValues } from './sentence'
   import { windowKeyOf } from './shortcuts'
-  import { spendActions } from './spendActions'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
+    /** What a spend can do: the place's. */
+    actions: SpendActions
     transaction: ListedTransaction
     /** What its To can name as an account: one of mine, by id. */
     toOptions: (Option & { hint: string })[]
@@ -51,6 +53,7 @@
     idPrefix?: string
   }
   let {
+    actions,
     transaction,
     toOptions,
     loadPaths,
@@ -62,7 +65,6 @@
   }: Props = $props()
 
   const words = copy.spends.card
-  const actions = spendActions(window.haveFish)
   const values = $derived(savedValues(transaction))
   /** The chip being changed, what its editor holds, and the one just saved: `chips.ts`'s rules. */
   let chip = $state(closed)
