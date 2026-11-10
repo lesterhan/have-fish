@@ -16,6 +16,7 @@
   import { wordsFor } from './refusals'
   import Reports from './Reports.svelte'
   import { MAC } from './shortcuts'
+  import { spendActions } from './spendActions'
   import Spends from './Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
 
@@ -31,10 +32,16 @@
 
   // One copy of the ledger's lists for every place, loaded once per change.
   const lists = ledgerStore(window.haveFish)
+  const spendsDo = spendActions(window.haveFish)
   onMount(() => lists.start())
 
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
+
+  /** An action on spends, which means nothing where spends aren't showing. */
+  const whereSpendsShow = (act: (p: SpendView) => unknown) => () => {
+    if (place !== 'accounts') void act(spendPlace(place))
+  }
 
   /** Every action the window carries out: the menu's, and the palette's. */
   const handlers = {
@@ -43,10 +50,9 @@
     addAccount,
     undo,
     redo,
-    // Remove spend means nothing where spends aren't showing.
-    remove: () => {
-      if (place !== 'accounts') void spendPlace(place).remove()
-    },
+    remove: whereSpendsShow((p) => p.remove()),
+    postings: whereSpendsShow((p) => p.postings()),
+    refile: whereSpendsShow((p) => p.refile()),
     showLedger: () => void go('ledger'),
     showAccounts: () => void go('accounts'),
     showReports: () => void go('reports'),
@@ -228,10 +234,16 @@
     bind:this={spends}
     hidden={place !== 'ledger'}
     ledger={lists}
+    actions={spendsDo}
     {forgetTyping}
   />
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
-  <Reports bind:this={reports} hidden={place !== 'reports'} ledger={lists} />
+  <Reports
+    bind:this={reports}
+    hidden={place !== 'reports'}
+    ledger={lists}
+    actions={spendsDo}
+  />
 </div>
 {#if palette !== null}
   <Palette items={palette} onrun={(id) => void runFromPalette(id)} onclose={closePalette} />

@@ -5,22 +5,25 @@
   import { type Cursor, type CursorMoment, cursorFor } from './cursor'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { toOf } from './picker'
-  import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
+  import { wordsFor } from './refusals'
+  import Composer from './Composer.svelte'
   import Button from './parts/Button.svelte'
-  import Composer from './parts/Composer.svelte'
   import Header from './parts/Header.svelte'
   import Notice from './parts/Notice.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
     hidden: boolean
     /** Every list this place shows, shared with the others. */
     ledger: LedgerStore
+    /** What a spend can do, shared with the others. */
+    actions: SpendActions
     /** After a save: the fields' own undo has nothing left to take back. */
     forgetTyping: () => void
   }
-  let { hidden, ledger, forgetTyping }: Props = $props()
+  let { hidden, ledger, actions, forgetTyping }: Props = $props()
 
   /** The line that writes a spend, open above today's rows. */
   let composing = $state(false)
@@ -164,19 +167,23 @@
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
-  async function refile(t: ListedTransaction, typed: string): Promise<void> {
-    if (t.simple === null) return
-    const saved = await window.haveFish.invoke('spend.edit', {
-      id: t.id,
-      amount: t.simple.amount,
-      description: t.description,
-      to: toOf(accountOptions, typed),
-    })
+  async function saveRefile(t: ListedTransaction, typed: string): Promise<void> {
+    const saved = await actions.refile(t, typed, (text) => toOf(accountOptions, text))
     if (!saved.ok) {
-      refusal = spendWordsFor(saved)
+      refusal = saved.words
       return
     }
     await ledger.caughtUp()
+  }
+
+  /** R from the menu: the selected row's To becomes a path picker. */
+  export function refile() {
+    list.refile()
+  }
+
+  /** P from the menu: the open spend's postings, shown or hidden. */
+  export function postings() {
+    card?.togglePostings()
   }
 
   let removing = false
@@ -190,10 +197,10 @@
     const at = await ledger.locate(id)
     const next =
       at === null ? null : ((await ledger.rowAt(at + 1)) ?? (await ledger.rowAt(at - 1)))?.id ?? null
-    const removed = await window.haveFish.invoke('spend.remove', { id })
+    const removed = await actions.remove(id)
     removing = false
     if (!removed.ok) {
-      refusal = wordsFor(removed)
+      refusal = removed.words
       return
     }
     const wasOpen = opened === id
@@ -247,7 +254,7 @@
     oncardkey={(event) => card?.keydown(event) ?? false}
     onclose={close}
     onremove={remove}
-    onrefile={refile}
+    onrefile={saveRefile}
     loadPaths={() => ledger.paths()}
     dimmed={composing}
     onstepback={closeLine}
@@ -255,6 +262,7 @@
     {#snippet composer()}
       <Composer
         bind:this={line}
+        {actions}
         open={composing}
         {firstRun}
         {accounts}
@@ -268,6 +276,7 @@
     {#snippet details(t: ListedTransaction)}
       <SpendCard
         bind:this={card}
+        {actions}
         transaction={t}
         toOptions={accountOptions}
         loadPaths={() => ledger.paths()}

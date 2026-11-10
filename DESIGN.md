@@ -165,7 +165,6 @@ screen that needs it, not copied until a third copy forces it out.
 | `Band` | A day, or a root of accounts by its `Path`, with what its rows come to; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
-| `Composer` | Empty with its word, next (its Tab key), in it (an accent underline), filled (a chip on the band), refused (underlined red, two words of why); the date list; a half-screen line that wraps | The ledger |
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
@@ -183,7 +182,9 @@ screen that needs it, not copied until a third copy forces it out.
   New pill, Done with its Esc key. Its parts are in the order you think of them: From, Date,
   Amount, Description, To. Each shows its word until filled; the next is underlined, dotted, with
   its Tab key; a refused part is underlined red with two words of why. The first time, the words
-  are examples in the format to type.
+  are examples in the format to type. It knows the ledger, so it sits beside the card in
+  `desktop/renderer/`, not among the parts, and its look is in its own file until it is drawn
+  from them.
 - **It writes a batch.** Enter saves the line, which drops into the batch under the composer, and
   a fresh line keeps From and the date. A line dated in the past carries its date as a chip. Esc
   closes it, and each row goes to its day, lit where it lands.

@@ -16,9 +16,13 @@ export type PlaceView = {
   refused(words: string): void
 }
 
-/** A place that lists the ledger's spends: Remove spend acts there. */
+/** A place that lists the ledger's spends: Remove, Refile and Show postings act there. */
 export type SpendView = PlaceView & {
   remove(): Promise<void>
+  /** The selected spend's To, as a path picker in its row. */
+  refile(): void
+  /** The open spend's postings, shown or hidden. */
+  postings(): void
 }
 
 /** The action that goes to each place, so the sidebar can show its shortcut. */

@@ -1,5 +1,5 @@
 // The composer's rules, without a DOM: the parts in the order you think of them, where Tab goes,
-// and the days its date list offers for what's typed. `parts/Composer.svelte` draws them.
+// and the days its date list offers for what's typed. `Composer.svelte` draws them.
 
 import { addDays } from '@have-fish/core/calendar-date'
 import { dateFrom } from '@have-fish/core/typed-date'

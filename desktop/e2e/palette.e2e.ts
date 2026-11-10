@@ -3,7 +3,8 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, rows, WRITE, writeDown } from './app'
+import { copy } from '../copy'
+import { aHome, launch, openSpend, rows, WRITE, writeDown } from './app'
 
 const PALETTE = 'role=dialog[name="Do anything"]'
 const INPUT = `${PALETTE} >> input[name=palette]`
@@ -102,6 +103,23 @@ describe('do anything from Ctrl+K', () => {
 
     await page.waitForSelector(PALETTE, { state: 'detached' })
     expect(await focusedName(page)).toBe('Write down a spend description')
+  })
+
+  test('Show or hide postings and Refile spend act on the spend selected', async () => {
+    const { page, press } = await launch(aHome())
+    await writeDown(page, '12', 'Lunch')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    await openSpend(page.locator('ol[aria-label=Ledger] li', { hasText: 'Lunch' }))
+
+    await open(page, press)
+    await page.keyboard.type('postings')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => page.getByLabel(copy.spends.card.postings).isVisible()).toBe(true)
+
+    await open(page, press)
+    await page.keyboard.type('refile')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => focusedName(page)).toBe('Ledger to')
   })
 
   test('Enter on a setting runs it: the theme changes, and the palette closes', async () => {
