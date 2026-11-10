@@ -22,6 +22,10 @@ const labels: { [A in ActionId]: string } = {
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   resetZoom: 'Actual size',
+  densityCompact: 'Compact',
+  densityRegular: 'Regular',
+  densityComfortable: 'Comfortable',
+  densityLarge: 'Large',
   themeGraphiteLight: 'Graphite light',
   themeGraphiteDark: 'Graphite dark',
   themeSystem: 'Follow the system',
@@ -29,7 +33,7 @@ const labels: { [A in ActionId]: string } = {
 
 export const actions = {
   /** `&` marks the letter that opens the menu with Alt, on Linux and Windows. */
-  menus: { file: '&File', edit: '&Edit', view: '&View', theme: '&Theme' },
+  menus: { file: '&File', edit: '&Edit', view: '&View', density: '&Density', theme: '&Theme' },
   labels,
   /** Undo and Redo while the focused field has typing of yours to take back or put back. */
   typing: { undo: 'Undo typing', redo: 'Redo typing' },

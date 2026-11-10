@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  anchored,
   groupedOf,
   indexAt,
   movedTo,
@@ -254,5 +255,28 @@ describe('withRoom: an opened row and its details', () => {
   test('no row open, or no room: the layout as it was', () => {
     expect(withRoom(rows, -1, 100)).toBe(rows)
     expect(withRoom(rows, 3, 0)).toBe(rows)
+  })
+})
+
+describe('anchored: the row at the top stays at the top through a density change', () => {
+  /** Ten years: 10,000 days of five rows, in the two heights. */
+  const layout = (row: number, band: number) =>
+    groupedOf(
+      Array.from({ length: 10_000 }, () => 5),
+      row,
+      band,
+    )
+  const before = layout(33, 26)
+
+  test("row 49,990, a day's first, at ten years", () => {
+    expect(anchored(before, layout(46, 32), 1_909_618)).toBe(2_619_476)
+  })
+
+  test("10px into row 100: that row's top, not mid-row", () => {
+    expect(anchored(before, layout(46, 32), 3_830)).toBe(5_240)
+  })
+
+  test('row 103, mid-day: one band more above it', () => {
+    expect(anchored(before, layout(46, 32), 3_945)).toBe(5_410)
   })
 })

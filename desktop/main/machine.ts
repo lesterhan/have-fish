@@ -4,6 +4,7 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { type Density, densityOf } from '../shared/density'
 import { type ThemeChoice, themeChoiceOf } from '../shared/theme/theme'
 
 const SETTINGS_FILE = 'settings.json'
@@ -15,12 +16,16 @@ export type Machine = {
   /** The theme chosen here; `system` until one is, or when the file holds one this can't use. */
   theme(): ThemeChoice
   chooseTheme(choice: ThemeChoice): void
+  /** How tightly this machine sets the ledger; `regular` until one is chosen, or an unknown one. */
+  density(): Density
+  chooseDensity(density: Density): void
 }
 
 /** For tests, and for a run that can't keep a file: remembered until the app quits. */
 export function forgetful(): Machine {
   let last: string | null = null
   let theme: ThemeChoice = 'system'
+  let density: Density = 'regular'
   return {
     lastFrom: () => last,
     usedFrom: (id) => {
@@ -30,11 +35,16 @@ export function forgetful(): Machine {
     chooseTheme: (choice) => {
       theme = choice
     },
+    density: () => density,
+    chooseDensity: (chosen) => {
+      density = chosen
+    },
   }
 }
 
-// Loose, so a key a newer version wrote is kept when this one writes the file back. The theme is
-// read through `themeChoiceOf` rather than parsed here, so one this version can't use is kept too.
+// Loose, so a key a newer version wrote is kept when this one writes the file back. The theme and
+// the density are read through their own readers rather than parsed here, so one this version
+// can't use is kept too.
 const Saved = z.looseObject({ lastFrom: z.uuid().optional().catch(undefined) })
 type Saved = z.infer<typeof Saved>
 
@@ -58,6 +68,10 @@ export function settingsIn(configDir: string): Machine {
     theme: () => themeChoiceOf(saved.theme),
     chooseTheme(choice) {
       if (saved.theme !== choice) keep({ ...saved, theme: choice })
+    },
+    density: () => densityOf(saved.density),
+    chooseDensity(density) {
+      if (saved.density !== density) keep({ ...saved, density })
     },
   }
 }

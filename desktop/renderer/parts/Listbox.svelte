@@ -6,8 +6,10 @@
   // under it (see #611). A row can open, its details under it in the room the rows below make
   // for them: inside the scroller, outside the listbox, which holds only options. The rules are in
   // `listbox.ts`; each row is a `Row`.
-  import { onMount, type Snippet, untrack } from 'svelte'
+  import { onMount, type Snippet, tick, untrack } from 'svelte'
+  import { onDensity } from '../density'
   import {
+    anchored,
     groupedOf,
     type Layout,
     movedTo,
@@ -168,13 +170,31 @@
     scrollTop = 0
   }
 
-  onMount(() => {
+  /**
+   * Reads `--row` and `--band` again: a new density re-lays the list out under the row on top.
+   * The scroll comes after the tick, or the browser caps it at the height the list had (PR 630).
+   */
+  async function measure() {
     const css = (name: string) => Number.parseFloat(getComputedStyle(list).getPropertyValue(name))
-    if (css('--row') > 0) rowHeight = css('--row')
-    if (css('--band') > 0) bandHeight = css('--band')
+    const [row, band] = [css('--row'), css('--band')]
+    if ((row <= 0 || row === rowHeight) && (band <= 0 || band === bandHeight)) return
+    const before = offsets
+    const at = scroller.scrollTop
+    if (row > 0) rowHeight = row
+    if (band > 0) bandHeight = band
+    await tick()
+    scroller.scrollTop = scrollTop = anchored(before, offsets, at)
+  }
+
+  onMount(() => {
+    void measure()
+    const stop = onDensity(() => void measure())
     const resized = new ResizeObserver(() => (viewport = scroller.clientHeight))
     resized.observe(scroller)
-    return () => resized.disconnect()
+    return () => {
+      stop()
+      resized.disconnect()
+    }
   })
 
   // The keys move the active item past what's drawn; the list scrolls to keep it in view. Only

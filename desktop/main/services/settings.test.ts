@@ -52,3 +52,53 @@ describe('settings.theme.set', () => {
     },
   )
 })
+
+describe('settings.density.get', () => {
+  test('says which density this machine is set in: Regular at first', () => {
+    const { ctx, log } = setup()
+    expect(runCommand(ctx, 'settings.density.get', {}, log)).toEqual({
+      ok: true,
+      value: { density: 'regular' },
+    })
+  })
+
+  test('the one chosen last', () => {
+    const { ctx, machine, log } = setup()
+    machine.chooseDensity('comfortable')
+    expect(runCommand(ctx, 'settings.density.get', {}, log)).toEqual({
+      ok: true,
+      value: { density: 'comfortable' },
+    })
+  })
+})
+
+describe('settings.density.set', () => {
+  test('setDensity to compact: ok, and the machine’s density is compact', () => {
+    const { ctx, machine, log } = setup()
+    expect(runCommand(ctx, 'settings.density.set', { density: 'compact' }, log)).toEqual({
+      ok: true,
+      value: { density: 'compact' },
+    })
+    expect(machine.density()).toBe('compact')
+  })
+
+  test('touches nothing in the ledger, and is not a step to undo', () => {
+    const { ctx, ledger, announced, log } = setup()
+    const versions = () => ledger.db.prepare('SELECT count(*) AS n FROM outbox').get()
+    const before = versions()
+    runCommand(ctx, 'settings.density.set', { density: 'large' }, log)
+    expect([versions(), announced, ctx.history.nextUndo()]).toEqual([before, [], undefined])
+  })
+
+  test.each([{ density: 'huge' }, { density: 'Large' }, {}, { density: 'small', more: 1 }])(
+    'refuses %j',
+    (input) => {
+      const { ctx, machine, log } = setup()
+      expect(runCommand(ctx, 'settings.density.set', input, log)).toMatchObject({
+        ok: false,
+        error: 'INPUT_MALFORMED',
+      })
+      expect(machine.density()).toBe('regular')
+    },
+  )
+})

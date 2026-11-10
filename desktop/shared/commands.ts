@@ -5,6 +5,7 @@ import { type AccountKind, ADDABLE_KINDS, type AddableKind } from '@have-fish/co
 import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
+import { DENSITIES, type Density } from './density'
 import type { StepName } from './steps'
 import { THEME_CHOICES, type ThemeChoice } from './theme/theme'
 
@@ -92,6 +93,9 @@ export const inputs = {
   'ledger.steps': z.strictObject({}),
   /** This machine's theme: never the ledger's. */
   'settings.theme.set': z.strictObject({ theme: z.enum(THEME_CHOICES) }),
+  /** How tightly this machine sets the ledger: never the ledger's. */
+  'settings.density.get': z.strictObject({}),
+  'settings.density.set': z.strictObject({ density: z.enum(DENSITIES) }),
   /** Text the window put together, onto the system clipboard. It writes nothing to the ledger. */
   'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
 }
@@ -238,6 +242,8 @@ export interface Values {
   'ledger.redo': Moved
   'ledger.steps': { undo: StepName | null; redo: StepName | null }
   'settings.theme.set': { theme: ThemeChoice }
+  'settings.density.get': { density: Density }
+  'settings.density.set': { density: Density }
   'clipboard.copy': null
 }
 
