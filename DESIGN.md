@@ -75,16 +75,19 @@ for amounts and dates, the code mono for account paths and a bank's own text.
 
 - Space steps by 4px: `--space-1` 4px to `--space-8` 32px. A place's content sits 16px in, 12px
   below the narrow width.
-- **Density is a setting**, in the View menu and the palette beside zoom. It sets the row height
-  and the base type size, and the other type steps move with the base; the layout keeps its
-  shape. Zoom scales everything.
+- **Density is a setting**, in the View menu and the palette beside zoom. It sets the row height,
+  the day's band and the base type size, and the other type steps move with the base; the layout
+  keeps its shape. Zoom scales everything.
 
-| Density | Row | Base type |
-|---|---|---|
-| Compact | 30px | 13px |
-| Regular (default) | 33px | 14px |
-| Comfortable | 40px | 14px |
-| Large | 46px | 16px |
+| Density | Row | Band | Base type |
+|---|---|---|---|
+| Compact | 30px | 26px | 13px |
+| Regular (default) | 33px | 26px | 14px |
+| Comfortable | 40px | 26px | 14px |
+| Large | 46px | 32px | 16px |
+
+The band is the day's, over its first row: shorter than a row in the three tighter steps, and
+taller than Compact's rows in Large.
 
 ### Layout
 

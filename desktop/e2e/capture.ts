@@ -8,7 +8,17 @@ import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { _electron as electron, type Page } from 'playwright-core'
 import { expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, openChip, openSpend, PANE, WRITE, writeDown } from './app'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  launch,
+  openChip,
+  openSpend,
+  PANE,
+  type Running,
+  WRITE,
+  writeDown,
+} from './app'
 import { seed } from './month'
 
 const out = resolve(process.env.SHOTS ?? join(import.meta.dirname, '..', 'shots'))
@@ -206,6 +216,17 @@ test('every place and state', { timeout: 300_000 }, async () => {
   await shot.take('opens-spends-card')
   await page.keyboard.press('Escape')
 
+  // Density at the size the window opens: only the rows and the type move, and Large in the same
+  // columns cuts more of each name.
+  if (KEYS) {
+    for (const density of ['compact', 'regular', 'comfortable', 'large']) {
+      await pickDensity(page, second, density)
+      await shot.take(`opens-density-${density}`)
+    }
+    // Back to Regular, so the narrow and zoomed shots keep the default.
+    await pickDensity(page, second, 'regular')
+  }
+
   // Half a screen: a spend opens in place just the same.
   await shot.size(NARROW)
   await go(page, 'Ledger')
@@ -288,6 +309,16 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
 
 async function go(page: Page, place: string) {
   await page.click(`${NAV} button:has-text("${place}")`)
+}
+
+/** A density picked from Ctrl+K, as a person would: the window offers no other way from a test. */
+async function pickDensity(page: Page, app: Running, density: string) {
+  app.press('ctrl+k')
+  await page.waitForSelector(PALETTE)
+  await page.keyboard.type(density)
+  await page.keyboard.press('Enter')
+  await page.waitForSelector(PALETTE, { state: 'detached' })
+  await page.waitForFunction(() => document.getAnimations().length === 0)
 }
 
 async function shooter(page: Page) {

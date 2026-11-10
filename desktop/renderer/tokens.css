@@ -27,7 +27,8 @@
   --weight-strong: 600;
   --line-height: 1.4;
 
-  /* Density: Regular. The setting that changes these is its own story. */
+  /* Density: Regular. The page's `data-density` sets these; the type steps are the base plus or
+     minus, so they move with it, while the space steps are fixed. */
   --row: 33px;
   /* A day band over its rows: shorter than a row, and moves with it. */
   --band: 26px;
@@ -75,6 +76,26 @@
   --duration-wash: 900ms;
   --duration-flash: 1.4s;
   --duration-land: 2.4s;
+}
+
+/* The other three densities: only the row, the band and the base type move, and every list
+   measures them again when one is picked (see `renderer/density.ts`). */
+[data-density='compact'] {
+  --row: 30px;
+  --band: 26px;
+  --text-base: 13px;
+}
+
+[data-density='comfortable'] {
+  --row: 40px;
+  --band: 26px;
+  --text-base: 14px;
+}
+
+[data-density='large'] {
+  --row: 46px;
+  --band: 32px;
+  --text-base: 16px;
 }
 
 /* Reduced motion: nothing moves, and what would have washed is a one-second tint. The one rule

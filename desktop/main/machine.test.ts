@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
@@ -108,6 +108,39 @@ describe('the theme', () => {
   })
 })
 
+describe('the density', () => {
+  test('is Regular until one is chosen', () => {
+    expect(settingsIn(aDir()).density()).toBe('regular')
+  })
+
+  test('a chosen density is there after the app starts again', () => {
+    const dir = aDir()
+    settingsIn(dir).chooseDensity('comfortable')
+    expect(settingsIn(dir).density()).toBe('comfortable')
+  })
+
+  test.each(['{"density": "huge"}', '{"density": 7}', '{"density": null}', 'not json'])(
+    'a file holding %s opens as Regular',
+    (text) => {
+      const dir = aDir()
+      settingsIn(dir).usedFrom(VISA)
+      writeFileSync(join(dir, 'settings.json'), text)
+      expect(settingsIn(dir).density()).toBe('regular')
+    },
+  )
+
+  test('a settings file with density huge, then chooseTheme: the file still says huge', () => {
+    const dir = aDir()
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, 'settings.json')
+    writeFileSync(file, JSON.stringify({ density: 'huge' }))
+
+    settingsIn(dir).chooseTheme('graphite-dark')
+
+    expect(JSON.parse(readFileSync(file, 'utf8')).density).toBe('huge')
+  })
+})
+
 describe('forgetful', () => {
   test('remembers until it is gone', () => {
     const machine = forgetful()
@@ -115,5 +148,7 @@ describe('forgetful', () => {
     expect(machine.lastFrom()).toBe(VISA)
     machine.chooseTheme('graphite-dark')
     expect(machine.theme()).toBe('graphite-dark')
+    machine.chooseDensity('large')
+    expect(machine.density()).toBe('large')
   })
 })

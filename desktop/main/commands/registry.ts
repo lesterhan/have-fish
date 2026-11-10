@@ -9,7 +9,7 @@ import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listCategories, listIncome } from '../services/categories'
 import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
-import { setTheme } from '../services/settings'
+import { getDensity, setDensity, setTheme } from '../services/settings'
 import { assumedFrom, editSpend, removeSpend, writeSpend } from '../services/spends'
 import {
   daysOfTransactions,
@@ -52,6 +52,8 @@ export const handlers: Handlers = {
   'ledger.redo': redoLast,
   'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
   'settings.theme.set': setTheme,
+  'settings.density.get': getDensity,
+  'settings.density.set': setDensity,
   'clipboard.copy': (ctx, { text }) => {
     ctx.copy(text)
     return { ok: true, value: null }

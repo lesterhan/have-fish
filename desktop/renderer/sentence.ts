@@ -1,7 +1,7 @@
 // A spend's details as the sentence they read as: its parts, the values a chip changes, and what
 // changing one sends. No DOM.
 
-import type { InputOf, ListedTransaction, To } from '../shared/commands'
+import type { InputOf, ListedLeg, ListedTransaction, Money, To } from '../shared/commands'
 import { dayOf, todayIn } from './format'
 
 /**
@@ -24,9 +24,9 @@ export function savedValues(t: ListedTransaction): Values | null {
 }
 
 /**
- * What saving `part` as `value` sends: amount and description as they are, and To or the day only
- * when they changed, so a spend left alone keeps them. A name both a category and an account have
- * mustn't move a spend that was left alone.
+ * What saving `part` as `value` sends, or null when it holds what's saved. Amount and description
+ * go as they are, To and the day only when they changed, so a spend left alone keeps them: a name
+ * both a category and an account have mustn't move a spend that was left alone.
  */
 export function changeOf(
   t: ListedTransaction,
@@ -35,7 +35,8 @@ export function changeOf(
   value: string,
   toOf: (typed: string) => To,
   today = todayIn(),
-): InputOf<'spend.edit'> {
+): InputOf<'spend.edit'> | null {
+  if (unchanged(t, saved, part, value, today)) return null
   const next = { ...saved, [part]: value }
   const date = dayOf(next.date, today)
   return {
@@ -46,3 +47,29 @@ export function changeOf(
     ...(date === t.date ? {} : { date }),
   }
 }
+
+/** Whether `value` is what `part` holds already: To without its spaces, the day as it reads. */
+function unchanged(
+  t: ListedTransaction,
+  saved: Values,
+  part: Changable,
+  value: string,
+  today: string,
+): boolean {
+  if (part === 'to') return value.trim() === (t.to ?? '')
+  if (part === 'date') return dayOf(value, today) === t.date
+  return value === saved[part]
+}
+
+/** Each account a spend paid from more than one came out of, and how much, unsigned. */
+export function paymentsOf(legs: readonly ListedLeg[]): { path: string; money: Money }[] {
+  return legs.flatMap((leg) =>
+    leg.path !== null && leg.amount.startsWith('-')
+      ? [{ path: leg.path, money: { amount: leg.amount.slice(1), currency: leg.currency } }]
+      : [],
+  )
+}
+
+/** Where the money arrived, for a spend paid from more than one account. */
+export const destinationOf = (legs: readonly ListedLeg[]): string | null =>
+  legs.find((leg) => !leg.amount.startsWith('-') && leg.path !== null)?.path ?? null

@@ -20,7 +20,11 @@ export type Shown = { item: PaletteItem; marked: number[] }
 const HEADINGS: Heading[] = ['actions', 'goTo', 'settings']
 
 const headingOf = (action: Action): Heading =>
-  action.theme !== undefined ? 'settings' : action.id.startsWith('show') ? 'goTo' : 'actions'
+  action.theme !== undefined || action.density !== undefined
+    ? 'settings'
+    : action.id.startsWith('show')
+      ? 'goTo'
+      : 'actions'
 
 /**
  * Every action but Electron's own (cut, paste, zoom, quit) and the palette itself, under its

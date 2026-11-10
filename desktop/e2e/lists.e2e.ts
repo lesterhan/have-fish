@@ -37,12 +37,12 @@ const boxes = (page: Page) =>
   }))
 
 describe('a long list', () => {
-  test('stays inside the window, in every place', { timeout: 120_000 }, async () => {
+  test('stays inside the window, in every place', { timeout: 30_000 }, async () => {
     const { page } = await launch(aHome())
     const written = await seed(page)
     // Each account's starting balance is a transaction too.
     const size = () => page.locator(`${LEDGER} li`).first().getAttribute('aria-setsize')
-    await expect.poll(size, { timeout: 30_000 }).toBe(String(written + 5))
+    await expect.poll(size, { timeout: 15_000 }).toBe(String(written + 5))
 
     const ledger = await boxes(page)
     expect(ledger.pageScrolls).toBe(false)
@@ -60,11 +60,11 @@ describe('a long list', () => {
     }
   })
 
-  test('is where you left it when you come back', { timeout: 120_000 }, async () => {
+  test('is where you left it when you come back', { timeout: 30_000 }, async () => {
     const { page } = await launch(aHome())
     const written = await seed(page)
     const size = () => page.locator(`${LEDGER} li`).first().getAttribute('aria-setsize')
-    await expect.poll(size, { timeout: 30_000 }).toBe(String(written + 5))
+    await expect.poll(size, { timeout: 15_000 }).toBe(String(written + 5))
 
     const list = page.locator(LEDGER)
     await list.hover()
@@ -83,7 +83,7 @@ describe('a long list', () => {
   })
 
   test('an undo far down the list selects what came back, and shows it', {
-    timeout: 120_000,
+    timeout: 30_000,
   }, async () => {
     const { page, press } = await launch(aHome())
     const written = await seed(page)
@@ -98,7 +98,7 @@ describe('a long list', () => {
     })
     const total = written + 5 + 150
     const size = () => page.locator(`${LEDGER} li`).first().getAttribute('aria-setsize')
-    await expect.poll(size, { timeout: 30_000 }).toBe(String(total))
+    await expect.poll(size, { timeout: 15_000 }).toBe(String(total))
 
     await page.click(`${LEDGER} li >> nth=0`)
     await page.keyboard.press('End')

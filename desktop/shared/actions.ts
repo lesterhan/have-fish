@@ -1,3 +1,4 @@
+import type { Density } from './density'
 import type { ThemeChoice } from './theme/theme'
 
 // Every action the app offers, once. The menu is built from this list and the hints beside
@@ -36,6 +37,8 @@ export type Action = {
   readonly windowKey?: true
   /** A choice under View, Theme, shown checked while it is the theme. */
   readonly theme?: ThemeChoice
+  /** A choice under View, Density, shown checked while it is the density. */
+  readonly density?: Density
 }
 
 export const ACTIONS = [
@@ -64,6 +67,12 @@ export const ACTIONS = [
   { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn', grouped: 'apart' },
   { id: 'zoomOut', menu: 'view', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
   { id: 'resetZoom', menu: 'view', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+
+  // The four densities, in the ladder's order.
+  { id: 'densityCompact', menu: 'view', density: 'compact' },
+  { id: 'densityRegular', menu: 'view', density: 'regular' },
+  { id: 'densityComfortable', menu: 'view', density: 'comfortable' },
+  { id: 'densityLarge', menu: 'view', density: 'large' },
 
   // The built-in themes, then following the system between them.
   { id: 'themeGraphiteLight', menu: 'view', theme: 'graphite-light', grouped: 'apart' },

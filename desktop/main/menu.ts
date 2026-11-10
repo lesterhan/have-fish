@@ -4,6 +4,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import { copy } from '../copy'
 import { ACTIONS, type Action, type MenuName, type WindowActionId } from '../shared/actions'
+import type { Density } from '../shared/density'
 import type { ThemeChoice } from '../shared/theme/theme'
 import type { UndoItems } from './undo/menu'
 
@@ -18,6 +19,8 @@ type Options = {
   undo: UndoItems
   /** The theme chosen now, checked under View, Theme. */
   theme: ThemeChoice
+  /** The density chosen now, checked under View, Density. */
+  density: Density
 }
 
 const MENUS: MenuName[] = ['file', 'edit', 'view']
@@ -28,6 +31,7 @@ export function menuTemplate({
   run,
   undo,
   theme,
+  density,
 }: Options): MenuItemConstructorOptions[] {
   // macOS keeps Quit in the app's own menu, which is always the first.
   const inApp = (a: Listed) => mac && 'role' in a && a.role === 'quit'
@@ -37,6 +41,19 @@ export function menuTemplate({
       ...('grouped' in a && i > 0 ? [{ type: 'separator' as const }] : []),
       { ...item(a, run), ...(a.id === 'undo' || a.id === 'redo' ? undo[a.id] : {}) },
     ])
+
+  // The densities are one item under View, opening to a choice between them, as the themes are.
+  const densities: MenuItemConstructorOptions[] = [
+    { type: 'separator' },
+    {
+      label: copy.actions.menus.density,
+      submenu: ACTIONS.filter(isDensity).map((a) => ({
+        ...item(a, run),
+        type: 'radio' as const,
+        checked: a.density === density,
+      })),
+    },
+  ]
 
   // The themes are one item under View, opening to a choice between them.
   const themes: MenuItemConstructorOptions[] = [
@@ -54,8 +71,8 @@ export function menuTemplate({
   const menus: MenuItemConstructorOptions[] = MENUS.map((menu) => ({
     label: copy.actions.menus[menu],
     submenu: [
-      ...items(ACTIONS.filter((a) => a.menu === menu && !inApp(a) && !isTheme(a))),
-      ...(menu === 'view' ? themes : []),
+      ...items(ACTIONS.filter((a) => a.menu === menu && !inApp(a) && !isTheme(a) && !isDensity(a))),
+      ...(menu === 'view' ? [...densities, ...themes] : []),
       ...(menu === 'view' && !packaged ? DEVELOPER : []),
     ],
   }))
@@ -65,6 +82,7 @@ export function menuTemplate({
 }
 
 const isTheme = (a: Listed): a is Extract<Listed, { theme: ThemeChoice }> => 'theme' in a
+const isDensity = (a: Listed): a is Extract<Listed, { density: Density }> => 'density' in a
 
 function item(action: Listed, run: Options['run']): MenuItemConstructorOptions {
   const label = copy.actions.labels[action.id]

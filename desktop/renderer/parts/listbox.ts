@@ -110,6 +110,14 @@ export function groupedOf(sizes: readonly number[], row: number, band: number): 
 /** The item at height `y`, clamped to the list. */
 export const indexAt = (layout: Layout, y: number): number => layout.indexAt(y)
 
+/**
+ * Where to scroll so the item at the top of `before` is at the top of `after`. A new height set
+ * before the list has grown is capped at its old one, so the caller scrolls after the re-render.
+ */
+export function anchored(before: Layout, after: Layout, scrollTop: number): number {
+  return after.top(before.indexAt(scrollTop))
+}
+
 /** The items to draw, `from` up to but not `to`, for the view at `scrollTop`. */
 export function windowOf(
   offsets: Layout,

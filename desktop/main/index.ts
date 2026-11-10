@@ -89,6 +89,7 @@ if (!app.requestSingleInstanceLock()) {
         run: (id) => window?.webContents.send(ACTION, id),
         undo: undoItems(ctx.history, typing),
         theme: ctx.machine.theme(),
+        density: ctx.machine.density(),
       })
       Menu.setApplicationMenu(Menu.buildFromTemplate(menu))
     }

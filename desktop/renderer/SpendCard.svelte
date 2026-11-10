@@ -6,8 +6,18 @@
   // locked, and a second line says where each part came from.
   import { tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedPath, ListedTransaction, Wire } from '../shared/commands'
-  import { dayOf, moment, understood } from './format'
+  import type { ListedPath, ListedTransaction } from '../shared/commands'
+  import {
+    closed,
+    committing,
+    flashed,
+    opened,
+    putBack as puttingBack,
+    refused as refusing,
+    saved as savedChip,
+    sending,
+  } from './chips'
+  import { moment, understood } from './format'
   import { chipKey } from './parts/chip'
   import Button from './parts/Button.svelte'
   import Card from './parts/Card.svelte'
@@ -20,7 +30,7 @@
   import Postings from './parts/Postings.svelte'
   import { provenanceOf } from './postings'
   import { spendWordsFor } from './refusals'
-  import { type Changable, changeOf, savedValues } from './sentence'
+  import { type Changable, destinationOf, paymentsOf, savedValues } from './sentence'
 
   type Props = {
     transaction: ListedTransaction
@@ -52,36 +62,22 @@
 
   const words = copy.spends.card
   const values = $derived(savedValues(transaction))
-  /** The chip being changed, if one is; what its editor holds; and why its last save was refused. */
-  let changing = $state<Changable | null>(null)
-  let value = $state('')
-  let error = $state<string | null>(null)
-  /** The chip just saved, while its flash and tick show. */
-  let justSaved = $state<Changable | null>(null)
-  let saving = $state(false)
+  /** The chip being changed, what its editor holds, and the one just saved: `chips.ts`'s rules. */
+  let chip = $state(closed)
   /** Whether the postings show as text. */
   let postingsOpen = $state(false)
 
-  /** The parts of a spend paid from more than one account, read only: each account it came from. */
-  const payments = $derived(
-    transaction.legs.flatMap((leg) =>
-      leg.path !== null && leg.amount.startsWith('-')
-        ? [{ path: leg.path, money: { amount: leg.amount.slice(1), currency: leg.currency } }]
-        : [],
-    ),
-  )
-  /** Where the money arrived, for a spend paid from more than one account. */
-  const destination = $derived(
-    transaction.legs.find((leg) => !leg.amount.startsWith('-') && leg.path !== null)?.path ?? null,
-  )
-  const meant = $derived(changing === 'date' ? understood(value) : null)
+  /** A spend paid from more than one account, read only: each account it came from, and to. */
+  const payments = $derived(paymentsOf(transaction.legs))
+  const destination = $derived(destinationOf(transaction.legs))
+  const meant = $derived(chip.part === 'date' ? understood(chip.value) : null)
   /** Where it came from, when, and on which computer; its file set in the code face. */
   const originParts = $derived(provenanceOf(transaction.origin, moment))
 
 
   const fieldId = (part: string) => `${idPrefix}-${part}`
   const chipId = (part: string) => `${idPrefix}-chip-${part}`
-  const refused = (part: Changable) => (changing === part ? error : null)
+  const refused = (part: Changable) => (chip.part === part ? chip.error : null)
 
   export function focus() {
     document.getElementById(chipId('description'))?.focus()
@@ -93,63 +89,42 @@
 
   /** Clicking a chip, or Enter on it: its editor in place, holding what's saved. */
   function open(part: Changable) {
-    if (values === null) return
-    error = null
-    value = part === 'to' ? (transaction.to ?? '') : values[part]
-    changing = part
-    void tick().then(() => document.getElementById(fieldId(part))?.focus())
-  }
-
-  /** Whether the editor holds what's saved, so there's nothing to send. */
-  function unchanged(part: Changable): boolean {
-    if (values === null) return true
-    if (part === 'to') return value.trim() === (transaction.to ?? '')
-    if (part === 'date') return dayOf(value) === transaction.date
-    return value === values[part]
+    chip = opened(chip, transaction, part)
+    if (chip.part === part) void tick().then(() => document.getElementById(fieldId(part))?.focus())
   }
 
   /** Enter: saves the chip at once. A refusal keeps it open, underlined, with why. */
   async function commit() {
-    const part = changing
-    if (part === null || values === null || saving) return
-    if (unchanged(part)) {
-      changing = null
-      error = null
-      focusChip(part)
+    const next = committing(chip, transaction, (typed) => toOf(toOptions, typed))
+    if (next === null) return
+    if ('unchanged' in next) {
+      chip = puttingBack(chip)
+      focusChip(next.unchanged)
       return
     }
-    saving = true
-    const saved: Wire<unknown> = await window.haveFish.invoke(
-      'spend.edit',
-      changeOf(transaction, values, part, value, (typed) => toOf(toOptions, typed)),
-    )
-    saving = false
+    const part = chip.part
+    chip = sending(chip)
+    const saved = await window.haveFish.invoke('spend.edit', next.send)
     if (!saved.ok) {
-      error = spendWordsFor(saved)
       // The chip that was being changed stays open; focus stays in its editor to fix it.
+      chip = refusing(chip, spendWordsFor(saved))
       return
     }
-    error = null
-    changing = null
-    justSaved = part
-    setTimeout(() => {
-      if (justSaved === part) justSaved = null
-    }, 1400)
+    chip = savedChip(chip)
     await onSaved()
-    focusChip(part)
+    if (part !== null) focusChip(part)
   }
 
   /** Esc on an open chip: what was typed goes back and the chip closes. */
   function putBack() {
-    const part = changing
-    changing = null
-    error = null
+    const part = chip.part
+    chip = puttingBack(chip)
     if (part !== null) focusChip(part)
   }
 
   /** P shows the postings, unless a field is taking what's typed. */
   function postingsKey(event: KeyboardEvent): boolean {
-    if (changing !== null || event.ctrlKey || event.metaKey || event.altKey) return false
+    if (chip.part !== null || event.ctrlKey || event.metaKey || event.altKey) return false
     const target = event.target as HTMLElement | null
     if (target?.closest('input, textarea, [contenteditable="true"]') !== null) return false
     return event.key.toLowerCase() === 'p'
@@ -164,13 +139,13 @@
   function onkeydown(event: KeyboardEvent) {
     const key = chipKey(event)
     if (key === 'commit') {
-      if (changing !== null) {
+      if (chip.part !== null) {
         event.preventDefault()
         void commit()
       }
     } else if (key === 'cancel') {
       event.preventDefault()
-      if (changing !== null) putBack()
+      if (chip.part !== null) putBack()
       else if (postingsOpen) postingsOpen = false
       else onclose()
     } else if (postingsKey(event)) {
@@ -188,17 +163,18 @@
         id={chipId('amount')}
         label={words.chip.amount}
         figures
-        changing={changing === 'amount'}
-        saved={justSaved === 'amount'}
+        changing={chip.part === 'amount'}
+        saved={chip.justSaved === 'amount'}
         error={refused('amount')}
         onopen={() => open('amount')}
+        onflashed={() => (chip = flashed(chip, 'amount'))}
       >
         {#snippet editor()}
           <span class="money">
             <input
               id={fieldId('amount')}
               name="amount"
-              bind:value
+              bind:value={chip.value}
               inputmode="decimal"
               autocomplete="off"
               maxlength="64"
@@ -214,16 +190,17 @@
       <Chip
         id={chipId('description')}
         label={words.chip.description}
-        changing={changing === 'description'}
-        saved={justSaved === 'description'}
+        changing={chip.part === 'description'}
+        saved={chip.justSaved === 'description'}
         error={refused('description')}
         onopen={() => open('description')}
+        onflashed={() => (chip = flashed(chip, 'description'))}
       >
         {#snippet editor()}
           <input
             id={fieldId('description')}
             name="description"
-            bind:value
+            bind:value={chip.value}
             autocomplete="off"
             maxlength="500"
             aria-invalid={refused('description') !== null}
@@ -244,17 +221,18 @@
         id={chipId('date')}
         label={words.chip.date}
         figures
-        changing={changing === 'date'}
-        saved={justSaved === 'date'}
+        changing={chip.part === 'date'}
+        saved={chip.justSaved === 'date'}
         error={refused('date')}
         onopen={() => open('date')}
+        onflashed={() => (chip = flashed(chip, 'date'))}
       >
         {#snippet editor()}
           <span class="day">
             <input
               id={fieldId('date')}
               name="date"
-              bind:value
+              bind:value={chip.value}
               autocomplete="off"
               maxlength="10"
               aria-invalid={refused('date') !== null}
@@ -271,10 +249,11 @@
         <Chip
           id={chipId('to')}
           label={words.chip.to}
-          changing={changing === 'to'}
-          saved={justSaved === 'to'}
+          changing={chip.part === 'to'}
+          saved={chip.justSaved === 'to'}
           error={refused('to')}
           onopen={() => open('to')}
+          onflashed={() => (chip = flashed(chip, 'to'))}
         >
           {#snippet editor()}
             <PathPicker
@@ -282,7 +261,7 @@
               name="to"
               mode="to"
               {loadPaths}
-              bind:text={value}
+              bind:text={chip.value}
               placeholder={copy.spends.write.unsorted}
               listLabel={copy.spends.write.toList}
               invalid={refused('to') !== null}
