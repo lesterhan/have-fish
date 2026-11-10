@@ -18,9 +18,13 @@ describe('where the cursor goes in the ledger', () => {
     expect(cursorFor('loaded', state())).toBe('list')
   })
 
-  test('loaded while another place shows, or the line is already open: left where it is', () => {
+  test('loaded while another place shows: left where it is', () => {
     expect(cursorFor('loaded', state({ hidden: true }))).toBeNull()
-    expect(cursorFor('loaded', state({ composing: true }))).toBeNull()
+  })
+
+  test('loaded with the line already open, as the first run opens it: the line', () => {
+    expect(cursorFor('loaded', state({ total: 0, composing: true }))).toBe('line')
+    expect(cursorFor('loaded', state({ composing: true }))).toBe('line')
   })
 
   test('coming here from another place: the line if it is open, else the list, else a new line', () => {

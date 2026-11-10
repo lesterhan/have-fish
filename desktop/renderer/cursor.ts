@@ -30,8 +30,9 @@ export type CursorState = {
 export function cursorFor(moment: CursorMoment, state: CursorState): Cursor | null {
   switch (moment) {
     case 'loaded':
-      if (state.hidden || state.composing) return null
-      return state.total === 0 ? 'line' : 'list'
+      if (state.hidden) return null
+      // The first run's line is already open when the ledger comes in: it takes the cursor.
+      return state.composing || state.total === 0 ? 'line' : 'list'
     case 'cameHere':
       return state.composing || state.total === 0 ? 'line' : 'list'
     case 'newSpend':
