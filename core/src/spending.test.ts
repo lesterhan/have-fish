@@ -66,12 +66,11 @@ describe('spendingAt', () => {
       spent('', 1),
     ]
     const level = spendingAt(all, 'food')
-    expect(level.lines.map(line)).toEqual(['coffee 450', 'groceries › 1350', 'own food 200'])
+    expect(rolled(level)).toEqual(['coffee 450', 'groceries › 1350', 'own food 200'])
+    // The level's own comes last, whatever order its spends came in.
+    expect(level.lines.at(-1)?.kind).toBe('own')
     expect(level.total).toBe(2000)
-    expect(spendingAt(all, 'food:groceries').lines.map(line)).toEqual([
-      'produce 1000',
-      'own groceries 350',
-    ])
+    expect(rolled(spendingAt(all, 'food:groceries'))).toEqual(['own groceries 350', 'produce 1000'])
   })
 
   test('money back into a category lowers it', () => {

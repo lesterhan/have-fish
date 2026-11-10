@@ -37,7 +37,8 @@ export type Compared = { total: number; before: number; lines: ComparedLine[] }
 
 /**
  * The lines at `level`: each category directly under it, with everything under that rolled in,
- * biggest first; then what went to the level's category itself, or at the top, what's unsorted.
+ * in the order its spends came; then what went to the level's category itself, or at the top,
+ * what's unsorted. Ordering them is `comparedAt`'s.
  */
 export function spendingAt(spent: readonly Spent[], level: string): Level {
   const children = new Map<string, { cents: number; opens: boolean }>()
