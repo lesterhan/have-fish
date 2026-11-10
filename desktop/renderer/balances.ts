@@ -20,8 +20,8 @@ export type AccountRow = {
 }
 
 /**
- * Name, Kind and Balance. An account's currency is in its pane; the balance says any code but the
- * home one.
+ * A cell of an account's row: its name, kind and balance. Its currency is in its pane; the balance
+ * says any code but the home one.
  */
 export type AccountCell = 'name' | 'kind' | 'balance'
 
