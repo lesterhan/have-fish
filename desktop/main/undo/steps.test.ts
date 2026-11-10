@@ -19,7 +19,7 @@ function setup() {
     now: () => clock.at,
     timeZone: () => 'UTC',
   }
-  const ctx = contextFor(ledger, () => {}, clock)
+  const ctx = contextFor({ ledger, announce: () => {}, time: clock })
   /** A second later each time, as a person types. */
   const later = () => {
     clock.at += 1000

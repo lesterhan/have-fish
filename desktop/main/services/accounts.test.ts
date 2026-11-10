@@ -16,7 +16,7 @@ function setup() {
   const ledger = tempLedger()
   const announced: Changed[][] = []
   const clock: Time = { now: () => NOW, timeZone: () => 'UTC' }
-  const ctx = contextFor(ledger, (changed) => announced.push(changed), clock)
+  const ctx = contextFor({ ledger, announce: (changed) => announced.push(changed), time: clock })
   const stored = (id: string) => {
     const found = getDocument(ledger.db, 'account', id)
     if (found === null) throw new Error(`no account ${id}`)

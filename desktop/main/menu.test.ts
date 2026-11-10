@@ -142,8 +142,24 @@ describe('the menu', () => {
     const remove = itemsOf(build(true)).find((i) => i.accelerator === 'Delete')
     expect(remove?.label).toBe('Remove spend')
     expect(remove?.registerAccelerator).toBe(false)
+    const refile = itemsOf(build(true)).find((i) => i.accelerator === 'R')
+    expect(refile?.label).toBe('Refile spend')
+    expect(refile?.registerAccelerator).toBe(false)
     const newSpend = itemsOf(build(true)).find((i) => i.accelerator === 'CmdOrCtrl+N')
     expect(newSpend?.registerAccelerator).toBeUndefined()
+  })
+
+  test('on macOS, which registers every accelerator, a key the window takes has none', () => {
+    const labels = itemsOf(build(true, true))
+      .filter((i) =>
+        ['Remove spend', 'Show or hide postings', 'Refile spend'].includes(`${i.label}`),
+      )
+      .map((i) => [i.label, i.accelerator])
+    expect(labels).toEqual([
+      ['Remove spend', undefined],
+      ['Show or hide postings', undefined],
+      ['Refile spend', undefined],
+    ])
   })
 
   test('on macOS, Quit is in the app menu, which comes first', () => {

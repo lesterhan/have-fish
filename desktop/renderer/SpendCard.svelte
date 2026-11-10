@@ -29,10 +29,13 @@
   import PathPicker from './parts/PathPicker.svelte'
   import Postings from './parts/Postings.svelte'
   import { provenanceOf } from './postings'
-  import { spendWordsFor } from './refusals'
   import { type Changable, destinationOf, paymentsOf, savedValues } from './sentence'
+  import { windowKeyOf } from './shortcuts'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
+    /** What a spend can do: the place's. */
+    actions: SpendActions
     transaction: ListedTransaction
     /** What its To can name as an account: one of mine, by id. */
     toOptions: (Option & { hint: string })[]
@@ -50,6 +53,7 @@
     idPrefix?: string
   }
   let {
+    actions,
     transaction,
     toOptions,
     loadPaths,
@@ -104,10 +108,10 @@
     }
     const part = chip.part
     chip = sending(chip)
-    const saved = await window.haveFish.invoke('spend.edit', next.send)
+    const saved = await actions.edit(next.send)
     if (!saved.ok) {
       // The chip that was being changed stays open; focus stays in its editor to fix it.
-      chip = refusing(chip, spendWordsFor(saved))
+      chip = refusing(chip, saved.words)
       return
     }
     chip = savedChip(chip)
@@ -122,12 +126,16 @@
     if (part !== null) focusChip(part)
   }
 
+  /** The postings, shown or hidden: P, or the button under them. */
+  export function togglePostings() {
+    postingsOpen = !postingsOpen
+  }
+
   /** P shows the postings, unless a field is taking what's typed. */
   function postingsKey(event: KeyboardEvent): boolean {
-    if (chip.part !== null || event.ctrlKey || event.metaKey || event.altKey) return false
+    if (chip.part !== null || windowKeyOf(event) !== 'postings') return false
     const target = event.target as HTMLElement | null
-    if (target?.closest('input, textarea, [contenteditable="true"]') !== null) return false
-    return event.key.toLowerCase() === 'p'
+    return target?.closest('input, textarea, [contenteditable="true"]') === null
   }
 
   /** The card's keys, for a row that has the cursor while its details are open. */
@@ -150,7 +158,7 @@
       else onclose()
     } else if (postingsKey(event)) {
       event.preventDefault()
-      postingsOpen = !postingsOpen
+      togglePostings()
     }
   }
 </script>
@@ -265,8 +273,6 @@
               placeholder={copy.spends.write.unsorted}
               listLabel={copy.spends.write.toList}
               invalid={refused('to') !== null}
-              describedby={undefined}
-              onchoose={() => {}}
               onpicked={() => void commit()}
               newOption={copy.spends.write.newCategory}
             />
@@ -333,9 +339,9 @@
   {#snippet foot()}
     <Button
       variant="quiet"
-      key={words.postingsKey}
+      action="postings"
       aria-expanded={postingsOpen}
-      onclick={() => (postingsOpen = !postingsOpen)}
+      onclick={togglePostings}
     >
       {words.postings}
     </Button>

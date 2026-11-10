@@ -13,6 +13,8 @@ describe('the palette’s actions', () => {
       'actions: Undo write Coffee',
       'actions: Redo',
       'actions: Remove spend',
+      'actions: Show or hide postings',
+      'actions: Refile spend',
       'goTo: Ledger',
       'goTo: Accounts',
       'goTo: Reports',

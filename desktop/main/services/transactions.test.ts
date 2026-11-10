@@ -16,7 +16,7 @@ import {
 function setup() {
   const ledger = tempLedger()
   const clock = { at: NOW, now: () => clock.at, timeZone: () => 'UTC' }
-  const ctx = contextFor(ledger, () => {}, clock)
+  const ctx = contextFor({ ledger, announce: () => {}, time: clock })
   /** A spend on `date`, written a minute after the last. */
   const write = (description: string, date: string) => {
     clock.at += 60_000

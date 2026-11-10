@@ -3,9 +3,9 @@
   // you think of them. Every part shows its word until filled, the next one carries its Tab key,
   // and a part it can't read is underlined red with two words of why. Enter writes it and closes
   // the line; Esc closes it without writing. While it's open, the rest of the ledger steps back.
-  import { tick, untrack } from 'svelte'
-  import { copy } from '../../copy'
-  import type { ListedAccount, ListedPath } from '../../shared/commands'
+  import { type Snippet, tick, untrack } from 'svelte'
+  import { copy } from '../copy'
+  import type { ListedAccount, ListedPath } from '../shared/commands'
   import {
     after,
     before,
@@ -14,19 +14,22 @@
     type Part,
     startPart,
     tabMark,
-  } from '../composer'
-  import { dayOf, todayIn } from '../format'
-  import { fromOf, toOf } from '../picker'
-  import { composerWordsFor, type Field as Where, fieldOf } from '../refusals'
-  import Button from './Button.svelte'
-  import Day from './Day.svelte'
-  import Keys from './Keys.svelte'
-  import Listbox from './Listbox.svelte'
-  import PathPicker from './PathPicker.svelte'
-  import Popover from './Popover.svelte'
-  import { floating } from './floating'
+  } from './composer'
+  import { dayOf, todayIn } from './format'
+  import Button from './parts/Button.svelte'
+  import Day from './parts/Day.svelte'
+  import { floating } from './parts/floating'
+  import Keys from './parts/Keys.svelte'
+  import Listbox from './parts/Listbox.svelte'
+  import PathPicker from './parts/PathPicker.svelte'
+  import Popover from './parts/Popover.svelte'
+  import { fromOf, toOf } from './picker'
+  import type { Field as Where } from './refusals'
+  import type { SpendActions } from './spendActions'
 
   type Props = {
+    /** What a spend can do: the place's. */
+    actions: SpendActions
     /** Open: the line shows, and the ledger under it steps back. */
     open: boolean
     /** With no accounts and no spends: the parts show examples in the format to type. */
@@ -44,6 +47,7 @@
     forgetTyping: () => void
   }
   let {
+    actions,
     open,
     firstRun,
     accounts,
@@ -157,21 +161,19 @@
     if (saving) return
     saving = true
     const from = fromOf(accounts, fromText)
-    const to = toOf(accounts, toText)
     const income = typeof from === 'object' && from !== null
-    const written = await window.haveFish.invoke('spend.write', {
+    const written = await actions.write({
       amount,
       description,
       from,
-      to,
+      to: toOf(accounts, toText),
       date: dateText.trim() === '' ? '' : dayOf(dateText),
     })
     saving = false
     if (!written.ok) {
-      const part = fieldOf(written, to)
-      error = { part, words: composerWordsFor(written) }
+      error = { part: written.part, words: written.words }
       await tick()
-      if (part !== 'form') focusPart(part)
+      if (written.part !== 'form') focusPart(written.part)
       return
     }
     amount = ''
@@ -184,7 +186,7 @@
     if (dateText.trim() === '') dateText = 'today'
     if (fromText.trim() === '' || income) fromText = assumedName ?? ''
     forgetTyping()
-    await onsaved(written.value.id)
+    await onsaved(written.id)
   }
 
   function pickDate(choice: DayChoice | undefined) {
@@ -238,16 +240,23 @@
   >
     <span class="new" aria-hidden="true">{copy.spends.composer.pill}</span>
 
-    <span
-      class="part"
-      data-part="from"
-      class:filled={fromText.trim() !== ''}
-      class:active={active === 'from'}
-      class:next={marked === 'from'}
-      class:refused={error?.part === 'from'}
-      onfocusin={() => (active = 'from')}
-    >
-      <span class="tab" class:shown={marked === 'from'}><Keys key={copy.spends.composer.tab} /></span>
+    {#snippet part(name: Part, field: Snippet)}
+      <span
+        class="part"
+        data-part={name}
+        class:filled={values[name].trim() !== ''}
+        class:active={active === name}
+        class:next={marked === name}
+        class:refused={error?.part === name}
+        onfocusin={() => (active = name)}
+      >
+        <span class="tab" class:shown={marked === name}><Keys key={copy.spends.composer.tab} /></span>
+        {@render field()}
+      </span>
+      {#if error?.part === name}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+
+    {#snippet fromField()}
       <PathPicker
         bind:this={fields.from}
         id="composer-from"
@@ -259,27 +268,16 @@
         placeholder={word('from')}
         listLabel={copy.spends.write.fromList}
         invalid={error?.part === 'from'}
-        describedby={undefined}
         onchoose={() => clearError('from')}
         newOption={copy.spends.write.newIncome}
-        inline
-        openOnFocus={false}
+        sits="line"
         below={form}
         onclose={onclose}
       />
-    </span>
-    {#if error?.part === 'from'}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+    {@render part('from', fromField)}
 
-    <span
-      class="part"
-      data-part="date"
-      class:filled={dateText.trim() !== ''}
-      class:active={active === 'date'}
-      class:next={marked === 'date'}
-      class:refused={error?.part === 'date'}
-      onfocusin={() => (active = 'date')}
-    >
-      <span class="tab" class:shown={marked === 'date'}><Keys key={copy.spends.composer.tab} /></span>
+    {#snippet dateField()}
       <input
         bind:this={dateInput}
         id="composer-date"
@@ -305,19 +303,10 @@
         }}
         onkeydown={onDateKey}
       />
-    </span>
-    {#if error?.part === 'date'}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+    {@render part('date', dateField)}
 
-    <span
-      class="part"
-      data-part="amount"
-      class:filled={amount.trim() !== ''}
-      class:active={active === 'amount'}
-      class:next={marked === 'amount'}
-      class:refused={error?.part === 'amount'}
-      onfocusin={() => (active = 'amount')}
-    >
-      <span class="tab" class:shown={marked === 'amount'}><Keys key={copy.spends.composer.tab} /></span>
+    {#snippet amountField()}
       <input
         bind:this={fields.amount}
         id="composer-amount"
@@ -334,19 +323,10 @@
         onfocus={(event) => event.currentTarget.select()}
         oninput={() => clearError('amount')}
       />
-    </span>
-    {#if error?.part === 'amount'}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+    {@render part('amount', amountField)}
 
-    <span
-      class="part"
-      data-part="description"
-      class:filled={description.trim() !== ''}
-      class:active={active === 'description'}
-      class:next={marked === 'description'}
-      class:refused={error?.part === 'description'}
-      onfocusin={() => (active = 'description')}
-    >
-      <span class="tab" class:shown={marked === 'description'}><Keys key={copy.spends.composer.tab} /></span>
+    {#snippet descriptionField()}
       <input
         bind:this={fields.description}
         id="composer-description"
@@ -361,19 +341,10 @@
         onfocus={(event) => event.currentTarget.select()}
         oninput={() => clearError('description')}
       />
-    </span>
-    {#if error?.part === 'description'}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+    {@render part('description', descriptionField)}
 
-    <span
-      class="part"
-      data-part="to"
-      class:filled={toText.trim() !== ''}
-      class:active={active === 'to'}
-      class:next={marked === 'to'}
-      class:refused={error?.part === 'to'}
-      onfocusin={() => (active = 'to')}
-    >
-      <span class="tab" class:shown={marked === 'to'}><Keys key={copy.spends.composer.tab} /></span>
+    {#snippet toField()}
       <PathPicker
         bind:this={fields.to}
         id="composer-to"
@@ -385,16 +356,14 @@
         placeholder={word('to')}
         listLabel={copy.spends.write.toList}
         invalid={error?.part === 'to'}
-        describedby={undefined}
         onchoose={() => clearError('to')}
         newOption={copy.spends.write.newCategory}
-        inline
-        openOnFocus={false}
+        sits="line"
         below={form}
         onclose={onclose}
       />
-    </span>
-    {#if error?.part === 'to'}<span class="why" role="alert">{error.words}</span>{/if}
+    {/snippet}
+    {@render part('to', toField)}
     {#if error?.part === 'form'}<span class="why" role="alert">{error.words}</span>{/if}
 
     <Button type="submit" key={copy.spends.composer.esc} disabled={saving}
