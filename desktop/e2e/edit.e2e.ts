@@ -315,7 +315,7 @@ describe('open a transaction where it sits', () => {
   })
 
   test('scrolled pages away from an open spend, its details stay open with the cursor in them', {
-    timeout: 120_000,
+    timeout: 30_000,
   }, async () => {
     const { page } = await launch(aHome())
     // Three pages of the ledger's list, so scrolling drops the page the open spend is on.
@@ -354,7 +354,7 @@ describe('open a transaction where it sits', () => {
   })
 
   test('a change that moves an open spend onto another drawn page keeps its details', {
-    timeout: 120_000,
+    timeout: 30_000,
   }, async () => {
     const { page } = await launch(aHome())
     // Two full pages of the ledger, all today: row 95 sits on the first, and a day earlier it

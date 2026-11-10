@@ -92,6 +92,8 @@ export async function launch(home: string, extra?: Record<string, string>): Prom
   await page.waitForSelector('nav[aria-label=Places]')
   // The page is ready before the window shows (see #582); keys need the window on screen.
   await page.waitForFunction(() => document.visibilityState === 'visible')
+  // The waits above keep the default 30s for a cold start; a test's give up at 10s.
+  page.setDefaultTimeout(10_000)
 
   return {
     page,

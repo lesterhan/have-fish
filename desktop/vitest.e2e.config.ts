@@ -7,8 +7,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['e2e/**/*.e2e.ts'],
-    testTimeout: 60_000,
-    hookTimeout: 60_000,
+    // The slowest test that passes takes about 5s, so a broken one fails in seconds, not a minute.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     fileParallelism: false,
   },
 })
