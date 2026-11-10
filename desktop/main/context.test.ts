@@ -27,9 +27,10 @@ describe('contextFor, apply and flush', () => {
   function setup() {
     const ledger = tempLedger()
     const announced: Changed[][] = []
-    const ctx = contextFor(ledger, (changed) => announced.push(changed), {
-      now: () => NOW,
-      timeZone: () => 'UTC',
+    const ctx = contextFor({
+      ledger,
+      announce: (changed) => announced.push(changed),
+      time: { now: () => NOW, timeZone: () => 'UTC' },
     })
     return { ctx, announced }
   }

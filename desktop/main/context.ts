@@ -36,14 +36,25 @@ export type Context = Time & {
   copy(text: string): void
 }
 
-export function contextFor(
-  ledger: Ledger,
-  announce: (changed: Changed[]) => void,
-  time: Time = systemTime,
-  machine: Machine = forgetful(),
-  showTheme: (choice: ThemeChoice) => void = () => {},
-  copy: (text: string) => void = () => {},
-): Context {
+/** What a context is made of. Left out, the time is the system's and the rest do nothing. */
+export type ContextParts = {
+  ledger: Ledger
+  /** Tells the window what changed. */
+  announce(changed: Changed[]): void
+  time?: Time
+  machine?: Machine
+  showTheme?(choice: ThemeChoice): void
+  copy?(text: string): void
+}
+
+export function contextFor({
+  ledger,
+  announce,
+  time = systemTime,
+  machine = forgetful(),
+  showTheme = () => {},
+  copy = () => {},
+}: ContextParts): Context {
   let written: Written[] = []
   return {
     ledger,

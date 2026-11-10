@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Outcome } from '@have-fish/core/outcome'
+import Database from 'better-sqlite3'
 import { onTestFinished } from 'vitest'
 import { type Ledger, openLedger } from '../db/ledger'
 import { applyLocal } from './apply'
@@ -130,4 +131,31 @@ export function aLedgerOf(n: number, ledger = tempLedger()): Ledger {
   }
   ok(applyLocal(ledger, docs, NOW))
   return ledger
+}
+
+type Ran = { sql: string; args: unknown[]; ms: number }
+
+/** Each statement run while `during` does, with its arguments and how long it took. */
+export function recorded(during: () => void): Ran[] {
+  const ran: Ran[] = []
+  const probe = new Database(':memory:')
+  const proto = Object.getPrototypeOf(probe.prepare('SELECT 1')) as Record<string, unknown>
+  probe.close()
+  const kept = new Map<string, unknown>()
+  for (const method of ['all', 'get', 'run', 'iterate']) {
+    const original = proto[method] as (this: Database.Statement, ...args: unknown[]) => unknown
+    kept.set(method, original)
+    proto[method] = function (this: Database.Statement, ...args: unknown[]) {
+      const started = performance.now()
+      const result = original.apply(this, args)
+      ran.push({ sql: this.source, args, ms: performance.now() - started })
+      return result
+    }
+  }
+  try {
+    during()
+  } finally {
+    for (const [method, original] of kept) proto[method] = original
+  }
+  return ran
 }

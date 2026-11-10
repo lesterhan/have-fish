@@ -85,7 +85,7 @@ export function provenanceOf(
 }
 
 /** An account's path split so its root can carry its kind's colour: `expenses` and `:food`. */
-export function rootOf(account: string): { root: string; rest: string } {
+export function rootAndRest(account: string): { root: string; rest: string } {
   const at = account.indexOf(':')
   return at === -1
     ? { root: account, rest: '' }

@@ -6,6 +6,7 @@ import {
   levelOfTyped,
   needleOf,
   offered,
+  pathNamed,
   rootOf,
   searching,
   textOf,
@@ -105,6 +106,23 @@ describe('letters find paths', () => {
     expect(needleOf('expenses:food:co')).toBe('co')
     expect(needleOf('co')).toBe('co')
     expect(searching(PATHS, 'food:co').map((p) => p.path)).toEqual(['expenses:food:coffee'])
+  })
+})
+
+describe('the path a field names', () => {
+  const named = (text: string) => pathNamed(PATHS, text)?.path
+
+  test('by its name or its whole path, without regard to case or spaces', () => {
+    expect(named('food:coffee')).toBe('expenses:food:coffee')
+    expect(named('Food:Coffee')).toBe('expenses:food:coffee')
+    expect(named('expenses:food:coffee')).toBe('expenses:food:coffee')
+    expect(named(' cash ')).toBe('assets:cash')
+  })
+
+  test('none for nothing, or a name no path has', () => {
+    expect(named('')).toBeUndefined()
+    expect(named('  ')).toBeUndefined()
+    expect(named('tea')).toBeUndefined()
   })
 })
 

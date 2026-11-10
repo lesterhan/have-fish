@@ -1,3 +1,4 @@
+import type { AccountKind } from '@have-fish/core/account-kind'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { describe, expect, test } from 'vitest'
@@ -11,7 +12,7 @@ import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/f
 import { getDocument } from '../ledger/store'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, listAccounts } from './accounts'
-import { listCategories, listIncome } from './categories'
+import { listPaths } from './paths'
 import { assumedFrom, editSpend, removeSpend, writeSpend } from './spends'
 import { listTransactions } from './transactions'
 
@@ -22,12 +23,18 @@ const ZONE = 'America/Vancouver'
 function setup(ledger = tempLedger()) {
   const announced: Changed[][] = []
   const clock: Time & { at: number } = { at: LATE, now: () => clock.at, timeZone: () => ZONE }
-  const ctx = contextFor(ledger, (changed) => announced.push(changed), clock)
+  const ctx = contextFor({ ledger, announce: (changed) => announced.push(changed), time: clock })
   return { ledger, ctx, announced, clock }
 }
 
 const count = (ledger: Ledger, table: string) =>
   ledger.db.prepare(`SELECT count(*) FROM ${table}`).pluck().get()
+
+/** The live paths of one kind, as a path picker gets them. */
+const pathsOf = (ledger: Ledger, kind: AccountKind) =>
+  listPaths(ledger.db)
+    .filter((p) => p.kind === kind)
+    .map((p) => p.path)
 
 /** The live account at `path`, as stored. */
 function accountAt(ledger: Ledger, path: string): AccountDoc {
@@ -925,14 +932,14 @@ describe('a spend’s category', () => {
     expect(count(ledger, 'accounts')).toBe(0)
   })
 
-  test('undo takes the spend back and leaves the category, which then isn’t offered', () => {
+  test('undo takes the spend back and leaves the category, which nothing then uses', () => {
     const { ledger, ctx } = setup()
     ok(writeSpend(ctx, { amount: '12', description: 'Lunch', to: { category: 'food' } }))
 
     ok(undoLast(ctx))
 
     expect(accountAt(ledger, 'expenses:food').deletedAt).toBeNull()
-    expect(listCategories(ledger.db)).toEqual([])
+    expect(listPaths(ledger.db).find((p) => p.path === 'expenses:food')?.lastUsed).toBeNull()
   })
 })
 
@@ -1189,31 +1196,6 @@ describe('moving money between my accounts', () => {
   })
 })
 
-describe('listCategories', () => {
-  test('the ones in use, most used first, then by name; never unsorted', () => {
-    const { ledger, ctx } = setup()
-    for (const category of ['fun', 'Food', 'food', 'travel', '', 'transport', 'transport']) {
-      ok(writeSpend(ctx, { amount: '1', description: 'x', to: { category } }))
-    }
-
-    expect(listCategories(ledger.db).map(({ name, uses }) => [name, uses])).toEqual([
-      ['Food', 2],
-      ['transport', 2],
-      ['fun', 1],
-      ['travel', 1],
-    ])
-  })
-
-  test('a removed spend no longer counts', () => {
-    const { ledger, ctx } = setup()
-    const { id } = ok(writeSpend(ctx, { amount: '1', description: 'x', to: { category: 'food' } }))
-
-    ok(removeSpend(ctx, { id }))
-
-    expect(listCategories(ledger.db)).toEqual([])
-  })
-})
-
 describe('money coming in', () => {
   /** Chequing, kept to CAD, and the ids of what's written into it. */
   function withChequing() {
@@ -1259,7 +1241,7 @@ describe('money coming in', () => {
     pay('salary')
     pay(' Salary ')
 
-    expect(listIncome(ledger.db).map(({ name, uses }) => [name, uses])).toEqual([['salary', 2]])
+    expect(pathsOf(ledger, 'income')).toEqual(['income:salary'])
   })
 
   test('income is never a category, nor offered as one; nor is a category income', () => {
@@ -1274,8 +1256,8 @@ describe('money coming in', () => {
       }),
     )
 
-    expect(listCategories(ledger.db).map((c) => c.name)).toEqual(['food'])
-    expect(listIncome(ledger.db).map((c) => c.name)).toEqual(['salary'])
+    expect(pathsOf(ledger, 'category')).toEqual(['expenses:food'])
+    expect(pathsOf(ledger, 'income')).toEqual(['income:salary'])
   })
 
   test.each([

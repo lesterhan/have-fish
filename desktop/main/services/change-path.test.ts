@@ -1,12 +1,11 @@
 // Every query the window's load runs after a change, at ten years: its plan, pinned, and the time
 // the load takes. A new index can change the plan of a query nobody touched (see #608).
 
-import Database from 'better-sqlite3'
 import { afterAll, describe, expect, test } from 'vitest'
 import type { CommandName } from '../../shared/commands'
 import { runCommand } from '../commands/run'
 import { contextFor } from '../context'
-import { aLedgerOf, NOW, openTempLedger } from '../ledger/fixtures'
+import { aLedgerOf, NOW, openTempLedger, recorded } from '../ledger/fixtures'
 
 /** What the window asks for after each change: `renderer/ledger.ts`'s load. */
 const LOAD: [CommandName, unknown][] = [
@@ -17,38 +16,15 @@ const LOAD: [CommandName, unknown][] = [
   ['transaction.get', { ids: ['00000000-0000-4000-8000-000000000000'] }],
 ]
 
-type Ran = { sql: string; args: unknown[]; ms: number }
-
-/** Each statement run while `during` does, with its arguments and how long it took. */
-function recorded(during: () => void): Ran[] {
-  const ran: Ran[] = []
-  const probe = new Database(':memory:')
-  const proto = Object.getPrototypeOf(probe.prepare('SELECT 1')) as Record<string, unknown>
-  probe.close()
-  const kept = new Map<string, unknown>()
-  for (const method of ['all', 'get', 'run', 'iterate']) {
-    const original = proto[method] as (this: Database.Statement, ...args: unknown[]) => unknown
-    kept.set(method, original)
-    proto[method] = function (this: Database.Statement, ...args: unknown[]) {
-      const started = performance.now()
-      const result = original.apply(this, args)
-      ran.push({ sql: this.source, args, ms: performance.now() - started })
-      return result
-    }
-  }
-  try {
-    during()
-  } finally {
-    for (const [method, original] of kept) proto[method] = original
-  }
-  return ran
-}
-
 describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
   const temp = openTempLedger()
   afterAll(temp.dispose)
   const ledger = aLedgerOf(50_000, temp.ledger)
-  const ctx = contextFor(ledger, () => {}, { now: () => NOW, timeZone: () => 'UTC' })
+  const ctx = contextFor({
+    ledger,
+    announce: () => {},
+    time: { now: () => NOW, timeZone: () => 'UTC' },
+  })
   const log = { info() {}, error() {} }
   const load = () =>
     recorded(() => {

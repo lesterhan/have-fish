@@ -11,13 +11,13 @@ function setup() {
   const machine = forgetful()
   const ledger = tempLedger()
   const clock = { now: () => NOW, timeZone: () => 'UTC' }
-  const ctx = contextFor(
+  const ctx = contextFor({
     ledger,
-    (c) => announced.push(c),
-    clock,
+    announce: (c) => announced.push(c),
+    time: clock,
     machine,
-    (t) => shown.push(t),
-  )
+    showTheme: (t) => shown.push(t),
+  })
   const log = { info: () => {}, error: () => {} }
   return { ctx, ledger, machine, shown, announced, log }
 }

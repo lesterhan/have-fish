@@ -4,7 +4,7 @@
   // `postings.ts`; Copy puts the same text on the system clipboard.
   import { copy } from '../../copy'
   import type { ListedTransaction } from '../../shared/commands'
-  import { balancesOf, postingsOf, postingsText, rootOf, widthsOf } from '../postings'
+  import { balancesOf, postingsOf, postingsText, rootAndRest, widthsOf } from '../postings'
   import Button from './Button.svelte'
 
   let { transaction }: { transaction: ListedTransaction } = $props()
@@ -51,7 +51,7 @@
   </div>
   <div class="text" aria-label={words.postings}>
     {#each postings as posting, i (i)}
-      {@const at = rootOf(posting.account)}
+      {@const at = rootAndRest(posting.account)}
       <span class="line"
         >{#if posting.path}<span class="root" data-root={at.root.replace(':', '')}
             >{at.root}</span
