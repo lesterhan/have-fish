@@ -9,7 +9,7 @@ const coffee = line('coffee')
 const lunch = line('lunch')
 const tea = line('tea')
 
-describe("a batch: what one opening of the line wrote", () => {
+describe('a batch: what one opening of the line wrote', () => {
   test('the first line written goes into an empty batch', () => {
     expect(added(EMPTY, coffee)).toEqual({ lines: [coffee], takenBack: [] })
   })

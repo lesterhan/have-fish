@@ -8,6 +8,7 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
+  BATCH,
   commandFor,
   launch,
   ledgerDirIn,
@@ -84,7 +85,7 @@ describe('the line', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
   })
 
-  test('an amount, what it was for, Enter: it is at the top of the list, dated today', async () => {
+  test('an amount, what it was for, Enter: it drops into the batch, and a fresh line opens', async () => {
     const { page } = await launch(aHome())
     await openComposer(page)
 
@@ -95,11 +96,11 @@ describe('the line', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
-    // The line closes, and the list has the new row selected.
-    expect(await page.locator(WRITE).count()).toBe(0)
-    await expect
-      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')))
-      .toBe('listbox')
+    // The line stays open, empty, with what it wrote in the batch under it and the cursor in Amount.
+    expect(await page.locator(WRITE).count()).toBe(1)
+    expect(await page.inputValue(AMOUNT)).toBe('')
+    expect(await page.locator(BATCH).innerText()).toContain('Lunch')
+    await expect.poll(() => focusedName(page)).toBe('amount')
 
     await writeDown(page, '4.50', 'Coffee')
     await expect
@@ -177,8 +178,13 @@ describe('the line', () => {
 
   test('something that is not an amount: nothing is saved, and the part says why', async () => {
     const { page } = await launch(aHome())
+    await openComposer(page)
 
-    await writeDown(page, 'abc', 'Coffee')
+    await page.locator(AMOUNT).focus()
+    await page.keyboard.type('abc')
+    await page.keyboard.press('Tab')
+    await page.keyboard.type('Coffee')
+    await page.keyboard.press('Enter')
 
     const error = page.locator(`${WRITE} [role=alert]`)
     await expect.poll(() => error.textContent()).toBe('not an amount')
@@ -191,7 +197,10 @@ describe('the line', () => {
 
   test('fixing the amount clears the message and saves', async () => {
     const { page } = await launch(aHome())
-    await writeDown(page, '0', 'Coffee')
+    await openComposer(page)
+    await page.fill(AMOUNT, '0')
+    await page.fill(DESCRIPTION, 'Coffee')
+    await page.locator(AMOUNT).press('Enter')
     await expect
       .poll(() => page.locator(`${WRITE} [role=alert]`).textContent())
       .toBe('not positive')

@@ -29,7 +29,7 @@ const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: 
 const offered = (page: Page, options = OPTIONS) =>
   offeredPaths(page.locator(`${options} [role=option]`))
 
-/** A spend in `category`, written through the form. */
+/** A spend in `category`, written through the form; Esc lands it and closes the line. */
 async function writeIn(page: Page, amount: string, description: string, category: string) {
   const before = (await rows(page)).length
   await openComposer(page)
@@ -38,6 +38,8 @@ async function writeIn(page: Page, amount: string, description: string, category
   await page.fill(WRITE_TO, category)
   await page.locator(`${WRITE} input[name=amount]`).press('Enter')
   await expect.poll(() => rows(page)).toHaveLength(before + 1)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(WRITE, { state: 'detached' })
 }
 
 async function addAccount(page: Page, name: string, kind: string) {
@@ -197,6 +199,9 @@ describe('a pick from a level is the path picked', () => {
 
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
     await expect.poll(() => rows(page)).toHaveLength(2)
+    // The line stays open after a write: Esc lands it before the row opens.
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
     await openSpend(row(page, 'Rent'))
     expect(await fromLine(page).innerText()).toMatch(/tangerine\W+savings/)
   })

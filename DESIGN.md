@@ -206,7 +206,6 @@ and nothing moves under a number you are reading. A wash changes colour, never p
 | The palette opens | Fades in from 98% | 160ms |
 | A line is saved in the batch | Drops 38px into it; the fresh line fades in | 420ms, 250ms |
 | The batch closes | Each row lit where it lands | 2.4s |
-| A line is written | Slides in 32px from the left, then a wash | 220ms, 900ms |
 | A chip is saved | An accent flash, then a tick | 1.4s |
 | An import row is confirmed | 40px right, faded by halfway, then folds | 500ms |
 

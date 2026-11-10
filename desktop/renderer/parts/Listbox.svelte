@@ -61,8 +61,10 @@
     band?: Snippet<[number]> | undefined
     /** Shown on the selected row while the list has focus: what its keys do. */
     hint?: Snippet | undefined
-    /** The row just written: it slides in and washes. */
-    written?: string | null | undefined
+    /** The rows landing: each lit where it lands, fading over the landing's token. */
+    landed?: ReadonlySet<string> | undefined
+    /** A row's landing light has faded. */
+    onlanded?: ((id: string) => void) | undefined
     /** Wraps at the ends, as a picker does. */
     wrap?: boolean
     /** A combobox's field, which keeps the cursor: the list sets its active descendant. */
@@ -90,7 +92,8 @@
     groups,
     band,
     hint,
-    written,
+    landed,
+    onlanded,
     onactive,
     onpick,
     onkey,
@@ -305,7 +308,8 @@
           dataId={id}
           selected={id === active}
           disabled={off}
-          written={id === written}
+          landed={landed?.has(id) ?? false}
+          onlanded={() => onlanded?.(id)}
           setsize={count}
           posinset={index + 1}
           {columns}

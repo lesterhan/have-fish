@@ -2,10 +2,12 @@
   import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
+  import { added, EMPTY, landing, movedBy } from './batch'
   import { type Cursor, type CursorMoment, cursorFor } from './cursor'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { toOf } from './picker'
   import { wordsFor } from './refusals'
+  import Batch from './Batch.svelte'
   import Composer from './Composer.svelte'
   import Button from './parts/Button.svelte'
   import Header from './parts/Header.svelte'
@@ -54,8 +56,10 @@
   let dismissed = $state<string | null>(null)
   const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
   let selectedId = $state<string | null>(null)
-  /** The spend written last, while it slides into its row. */
-  let justWritten = $state<string | null>(null)
+  /** What this opening of the line has written, under it, newest first. */
+  let batch = $state(EMPTY)
+  /** The rows a batch landed on, lit until each row's light fades. */
+  let landed = $state<ReadonlySet<string>>(new Set())
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
   const opened = $derived(openedId !== null && openedId === selectedId ? openedId : null)
@@ -117,6 +121,7 @@
     if (composing) return
     openedId = null
     composing = true
+    landed = new Set()
     list.toTop()
   }
 
@@ -128,6 +133,8 @@
   /** After an undo or redo: the list as it is now, with the spend that came back selected. */
   export async function show(id: string) {
     await ledger.caughtUp()
+    // With the line open, an undo or redo moves its newest line, out of the batch or back in.
+    if (composing) batch = movedBy(batch, id)
     if ((await ledger.locate(id)) !== null) selectedId = id
   }
 
@@ -146,23 +153,31 @@
     await move('newSpend')
   }
 
-  /** Esc, or reaching for the ledger: the line closes, and its half-typed draft stays. */
-  function closeLine() {
+  /** Esc, Done, or reaching for the ledger: the line closes, and its batch lands on its days. */
+  async function closeLine() {
     if (!composing) return
     composing = false
-    void move('lineClosed')
+    if (batch.lines.length === 0) {
+      await move('lineClosed')
+      return
+    }
+    // The newest line's page comes in first, so it has a row to be selected and lit where it lands.
+    const at = landing(batch)
+    if (at.newest !== null) await ledger.locate(at.newest)
+    landed = at.ids
+    selectedId = at.newest
+    batch = EMPTY
+    await move('lineClosed')
   }
 
-  /** Written: the line closes, and the new spend shows selected and lit. */
+  /** Written: the line stays open, and its row drops into the batch under it. */
   async function saved(id: string) {
-    composing = false
     await ledger.caughtUp()
-    await ledger.locate(id)
-    selectedId = id
-    justWritten = id
-    setTimeout(() => {
-      if (justWritten === id) justWritten = null
-    }, 1500)
+    // Reaching for the list can close the line mid-save: its batch has landed without this row.
+    if (!composing) return
+    const at = await ledger.locate(id)
+    const row = at === null ? undefined : await ledger.rowAt(at)
+    if (row !== undefined) batch = added(batch, row)
     await move('written')
   }
 
@@ -247,7 +262,8 @@
     days={$ledger.days}
     nets={$ledger.nets}
     {selectedId}
-    written={justWritten}
+    {landed}
+    onlanded={(id) => (landed = new Set([...landed].filter((each) => each !== id)))}
     onselect={(id) => (selectedId = id)}
     {opened}
     onopen={open}
@@ -260,18 +276,21 @@
     onstepback={closeLine}
   >
     {#snippet composer()}
-      <Composer
-        bind:this={line}
-        {actions}
-        open={composing}
-        {firstRun}
-        {accounts}
-        {assumedName}
-        loadPaths={() => ledger.paths()}
-        onclose={closeLine}
-        onsaved={saved}
-        {forgetTyping}
-      />
+      <div class="write">
+        <Composer
+          bind:this={line}
+          {actions}
+          open={composing}
+          {firstRun}
+          {accounts}
+          {assumedName}
+          loadPaths={() => ledger.paths()}
+          onclose={closeLine}
+          onsaved={saved}
+          {forgetTyping}
+        />
+        {#if batch.lines.length > 0}<Batch {batch} />{/if}
+      </div>
     {/snippet}
     {#snippet details(t: ListedTransaction)}
       <SpendCard
@@ -306,6 +325,13 @@
     grid-area: top;
     display: grid;
     gap: var(--space-3);
+  }
+
+  /* The line, and its batch under it. */
+  .write {
+    display: grid;
+    gap: var(--space-2);
+    min-height: 0;
   }
 
   main[hidden] {

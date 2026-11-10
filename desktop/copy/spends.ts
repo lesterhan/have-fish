@@ -43,6 +43,14 @@ export const spends = {
       form: 'not saved',
     },
   },
+  /** The batch under the line: the lines this opening of the line has written. */
+  batch: {
+    /** What the batch is called, read out. */
+    label: 'Just written',
+    /** The mark on each line of it, at the end of its description. */
+    tick: '✓',
+    saved: 'Saved',
+  },
   write: {
     /** The line's label, read out. */
     label: 'Write down a spend',
