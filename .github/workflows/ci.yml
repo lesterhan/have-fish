@@ -326,22 +326,25 @@ jobs:
       - name: Install xdotool
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xdotool
 
-      # The built app, driven as a person would use it: the stories' acceptance. The runner has
-      # no display, so xvfb-run lends one. Ubuntu 24.04 blocks the user namespaces Chromium's
-      # sandbox needs, so the app runs without it here (`NO_SANDBOX`); its window is unchanged.
+      # The built app, driven as a person would use it: the stories' acceptance. The runner gives
+      # each of its four shards a virtual display of its own, since the shortcut tests press keys
+      # with xdotool and two apps on one display would take each other's. Ubuntu 24.04 blocks the
+      # user namespaces Chromium's sandbox needs, so the app runs without it here (`NO_SANDBOX`);
+      # its window is unchanged.
       - name: End to end, from out/
         env:
           NO_SANDBOX: "1"
-        run: xvfb-run -a bun run e2e
+        run: bun run e2e
 
       - name: Package
         run: bun run package
 
+      # The same shards, without the build: `package` above made what E2E_APP names.
       - name: End to end, packaged
         env:
           NO_SANDBOX: "1"
           E2E_APP: dist/linux-unpacked/have-fish
-        run: xvfb-run -a node_modules/.bin/vitest run --config vitest.e2e.config.ts
+        run: bun tools/e2e-shards.ts
 
       # The AppImage, to try a pull request without building it.
       - name: Upload the AppImage

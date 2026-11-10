@@ -20,7 +20,7 @@
     "db:generate": "drizzle-kit generate",
     "db:bundle": "bun tools/bundle-migrations.ts",
     "themes": "bun tools/themes.ts",
-    "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts",
+    "e2e": "electron-vite build && bun tools/e2e-shards.ts",
     "capture": "electron-vite build && bun run sheet && vitest run --config vitest.capture.config.ts",
     "sheet": "vite build -c vite.sheet.config.ts",
     "seed": "bun tools/seed/run.ts seed",
