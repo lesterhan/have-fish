@@ -1,5 +1,5 @@
-// Where a period's money went, by category, one level at a time: the lines a report shows, and
-// the spends behind each.
+// Where a period's money went, by category, and how each line compares with the period before:
+// the rows a report shows as a tree, and the spends behind each.
 
 /** One spend's money in one category, by its name without the root; `''` is unsorted. */
 export type Spent = { id: string; category: string; cents: number }
@@ -17,14 +17,23 @@ export type SpendingLine = {
   /** The last part of its name: what it shows as at this level. */
   label: string
   cents: number
-  /** Its part of what went out at this level, from 0 to 1; none below zero. */
-  share: number
   /** Whether it has categories under it with money in them, so picking it goes in. */
   opens: boolean
 }
 
 /** One level of the breakdown: `''` is the top, else a category's name. */
 export type Level = { total: number; lines: SpendingLine[] }
+
+/** A level's line with the period before beside it: a sum, or null when nothing went to it. */
+export type ComparedLine = Omit<SpendingLine, 'cents'> & {
+  /** This period's. */
+  cents: number | null
+  /** The period before's, the same way. */
+  before: number | null
+}
+
+/** One level beside the period before: both sums, and each line's two. */
+export type Compared = { total: number; before: number; lines: ComparedLine[] }
 
 /**
  * The lines at `level`: each category directly under it, with everything under that rolled in,
@@ -50,7 +59,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
     children.set(category, child)
   }
 
-  const lines: Omit<SpendingLine, 'share'>[] = [...children]
+  const lines: SpendingLine[] = [...children]
     .map(([category, { cents, opens }]) => ({
       key: `category:${category}`,
       kind: 'category' as const,
@@ -77,11 +86,41 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   }
 
   const total = lines.reduce((sum, l) => sum + l.cents, 0)
-  // Shares of what went out, so money back into one line never stretches the others' bars.
-  const out = lines.reduce((sum, l) => sum + Math.max(0, l.cents), 0)
+  return { total, lines }
+}
+
+/**
+ * The same level beside the period before: each line's two sums, this period's biggest first,
+ * then the one before's, then by name; what went to the level's own category and what's unsorted
+ * last, whatever their size.
+ */
+export function comparedAt(
+  shown: readonly Spent[],
+  before: readonly Spent[],
+  level: string,
+): Compared {
+  const now = spendingAt(shown, level)
+  const then = spendingAt(before, level)
+  const lines = new Map<string, ComparedLine>()
+  const add = (at: Level, week: 'cents' | 'before') => {
+    for (const line of at.lines) {
+      const kept = lines.get(line.key) ?? { ...line, cents: null, before: null }
+      kept[week] = line.cents
+      kept.opens ||= line.opens
+      lines.set(line.key, kept)
+    }
+  }
+  add(now, 'cents')
+  add(then, 'before')
+  const all = [...lines.values()]
   return {
-    total,
-    lines: lines.map((l) => ({ ...l, share: out > 0 ? Math.max(0, l.cents) / out : 0 })),
+    total: now.total,
+    before: then.total,
+    lines: [
+      ...all.filter((l) => l.kind === 'category').sort(biggerFirst),
+      ...all.filter((l) => l.kind === 'own'),
+      ...all.filter((l) => l.kind === 'unsorted'),
+    ],
   }
 }
 
@@ -97,15 +136,20 @@ export function isUnder(s: Spent, level: string): boolean {
   return level === '' || s.category === level || s.category.startsWith(`${level}:`)
 }
 
-/** The levels from the top to `level`: `food:coffee` is `food`, then `food:coffee`. */
-export function trailTo(level: string): string[] {
-  if (level === '') return []
-  const parts = level.split(':')
-  return parts.map((_, i) => parts.slice(0, i + 1).join(':'))
+/** This period's biggest first, then the one before's; a week with nothing last. */
+const biggerFirst = (a: ComparedLine, b: ComparedLine) => {
+  if (a.cents !== b.cents) {
+    if (a.cents === null) return 1
+    if (b.cents === null) return -1
+    return b.cents - a.cents
+  }
+  if (a.before !== b.before) {
+    if (a.before === null) return 1
+    if (b.before === null) return -1
+    return b.before - a.before
+  }
+  return byName.compare(a.label, b.label)
 }
-
-/** The level above `level`; the top is its own. */
-export const levelAbove = (level: string) => level.slice(0, Math.max(0, level.lastIndexOf(':')))
 
 const labelOf = (category: string) => category.slice(category.lastIndexOf(':') + 1)
 

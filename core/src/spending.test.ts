@@ -1,33 +1,42 @@
 import { describe, expect, test } from 'vitest'
 import {
+  type ComparedLine,
+  comparedAt,
   isIn,
   isUnder,
-  levelAbove,
   type SpendingLine,
   type Spent,
   spendingAt,
-  trailTo,
 } from './spending'
 
 let n = 0
 const spent = (category: string, cents: number): Spent => ({ id: `s${++n}`, category, cents })
 
-/** A line as `label cents share%`, with `›` for one that opens and its kind when not a category. */
+/** A line as `label › cents`, with `›` for one that opens and its kind when not a category. */
 const line = (l: SpendingLine) =>
-  `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents} ${Math.round(l.share * 100)}%`
+  `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents}`
+
+/** A compared line as `label › this before`, each a sum or `–`. */
+const compared = (l: ComparedLine) =>
+  `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents ?? '–'} ${l.before ?? '–'}`
 
 describe('spendingAt', () => {
   test('nothing spent: no lines and a total of zero', () => {
     expect(spendingAt([], '')).toEqual({ total: 0, lines: [] })
   })
 
-  test('the top: each category its total and share, biggest first; the total is their sum', () => {
+  test('a line carries no share: the bars went with the list they drew', () => {
+    const [first] = spendingAt([spent('food', 1000)], '').lines
+    expect(first).not.toHaveProperty('share')
+  })
+
+  test('the top: each category its total, biggest first; the total is their sum', () => {
     const level = spendingAt(
       [spent('food', 1000), spent('transport', 3000), spent('food', 500), spent('fun', 500)],
       '',
     )
     expect(level.total).toBe(5000)
-    expect(level.lines.map(line)).toEqual(['transport 3000 60%', 'food 1500 30%', 'fun 500 10%'])
+    expect(level.lines.map(line)).toEqual(['transport 3000', 'food 1500', 'fun 500'])
   })
 
   test('a category with categories under it rolls them in, and opens', () => {
@@ -35,12 +44,12 @@ describe('spendingAt', () => {
       [spent('food:coffee', 450), spent('food:groceries', 5000), spent('fun', 1000)],
       '',
     )
-    expect(level.lines.map(line)).toEqual(['food › 5450 84%', 'fun 1000 16%'])
+    expect(level.lines.map(line)).toEqual(['food › 5450', 'fun 1000'])
   })
 
   test('unsorted is a line of its own, last, whatever its size', () => {
     const level = spendingAt([spent('', 9000), spent('food', 1000)], '')
-    expect(level.lines.map(line)).toEqual(['food 1000 10%', 'unsorted  9000 90%'])
+    expect(level.lines.map(line)).toEqual(['food 1000', 'unsorted  9000'])
     expect(level.total).toBe(10000)
   })
 
@@ -54,15 +63,11 @@ describe('spendingAt', () => {
       spent('', 1),
     ]
     const level = spendingAt(all, 'food')
-    expect(level.lines.map(line)).toEqual([
-      'groceries › 1350 68%',
-      'coffee 450 23%',
-      'own food 200 10%',
-    ])
+    expect(level.lines.map(line)).toEqual(['groceries › 1350', 'coffee 450', 'own food 200'])
     expect(level.total).toBe(2000)
     expect(spendingAt(all, 'food:groceries').lines.map(line)).toEqual([
-      'produce 1000 74%',
-      'own groceries 350 26%',
+      'produce 1000',
+      'own groceries 350',
     ])
   })
 
@@ -71,15 +76,76 @@ describe('spendingAt', () => {
     expect(level.lines.map((l) => l.label)).toEqual(['art', 'Books', 'rent'])
   })
 
-  test('money back into a category lowers it, and a line below zero has no share', () => {
+  test('money back into a category lowers it', () => {
     const level = spendingAt([spent('food', 1000), spent('fun', 500), spent('fun', -800)], '')
-    expect(level.lines.map(line)).toEqual(['food 1000 100%', 'fun -300 0%'])
+    expect(level.lines.map(line)).toEqual(['food 1000', 'fun -300'])
     expect(level.total).toBe(700)
   })
 
   test('a category whose name starts like another is not under it', () => {
     const level = spendingAt([spent('food', 100), spent('foodtruck', 200)], 'food')
-    expect(level.lines.map(line)).toEqual(['own food 100 100%'])
+    expect(level.lines.map(line)).toEqual(['own food 100'])
+  })
+})
+
+describe('comparedAt', () => {
+  test('nothing either week: no lines and both sums zero', () => {
+    expect(comparedAt([], [], '')).toEqual({ total: 0, before: 0, lines: [] })
+  })
+
+  test('each category this week and last; the sums of each week', () => {
+    const at = comparedAt(
+      [spent('food', 6000), spent('transport', 3000)],
+      [spent('food', 8000)],
+      '',
+    )
+    expect(at.total).toBe(9000)
+    expect(at.before).toBe(8000)
+    expect(at.lines.map(compared)).toEqual(['food 6000 8000', 'transport 3000 –'])
+  })
+
+  test('a category only last week shows with a dash this week', () => {
+    const at = comparedAt([], [spent('fun', 1500)], '')
+    expect(at.total).toBe(0)
+    expect(at.before).toBe(1500)
+    expect(at.lines.map(compared)).toEqual(['fun – 1500'])
+  })
+
+  test('the level’s categories: this week biggest first, then last week’s, then by name', () => {
+    const at = comparedAt(
+      [spent('food:restaurants', 1593), spent('food:groceries', 646)],
+      [
+        spent('food:restaurants', 2257),
+        spent('food:groceries', 4476),
+        spent('food:restaurant', 1637),
+        spent('food:coffee', 389),
+      ],
+      'food',
+    )
+    expect(at.lines.map((l) => l.label)).toEqual([
+      'restaurants',
+      'groceries',
+      'restaurant',
+      'coffee',
+    ])
+  })
+
+  test('a category opens from the week before alone', () => {
+    const at = comparedAt([spent('food', 500)], [spent('food:coffee', 389)], '')
+    expect(at.lines.map(compared)).toEqual(['food › 500 389'])
+  })
+
+  test('the level’s own last; unsorted last at the top, whatever its size', () => {
+    const own = comparedAt([spent('food', 550), spent('food:coffee', 450)], [], 'food')
+    expect(own.lines.map(compared)).toEqual(['coffee 450 –', 'own food 550 –'])
+
+    const top = comparedAt([spent('', 9000), spent('food', 1000)], [], '')
+    expect(top.lines.map(compared)).toEqual(['food 1000 –', 'unsorted  9000 –'])
+  })
+
+  test('money back makes zero, not a dash', () => {
+    const at = comparedAt([spent('fun', 1000), spent('fun', -1000)], [], '')
+    expect(at.lines.map(compared)).toEqual(['fun 0 –'])
   })
 })
 
@@ -105,18 +171,5 @@ describe('which spends are behind a line', () => {
 
   test('everything is under the top', () => {
     expect([coffee, food, loose].map((s) => isUnder(s, ''))).toEqual([true, true, true])
-  })
-})
-
-describe('the trail', () => {
-  test('from the top down to a level', () => {
-    expect(trailTo('')).toEqual([])
-    expect(trailTo('food:coffee:beans')).toEqual(['food', 'food:coffee', 'food:coffee:beans'])
-  })
-
-  test('the level above', () => {
-    expect(levelAbove('food:coffee')).toBe('food')
-    expect(levelAbove('food')).toBe('')
-    expect(levelAbove('')).toBe('')
   })
 })

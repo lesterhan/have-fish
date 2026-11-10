@@ -1,6 +1,6 @@
-// A ledger row's columns fit the list they're in: at the size the window opens, with the pane
-// beside the list, To and the description each read a word, in the ledger and in Reports. The
-// headings sit over their columns.
+// A list's columns fit the width they're in: at the size the window opens, To and a description
+// each read a word in the ledger and beside Reports' tree, and the tree keeps the names whole; at
+// a wide window the headings sit over their columns.
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
@@ -10,7 +10,7 @@ import { seed } from './month'
 const NAV = 'nav[aria-label=Places]'
 const LEDGER = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
-const BREAKDOWN = 'ol[aria-label="Spending by category"]'
+const TREE = 'ol[aria-label="Spending by category"]'
 const BEHIND = 'ol[aria-label="Its spends"]'
 const ADD_ACCOUNT = 'role=button[name="Add account"s]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -41,7 +41,7 @@ async function spend(page: Page, amount: string, description: string, to: string
 /** The first row's cells in a list, by name, each with its width and edges. */
 const cellsIn = (page: Page, list: string) =>
   page.evaluate((list) => {
-    const row = document.querySelector(`${list} [role=option]`)
+    const row = document.querySelector(`${list} [role=option], ${list} [role=treeitem]`)
     return Object.fromEntries(
       [...(row?.querySelectorAll<HTMLElement>('[data-cell]') ?? [])].map((cell) => {
         const { left, right, width } = cell.getBoundingClientRect()
@@ -61,6 +61,23 @@ const headingsOver = (page: Page, list: string) =>
     })
   }, list)
 
+/** Each name cell in a tree, and whether its name is cut off with an ellipsis. */
+const treeNames = (page: Page) =>
+  page.evaluate((list) => {
+    const cell = (li: Element) => li.querySelector<HTMLElement>('[data-cell=name]')
+    return [...(document.querySelector(list)?.querySelectorAll('li') ?? [])].map((li) => {
+      const name = cell(li)
+      return {
+        text: name?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        cut: name !== null && name !== undefined && name.scrollWidth > name.clientWidth + 1,
+      }
+    })
+  }, TREE)
+
+/** The tree's row whose name contains `name`. */
+const treeRow = (page: Page, name: string) =>
+  page.locator(`${TREE} li`).filter({ hasText: name }).first()
+
 describe("a row's columns", () => {
   test('at the size the window opens, To and the description each read a word', async () => {
     const { page } = await launch(aHome())
@@ -79,7 +96,6 @@ describe("a row's columns", () => {
 
     // Reports' spends sit in half its place, and narrow the same way.
     await page.click(`${NAV} button:has-text("Reports")`)
-    await page.click(`${BREAKDOWN} li:has-text("food")`)
     await page.waitForSelector(`${BEHIND} [data-cell=to]`)
     const reported = await cellsIn(page, BEHIND)
     expect(Object.keys(reported), 'From goes in a narrow list').not.toContain('from')
@@ -111,6 +127,33 @@ describe("a row's columns", () => {
     expect(cut).toEqual([false, false, false, false])
   })
 
+  test('at the size the window opens, the tree keeps its three columns and its names whole', async () => {
+    const { page } = await launch(aHome())
+    await spend(page, '30', 'Bus pass', 'transport')
+    await spend(page, '25', 'Cinema night', 'entertainment')
+    await spend(page, '18', 'Dinner', 'food:restaurants')
+    await page.click(`${NAV} button:has-text("Reports")`)
+    await page.waitForSelector(`${TREE} [data-cell=name]`)
+    expect(await page.evaluate(() => innerWidth)).toBe(960)
+
+    // Last week goes before a name does: the change still says it.
+    const headings = await headingsOver(page, TREE)
+    expect(headings.map((h) => h.name)).toEqual(['Where it went', 'This week', 'Change'])
+    expect(Object.keys(await cellsIn(page, TREE))).toEqual(['name', 'shown', 'change'])
+
+    // Food open, so a child's name reads whole too.
+    await treeRow(page, 'expenses food').click()
+    await treeRow(page, 'expenses food').click()
+    await expect.poll(() => page.locator(`${TREE} li`).count()).toBe(4)
+
+    const names = await treeNames(page)
+    for (const name of ['expenses transport', 'expenses entertainment', ':restaurants']) {
+      const found = names.find((n) => n.text.includes(name))
+      expect(found, name).toBeDefined()
+      expect(found?.cut, name).toBe(false)
+    }
+  })
+
   test('a wide list leads with From, and the headings sit over their columns', {
     timeout: 30_000,
   }, async () => {
@@ -139,5 +182,22 @@ describe("a row's columns", () => {
     expect(amount?.right).toBeCloseTo(cells.amount?.right ?? 0, 0)
     expect(to?.left).toBeCloseTo(cells.to?.left ?? 0, 0)
     expect(description?.left).toBeCloseTo(cells.description?.left ?? 0, 0)
+
+    // The tree has all four at a wide window, each heading over its column.
+    await page.click(`${NAV} button:has-text("Reports")`)
+    await page.waitForSelector(`${TREE} [data-cell=name]`)
+    const treeCells = await cellsIn(page, TREE)
+    const treeHeadings = await headingsOver(page, TREE)
+    expect(treeHeadings.map((h) => h.name)).toEqual([
+      'Where it went',
+      'This week',
+      'Last week',
+      'Change',
+    ])
+    const [where, shown, before, change] = treeHeadings
+    expect(where?.left).toBeCloseTo(treeCells.name?.left ?? 0, 0)
+    expect(shown?.right).toBeCloseTo(treeCells.shown?.right ?? 0, 0)
+    expect(before?.right).toBeCloseTo(treeCells.before?.right ?? 0, 0)
+    expect(change?.right).toBeCloseTo(treeCells.change?.right ?? 0, 0)
   })
 })

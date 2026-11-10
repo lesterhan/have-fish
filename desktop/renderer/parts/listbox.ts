@@ -13,6 +13,16 @@ export type Paged<T> = {
   indexOf: (id: string) => number
 }
 
+/** What a tree's row says to a screen reader: its level, where among its siblings, and whether it's open. */
+export type TreeSpot = {
+  /** 1 at the top. */
+  level: number
+  setsize: number
+  posinset: number
+  /** Whether it's open; undefined when nothing is under it. */
+  open: boolean | undefined
+}
+
 /** Where each item sits: `top(i)` is item i's, `top(count)` the list's whole height. */
 export type Layout = { readonly count: number; top(i: number): number; indexAt(y: number): number }
 

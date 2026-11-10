@@ -29,7 +29,7 @@ const NAV = 'nav[aria-label=Places]'
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const PALETTE = 'role=dialog[name="Do anything"]'
-const BREAKDOWN = 'ol[aria-label="Spending by category"]'
+const TREE = 'ol[aria-label="Spending by category"]'
 const REPORTED = 'ol[aria-label="Its spends"]'
 
 /** A laptop screen; the size the window opens; half of one, which is narrow; and 200%. */
@@ -207,14 +207,18 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Reports.
   await go(page, 'Reports')
-  await page.waitForSelector(`${BREAKDOWN} li`)
+  await page.waitForSelector(`${TREE} li`)
   await shot.take('reports')
   await shot.dark('reports')
   // This week can be a day old; the one before is whole.
   await page.click('button[aria-label="The week before"]')
   await shot.take('reports-week-before')
-  await page.click(`${BREAKDOWN} li:has-text("food")`)
-  await shot.take('reports-drilled')
+  // Food open, with a category under it picked: its spends beside the tree.
+  const food = page.locator(`${TREE} li`).filter({ hasText: 'expenses food' }).first()
+  await food.click()
+  await food.click()
+  await page.locator(`${TREE} li`).filter({ hasText: ':restaurants' }).first().click()
+  await shot.take('reports-opened')
   await openSpend(page.locator(`${REPORTED} li >> nth=0`), 'section[aria-label="The spend picked"]')
   await shot.take('reports-spend')
 

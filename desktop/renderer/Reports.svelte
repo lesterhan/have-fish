@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { levelAbove, spendingAt, trailTo } from '@have-fish/core/spending'
+  import { comparedAt } from '@have-fish/core/spending'
+  import { format } from '@have-fish/core/money'
   import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
@@ -10,19 +11,23 @@
   import { toOf } from './picker'
   import { wordsFor } from './refusals'
   import {
+    closedOver,
     idsWanted,
     otherText,
     spendsBehind,
     spentOf,
     thisWeek,
+    treeKey,
+    treeRows,
     type Week,
     weekAfter,
   } from './report'
   import { afterRemoving, kept } from './selection'
   import Button from './parts/Button.svelte'
+  import Empty from './parts/Empty.svelte'
   import Header from './parts/Header.svelte'
   import Notice from './parts/Notice.svelte'
-  import SpendingList from './SpendingList.svelte'
+  import SpendingTree from './SpendingTree.svelte'
   import SpendCard from './SpendCard.svelte'
   import SpendList from './SpendList.svelte'
   import type { SpendActions } from './spendActions'
@@ -38,12 +43,15 @@
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
   let report = $state.raw<Returned['report.spending'] | null>(null)
-  /** The category whose lines show; `''` is the top. */
-  let level = $state('')
-  let pickedKey = $state<string | null>(null)
+  /** The week before the one shown, for each row's comparison. */
+  let earlier = $state.raw<Returned['report.spending'] | null>(null)
+  /** The categories that are open in the tree, by name. */
+  let opened = $state.raw<ReadonlySet<string>>(new Set())
+  /** The tree's selected row, by its key. */
+  let selectedKey = $state<string | null>(null)
   let error = $state<string | null>(null)
 
-  /** The week's spends under the level, and any with a draft: asked of main, never the store. */
+  /** The week's spends, and any with a draft: asked of main, never the store. */
   let transactions = $state.raw<ListedTransaction[]>([])
   // For the card: the accounts a To can name.
   const payers = $derived($ledger.accounts)
@@ -66,24 +74,41 @@
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
 
-  let breakdown: SpendingList
+  let tree: SpendingTree
   let list: SpendList
   let card: SpendCard | undefined = $state()
 
   const spent = $derived(report === null ? [] : spentOf(report))
-  const at = $derived(spendingAt(spent, level))
-  const picked = $derived(at.lines.find((l) => l.key === pickedKey))
-  const shown = $derived(spendsBehind(transactions, spent, level, picked))
+  const beforeSpent = $derived(earlier === null ? [] : spentOf(earlier))
+  const rows = $derived(treeRows(spent, beforeSpent, opened))
+  /** The week's two sums, for the header line and the tree's foot. */
+  const sums = $derived(comparedAt(spent, beforeSpent, ''))
+  const picked = $derived(rows.find((r) => r.key === selectedKey))
+  const shown = $derived(spendsBehind(transactions, spent, picked))
   // The spend picked while it's still behind the line; else the newest that is.
   const current = $derived(kept(shown, selectedId))
-  const opened = $derived(openedId !== null && openedId === current ? openedId : null)
+  const openedSpend = $derived(openedId !== null && openedId === current ? openedId : null)
 
   // Another row selected, the details close: a click selects, and only a second one opens.
   $effect(() => {
     if (openedId !== null && openedId !== current) openedId = null
   })
+
+  // A row the tree no longer shows, as when the week moves: nothing is selected.
+  $effect(() => {
+    if (selectedKey !== null && !rows.some((r) => r.key === selectedKey)) selectedKey = null
+  })
+
   const isThisWeek = $derived(week.start === thisWeek(todayIn()).start)
   const other = $derived(report && otherText(report.other))
+  const sumsLine = $derived(
+    report === null || earlier === null
+      ? ''
+      : (isThisWeek ? copy.reports.sum.thisWeek : copy.reports.sum.another)(
+          format(sums.total),
+          format(sums.before),
+        ),
+  )
 
   const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
@@ -93,19 +118,33 @@
   let reportedFor: LedgerState | null = null
   let reporting: Promise<void> = Promise.resolve()
 
-  /** The shown week's spending, asked of main. A week moved on meanwhile wins. */
+  /** The shown week's spending beside the week before, asked of main. A week moved on wins. */
   async function loadReport() {
     const shownWeek = week
-    const spending = await window.haveFish.invoke('report.spending', {
-      start: shownWeek.start,
-      end: shownWeek.end,
-    })
+    const lastWeek = weekAfter(shownWeek, -1)
+    const [now, before] = await Promise.all([
+      window.haveFish.invoke('report.spending', {
+        start: shownWeek.start,
+        end: shownWeek.end,
+      }),
+      window.haveFish.invoke('report.spending', {
+        start: lastWeek.start,
+        end: lastWeek.end,
+      }),
+    ])
     if (shownWeek !== week) return
-    if (spending.ok) {
-      report = spending.value
-      reportFailure = null
-      await loadSpends(idsWanted(spentOf(spending.value), level))
-    } else reportFailure = spending
+    if (!now.ok) {
+      reportFailure = now
+      return
+    }
+    if (!before.ok) {
+      reportFailure = before
+      return
+    }
+    report = now.value
+    earlier = before.value
+    reportFailure = null
+    await loadSpends(idsWanted(spentOf(now.value)))
   }
 
   let spendsAsked = 0
@@ -122,13 +161,6 @@
     if (found.ok) transactions = found.value
     else reportFailure = found
   }
-
-  // Another level: the spends it wants. A report's own load asks for them too.
-  const wanted = $derived(idsWanted(spent, level).sort().join(' '))
-  $effect(() => {
-    const ids = wanted
-    untrack(() => void loadSpends(ids === '' ? [] : ids.split(' ')))
-  })
 
   function reportFor(state: LedgerState): Promise<void> {
     reportedFor = state
@@ -169,9 +201,9 @@
     card?.togglePostings()
   }
 
-  /** Coming here from another place: the breakdown. */
+  /** Coming here from another place: the tree. */
   export function focus() {
-    breakdown.focus()
+    tree.focus()
   }
 
   /** After an undo or redo: the report as it is now, with the spend that came back selected. */
@@ -190,17 +222,31 @@
     void reportFor(ledger.current())
   }
 
-  function into(category: string) {
-    level = category
-    pickedKey = null
+  /** A category opens or closes; what was selected under it becomes the category's own row. */
+  function toggle(category: string) {
+    const before = rows
+    const next = new Set(opened)
+    if (next.delete(category)) selectedKey = closedOver(before, selectedKey, category)
+    else next.add(category)
+    opened = next
   }
 
-  /** Out a level, with the category I was in picked. */
-  function up(to = levelAbove(level)) {
-    if (level === '') return
-    const left = trailTo(level)[trailTo(to).length] ?? level
-    level = to
-    pickedKey = `category:${left}`
+  /** A row picked: the first click selects it, and a second opens or closes it. */
+  function pick(key: string) {
+    const row = rows.find((r) => r.key === key)
+    if (row === undefined) return
+    if (row.key === selectedKey && row.opens) toggle(row.category)
+    else selectedKey = key
+  }
+
+  /** The tree's keys: → and ← open and close, Enter too; the rest move the selection. */
+  function onkey(event: KeyboardEvent): boolean {
+    const move = treeKey(rows, selectedKey, event.key)
+    if (move === null) return false
+    event.preventDefault()
+    if ('toggle' in move) toggle(move.toggle)
+    else selectedKey = move.active
+    return true
   }
 
   let removing = false
@@ -217,7 +263,7 @@
       error = removed.words
       return
     }
-    const wasOpen = opened === id
+    const wasOpen = openedSpend === id
     selectedId = next
     await caughtUp()
     if (wasOpen) list.focus()
@@ -239,7 +285,7 @@
 
 <main class="reports" {hidden}>
   <div class="top">
-    <Header title={copy.app.places.reports} />
+    <Header title={copy.reports.title} line={sumsLine} />
     {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
   </div>
 
@@ -258,84 +304,72 @@
     </Button>
   </div>
 
-  <nav class="trail" aria-label={copy.reports.trail.label}>
-    {#if level === ''}
-      <span aria-current="location">{copy.reports.trail.top}</span>
-    {:else}
-      <Button variant="quiet" onclick={() => up('')}>{copy.reports.trail.top}</Button>
-      {#each trailTo(level) as step, i (step)}
-        <span class="between" aria-hidden="true">{copy.reports.trail.between}</span>
-        {#if i === trailTo(level).length - 1}
-          <span aria-current="location">{step.slice(step.lastIndexOf(':') + 1)}</span>
-        {:else}
-          <Button variant="quiet" onclick={() => up(step)}>
-            {step.slice(step.lastIndexOf(':') + 1)}
-          </Button>
-        {/if}
-      {/each}
-    {/if}
-  </nav>
-
   <div class="left">
-    <SpendingList
-      bind:this={breakdown}
-      lines={at.lines}
-      total={at.total}
+    <SpendingTree
+      bind:this={tree}
+      {rows}
+      total={sums.total}
+      before={sums.before}
       currency={report?.currency ?? ''}
-      {pickedKey}
-      onpick={(key) => (pickedKey = key)}
-      oninto={into}
-      onup={() => up()}
+      thisWeek={isThisWeek}
+      {selectedKey}
+      onpick={pick}
+      onselect={(key) => (selectedKey = key)}
+      {onkey}
     />
     {#if other}
       <p class="other">{other}</p>
     {/if}
   </div>
 
-  <SpendList
-    bind:this={list}
-    label={copy.reports.spends.label}
-    idPrefix="reported"
-    transactions={shown}
-    selectedId={current}
-    onselect={(id) => (selectedId = id)}
-    {opened}
-    onopen={open}
-    oncardkey={(event) => card?.keydown(event) ?? false}
-    onclose={close}
-    onremove={remove}
-    onrefile={saveRefile}
-    loadPaths={() => ledger.paths()}
-  >
-    {#snippet details(t: ListedTransaction)}
-      <SpendCard
-        bind:this={card}
-        {actions}
-        label={copy.reports.card.label}
-        idPrefix="report-pane"
-        transaction={t}
-        toOptions={accountOptions}
-        loadPaths={() => ledger.paths()}
-        onSaved={caughtUp}
-        onclose={close}
-        onremove={remove}
-      />
-    {/snippet}
-  </SpendList>
+  <div class="spends">
+    <SpendList
+      bind:this={list}
+      label={copy.reports.spends.label}
+      idPrefix="reported"
+      transactions={shown}
+      selectedId={current}
+      onselect={(id) => (selectedId = id)}
+      opened={openedSpend}
+      onopen={open}
+      oncardkey={(event) => card?.keydown(event) ?? false}
+      onclose={close}
+      onremove={remove}
+      onrefile={saveRefile}
+      loadPaths={() => ledger.paths()}
+    >
+      {#snippet details(t: ListedTransaction)}
+        <SpendCard
+          bind:this={card}
+          {actions}
+          label={copy.reports.card.label}
+          idPrefix="report-pane"
+          transaction={t}
+          toOptions={accountOptions}
+          loadPaths={() => ledger.paths()}
+          onSaved={caughtUp}
+          onclose={close}
+          onremove={remove}
+        />
+      {/snippet}
+    </SpendList>
+    {#if picked !== undefined && shown.length === 0}
+      <Empty>{copy.reports.spends.nothing}</Empty>
+    {/if}
+  </div>
 </main>
 
 <style>
-  /* The breakdown on the left; the spends behind the line picked on the right, opening in place. */
+  /* The tree on the left; the spends behind the row picked on the right, opening in place. */
   main {
     min-height: 0;
     overflow-y: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(8rem, 1fr);
+    grid-template-rows: auto auto minmax(8rem, 1fr);
     grid-template-areas:
       'top top'
       'week week'
-      'trail trail'
       'breakdown list';
     column-gap: var(--space-6);
     row-gap: var(--space-2);
@@ -355,6 +389,13 @@
     overflow-y: auto;
   }
 
+  .spends {
+    grid-area: list;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+  }
+
   /* NARROW in narrow.ts. */
   @media (max-width: 44rem) {
     main {
@@ -363,7 +404,6 @@
       grid-template-areas:
         'top'
         'week'
-        'trail'
         'breakdown'
         'list';
       align-content: start;
@@ -393,20 +433,9 @@
     color: var(--color-muted);
   }
 
-  .trail {
-    grid-area: trail;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .between,
   .other {
     color: var(--color-muted);
-  }
-
-  .other {
+  }  .other {
     font-size: var(--text-quiet);
   }
 

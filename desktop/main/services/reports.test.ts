@@ -1,7 +1,16 @@
-import { describe, expect, test } from 'vitest'
+import { afterAll, describe, expect, test } from 'vitest'
 import { contextFor, type Time } from '../context'
 import { applyLocal } from '../ledger/apply'
-import { anAccount, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
+import {
+  aLedgerOf,
+  anAccount,
+  aSpend,
+  NOW,
+  ok,
+  openTempLedger,
+  recorded,
+  tempLedger,
+} from '../ledger/fixtures'
 import { addAccount } from './accounts'
 import { spendingIn } from './reports'
 import { removeSpend, writeSpend } from './spends'
@@ -124,5 +133,47 @@ describe('spendingIn', () => {
       ok: false,
       failure: { code: 'DATE_INVALID', details: { date } },
     })
+  })
+})
+
+describe('the week shown and the week before, at ten years', { timeout: 120_000 }, () => {
+  const temp = openTempLedger()
+  afterAll(temp.dispose)
+  const ledger = aLedgerOf(50_000, temp.ledger)
+  /** Reports asks for both weeks after each load or change, together. */
+  const weeks = [
+    { start: '2026-10-26', end: '2026-11-01' },
+    { start: '2026-10-19', end: '2026-10-25' },
+  ]
+  const week = (start: string, end: string) => ok(spendingIn(ledger.db, { start, end }))
+
+  test('both weeks together take under 20 ms, and each reads the date index', () => {
+    const ran = recorded(() => {
+      for (const { start, end } of weeks) expect(week(start, end).spent.length).toBeGreaterThan(0)
+    })
+    const took = ran.reduce((sum, r) => sum + r.ms, 0)
+    // Measured at about 1.2 ms together. Loose for a slow runner.
+    expect(took).toBeLessThan(20)
+
+    const plans = ran.map(({ sql, args }) =>
+      ledger.db
+        .prepare<unknown[], { detail: string }>(`EXPLAIN QUERY PLAN ${sql}`)
+        .all(...args)
+        .map((row) => row.detail),
+    )
+    expect(plans).toEqual([
+      [
+        'SEARCH transactions USING COVERING INDEX transactions_listed (date>? AND date<?)',
+        'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+        'SEARCH accounts USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+        'USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY',
+      ],
+      [
+        'SEARCH transactions USING COVERING INDEX transactions_listed (date>? AND date<?)',
+        'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+        'SEARCH accounts USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+        'USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY',
+      ],
+    ])
   })
 })

@@ -18,6 +18,13 @@ describe('listboxesIn', () => {
     ).toEqual(['role="listbox"', 'aria-activedescendant', 'role="option"'])
   })
 
+  it('catches a hand-rolled tree and its items', () => {
+    expect(listboxesIn('<ol role="tree"><li role="treeitem"></li></ol>')).toEqual([
+      'role="tree"',
+      'role="treeitem"',
+    ])
+  })
+
   it('passes a combobox, which owns no list', () => {
     expect(listboxesIn('<input role="combobox" aria-controls="x" />')).toEqual([])
   })

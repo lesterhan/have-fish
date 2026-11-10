@@ -1,4 +1,4 @@
-// Seeing what I spent this week, by category: Reports-1's acceptance, in the built app.
+// This week beside the week before, by category: Reports-5's acceptance, in the built app.
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
@@ -6,7 +6,6 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
-  cellsOf,
   launch,
   openChip,
   openComposer,
@@ -17,10 +16,9 @@ import {
 } from './app'
 
 const NAV = 'nav[aria-label=Places]'
-const BREAKDOWN = 'ol[aria-label="Spending by category"]'
+const TREE = 'ol[aria-label="Spending by category"]'
 const BEHIND = 'ol[aria-label="Its spends"]'
 const PICKED = 'section[aria-label="The spend picked"]'
-const TRAIL = 'nav[aria-label="Where you are in your categories"]'
 const WEEK = '[role=group][aria-label="The week shown"]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 
@@ -60,99 +58,151 @@ async function addAccount(page: Page, name: string, kind: string) {
 
 const toReports = (page: Page) => page.click(`${NAV} button:has-text("Reports")`)
 
-/** The breakdown as text: name, the › for one that opens, amount; then the total. */
-const breakdown = (page: Page) =>
+/** The tree's rows as `name | this week | last week | the change`, in the order they show. */
+const tree = (page: Page) =>
   page.evaluate((list) => {
-    const ol = document.querySelector(list)
-    const lines = [...(ol?.querySelectorAll('li') ?? [])].map((li) =>
-      [...li.children]
-        .map((c) => c.textContent?.trim() ?? '')
-        .filter((t) => t !== '')
-        .join(' | '),
+    const cell = (li: Element, name: string) =>
+      li.querySelector(`[data-cell=${name}]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+    return [...(document.querySelector(list)?.querySelectorAll('li') ?? [])].map((li) =>
+      ['name', 'shown', 'before', 'change'].map((name) => cell(li, name)).join(' | '),
     )
-    // Beside the list's scroller, which holds the listbox.
-    const total = [...(ol?.parentElement?.parentElement?.querySelectorAll('p') ?? [])]
-      .map((p) => p.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-      .find((t) => t.startsWith('Spent'))
-    return [...lines, total?.trim() ?? '']
-  }, BREAKDOWN)
+  }, TREE)
 
-/** Each bar's width, as a share of its track, rounded to a percent. */
-const bars = (page: Page) =>
-  page.locator(`${BREAKDOWN} [aria-hidden=true] > span`).evaluateAll((spans) =>
-    spans.map((s) => {
-      const track = s.parentElement?.getBoundingClientRect().width ?? 1
-      return Math.round((s.getBoundingClientRect().width / track) * 100)
-    }),
-  )
+/** The tree's foot: All spending, this week, last week, and their change. */
+const total = (page: Page) =>
+  page.evaluate(() => {
+    const foot = [...document.querySelectorAll('p')].find((p) =>
+      p.textContent?.trim().startsWith('All spending'),
+    )
+    return [...(foot?.children ?? [])].map((c) => c.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+  })
 
-/** What the list beside the breakdown shows: the spends' descriptions. */
+/** The tree's headings, as they read. */
+const headings = (page: Page) =>
+  page.evaluate(() => {
+    const list = document.querySelector('ol[aria-label="Spending by category"]')
+    const over = list?.parentElement?.parentElement?.firstElementChild
+    return [...(over?.children ?? [])].map((h) => h.textContent?.trim() ?? '')
+  })
+
+/** The header's quiet line: what the week came to against the week before. */
+const sums = (page: Page) => page.locator('main header p').innerText()
+
+/** The name cell of the row the tree has selected. */
+const selectedName = (page: Page) =>
+  page.evaluate((list) => {
+    const name = document.querySelector(`${list} [aria-selected=true] [data-cell=name]`)
+    return name?.textContent?.replace(/\s+/g, ' ').trim() ?? null
+  }, TREE)
+
+/** The tree's row whose name contains `name`, as a person reads it. */
+const treeRow = (page: Page, name: string) =>
+  page.locator(`${TREE} li`).filter({ hasText: name }).first()
+
+/** What the list beside the tree shows: the spends' descriptions. */
 const behind = (page: Page) =>
-  spendCells(page.locator(`${BEHIND} li`)).then((rows) =>
-    rows.map(([, description]) => description),
-  )
-const trail = (page: Page) => page.locator(TRAIL).innerText()
+  spendCells(page.locator(`${BEHIND} li`)).then((all) => all.map(([, description]) => description))
 
-describe('see what I spent this week, by category', () => {
-  test('each category its total and share, unsorted its own line, and transfers left out', async () => {
-    const { page, press } = await launch(aHome())
+describe('see this week against last', () => {
+  test('each category this week beside last week, and the change between them', async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
     await spend(page, '60', 'Groceries', 'food')
     await spend(page, '30', 'Bus pass', 'transport')
+    await spend(page, '80', 'Groceries last week', 'food', '', daysAgo(7))
     await spend(page, '10', 'Something', '')
     await addAccount(page, 'chequing', 'bank')
     await spend(page, '500', 'Cash out', 'cash', 'chequing')
+    await toReports(page)
 
-    press('ctrl+3')
     await expect
-      .poll(() => breakdown(page))
-      .toEqual(['food | 60.00', 'transport | 30.00', 'Unsorted | 10.00', 'Spent 100.00'])
-    expect(await bars(page)).toEqual([60, 30, 10])
-    expect(await page.innerText(WEEK)).toContain('This week')
-    expect(await behind(page)).toEqual(['Something', 'Bus pass', 'Groceries'])
+      .poll(() => tree(page))
+      .toEqual([
+        'expenses food | 60.00 | 80.00 | 20.00 less',
+        'expenses transport | 30.00 | – | 30.00 more',
+        'Unsorted | 10.00 | – | 10.00 more',
+      ])
+    expect(await total(page)).toEqual(['All spending', '100.00', '80.00', '20.00 more'])
+    expect(await sums(page)).toBe('Spent 100.00, against 80.00 last week')
   })
 
-  test('a category with ones under it opens, with a trail back out', async () => {
+  test('a category opens and closes, its children a level under it', async () => {
     const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
     await spend(page, '4.50', 'Coffee', 'food:coffee')
     await spend(page, '50', 'Groceries', 'food:groceries')
     await spend(page, '5.50', 'Snack', 'food')
     await spend(page, '20', 'Movie', 'fun')
     await toReports(page)
 
-    await expect
-      .poll(() => breakdown(page))
-      .toEqual(['food | › | 60.00', 'fun | 20.00', 'Spent 80.00'])
-    await page.click(`${BREAKDOWN} li:has-text("food")`)
+    await expect.poll(() => tree(page)).toHaveLength(2)
+    expect(await treeRow(page, 'expenses food').getAttribute('aria-expanded')).toBe('false')
+    expect(await treeRow(page, 'expenses fun').getAttribute('aria-expanded')).toBeNull()
+
+    // A click selects it; a second opens it.
+    await treeRow(page, 'expenses food').click()
+    expect(await tree(page)).toHaveLength(2)
+    expect(await selectedName(page)).toContain('expenses food')
+    await treeRow(page, 'expenses food').click()
 
     await expect
-      .poll(() => breakdown(page))
-      .toEqual(['groceries | 50.00', 'coffee | 4.50', 'Just food | 5.50', 'Spent 60.00'])
-    expect(await trail(page)).toMatch(/All spending\s*:\s*food/)
-    expect(await behind(page)).toEqual(['Snack', 'Groceries', 'Coffee'])
+      .poll(() => tree(page))
+      .toEqual([
+        'expenses food | 60.00 | – | 60.00 more',
+        ':groceries | 50.00 | – | 50.00 more',
+        ':coffee | 4.50 | – | 4.50 more',
+        'Just food | 5.50 | – | 5.50 more',
+        'expenses fun | 20.00 | – | 20.00 more',
+      ])
+    expect(await page.locator(`${TREE} li[aria-level="2"]`).count()).toBe(3)
 
-    await page.click(`${BREAKDOWN} li:has-text("coffee")`)
-    expect(await behind(page)).toEqual(['Coffee'])
-
-    // The keys go back out, with the category I was in picked.
-    await page.locator(BREAKDOWN).focus()
+    // ← on a child goes to its category, ← again closes it, Enter opens it again.
+    await treeRow(page, ':coffee').click()
+    await page.locator(TREE).focus()
     await page.keyboard.press('ArrowLeft')
-    await expect.poll(() => trail(page)).toBe('All spending')
-    const [picked] = await cellsOf(page.locator(`${BREAKDOWN} [aria-selected=true]`))
-    expect(picked?.[0]).toBe('food')
+    await expect.poll(() => selectedName(page)).toContain('expenses food')
+    await page.keyboard.press('ArrowLeft')
+    await expect.poll(() => tree(page)).toHaveLength(2)
+    expect(await selectedName(page)).toContain('expenses food')
     await page.keyboard.press('Enter')
-    await expect.poll(() => trail(page)).toMatch(/food$/)
-    await page.click(`${TRAIL} button:has-text("All spending")`)
-    await expect.poll(() => trail(page)).toBe('All spending')
+    await expect.poll(() => tree(page)).toHaveLength(5)
   })
 
-  test('a spend opened shows its details under it, and fixing it there changes the report', async () => {
+  test('a row that has nothing this week lists no spends, and says so', async () => {
     const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await spend(page, '15', 'Movie', 'fun', '', daysAgo(7))
+    await toReports(page)
+
+    await expect.poll(() => tree(page)).toEqual(['expenses fun | – | 15.00 | 15.00 less'])
+    expect(await sums(page)).toBe('Spent 0.00, against 15.00 last week')
+
+    await treeRow(page, 'expenses fun').click()
+    await expect.poll(() => behind(page)).toEqual([])
+    expect(await page.innerText('role=main')).toContain('Nothing in the week shown.')
+  })
+
+  test('nothing picked lists the whole week; a row picked lists its own spends', async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await spend(page, '30', 'Bus pass', 'transport')
+    await spend(page, '60', 'Groceries', 'food')
+    await toReports(page)
+
+    await expect
+      .poll(() => behind(page).then((all) => all.sort()))
+      .toEqual(['Bus pass', 'Groceries'])
+    await treeRow(page, 'expenses transport').click()
+    await expect.poll(() => behind(page)).toEqual(['Bus pass'])
+  })
+
+  test('a spend opened beside shows its details, and fixing it there changes its row', async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
     await spend(page, '12', 'Lunch', 'food')
     await spend(page, '30', 'Bus pass', 'transport')
     await toReports(page)
-    await expect.poll(() => breakdown(page)).toHaveLength(3)
-
-    await page.click(`${BREAKDOWN} li:has-text("transport")`)
+    await treeRow(page, 'expenses transport').click()
     await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
     await openChip(page, 'description', PICKED)
     expect(await page.inputValue(`${PICKED} input[name=description]`)).toBe('Bus pass')
@@ -162,61 +212,64 @@ describe('see what I spent this week, by category', () => {
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
 
     await expect
-      .poll(() => breakdown(page))
-      .toEqual(['food | 12.00', 'transport | 3.30', 'Spent 15.30'])
+      .poll(() => tree(page))
+      .toEqual([
+        'expenses food | 12.00 | – | 12.00 more',
+        'expenses transport | 3.30 | – | 3.30 more',
+      ])
     expect(await page.locator(`${PICKED} [id$="-chip-amount"]`).innerText()).toContain('3.30')
   })
 
-  test('a change saved in Reports shows in the ledger', async () => {
+  test('◀ speaks of that week and the one before it, and ▶ comes back', async () => {
     const { page } = await launch(aHome())
-    await spend(page, '30', 'Bus pass', 'transport')
-    await toReports(page)
-    await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
-    await openChip(page, 'amount', PICKED)
-    await page.fill(`${PICKED} input[name=amount]`, '3.30')
-    await page.press(`${PICKED} input[name=amount]`, 'Enter')
-    await expect.poll(() => breakdown(page)).toEqual(['transport | 3.30', 'Spent 3.30'])
-
-    await page.click(`${NAV} button:has-text("Ledger")`)
-    await expect.poll(() => rows(page)).toEqual([expect.stringMatching(/Bus pass \| 3\.30/)])
-  })
-
-  test('Ctrl+Z takes a fix back, and the report stays where I am', async () => {
-    const { page, press } = await launch(aHome())
-    await spend(page, '30', 'Bus pass', 'transport')
-    await toReports(page)
-    await openSpend(page.locator(`${BEHIND} li:has-text("Bus pass")`), PICKED)
-    await openChip(page, 'amount', PICKED)
-    await page.fill(`${PICKED} input[name=amount]`, '3.30')
-    await page.press(`${PICKED} input[name=amount]`, 'Enter')
-    await expect.poll(() => breakdown(page)).toEqual(['transport | 3.30', 'Spent 3.30'])
-
-    await page.locator(BREAKDOWN).focus()
-    press('ctrl+z')
-
-    await expect.poll(() => breakdown(page)).toEqual(['transport | 30.00', 'Spent 30.00'])
-    expect(await page.innerText(`${NAV} [aria-current=page]`)).toMatch(/^Reports/)
-    expect(await page.locator(`${PICKED} [id$="-chip-amount"]`).innerText()).toContain('30.00')
-  })
-
-  test('◀ and ▶ go to the week before and after', async () => {
-    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
     await spend(page, '8', 'Today', 'food')
     await spend(page, '15', 'Last week', 'fun', '', daysAgo(7))
     await toReports(page)
-    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00', 'Spent 8.00'])
+    await expect
+      .poll(() => tree(page))
+      .toEqual(['expenses food | 8.00 | – | 8.00 more', 'expenses fun | – | 15.00 | 15.00 less'])
+    expect(await headings(page)).toEqual(['Where it went', 'This week', 'Last week', 'Change'])
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => breakdown(page)).toEqual(['fun | 15.00', 'Spent 15.00'])
-    expect(await page.innerText(WEEK)).not.toContain('This week')
+    await expect.poll(() => tree(page)).toEqual(['expenses fun | 15.00 | – | 15.00 more'])
+    expect(await headings(page)).toEqual(['Where it went', 'That week', 'Week before', 'Change'])
+    expect(await sums(page)).toBe('Spent 15.00, against 0.00 the week before')
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => breakdown(page)).toEqual([''])
-    expect(await page.innerText('role=main')).toContain('No spending in this week.')
+    await expect.poll(() => tree(page)).toEqual([])
+    expect(await page.innerText('role=main')).toContain(
+      'No spending in this week or the week before.',
+    )
 
     await page.click(`${WEEK} button[aria-label="The week after"]`)
     await page.click(`${WEEK} button[aria-label="The week after"]`)
-    await expect.poll(() => breakdown(page)).toEqual(['food | 8.00', 'Spent 8.00'])
-    expect(await page.innerText(WEEK)).toContain('This week')
+    await expect.poll(() => tree(page)).toHaveLength(2)
+    expect(await headings(page)).toEqual(['Where it went', 'This week', 'Last week', 'Change'])
+  })
+
+  test('the week moves with the tree as I left it', async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await spend(page, '4.50', 'Coffee', 'food:coffee')
+    await spend(page, '50', 'Groceries', 'food:groceries')
+    await spend(page, '9', 'Coffee last week', 'food:coffee', '', daysAgo(7))
+    await toReports(page)
+
+    await treeRow(page, 'expenses food').click()
+    await treeRow(page, 'expenses food').click()
+    await treeRow(page, ':coffee').click()
+    expect(await selectedName(page)).toBe(':coffee')
+
+    await page.click(`${WEEK} button[aria-label="The week before"]`)
+    await expect
+      .poll(() => tree(page))
+      .toEqual(['expenses food | 9.00 | – | 9.00 more', ':coffee | 9.00 | – | 9.00 more'])
+    expect(await selectedName(page)).toBe(':coffee')
+
+    // A week with nothing in it: nothing open, nothing selected.
+    await page.click(`${WEEK} button[aria-label="The week before"]`)
+    await expect.poll(() => tree(page)).toEqual([])
+    expect(await selectedName(page)).toBeNull()
   })
 })
