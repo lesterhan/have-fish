@@ -2,6 +2,7 @@
   import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
+  import { type Cursor, type CursorMoment, cursorFor } from './cursor'
   import { indexIn, type LedgerStore, rowAt, rowWithId } from './ledger'
   import { toOf } from './picker'
   import { type Field as Where, fieldOf, spendWordsFor, wordsFor } from './refusals'
@@ -26,6 +27,7 @@
   let line: Composer | undefined = $state()
   /** The first run's line opens by itself, once. */
   let openedFirstRun = false
+  const loaded = $derived($ledger.loaded)
 
   const accounts = $derived($ledger.accounts)
   const assumedName = $derived(accounts.find((a) => a.id === $ledger.assumedFrom)?.name)
@@ -81,29 +83,43 @@
   $effect(() => {
     if (firstRun && !openedFirstRun) {
       openedFirstRun = true
-      void openLine()
+      untrack(() => showLine())
     }
   })
 
   // Once the ledger is in, the place has the cursor: the list, or the line when nothing is written.
-  let tookCursor = false
   $effect(() => {
-    const state = $ledger
-    if (!state.loaded || tookCursor) return
-    tookCursor = true
-    untrack(() => {
-      if (document.activeElement === document.body) {
-        if (state.total > 0) list.focus()
-        else void openLine()
-      }
-    })
+    if (loaded) untrack(() => void move('loaded'))
   })
+
+  /** Asks where the cursor goes after `moment`, and puts it there. */
+  function move(moment: CursorMoment, cardWasOpen = false): Promise<void> {
+    return place(
+      cursorFor(moment, { total: $ledger.total, composing, hidden, cardWasOpen }),
+    )
+  }
+
+  /** The one place the ledger moves the cursor on a load or a save, once what changed is drawn. */
+  async function place(cursor: Cursor | null): Promise<void> {
+    if (cursor === null) return
+    if (cursor === 'line') showLine()
+    await tick()
+    if (cursor === 'line') line?.focus()
+    else if (cursor === 'list') list.focus()
+    else card?.focus()
+  }
+
+  /** Opens the line above today's rows, the newest page in view; any open card closes. */
+  function showLine() {
+    if (composing) return
+    openedId = null
+    composing = true
+    list.toTop()
+  }
 
   /** Coming here from another place: the line if it's open, else the list. */
   export function focus() {
-    if (composing) line?.focus()
-    else if ($ledger.total > 0) list.focus()
-    else void openLine()
+    void move('cameHere')
   }
 
   /** After an undo or redo: the list as it is now, with the spend that came back selected. */
@@ -124,26 +140,14 @@
 
   /** Ctrl+N or + New: today's page comes in first, then the line opens above it. */
   export async function newSpend() {
-    if (composing) {
-      line?.focus()
-      return
-    }
-    await openLine()
-  }
-
-  async function openLine() {
-    openedId = null
-    composing = true
-    await tick()
-    // The line takes the cursor once its carried-over parts are in (Composer's open effect).
-    list.toTop()
+    await move('newSpend')
   }
 
   /** Esc, or reaching for the ledger: the line closes, and its half-typed draft stays. */
   function closeLine() {
     if (!composing) return
     composing = false
-    if ($ledger.total > 0) list.focus()
+    void move('lineClosed')
   }
 
   /** Written: the line closes, and the new spend shows selected and lit. */
@@ -156,9 +160,7 @@
     setTimeout(() => {
       if (justWritten === id) justWritten = null
     }, 1500)
-    await tick()
-    // A new line opened while the ledger caught up keeps the cursor: it isn't done with it.
-    if (!composing) list.focus()
+    await move('written')
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
@@ -198,21 +200,18 @@
     selectedId = next
     await ledger.caughtUp()
     // Removed from its card, the cursor goes back to the list; with nothing left, to the line.
-    if (selectedId === null) await openLine()
-    else if (wasOpen) list.focus()
+    await move('removed', wasOpen)
   }
 
   async function open(focus: boolean) {
     openedId = selectedId
-    if (!focus) return
-    await tick()
-    card?.focus()
+    if (focus) await move('cardOpened')
   }
 
   /** Esc with no chip open: the details close, and the row stays selected. */
   function close() {
     openedId = null
-    list.focus()
+    void move('cardClosed')
   }
 </script>
 
