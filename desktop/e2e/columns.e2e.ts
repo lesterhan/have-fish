@@ -112,7 +112,7 @@ describe("a row's columns", () => {
   })
 
   test('a wide list leads with From, and the headings sit over their columns', {
-    timeout: 120_000,
+    timeout: 30_000,
   }, async () => {
     const { page } = await launch(aHome())
     await page.setViewportSize({ width: 1440, height: 800 })
