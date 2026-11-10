@@ -35,7 +35,7 @@ const ALL_ROOTS = ['assets', 'liabilities', 'expenses', 'income', 'equity']
 const UNSORTED = 'expenses:unsorted'
 
 /** The first part of a path: `liabilities` in `liabilities:cibc:visa`. */
-export const rootOf = (path: string) => path.split(':')[0] ?? ''
+export const rootOfPath = (path: string) => path.split(':')[0] ?? ''
 
 /** What a pick puts in the field: its path without the root, never a level's name alone. */
 export const textOf = (pick: Pick) => nameOf(pick.path)
@@ -57,7 +57,7 @@ export const parentsOf = (path: string) => {
 export function offered(paths: readonly ListedPath[], mode: Mode): ListedPath[] {
   return paths.filter((p) => {
     if (p.path === UNSORTED) return false
-    if (!ROOTS[mode].includes(rootOf(p.path))) return false
+    if (!ROOTS[mode].includes(rootOfPath(p.path))) return false
     return mode === 'from'
       ? isAddable(p.kind) || p.kind === 'income'
       : p.kind === 'category' || isAddable(p.kind)
@@ -156,7 +156,8 @@ export function levelOfTyped(level: string | null, typed: string, mode: Mode): s
   const head = path.slice(0, at)
   if (head === '') return level
   const root =
-    typedRootOf(typed) ?? (level === null ? (mode === 'to' ? 'expenses' : 'assets') : rootOf(level))
+    typedRootOf(typed) ??
+    (level === null ? (mode === 'to' ? 'expenses' : 'assets') : rootOfPath(level))
   return `${root}:${head}`
 }
 
@@ -182,7 +183,7 @@ export function createPath(
 ): { path: string; name: string } | null {
   let name = withoutRoot(typed).replace(/:+$/, '')
   if (name === '') return null
-  // A root alone has nothing under it.
+  // At a root, nameOf gives the root itself: a new name goes straight under it.
   const under = level?.includes(':') ? nameOf(level) : ''
   if (!name.includes(':') && under !== '') name = `${under}:${name}`
   return { path: `${mode === 'from' ? 'income' : 'expenses'}:${name}`, name }

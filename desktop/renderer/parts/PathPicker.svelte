@@ -105,6 +105,13 @@
     ...(created === null ? [] : [{ key: `new:${created.path}`, pick: null, create: created }]),
   ])
   const listId = $derived(`${id}-path-list`)
+  /** How many days ago each use was, once per load: a part's last use is one of its paths'. */
+  const daysAgo = $derived.by(() => {
+    const today = todayIn()
+    return new Map(
+      paths.flatMap((p) => (p.lastUsed === null ? [] : [[p.lastUsed, daysSince(p.lastUsed, today)]])),
+    )
+  })
 
   $effect(() => {
     const keys = entries.map((e) => e.key)
@@ -146,7 +153,7 @@
   }
 
   /** A path picked from the list, or the new one offered: the field holds it, and the list closes. */
-  function choose(value: string) {
+  function pick(value: string) {
     text = value
     kept = text
     open = false
@@ -156,8 +163,8 @@
 
   /** An entry taken: a path or a new one is chosen, and a part with nothing to pick opens. */
   function take(entry: Entry) {
-    if (entry.create !== null) choose(entry.create.name)
-    else if (entry.pick?.pickable) choose(textOf(entry.pick))
+    if (entry.create !== null) pick(entry.create.name)
+    else if (entry.pick?.pickable) pick(textOf(entry.pick))
     else if (entry.pick !== null) drill(entry.pick)
   }
 
@@ -205,8 +212,8 @@
 
   /** How long ago a path was used, in the picker's words. */
   function used(lastUsed: number | null): string {
-    if (lastUsed === null) return ''
-    const days = daysSince(lastUsed, todayIn())
+    const days = lastUsed === null ? undefined : daysAgo.get(lastUsed)
+    if (days === undefined) return ''
     if (days <= 0) return words.used.today
     if (days === 1) return words.used.yesterday
     return words.used.days(days)

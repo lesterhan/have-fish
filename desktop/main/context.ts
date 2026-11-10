@@ -15,7 +15,7 @@ export type Time = {
   timeZone(): string
 }
 
-export const systemTime: Time = {
+const systemTime: Time = {
   now: () => Date.now(),
   timeZone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
 }

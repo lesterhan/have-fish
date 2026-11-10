@@ -30,7 +30,7 @@ function setup(ledger = tempLedger()) {
 const count = (ledger: Ledger, table: string) =>
   ledger.db.prepare(`SELECT count(*) FROM ${table}`).pluck().get()
 
-/** The live paths of one kind, as a path picker gets them. */
+/** The live paths of one kind. */
 const pathsOf = (ledger: Ledger, kind: AccountKind) =>
   listPaths(ledger.db)
     .filter((p) => p.kind === kind)
@@ -1244,7 +1244,7 @@ describe('money coming in', () => {
     expect(pathsOf(ledger, 'income')).toEqual(['income:salary'])
   })
 
-  test('income is never a category, nor offered as one; nor is a category income', () => {
+  test('income is never a category, nor a category income', () => {
     const { ledger, ctx, chequing } = withChequing()
     ok(writeSpend(ctx, { amount: '1', description: '', to: { category: 'food' } }))
     ok(

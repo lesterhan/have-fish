@@ -7,7 +7,7 @@ import {
   needleOf,
   offered,
   pathNamed,
-  rootOf,
+  rootOfPath,
   searching,
   textOf,
   trailOf,
@@ -136,7 +136,7 @@ describe('the trail', () => {
   })
 
   test('the root is the first part of a path', () => {
-    expect(rootOf('liabilities:cibc:visa')).toBe('liabilities')
+    expect(rootOfPath('liabilities:cibc:visa')).toBe('liabilities')
   })
 
   test('a typed path walks to its deepest existing part', () => {
