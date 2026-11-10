@@ -12,7 +12,7 @@
   type Props = {
     /** The lines the line has written, and what was taken back: only the lines show. */
     batch: Batch
-    /** The day it is, so a line on any other carries its own: the caller asks again per change. */
+    /** The day it is, so a line on any other carries its own; the caller keeps it current. */
     today: string
   }
   let { batch, today }: Props = $props()

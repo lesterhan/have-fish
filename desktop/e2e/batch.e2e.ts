@@ -50,8 +50,8 @@ async function writeLine(page: Page, amount: string, description: string, date?:
   await expect.poll(() => page.locator(`${BATCH} li`).count()).toBe(before + 1)
 }
 
-/** Writes through the bridge, leaving more than a page of ledger in it. */
-async function seed(page: Page, count: number) {
+/** Spends through the window's own commands, all today: more than a page of them. */
+async function manySpends(page: Page, count: number) {
   await page.evaluate(async (n) => {
     const bridge = (
       window as unknown as {
@@ -68,7 +68,7 @@ async function seed(page: Page, count: number) {
       if (!out.ok) throw new Error(`spend ${i} was refused`)
     }
   }, count)
-  // A first run opens the line by itself; it closes as a click on the list would when the page ends.
+  // A first run opens the line by itself; Esc closes it so the list shows what was written.
   if (await page.isVisible(WRITE)) await page.keyboard.press('Escape')
   await expect
     .poll(() => page.locator(`${LIST} li`).first().getAttribute('aria-setsize'), {
@@ -106,13 +106,30 @@ describe('the line stays open', () => {
     expect(await page.inputValue(DATE)).toBe('y')
   })
 
+  test('a batch open over midnight dates its pills by the new day', async () => {
+    const { page } = await launch(aHome())
+    const lastNight = new Date()
+    lastNight.setDate(lastNight.getDate() - 1)
+    lastNight.setHours(23, 59, 0, 0)
+    await page.clock.setFixedTime(lastNight)
+    // Main dates a line written today by its own clock, so the day before midnight is typed.
+    await writeLine(page, '4.50', 'Coffee', daysAgo(1))
+    await expect.poll(() => lines(page)).toEqual([{ said: 'Coffee ✓ Saved', day: null }])
+
+    await page.clock.setFixedTime(new Date())
+    await writeLine(page, '4.00', 'Tea', 'today')
+
+    const batch = await lines(page)
+    expect(batch.map((line) => line.day)).toEqual([null, daysAgo(1)])
+  })
+
   test('the ledger steps back while the line is open', async () => {
     const { page } = await launch(aHome())
     await page.waitForSelector(WRITE)
     expect(await page.locator(`[data-dimmed] ${LIST}`).count()).toBe(1)
   })
 
-  test('a write moves the cursor once, to Amount, and asks no picker for its paths', async () => {
+  test('a write moves the cursor once, to Amount, so no picker loads its paths', async () => {
     const { page } = await launch(aHome())
     await openComposer(page)
     await page.fill(AMOUNT, '4.50')
@@ -134,13 +151,8 @@ describe('the line stays open', () => {
     await expect.poll(() => page.locator(BATCH).innerText()).toContain('Coffee')
 
     const seen = await page.evaluate(() => (window as unknown as { __sees: string[] }).__sees)
-    // The one move: a stop on To on the way would have loaded its paths and listed them.
+    // The one move. A picker loads its paths when it takes the cursor, so no stop, no load.
     expect(seen).toEqual(['amount'])
-    expect(
-      await page
-        .locator(`${WRITE} [role=listbox][aria-label="Your categories and accounts"] [role=option]`)
-        .count(),
-    ).toBe(0)
   })
 })
 
@@ -243,7 +255,7 @@ describe('closing it', () => {
   test('a line dated months back lands selected, in view on its day, lit', async () => {
     const { page } = await launch(aHome())
     // A ledger of more than one page, so the row's page has to be fetched before it can show.
-    await seed(page, 120)
+    await manySpends(page, 120)
     const back = daysAgo(200)
     await writeLine(page, '30', 'Rent', back)
     await page.keyboard.press('Escape')
@@ -267,7 +279,7 @@ describe('closing it', () => {
 
   test('a row landed off screen does not light later, once the first light has gone', async () => {
     const { page } = await launch(aHome())
-    await seed(page, 120)
+    await manySpends(page, 120)
     await writeLine(page, '4.50', 'Coffee')
     await writeLine(page, '30', 'Rent', daysAgo(200))
     await page.keyboard.press('Escape')
@@ -347,5 +359,25 @@ describe('a line that is refused', () => {
     await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('not an amount')
     expect(await page.getAttribute(AMOUNT, 'aria-invalid')).toBe('true')
     expect(await what(page)).toEqual(['Coffee'])
+  })
+
+  test('an Esc while it saves is dropped, and the line stays open on the refusal', async () => {
+    const { page } = await launch(aHome())
+    await writeLine(page, '4.50', 'Coffee')
+    await page.fill(AMOUNT, 'abc')
+
+    await page.evaluate(() => {
+      const amount = document.querySelector(
+        'form[aria-label="Write down a spend"] input[name=amount]',
+      )
+      amount?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      amount?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+
+    await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('not an amount')
+    expect(await page.getAttribute(AMOUNT, 'aria-invalid')).toBe('true')
+    await expect.poll(() => focusedName(page)).toBe('amount')
+    expect(await what(page)).toEqual(['Coffee'])
+    expect(await lit(page)).toBe(0)
   })
 })

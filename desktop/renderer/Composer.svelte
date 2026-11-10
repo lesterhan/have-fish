@@ -69,9 +69,9 @@
   /** The part the cursor is in, and the one Tab would mark. */
   let active = $state<Part>('amount')
   let error = $state<{ part: Where; words: string } | null>(null)
-  let saving = $state(false)
+  let saving = false
   /** A close was asked for while the line was saving: it waits for that row to join the batch. */
-  let closing = $state(false)
+  let closing = false
   /** The line has just written a spend: its parts fade in as the fresh one for the next. */
   let fresh = $state(false)
 

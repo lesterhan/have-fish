@@ -59,7 +59,12 @@
   let selectedId = $state<string | null>(null)
   /** What this opening of the line has written, under it, newest first. */
   let batch = $state(EMPTY)
-  /** The rows a batch landed on, lit until each row's light fades. */
+  /** Asked again with each line the batch takes, so a batch open past midnight dates its pills right. */
+  const batchToday = $derived.by(() => {
+    void batch
+    return todayIn()
+  })
+  /** The rows a batch landed on, lit until the first one's light fades: they share one fade. */
   let landed = $state<ReadonlySet<string>>(new Set())
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
@@ -299,7 +304,7 @@
           onfresh={freshLine}
           {forgetTyping}
         />
-        {#if batch.lines.length > 0}<Batch {batch} today={todayIn()} />{/if}
+        {#if batch.lines.length > 0}<Batch {batch} today={batchToday} />{/if}
       </div>
     {/snippet}
     {#snippet details(t: ListedTransaction)}
