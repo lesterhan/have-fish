@@ -1,14 +1,15 @@
 // Writing down a spend, changing it, and taking it out. The list is `transactions.ts`.
 
 import { randomUUID } from 'node:crypto'
-import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
+import { isAddable } from '@have-fish/core/account-kind'
 import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { fitsCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
-import { simpleAmountOf } from '@have-fish/core/postings'
+import { INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
+import { amountOf, editable, legsOf, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { InputOf, To } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
@@ -16,11 +17,6 @@ import type { Context } from '../context'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
 import { accountFor, idOf } from './applied'
-
-/** Where a spend comes from before any account is chosen, and goes when it has no category. */
-const WALLET = { path: 'assets:cash', kind: 'cash' } as const
-const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
-export const INCOME = 'income'
 
 /**
  * A spend from the account that paid to its category, a transfer to another account of mine, or
@@ -57,15 +53,21 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   if (!fitsCurrency(cents, currency)) {
     return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
   }
+  const legs = legsOf({
+    shape: income ? 'income' : 'category' in goesTo ? 'spend' : 'transfer',
+    from: { accountId: from.value.id, cents: -cents, currency },
+    to: { accountId: to.value.id, cents, currency },
+  })
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
     date,
     description: input.description.trim(),
-    postings: [
-      { accountId: to.value.id, amount: format(cents), currency },
-      { accountId: from.value.id, amount: format(-cents), currency },
-    ],
+    postings: legs.map((l) => ({
+      accountId: l.accountId,
+      amount: format(l.cents),
+      currency: l.currency,
+    })),
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
@@ -147,7 +149,11 @@ function edit(
   if (stored === null) return refused(failure('TRANSACTION_NOT_FOUND', { id }))
   const { doc } = stored
   if (doc.deletedAt !== null) return refused(failure('TRANSACTION_DELETED', { id }))
-  const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
+  const shape = shapeOf(
+    doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })),
+    (accountId) => getDocument(db, 'account', accountId)?.doc.kind,
+  )
+  const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
   if (!fitsCurrency(cents, simple.currency)) {
     return refused(
@@ -156,17 +162,18 @@ function edit(
   }
 
   const now = ctx.now()
-  const into = doc.postings.find((p) => toCents(p.amount) > 0)?.accountId
-  const out = doc.postings.find((p) => toCents(p.amount) < 0)?.accountId
-  const fromIncome = out !== undefined && getDocument(db, 'account', out)?.doc.kind === 'income'
-  if (fromIncome && input.to !== undefined && 'category' in input.to) {
-    return refused(failure('INCOME_NOT_TO_ACCOUNT', { accountId: out }))
+  // Only a spend, transfer or income can go elsewhere: a start's and an other's accounts stay.
+  const ends = editable(shape) === 'all' && 'to' in shape ? shape : null
+  if (ends?.shape === 'income' && input.to !== undefined && 'category' in input.to) {
+    return refused(failure('INCOME_NOT_TO_ACCOUNT', { accountId: ends.from.accountId }))
   }
-  // Only money out of an account of mine, or in from income, can go elsewhere: a starting
-  // balance comes from equity.
+  const into = ends?.to.accountId
   const moved =
-    input.to !== undefined && into !== undefined && out !== undefined && movable(db, out, into)
-      ? destination(db, input.to, out, { createdAt: now, deviceId: ctx.ledger.meta.deviceId })
+    ends !== null && input.to !== undefined
+      ? destination(db, input.to, ends.from.accountId, {
+          createdAt: now,
+          deviceId: ctx.ledger.meta.deviceId,
+        })
       : { ok: true as const, value: { id: into, made: [] } }
   if (!moved.ok) return refused(moved)
 
@@ -242,24 +249,6 @@ function namedFor(
   }
   return { id: account.id, made: [account] }
 }
-
-/**
- * Whether an edit can send this money elsewhere: out of an account of mine, into a category or
- * another; or in from income, into an account of mine.
- */
-function movable(db: Database.Database, out: string, into: string): boolean {
-  const kind = (id: string) => getDocument(db, 'account', id)?.doc.kind
-  const to = kind(into)
-  const from = kind(out)
-  return from !== undefined && to !== undefined && sendable(from, to)
-}
-
-/** Whether money from `from` to `to` is one an edit can change: a spend, transfer or income. */
-export const sendable = (from: AccountKind, to: AccountKind) =>
-  (isAddable(from) && goesTo(to)) || (from === INCOME && isAddable(to))
-
-/** Where money from an account of mine can go: a category, or another account of mine. */
-const goesTo = (kind: AccountKind) => kind === 'category' || isAddable(kind)
 
 /** A tombstone in place of the spend, so it counts nowhere; undo writes it back as it was. */
 export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outcome<{ id: string }> {

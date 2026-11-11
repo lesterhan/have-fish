@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { OPENING } from '@have-fish/core/own-accounts'
+  import type { ShapeName } from '@have-fish/core/shapes'
   import { comparedAt } from '@have-fish/core/spending'
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
@@ -39,10 +41,12 @@
     fromPath: string,
     toPath: string,
     description: string,
+    shape: ShapeName = 'spend',
   ): ListedTransaction => ({
     id,
     date,
     description,
+    shape,
     amounts: [cad(amount)],
     simple: cad(amount),
     from: fromPath.split(':').slice(1).join(':'),
@@ -56,9 +60,9 @@
   const ROWS = [
     row('a', TODAY, '16.76', 'liabilities:cibc:visa', 'expenses:health:pharmacy', 'Pharmacy'),
     row('b', TODAY, '15.93', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Lunch'),
-    row('c', '2026-11-04', '200.00', 'assets:tangerine:chequing', 'assets:tangerine:savings', 'Put some away'),
+    row('c', '2026-11-04', '200.00', 'assets:tangerine:chequing', 'assets:tangerine:savings', 'Put some away', 'transfer'),
     row('d', '2026-11-04', '26.32', 'liabilities:cibc:visa', 'expenses:home:supplies', 'Hardware store'),
-    row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair'),
+    row('e', '2026-11-03', '40.00', 'income:sales', 'assets:wallet', 'Sold the old chair', 'income'),
   ]
   const POSTED: ListedTransaction = {
     ...row('p', TODAY, '35.00', 'liabilities:cibc:visa', 'expenses:food:restaurants', 'Cafe'),
@@ -290,7 +294,7 @@
       <Path path="liabilities:cibc:visa" />
       <Path path="expenses:food:restaurants" />
       <Path path="income:salary" />
-      <Path path="equity:opening" />
+      <Path path={OPENING.path} />
     </div>
   </section>
 

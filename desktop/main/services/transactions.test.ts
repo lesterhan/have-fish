@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { contextFor } from '../context'
 import type { Ledger } from '../db/ledger'
-import { aLedgerOf, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { applyLocal } from '../ledger/apply'
+import { aLedgerOf, anAccount, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
 import { liveAccountAt } from '../ledger/store'
 import { addAccount } from './accounts'
 import { removeSpend, writeSpend } from './spends'
@@ -41,6 +42,45 @@ function aWeek() {
 }
 
 const names = (rows: { description: string }[]) => rows.map((t) => t.description)
+
+/** One of each shape, as a file from another computer could hold it; a row by its description. */
+function oneOfEach() {
+  const ledger = tempLedger()
+  const cash = anAccount()
+  const bank = anAccount({ path: 'assets:chequing', kind: 'bank' })
+  const visa = anAccount({ path: 'liabilities:visa', kind: 'card' })
+  const food = anAccount({ path: 'expenses:food', kind: 'category' })
+  const fun = anAccount({ path: 'expenses:fun', kind: 'category' })
+  const salary = anAccount({ path: 'income:salary', kind: 'income' })
+  const opening = anAccount({ path: 'equity:opening', kind: 'opening' })
+  const split = [
+    { accountId: cash.id, amount: '-10.00', currency: 'CAD' },
+    { accountId: food.id, amount: '6.00', currency: 'CAD' },
+    { accountId: fun.id, amount: '4.00', currency: 'CAD' },
+  ]
+  const refund = [
+    { accountId: bank.id, amount: '5.00', currency: 'CAD' },
+    { accountId: food.id, amount: '-5.00', currency: 'CAD' },
+  ]
+  ok(
+    applyLocal(
+      ledger,
+      [
+        ...[cash, bank, visa, food, fun, salary, opening],
+        aSpend(cash.id, food.id, '4.50', { description: 'Spend' }),
+        aSpend(bank.id, cash.id, '100.00', { description: 'Transfer' }),
+        aSpend(salary.id, bank.id, '2000.00', { description: 'Income' }),
+        aSpend(opening.id, bank.id, '300.00', { description: 'Bank start' }),
+        aSpend(visa.id, opening.id, '50.00', { description: 'Card start' }),
+        aSpend(cash.id, food.id, '10.00', { description: 'Split', postings: split }),
+        aSpend(food.id, bank.id, '5.00', { description: 'Refund', postings: refund }),
+      ],
+      NOW,
+    ),
+  )
+  const rows = listTransactions(ledger.db)
+  return (description: string) => rows.find((r) => r.description === description)
+}
 
 describe('a page of the list', () => {
   test('newest day first, and the newest written first within a day', () => {
@@ -148,6 +188,48 @@ describe('a row as the list draws it', () => {
     expect(listTransactions(ledger.db)[0]).toMatchObject({
       fromPath: 'income:pay',
       toPath: 'assets:chequing',
+    })
+  })
+})
+
+describe('a row’s shape', () => {
+  test('each row carries its shape: spend, transfer, income, start, and other for a split', () => {
+    const row = oneOfEach()
+    expect(
+      ['Spend', 'Transfer', 'Income', 'Bank start', 'Split'].map((d) => row(d)?.shape),
+    ).toEqual(['spend', 'transfer', 'income', 'start', 'other'])
+  })
+
+  test('a spend, a transfer and income each list where the money came from and went to', () => {
+    const row = oneOfEach()
+    expect(row('Spend')).toMatchObject({ from: 'cash', to: 'food' })
+    expect(row('Transfer')).toMatchObject({ from: 'chequing', to: 'cash' })
+    expect(row('Income')).toMatchObject({ from: 'salary', to: 'chequing' })
+  })
+
+  test('a bank’s starting balance lists no From or To; a card’s lists the card as From', () => {
+    const row = oneOfEach()
+    expect(row('Bank start')).toMatchObject({ from: null, to: null, fromPath: null, toPath: null })
+    expect(row('Card start')).toMatchObject({
+      from: 'visa',
+      to: null,
+      fromPath: 'liabilities:visa',
+      toPath: null,
+    })
+  })
+
+  test('an other lists no From or To, and its amounts as before', () => {
+    const row = oneOfEach()
+    const none = { from: null, to: null, fromPath: null, toPath: null }
+    expect(row('Refund')).toMatchObject({
+      ...none,
+      amounts: [{ amount: '5.00', currency: 'CAD' }],
+      simple: { amount: '5.00', currency: 'CAD' },
+    })
+    expect(row('Split')).toMatchObject({
+      ...none,
+      amounts: [{ amount: '10.00', currency: 'CAD' }],
+      simple: null,
     })
   })
 })

@@ -1,11 +1,12 @@
 // The ledger's list, a page at a time: newest day first, and newest made first within a day. The
 // window holds the pages around its view and never the whole list (see #608).
 
-import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
+import type { AccountKind } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
 import type { OriginSource } from '@have-fish/core/documents'
 import { format } from '@have-fish/core/money'
-import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
+import type { Leg } from '@have-fish/core/postings'
+import { amountOf, type Shape, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type {
   DayNet,
@@ -16,7 +17,6 @@ import type {
   Values,
 } from '../../shared/commands'
 import { perConnection } from '../db/prepared'
-import { INCOME, sendable } from './spends'
 
 type Head = {
   id: string
@@ -29,7 +29,9 @@ type Head = {
   originLine: number | null
 }
 type Key = { date: string; originCreatedAt: number; version: string; id: string }
-type Row = { transactionId: string; position: number; currency: string; cents: number } & {
+type Row = { transactionId: string; position: number; accountId: string } & {
+  currency: string
+  cents: number
   path: string | null
   kind: AccountKind | null
 }
@@ -80,7 +82,8 @@ const statements = perConnection((_, db) => ({
   ),
   // An account can arrive after its transaction under sync, so it may not be here yet.
   postings: db.prepare<[string], Row>(
-    `SELECT p.transactionId, p.position, p.currency, p.amountCents AS cents, a.path, a.kind
+    `SELECT p.transactionId, p.position, p.accountId, p.currency, p.amountCents AS cents, a.path,
+      a.kind
       FROM postings AS p LEFT JOIN accounts AS a ON a.id = p.accountId
       WHERE p.transactionId IN (SELECT value FROM json_each(?))`,
   ),
@@ -152,26 +155,23 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
   return heads.map((head) => {
     const { id, date, description } = head
     const rows = (legsOf.get(id) ?? []).sort((a, b) => a.position - b.position)
-    const legs: Leg[] = rows.map((r) => ({ cents: r.cents, currency: r.currency }))
-    const paths = rows.map((r) =>
-      r.path === null || r.kind === null ? null : { path: r.path, kind: r.kind },
-    )
-    const simple = simpleAmountOf(legs)
-    const from = simple && paths[legs.findIndex((l) => l.cents < 0)]
-    const to = simple && paths[legs.findIndex((l) => l.cents > 0)]
-    // An account that can pay, or income: a starting balance comes from `equity:opening`.
-    const fromName = from && (isAddable(from.kind) || from.kind === INCOME) ? from : null
-    const toName = from && to && sendable(from.kind, to.kind) ? to : null
+    const accounts = new Map(rows.map((r) => [r.accountId, r]))
+    const shape = shapeOf(rows, (accountId) => accounts.get(accountId)?.kind ?? undefined)
+    const simple = amountOf(shape)
+    const ends = endsOf(shape)
+    const fromPath = ends.from && (accounts.get(ends.from.accountId)?.path ?? null)
+    const toPath = ends.to && (accounts.get(ends.to.accountId)?.path ?? null)
     return {
       id,
       date,
       description,
-      amounts: movedIn(legs),
+      shape: shape.shape,
+      amounts: movedIn(rows),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      from: fromName && nameOf(fromName.path),
-      to: toName && nameOf(toName.path),
-      fromPath: fromName?.path ?? null,
-      toPath: toName?.path ?? null,
+      from: fromPath && nameOf(fromPath),
+      to: toPath && nameOf(toPath),
+      fromPath,
+      toPath,
       legs: rows.map((r) => ({
         amount: format(r.cents),
         currency: r.currency,
@@ -188,8 +188,20 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
   })
 }
 
+/** The postings a row lists as From and To: a starting balance's From is a card or loan's debt. */
+function endsOf(shape: Shape): { from: ShapeLeg | null; to: ShapeLeg | null } {
+  switch (shape.shape) {
+    case 'other':
+      return { from: null, to: null }
+    case 'start':
+      return { from: shape.account.cents < 0 ? shape.account : null, to: null }
+    default:
+      return shape
+  }
+}
+
 /** The sum of the positive legs in each currency, by currency code. */
-function movedIn(legs: Leg[]): Money[] {
+function movedIn(legs: readonly Leg[]): Money[] {
   const moved = new Map<string, number>()
   for (const { cents, currency } of legs) {
     if (cents > 0) moved.set(currency, (moved.get(currency) ?? 0) + cents)
