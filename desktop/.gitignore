@@ -5,3 +5,7 @@ sheet-out/
 shots/
 # Seeded ledgers for trying the app by hand (tools/seed/).
 .sandbox/
+# The scenes' fixtures, recorded fresh by `scenes:record` (scenes/, tools/seed/record.ts).
+scenes/fixtures/
+# The scenes build, for the e2e suite only (vite.scenes.config.ts).
+scenes-out/

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { profileNamed, refuseIfOpen, seedInto, topUp } from './commands'
 import { PROFILES } from './profiles'
+import { record } from './record'
 import {
   DESKTOP,
   hasLedger,
@@ -27,6 +28,7 @@ const HELP = `Seeded ledgers for trying the app by hand. Each lives in desktop/.
   bun run seed restore <profile> <name>  put a kept ledger back
   bun run seed list                      the profiles, and what's seeded
   bun run try <profile>                  open the packaged app on it, seeding it first if need be
+  bun run scenes:record                  the scenes' fixtures, from fresh seeds (starter, year)
 
 Options:
   --today YYYY-MM-DD   the last day of the ledger (default: today)
@@ -158,6 +160,10 @@ function main(argv: string[]) {
   if (tool === 'try') {
     if (!first) throw new Error('try which profile?')
     return tryApp(args, first)
+  }
+  if (tool === 'record') {
+    record(['starter', 'year'], join(DESKTOP, 'scenes', 'fixtures'))
+    return console.log('Recorded scenes/fixtures/starter.json and scenes/fixtures/year.json')
   }
   switch (first) {
     case undefined:
