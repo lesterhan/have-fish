@@ -17,6 +17,7 @@ import {
   SAVINGS,
   spend,
   transfer,
+  UNSORTED,
   VISA,
   WISE_HOLDS,
   wise,
@@ -430,7 +431,7 @@ function everyday(d: Day) {
   }
   // Sometimes the category is left empty: these report as unsorted.
   if (rng.chance(0.012 * life.options.density)) {
-    spend(book, date, CASH, 'expenses:unsorted', rng.cents(3, 20), 'Corner store', {
+    spend(book, date, CASH, UNSORTED, rng.cents(3, 20), 'Corner store', {
       note: 'No category given: reports count it as unsorted',
     })
   }
