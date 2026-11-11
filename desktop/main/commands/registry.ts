@@ -1,5 +1,5 @@
-// Each command the window can run, by name. The names and input schemas are in
-// `shared/commands.ts`; this maps each to the service that does it.
+// Each command the window can run, by name: every feature's handler map, and undo's, assembled.
+// The schemas are in `shared/commands/`.
 
 import { handlers as accounts } from '../features/accounts/commands'
 import { handlers as clipboard } from '../features/clipboard/commands'

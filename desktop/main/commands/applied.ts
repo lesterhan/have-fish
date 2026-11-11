@@ -1,5 +1,5 @@
-// What the services share: the accounts the app makes along the way, and a batch's outcome as
-// a command returns it.
+// What spends and accounts share: the accounts the app makes along the way, and a batch's
+// outcome as a command returns it.
 
 import { randomUUID } from 'node:crypto'
 import type { AccountDoc, PostingDoc } from '@have-fish/core/documents'

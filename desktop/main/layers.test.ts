@@ -129,4 +129,23 @@ describe('the boundaries', () => {
       { file: 'renderer/Reports.svelte', imports: '../main/db/ledger' },
     ])
   })
+
+  it('read every source file, so the rules above are not vacuous', () => {
+    expect(FILES).toEqual(
+      expect.arrayContaining([
+        'main/features/spends/commands.ts',
+        'renderer/Reports.svelte',
+        'shared/commands/index.ts',
+      ]),
+    )
+    const features = ['spends', 'accounts', 'paths', 'reports', 'settings', 'clipboard']
+    expect(EDGES.map(shown)).toEqual(
+      expect.arrayContaining(features.map((f) => `${REGISTRY} → ../features/${f}/commands`)),
+    )
+  })
+
+  it('see registry.ts and shared/commands/index.ts only assemble: neither writes a handler or a schema', () => {
+    expect(readFileSync(join(DESKTOP, REGISTRY), 'utf8')).not.toContain('=>')
+    expect(readFileSync(join(DESKTOP, 'shared/commands/index.ts'), 'utf8')).not.toContain('z.')
+  })
 })
