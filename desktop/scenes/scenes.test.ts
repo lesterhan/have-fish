@@ -18,7 +18,10 @@ describe('SCENES', () => {
 
   test("every scene's name starts with a place, then a slash", () => {
     for (const scene of SCENES) {
-      expect(PLACES).toContain(scene.name.split('/')[0])
+      const [place, state, ...rest] = scene.name.split('/')
+      expect(PLACES).toContain(place)
+      expect(state).toBeTruthy()
+      expect(rest).toEqual([])
     }
   })
 

@@ -30,10 +30,16 @@ export function recordFrom(
 
   const rows: ListedTransaction[] = []
   const nets: DayNet[] = []
+  const netted = new Set<string>()
   for (let from = 0; ; from += 500) {
     const page = ask('transaction.page', { from, limit: 500 })
     rows.push(...page.rows)
-    nets.push(...page.nets)
+    // A page answers the whole day's net, and a day can straddle two pages: take it once.
+    for (const net of page.nets) {
+      if (netted.has(net.date)) continue
+      netted.add(net.date)
+      nets.push(net)
+    }
     if (rows.length >= page.total) break
   }
 

@@ -29,6 +29,7 @@
     "scenes/fixture.test.ts",
     "scenes/bridge.test.ts",
     "scenes/scenes.test.ts",
+    "scenes/steps.test.ts",
     "scenes/door.test.ts",
     "vite.sheet.config.ts",
     "vite.scenes.config.ts",

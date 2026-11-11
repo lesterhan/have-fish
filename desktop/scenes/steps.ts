@@ -14,8 +14,10 @@ export async function run(steps: readonly Step[], bridge: Replay): Promise<void>
       target.dispatchEvent(new KeyboardEvent('keydown', { key: step.key, bubbles: true }))
     } else {
       const found = document.querySelector(step.click)
-      if (found === null) throw new Error(`a click found nothing: ${step.click}`)
-      if (found instanceof HTMLElement) found.click()
+      if (!(found instanceof HTMLElement)) {
+        throw new Error(`a click found nothing it could click: ${step.click}`)
+      }
+      found.click()
     }
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   }

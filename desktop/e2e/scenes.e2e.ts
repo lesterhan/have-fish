@@ -9,17 +9,18 @@ import { expect, onTestFinished, test } from 'vitest'
 import { copy } from '../copy'
 import type { Fixture } from '../scenes/fixture'
 import { SCENES } from '../scenes/scenes'
+import { PANE, WRITE } from './app'
 
 const SPENDS = 'ol[aria-label=Ledger]'
-const WRITE = 'form[aria-label="Write down a spend"]'
-const PANE = 'section[aria-label="The spend"]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const TREE = 'ol[aria-label="Spending by category"]'
 
-/** The year's fixture, as `scenes:record` wrote it. */
-const year = JSON.parse(
-  readFileSync(join(import.meta.dirname, '..', 'scenes', 'fixtures', 'year.json'), 'utf8'),
-) as Fixture
+/** The fixtures, as `scenes:record` wrote them. */
+const fixtureOf = (profile: string): Fixture =>
+  JSON.parse(
+    readFileSync(join(import.meta.dirname, '..', 'scenes', 'fixtures', `${profile}.json`), 'utf8'),
+  ) as Fixture
+const year = fixtureOf('year')
 
 /** The scene named by `name` in a window of its own; none named, the index of scenes. */
 async function openScene(name?: string): Promise<Page> {
@@ -39,6 +40,13 @@ test('ledger/year lists the fixture’s rows', async () => {
   const first = page.locator(`${SPENDS} li`).first()
   await first.waitFor()
   expect(await first.getAttribute('aria-setsize')).toBe(String(year.rows.length))
+})
+
+test('ledger/starter lists the starter fixture’s rows', async () => {
+  const page = await openScene('ledger/starter')
+  const first = page.locator(`${SPENDS} li`).first()
+  await first.waitFor()
+  expect(await first.getAttribute('aria-setsize')).toBe(String(fixtureOf('starter').rows.length))
 })
 
 test('ledger/empty shows the line, as on a first run', async () => {

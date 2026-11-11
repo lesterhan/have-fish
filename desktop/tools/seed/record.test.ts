@@ -85,6 +85,10 @@ describe('recordFrom', () => {
     expect(fixture.rows).toHaveLength(
       asker(ledger)('transaction.page', { from: 0, limit: 500 }).total,
     )
+    // A day straddling the 500-row seam is answered by both pages: the fixture holds it once.
+    const netted = fixture.nets.map((n) => n.date)
+    expect(new Set(netted).size).toBe(netted.length)
+    expect([...netted].sort()).toEqual(fixture.days.map((d) => d.date).sort())
   })
 })
 
