@@ -24,7 +24,8 @@
     "capture": "electron-vite build && bun run sheet && vitest run --config vitest.capture.config.ts",
     "sheet": "vite build -c vite.sheet.config.ts",
     "seed": "bun tools/seed/run.ts seed",
-    "try": "bun tools/seed/run.ts try"
+    "try": "bun tools/seed/run.ts try",
+    "scenes:record": "bun tools/seed/run.ts record"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"
