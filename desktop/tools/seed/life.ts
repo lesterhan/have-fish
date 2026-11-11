@@ -12,12 +12,12 @@ import {
   cardForeign,
   ensureChequing,
   LOAN,
-  OPENING,
+  OPENING_PATH,
   remit,
   SAVINGS,
   spend,
   transfer,
-  UNSORTED,
+  UNSORTED_PATH,
   VISA,
   WISE_HOLDS,
   wise,
@@ -107,7 +107,7 @@ export function openAccounts(book: Book, start: string) {
       'Starting balance',
       [
         [path, cents, cur],
-        [OPENING, -cents, cur],
+        [OPENING_PATH, -cents, cur],
       ],
       { shape: 'opening' },
     )
@@ -431,7 +431,7 @@ function everyday(d: Day) {
   }
   // Sometimes the category is left empty: these report as unsorted.
   if (rng.chance(0.012 * life.options.density)) {
-    spend(book, date, CASH, UNSORTED, rng.cents(3, 20), 'Corner store', {
+    spend(book, date, CASH, UNSORTED_PATH, rng.cents(3, 20), 'Corner store', {
       note: 'No category given: reports count it as unsorted',
     })
   }

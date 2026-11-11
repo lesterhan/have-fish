@@ -16,7 +16,7 @@ import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
-import { accountFor, idOf } from './applied'
+import { accountFor, idOf, postingsOf } from './applied'
 
 /**
  * A spend from the account that paid to its category, a transfer to another account of mine, or
@@ -62,11 +62,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     id: randomUUID(),
     date,
     description: input.description.trim(),
-    postings: legs.map((l) => ({
-      accountId: l.accountId,
-      amount: format(l.cents),
-      currency: l.currency,
-    })),
+    postings: postingsOf(legs),
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }

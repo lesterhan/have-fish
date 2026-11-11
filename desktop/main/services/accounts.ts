@@ -28,7 +28,7 @@ import { perConnection } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, record } from '../undo/steps'
-import { accountFor, idOf } from './applied'
+import { accountFor, idOf, postingsOf } from './applied'
 
 type Made = { createdAt: number; deviceId: string }
 
@@ -144,11 +144,7 @@ function startOf(
     id: randomUUID(),
     date: calendarDateAt(made.createdAt, ctx.timeZone()),
     description: copy.accounts.startDescription,
-    postings: legs.map((l) => ({
-      accountId: l.accountId,
-      amount: format(l.cents),
-      currency: l.currency,
-    })),
+    postings: postingsOf(legs),
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
