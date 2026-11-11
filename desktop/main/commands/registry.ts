@@ -1,13 +1,7 @@
 // Each command the window can run, by name. The names and input schemas are in
 // `shared/commands.ts`; this maps each to the service that does it.
 
-import { assumedFrom, editSpend, removeSpend, writeSpend } from '../features/spends/spends'
-import {
-  daysOfTransactions,
-  pageOfTransactions,
-  positionOf,
-  transactionsWithIds,
-} from '../features/spends/transactions'
+import { handlers as spends } from '../features/spends/commands'
 import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
@@ -16,23 +10,7 @@ import { nextSteps, redoLast, undoLast } from '../undo/steps'
 import type { Handlers } from './handlers'
 
 export const handlers: Handlers = {
-  'spend.write': writeSpend,
-  'spend.assumedFrom': (ctx) => ({ ok: true, value: assumedFrom(ctx) }),
-  'spend.edit': editSpend,
-  'spend.remove': removeSpend,
-  'transaction.page': (ctx, input) => ({
-    ok: true,
-    value: pageOfTransactions(ctx.ledger.db, input),
-  }),
-  'transaction.position': (ctx, { id }) => ({
-    ok: true,
-    value: { at: positionOf(ctx.ledger.db, id) },
-  }),
-  'transaction.days': (ctx) => ({ ok: true, value: daysOfTransactions(ctx.ledger.db) }),
-  'transaction.get': (ctx, { ids }) => ({
-    ok: true,
-    value: transactionsWithIds(ctx.ledger.db, ids),
-  }),
+  ...spends,
   'account.add': addAccount,
   'account.start': startAccount,
   'path.list': (ctx) => ({ ok: true, value: listPaths(ctx.ledger.db) }),
