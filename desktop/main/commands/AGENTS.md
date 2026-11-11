@@ -22,6 +22,7 @@ core (the rest of `main/`). The window reaches main only through a command, whic
   input: `run.test.ts`.
 - A command without a handler fails to compile: `handlers.test.ts`.
 - `registry.ts` and `shared/commands/index.ts` only assemble: `registry.test.ts`, `index.test.ts`.
-- No feature imports another, and nothing outside main imports main: `main/layers.test.ts`.
+- No feature imports another, directly or through the registry, `run.ts` or the schemas' index,
+  and nothing outside main imports main: `main/layers.test.ts`.
 - A write gets its version and outbox row in `main/ledger/`: `ledger/apply.test.ts`, "applyLocal,
   one document", and `ledger/outbox.test.ts`, "a local write".

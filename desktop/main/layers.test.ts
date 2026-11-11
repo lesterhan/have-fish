@@ -2,9 +2,10 @@
  * Keeps main's features apart and the window out of main. A feature in `main/features/<name>/`
  * stands on the core (the rest of `main/`), `shared/`, `copy/` and its own files, never on another
  * feature, and only the registry assembles them, from their `commands.ts`. Their schemas in
- * `shared/commands/` keep apart the same way: only its index assembles them. The window, the
- * sheet, the scenes, the preload, `copy/` and `shared/` import nothing from `main/`: that split
- * is a security boundary.
+ * `shared/commands/` keep apart the same way: only its index assembles them. Neither feature nor
+ * schema reaches the registry, what runs it, or the index, since each holds them all. The window,
+ * the sheet, the scenes, the preload, `copy/` and `shared/` import nothing from `main/`: that
+ * split is a security boundary.
  *
  * Imports are read with TypeScript 5's scanner, as `core/src/layers.test.ts` does, and a
  * component's from its scripts alone. A test may arrange through another feature, so the rules
@@ -68,6 +69,11 @@ const featureOf = (path: string) => /^main\/features\/([^/]+)\//.exec(path)?.[1]
 /** A feature's file of schemas in `shared/commands/`: every one but the index and wire.ts. */
 const isSharedFeature = (path: string) => /^shared\/commands\/(?!index$|wire$)[^/]+$/.test(path)
 
+/** What collects every feature, so a feature reaching it reaches them all. */
+const SHARED_INDEX = ['shared/commands', 'shared/commands/index']
+const SHARED_INDEX_FILE = 'shared/commands/index.ts'
+const RUNS_FEATURES = ['main/commands/registry', 'main/commands/run']
+
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
 
 function breaks(edge: Edge): boolean {
@@ -75,10 +81,10 @@ function breaks(edge: Edge): boolean {
   if (isTest(edge.file) || to === undefined) return false
   const from = featureOf(edge.file)
   const into = featureOf(`${to}/`)
+  if (from !== undefined && RUNS_FEATURES.includes(to)) return true
+  const schemaFile = edge.file.startsWith('shared/commands/') && edge.file !== SHARED_INDEX_FILE
+  if (schemaFile && (isSharedFeature(to) || SHARED_INDEX.includes(to))) return true
   if (into !== undefined && from !== undefined) return from !== into
-  if (isSharedFeature(to) && edge.file.startsWith('shared/commands/')) {
-    return edge.file !== 'shared/commands/index.ts'
-  }
   if (into !== undefined) return edge.file !== REGISTRY || to !== `main/features/${into}/commands`
   return OUTSIDE_MAIN.includes(edge.file.split('/')[0] ?? '') && to.split('/')[0] === 'main'
 }
@@ -131,6 +137,22 @@ describe('the boundaries', () => {
       { file: 'shared/steps.ts', imports: './commands/spends' },
     ]
     expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('refuse a file in shared/commands reaching another feature through the index', () => {
+    const edges = [
+      { file: 'shared/commands/reports.ts', imports: '.' },
+      { file: 'shared/commands/reports.ts', imports: './index' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
+  })
+
+  it('refuse a feature reaching another through the registry or what runs it', () => {
+    const edges = [
+      { file: 'main/features/reports/reports.ts', imports: '../../commands/registry' },
+      { file: 'main/features/reports/reports.ts', imports: '../../commands/run' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
   })
 
   it('let a test arrange through another feature', () => {
