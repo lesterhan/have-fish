@@ -187,22 +187,25 @@ before any work that touches the UI.
 
 ### Naming
 
-Uniform titles and branches: the branch leads with the work's key, the title doesn't.
+Uniform titles and branches: both lead with the work's key.
 
-**PR title** — `[scope] Imperative description`
+**PR title** — `[key] Imperative description`
 
 ```
-[core]          Add the ledger documents and their checks
-[trust-signals] Story 2 — rollup tiles carry their as-of
-[mobile-cash]   Fix keyboard overlap on bottom sheets
-[accounts]      Fix the tab strip, which ignored clicks
-[repo]          Add a pull request template
+[core-3]          Add the ledger documents and their checks
+[trust-signals-2] Rollup tiles carry their as-of
+[desktop-32]      Fix keyboard overlap on bottom sheets
+[desktop-30]      Drop Kind before a name at the size the window opens
+[issue-282]       Fix expense labeling
+[repo]            Add a pull request template
 ```
 
-- **scope** is the epic slug when the work belongs to a current-app epic, otherwise the surface
-  or area in one word (`core`, `desktop`, `accounts`, `import`, `mobile`, `design`, `repo`, `ci`).
-- A current-app epic's stories carry `Story N — ` after the scope, matching the story numbers in
-  the epic file. One story per PR.
+- **key** is the work item's key, in lower case and the same one the branch leads with
+  (`Desktop-48` → `desktop-48`). A current-app epic's story is its slug and story number
+  (`trust-signals-2`); a GitHub issue is `issue-N`. One story per PR, so the number is the key's.
+- **No note, no number.** Work with nothing in the backlog yet (a CI fix, a README patch, a
+  release step) takes the area or surface in one word instead: `repo`, `ci`, `design`, `core`,
+  `accounts`, `import`, `mobile`.
 - Imperative mood, no trailing full stop, ~70 characters so GitHub's list view doesn't truncate
   it.
 
@@ -215,8 +218,7 @@ trust-signals-2/rollup-as-of
 issue-282/expense-labels
 ```
 
-- **key** is the work item's key, lowercased (`Core-3` → `core-3`). A current-app epic's story is
-  its slug and story number (`trust-signals-2`); a GitHub issue is `issue-N`.
+- **key** is the title's: `Core-3` → `core-3`, `trust-signals-2`, `issue-282`.
 - **description** is two or three words, hyphenated — enough to recognise in `git branch`, not
   the whole title.
 - No author prefix: the key says what it is, and the PR says who.
@@ -236,7 +238,7 @@ git checkout -b <key>/<short-description>
 # 2. implement, commit
 git push -u origin <key>/<short-description>
 
-# 3. open the PR on GitHub, titled [scope] Description, body from the template
+# 3. open the PR on GitHub, titled [key] Description, body from the template
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge
