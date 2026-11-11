@@ -1,24 +1,24 @@
 // What the window can ask main to do: each command's name, the input its schema takes, and the
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
-import type { AccountKind } from '@have-fish/core/account-kind'
 import { z } from 'zod'
 import { DENSITIES, type Density } from '../density'
 import type { StepName } from '../steps'
 import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
 import { type AccountValues, accountInputs } from './accounts'
+import { type PathValues, pathInputs } from './paths'
 import { type SpendValues, spendInputs } from './spends'
 import { type Changed, date, type Money, type Typing, type Wire } from './wire'
 
 export * from './accounts'
+export * from './paths'
 export * from './spends'
 export * from './wire'
 
 export const inputs = {
   ...spendInputs,
   ...accountInputs,
-  /** Every account and category, for a path picker: its whole path, kind and last use. */
-  'path.list': z.strictObject({}),
+  ...pathInputs,
   /** What went to each category from `start` to `end`, both days in it. */
   'report.spending': z.strictObject({ start: date, end: date }),
   'ledger.undo': z.strictObject({}),
@@ -34,16 +34,6 @@ export const inputs = {
   'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
 }
 
-/** An account or category as a path picker offers it. */
-export type ListedPath = {
-  id: string
-  /** Its whole path, root and all: `expenses:food:coffee`. */
-  path: string
-  kind: AccountKind
-  /** UTC ms of the latest live transaction that used it; null if none has. */
-  lastUsed: number | null
-}
-
 /** One spend's money in one category, as a report sums it. */
 export type ReportedSpend = {
   /** The transaction's id. */
@@ -56,9 +46,7 @@ export type ReportedSpend = {
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
 export type Moved = { spends: string[]; accounts: string[] }
 
-export interface Values extends SpendValues, AccountValues {
-  /** Every live account and category, by path. */
-  'path.list': ListedPath[]
+export interface Values extends SpendValues, AccountValues, PathValues {
   /**
    * In the home currency, `currency`, oldest day first. `other` is what went to categories in
    * each other currency, by code: none that sum to zero.

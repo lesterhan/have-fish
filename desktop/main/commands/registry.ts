@@ -2,7 +2,7 @@
 // `shared/commands.ts`; this maps each to the service that does it.
 
 import { handlers as accounts } from '../features/accounts/commands'
-import { listPaths } from '../features/paths/paths'
+import { handlers as paths } from '../features/paths/commands'
 import { handlers as spends } from '../features/spends/commands'
 import { spendingIn } from '../services/reports'
 import { getDensity, setDensity, setTheme } from '../services/settings'
@@ -12,7 +12,7 @@ import type { Handlers } from './handlers'
 export const handlers: Handlers = {
   ...spends,
   ...accounts,
-  'path.list': (ctx) => ({ ok: true, value: listPaths(ctx.ledger.db) }),
+  ...paths,
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,
