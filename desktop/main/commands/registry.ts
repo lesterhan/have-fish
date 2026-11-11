@@ -4,8 +4,8 @@
 import { handlers as accounts } from '../features/accounts/commands'
 import { handlers as paths } from '../features/paths/commands'
 import { handlers as reports } from '../features/reports/commands'
+import { getDensity, setDensity, setTheme } from '../features/settings/settings'
 import { handlers as spends } from '../features/spends/commands'
-import { getDensity, setDensity, setTheme } from '../services/settings'
 import { nextSteps, redoLast, undoLast } from '../undo/steps'
 import type { Handlers } from './handlers'
 
