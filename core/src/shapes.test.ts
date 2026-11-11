@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AccountKind } from './account-kind'
-import { amountOf, editable, legsOf, type Shape, type ShapeLeg, shapeOf } from './shapes'
+import { amountOf, legsOf, type Shape, type ShapeLeg, shapeOf } from './shapes'
 
 // One account of each kind, named by its letter; `g` is a second category.
 const KINDS: Record<string, AccountKind> = {
@@ -171,16 +171,11 @@ describe('amountOf', () => {
     })
     expect(amountOf(shapeOf([leg('f', 3), leg('g', 2), leg('c', -5)], kindOf))).toBeNull()
   })
-})
 
-describe('editable', () => {
-  it('a spend, transfer or income all; a start or an other with an amount its amount; else none', () => {
-    const ends = { from: leg('c', -5), to: leg('f', 5) }
-    expect(editable({ shape: 'spend', ...ends })).toBe('all')
-    expect(editable({ shape: 'transfer', ...ends })).toBe('all')
-    expect(editable({ shape: 'income', ...ends })).toBe('all')
-    expect(editable({ shape: 'start', account: leg('b', 5), opening: leg('o', -5) })).toBe('amount')
-    expect(editable({ shape: 'other', amount: { cents: 5, currency: 'CAD' } })).toBe('amount')
-    expect(editable({ shape: 'other', amount: null })).toBe('none')
+  it('a bank start’s amount is the account’s positive leg, not the opening’s', () => {
+    expect(amountOf({ shape: 'start', account: leg('b', 100), opening: leg('o', -100) })).toEqual({
+      cents: 100,
+      currency: 'CAD',
+    })
   })
 })

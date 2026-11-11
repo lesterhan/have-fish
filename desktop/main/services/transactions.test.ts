@@ -70,7 +70,7 @@ function oneOfEach() {
         aSpend(cash.id, food.id, '4.50', { description: 'Spend' }),
         aSpend(bank.id, cash.id, '100.00', { description: 'Transfer' }),
         aSpend(salary.id, bank.id, '2000.00', { description: 'Income' }),
-        aSpend(opening.id, bank.id, '300.00', { description: 'Bank start' }),
+        aSpend(opening.id, bank.id, '100.00', { description: 'Bank start' }),
         aSpend(visa.id, opening.id, '50.00', { description: 'Card start' }),
         aSpend(cash.id, food.id, '10.00', { description: 'Split', postings: split }),
         aSpend(food.id, bank.id, '5.00', { description: 'Refund', postings: refund }),
@@ -216,6 +216,10 @@ describe('a row’s shape', () => {
       fromPath: 'liabilities:visa',
       toPath: null,
     })
+  })
+
+  test('a bank’s starting balance of 100 lists its one amount, 100', () => {
+    expect(oneOfEach()('Bank start')?.simple).toEqual({ amount: '100.00', currency: 'CAD' })
   })
 
   test('an other lists no From or To, and its amounts as before', () => {
