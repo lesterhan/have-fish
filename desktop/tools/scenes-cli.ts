@@ -140,9 +140,7 @@ async function drawn(page: Page, marked: boolean): Promise<void> {
   await page.waitForFunction(() => document.fonts.status === 'loaded')
   await page.evaluate(
     () =>
-      new Promise<void>((done) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => done())),
-      ),
+      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
   )
 }
 
@@ -233,7 +231,11 @@ export function pixelsDifferent(before: string, after: string, out: string): num
   if (result.status !== 0 && result.status !== 1) {
     throw new Error(`compare ${before} ${after}: ${result.stderr.trim()}`)
   }
-  return Number((result.stderr || result.stdout).trim())
+  // `-metric AE` says the count, then the count over the pixels: `100 (1)`.
+  const said = (result.stderr || result.stdout).trim()
+  const count = Number.parseInt(said, 10)
+  if (Number.isNaN(count)) throw new Error(`compare ${before} ${after}: ${said}`)
+  return count
 }
 
 /** The shots of one side, over that side's own build. */
@@ -310,11 +312,12 @@ async function diff(base: string): Promise<void> {
           gone: baseFiles.filter((file) => !branchFiles.includes(file)).sort(),
         }
     rmSync(DIFF, { recursive: true, force: true })
-    for (const [side, files] of [
+    const copies: [string, string[]][] = [
       ['base', [...change.changed, ...change.gone]],
       ['branch', [...change.changed, ...change.added]],
-      ['diff', change.changed],
-    ] as const) {
+      ...(lit ? ([['diff', change.changed]] as [string, string[]][]) : []),
+    ]
+    for (const [side, files] of copies) {
       mkdirSync(join(DIFF, side), { recursive: true })
       for (const file of files) {
         const from = side === 'branch' ? branchOut : side === 'base' ? baseOut : compared
