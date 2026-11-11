@@ -150,22 +150,41 @@ function checkAccount(doc: AccountDoc): Outcome<void> {
 export function readDocument(input: unknown): Outcome<LedgerDocument> {
   const shape = readShape(input)
   if (!shape.ok) return shape
+  return checked(shape.value.type, shape.value)
+}
 
-  const doc = shape.value
-  switch (doc.type) {
-    case 'transaction': {
-      const result = checkTransaction(doc)
-      if (!result.ok) return result
-      return { ok: true, value: canonicalize(doc) }
-    }
-    case 'account': {
+// Generic over the type, so indexing the table by a union type-checks.
+const checked = <T extends DocumentTypeName>(type: T, doc: DocumentOf<T>) =>
+  DOCUMENT_TYPES[type].check(doc)
+
+export type DocumentTypeName = LedgerDocument['type']
+export type DocumentOf<T extends DocumentTypeName> = Extract<LedgerDocument, { type: T }>
+
+/** One type of document. A new type is a schema in DocumentSchema and an entry below. */
+export type DocumentType<D extends LedgerDocument> = {
+  /** Its checks, and its canonical form. */
+  check(doc: D): Outcome<D>
+  /** Lower applies first in a batch, and is sent first. */
+  rank: number
+  /** The document deleted at `now`, with anything a tombstone can't hold taken off. */
+  tombstone(doc: D, now: number): D
+}
+
+export const DOCUMENT_TYPES: { [T in DocumentTypeName]: DocumentType<DocumentOf<T>> } = {
+  account: {
+    check: (doc) => {
       const result = checkAccount(doc)
-      if (!result.ok) return result
-      return { ok: true, value: doc }
-    }
-    default: {
-      const unreachable: never = doc
-      return unreachable
-    }
-  }
+      return result.ok ? { ok: true, value: doc } : result
+    },
+    rank: 0,
+    tombstone: (doc, now) => ({ ...doc, deletedAt: now }),
+  },
+  transaction: {
+    check: (doc) => {
+      const result = checkTransaction(doc)
+      return result.ok ? { ok: true, value: canonicalize(doc) } : result
+    },
+    rank: 1,
+    tombstone: (doc, now) => ({ ...doc, postings: [], deletedAt: now }),
+  },
 }

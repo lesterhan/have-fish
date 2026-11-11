@@ -3,8 +3,9 @@ import type { Version } from '@have-fish/core/version'
 import { describe, expect, test } from 'vitest'
 import { loadClock } from '../db/clock'
 import { applyLocal, applyReceived } from './apply'
+import { countTransactionsUsing } from './document-types'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
-import { countTransactionsUsing, getDocument, pendingReferences } from './store'
+import { getDocument, pendingReferences } from './store'
 
 /** Another device's id. */
 const THERE = 'f0e1d2c3b4a59687'

@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  type AccountDoc,
   AccountOriginSchema,
   AccountSchema,
+  DOCUMENT_TYPES,
+  DocumentSchema,
   PostingSchema,
   readDocument,
   readShape,
+  type TransactionDoc,
   TransactionOriginSchema,
   TransactionSchema,
 } from './documents'
@@ -491,5 +495,47 @@ describe('JSON round trip', () => {
   ])('%s is read back without change', (_title, doc) => {
     const jsonWire = JSON.parse(JSON.stringify(doc))
     expect(readDocument(jsonWire)).toStrictEqual({ ok: true, value: doc })
+  })
+})
+
+describe('DOCUMENT_TYPES', () => {
+  it("has an entry for each of DocumentSchema's types, and no other", () => {
+    const types = DocumentSchema.options.map((o) => o.shape.type.value).sort()
+    expect(Object.keys(DOCUMENT_TYPES).sort()).toEqual(['account', 'transaction'])
+    expect(Object.keys(DOCUMENT_TYPES).sort()).toEqual(types)
+  })
+
+  it('ranks an account before a transaction', () => {
+    expect(DOCUMENT_TYPES.account.rank).toBe(0)
+    expect(DOCUMENT_TYPES.transaction.rank).toBe(1)
+  })
+
+  it("readDocument reads a valid account and a valid transaction through its type's check", () => {
+    const checks = {
+      account: vi.spyOn(DOCUMENT_TYPES.account, 'check'),
+      transaction: vi.spyOn(DOCUMENT_TYPES.transaction, 'check'),
+    }
+    expect(readDocument(ACCOUNT)).toStrictEqual({ ok: true, value: ACCOUNT })
+    expect(readDocument(SPEND)).toStrictEqual({ ok: true, value: SPEND })
+    expect(checks.account).toHaveBeenCalledExactlyOnceWith(ACCOUNT)
+    expect(checks.transaction).toHaveBeenCalledExactlyOnceWith(SPEND)
+    vi.restoreAllMocks()
+  })
+
+  it("a transaction's tombstone takes its postings off and sets deletedAt", () => {
+    const spend: TransactionDoc = { ...SPEND, postings: [...SPEND.postings] }
+    expect(DOCUMENT_TYPES.transaction.tombstone(spend, 1700)).toStrictEqual({
+      ...SPEND,
+      postings: [],
+      deletedAt: 1700,
+    })
+  })
+
+  it("an account's tombstone sets deletedAt and keeps all else", () => {
+    const account: AccountDoc = { ...ACCOUNT }
+    expect(DOCUMENT_TYPES.account.tombstone(account, 1700)).toStrictEqual({
+      ...ACCOUNT,
+      deletedAt: 1700,
+    })
   })
 })

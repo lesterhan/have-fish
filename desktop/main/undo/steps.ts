@@ -2,13 +2,19 @@
 // each as it was before and after. Undo writes the befores again and redo the afters, each as
 // a new version through apply, and only while the ledger still holds what the step left there.
 
-import type { LedgerDocument } from '@have-fish/core/documents'
+import {
+  DOCUMENT_TYPES,
+  type DocumentOf,
+  type DocumentTypeName,
+  type LedgerDocument,
+} from '@have-fish/core/documents'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
 import { compareVersions, type Version } from '@have-fish/core/version'
 import type { Moved, Values } from '../../shared/commands'
 import type { StepName } from '../../shared/steps'
 import type { Context } from '../context'
 import type { BatchOutcome } from '../ledger/apply'
+import { STORED_TYPES } from '../ledger/document-types'
 import { getDocument } from '../ledger/store'
 
 /**
@@ -17,7 +23,7 @@ import { getDocument } from '../ledger/store'
  * new version, and the version follows it.
  */
 export type Change = {
-  type: LedgerDocument['type']
+  type: DocumentTypeName
   id: string
   before: { doc: LedgerDocument | null; version: Version | null }
   after: { doc: LedgerDocument; version: Version }
@@ -124,7 +130,9 @@ function writeBack(ctx: Context, step: Step, direction: Direction): Outcome<Writ
 
   const now = ctx.now()
   const docs = step.changes.map((c) =>
-    direction === 'redo' ? c.after.doc : (c.before.doc ?? tombstoneOf(c.after.doc, now)),
+    direction === 'redo'
+      ? c.after.doc
+      : (c.before.doc ?? tombstoneOf(c.after.doc.type, c.after.doc, now)),
   )
   const applied = ctx.apply(docs, now)
   if (!applied.ok) {
@@ -175,16 +183,15 @@ const keyOf = (d: { type: string; id: string }) => `${d.type}:${d.id}`
 const versionsIn = (applied: BatchOutcome & { ok: true }): Written =>
   new Map(applied.value.written.map((w) => [keyOf(w), w.version]))
 
-function tombstoneOf(doc: LedgerDocument, now: number): LedgerDocument {
-  return doc.type === 'transaction'
-    ? { ...doc, postings: [], deletedAt: now }
-    : { ...doc, deletedAt: now }
-}
+// Generic over the type, so indexing the table by a union type-checks.
+const tombstoneOf = <T extends DocumentTypeName>(type: T, doc: DocumentOf<T>, now: number) =>
+  DOCUMENT_TYPES[type].tombstone(doc, now)
 
 const NOTHING: Moved = { spends: [], accounts: [] }
 
-const movedBy = (step: Step): Moved =>
-  step.shows ?? {
-    spends: step.changes.filter((c) => c.type === 'transaction').map((c) => c.id),
-    accounts: step.changes.filter((c) => c.type === 'account').map((c) => c.id),
-  }
+function movedBy(step: Step): Moved {
+  if (step.shows) return step.shows
+  const moved: Moved = { spends: [], accounts: [] }
+  for (const c of step.changes) moved[STORED_TYPES[c.type].shows].push(c.id)
+  return moved
+}

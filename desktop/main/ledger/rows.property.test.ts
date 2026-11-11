@@ -4,7 +4,7 @@ import { readVersioned } from '@have-fish/core/versioned'
 import fc from 'fast-check'
 import { expect, test } from 'vitest'
 import { account, transaction } from './arbitrary'
-import { docOf, rowsOf } from './rows'
+import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
 
 const RUNS = { numRuns: 300 }
 
@@ -26,8 +26,8 @@ test.each([
 test('a transaction comes back from its rows as the same JSON text', () => {
   fc.assert(
     fc.property(transaction, (v) => {
-      const { transaction: row, postings } = rowsOf(v)
-      expect(JSON.stringify(docOf(row, postings))).toBe(JSON.stringify(v))
+      const { transaction: row, postings } = transactionRows(v)
+      expect(JSON.stringify(transactionOf(row, postings))).toBe(JSON.stringify(v))
     }),
     RUNS,
   )
@@ -36,7 +36,7 @@ test('a transaction comes back from its rows as the same JSON text', () => {
 test('an account comes back from its row as the same JSON text', () => {
   fc.assert(
     fc.property(account, (v) => {
-      expect(JSON.stringify(docOf(rowsOf(v).account))).toBe(JSON.stringify(v))
+      expect(JSON.stringify(accountOf(accountRows(v).account))).toBe(JSON.stringify(v))
     }),
     RUNS,
   )

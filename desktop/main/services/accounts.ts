@@ -43,7 +43,7 @@ function nameTaken(db: Database.Database, name: string): string | undefined {
   for (const root of ADDABLE_ROOTS) {
     const id = liveAccountAt(db, `${root}:${name}`)
     const found = id === undefined ? null : getDocument(db, 'account', id)
-    if (found?.doc.type === 'account') return nameOf(found.doc.path)
+    if (found !== null) return nameOf(found.doc.path)
   }
   return undefined
 }

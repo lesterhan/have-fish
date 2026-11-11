@@ -5,11 +5,12 @@ import type { Versioned } from '@have-fish/core/versioned'
 import Database from 'better-sqlite3'
 import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { migrate } from '../db/migrate'
 import { MIGRATIONS } from '../db/migrations'
 import { transactions } from '../db/schema'
-import { currenciesPostedTo, getDocument, putDocument } from './store'
+import { STORED_TYPES } from './document-types'
+import { getDocument, putDocument } from './store'
 
 const NOW = Date.UTC(2026, 9, 29, 12)
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
@@ -193,31 +194,6 @@ describe('putDocument and getDocument', () => {
   })
 })
 
-describe('currenciesPostedTo', () => {
-  test('the distinct currencies posted to an account, sorted', () => {
-    const conversion = (id: string, legs: [string, string, string][]) => ({
-      doc: {
-        ...SPEND.doc,
-        id,
-        postings: legs.map(([accountId, amount, currency]) => ({ accountId, amount, currency })),
-      },
-      version: V1,
-    })
-    putDocument(
-      db,
-      conversion('00000000-0000-4000-8000-000000000011', [
-        [CARD, '-1500', 'JPY'],
-        [GROCERIES, '1500', 'JPY'],
-        [CARD, '-5.00', 'CAD'],
-        [GROCERIES, '5.00', 'CAD'],
-      ]),
-    )
-
-    expect(currenciesPostedTo(db, CARD)).toEqual(['CAD', 'JPY'])
-    expect(currenciesPostedTo(db, RESTAURANTS)).toEqual([])
-  })
-})
-
 describe('a failed put', () => {
   // Makes the posting insert fail, after the root row is already written.
   const breakPostings = () =>
@@ -238,6 +214,17 @@ describe('a failed put', () => {
     }
     expect(() => putDocument(db, edit)).toThrow('boom')
     expect(getDocument(db, 'transaction', SPEND_ID)).toEqual(SPEND)
+  })
+
+  test("any type's put is whole: one that throws after writing leaves nothing", () => {
+    const { put } = STORED_TYPES.account
+    const half = vi.spyOn(STORED_TYPES.account, 'put').mockImplementation((d, v) => {
+      put(d, v)
+      throw new Error('boom')
+    })
+    onTestFinished(() => half.mockRestore())
+    expect(() => putDocument(db, cash(CARD))).toThrow('boom')
+    expect(count('accounts')).toBe(0)
   })
 
   test("inside a caller's transaction, rolls back with it", () => {
