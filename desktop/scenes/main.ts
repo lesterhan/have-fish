@@ -40,4 +40,7 @@ async function show(scene: Scene) {
   window.haveFish = bridge
   await import('../renderer/main')
   await run(scene.steps, bridge)
+  // The state is drawn and the fonts are in: a shot waits for this, never for a timer.
+  await document.fonts.ready
+  document.body.dataset.scene = 'ready'
 }
