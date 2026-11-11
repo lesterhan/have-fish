@@ -1,7 +1,7 @@
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import { describe, expect, test } from 'vitest'
-import { docOf, rowsOf } from './rows'
+import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
 
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
 const ACCOUNT_ID = '00000000-0000-4000-8000-000000000002'
@@ -50,7 +50,7 @@ const ACCOUNT: Versioned<AccountDoc> = {
 
 describe('rowsOf', () => {
   test('a two-leg spend is a transaction row and a posting row per leg, in order', () => {
-    expect(rowsOf(SPEND)).toEqual({
+    expect(transactionRows(SPEND)).toEqual({
       transaction: {
         id: SPEND_ID,
         date: '2026-10-29',
@@ -84,7 +84,7 @@ describe('rowsOf', () => {
   })
 
   test('account pathKey is lowercased, path is unchanged', () => {
-    expect(rowsOf(ACCOUNT)).toEqual({
+    expect(accountRows(ACCOUNT)).toEqual({
       account: {
         id: ACCOUNT_ID,
         deletedAt: null,
@@ -104,7 +104,7 @@ describe('rowsOf', () => {
   })
 
   test("an import's file, line and text fill their columns", () => {
-    const { transaction } = rowsOf({ ...SPEND, doc: { ...SPEND.doc, origin: IMPORTED } })
+    const { transaction } = transactionRows({ ...SPEND, doc: { ...SPEND.doc, origin: IMPORTED } })
     expect(transaction).toMatchObject({
       originSource: 'import',
       originCreatedAt: MADE.createdAt,
@@ -118,8 +118,8 @@ describe('rowsOf', () => {
 
 describe('docOf', () => {
   test('transaction round trip does not change a document', () => {
-    const { transaction, postings } = rowsOf(SPEND)
-    expect(docOf(transaction, postings)).toEqual(SPEND)
+    const { transaction, postings } = transactionRows(SPEND)
+    expect(transactionOf(transaction, postings)).toEqual(SPEND)
   })
 
   test.each([
@@ -128,20 +128,20 @@ describe('docOf', () => {
     ['system', { source: 'system', ...MADE } as const],
   ])('a %s transaction comes back as it went in', (_title, origin) => {
     const spend = { ...SPEND, doc: { ...SPEND.doc, origin } }
-    const { transaction, postings } = rowsOf(spend)
-    expect(docOf(transaction, postings)).toEqual(spend)
+    const { transaction, postings } = transactionRows(spend)
+    expect(transactionOf(transaction, postings)).toEqual(spend)
   })
 
   test('account round trip does not change a document', () => {
-    const { account } = rowsOf(ACCOUNT)
-    expect(docOf(account)).toEqual(ACCOUNT)
+    const { account } = accountRows(ACCOUNT)
+    expect(accountOf(account)).toEqual(ACCOUNT)
   })
 
   test('a locked account keeps its currency in its column', () => {
     const locked = { ...ACCOUNT, doc: { ...ACCOUNT.doc, currency: 'CAD' } }
-    const { account } = rowsOf(locked)
+    const { account } = accountRows(locked)
     expect(account.currency).toBe('CAD')
-    expect(docOf(account)).toEqual(locked)
+    expect(accountOf(account)).toEqual(locked)
   })
 
   test('tombstoned doc has no postings, return unchanged', () => {
@@ -155,8 +155,8 @@ describe('docOf', () => {
       ...SPEND,
       doc: tombstonedDoc,
     }
-    const { transaction, postings } = rowsOf(tombstonedSpend)
-    const doc = docOf(transaction, postings)
+    const { transaction, postings } = transactionRows(tombstonedSpend)
+    const doc = transactionOf(transaction, postings)
     expect(doc).toEqual({ doc: tombstonedDoc, version: VERSION })
     expect(postings).toEqual([])
   })
@@ -171,8 +171,8 @@ describe('docOf', () => {
       ...ACCOUNT,
       doc: tombstonedDoc,
     }
-    const { account } = rowsOf(tombstonedAccount)
-    const doc = docOf(account)
+    const { account } = accountRows(tombstonedAccount)
+    const doc = accountOf(account)
     expect(doc).toEqual({ doc: tombstonedDoc, version: VERSION })
   })
 
@@ -190,36 +190,41 @@ describe('docOf', () => {
         ],
       },
     }
-    const { transaction, postings } = rowsOf(conversion)
+    const { transaction, postings } = transactionRows(conversion)
     expect(transaction.description).toBe('')
-    expect(docOf(transaction, postings)).toEqual(conversion)
+    expect(transactionOf(transaction, postings)).toEqual(conversion)
   })
 
   test('postings come back in position order, whatever order the rows arrive in', () => {
-    const { transaction, postings } = rowsOf(SPEND)
-    expect(docOf(transaction, postings.toReversed())).toEqual(SPEND)
+    const { transaction, postings } = transactionRows(SPEND)
+    expect(transactionOf(transaction, postings.toReversed())).toEqual(SPEND)
   })
 
   test('a row whose version does not parse is refused, naming the row', () => {
-    const { transaction, postings } = rowsOf(SPEND)
-    expect(() => docOf({ ...transaction, version: 'not a version' }, postings)).toThrow(
+    const { transaction, postings } = transactionRows(SPEND)
+    expect(() => transactionOf({ ...transaction, version: 'not a version' }, postings)).toThrow(
       `${SPEND_ID} has "not a version"`,
     )
-    const { account } = rowsOf(ACCOUNT)
-    expect(() => docOf({ ...account, version: '' })).toThrow(`${ACCOUNT_ID} has ""`)
+    const { account } = accountRows(ACCOUNT)
+    expect(() => accountOf({ ...account, version: '' })).toThrow(`${ACCOUNT_ID} has ""`)
   })
 
   test('an imported row without its file, line or text is refused, naming the row', () => {
-    const { transaction, postings } = rowsOf({ ...SPEND, doc: { ...SPEND.doc, origin: IMPORTED } })
+    const { transaction, postings } = transactionRows({
+      ...SPEND,
+      doc: { ...SPEND.doc, origin: IMPORTED },
+    })
     for (const missing of ['originFile', 'originLine', 'originText'] as const) {
-      expect(() => docOf({ ...transaction, [missing]: null }, postings)).toThrow(
+      expect(() => transactionOf({ ...transaction, [missing]: null }, postings)).toThrow(
         `${SPEND_ID} is an import without its file, line or text`,
       )
     }
   })
 
   test('an account row that says it was imported is refused, naming the row', () => {
-    const { account } = rowsOf(ACCOUNT)
-    expect(() => docOf({ ...account, originSource: 'import' })).toThrow(`${ACCOUNT_ID} is imported`)
+    const { account } = accountRows(ACCOUNT)
+    expect(() => accountOf({ ...account, originSource: 'import' })).toThrow(
+      `${ACCOUNT_ID} is imported`,
+    )
   })
 })

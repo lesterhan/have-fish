@@ -4,15 +4,22 @@
 import { isDeepStrictEqual } from 'node:util'
 import { type Clock, MAX_DRIFT_MS, receive, tick } from '@have-fish/core/clock'
 import { decide } from '@have-fish/core/decide'
-import { type LedgerDocument, readDocument, type TransactionDoc } from '@have-fish/core/documents'
+import {
+  DOCUMENT_TYPES,
+  type DocumentOf,
+  type DocumentTypeName,
+  type LedgerDocument,
+  readDocument,
+} from '@have-fish/core/documents'
 import type { Failure } from '@have-fish/core/outcome'
 import { formatVersion, type Version } from '@have-fish/core/version'
 import { readVersioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
+import { STORED_TYPES, type WrittenItem } from './document-types'
 import { enqueue, supersede } from './outbox'
-import { countTransactionsUsing, currenciesPostedTo, getDocument, putDocument } from './store'
+import { getDocument, putDocument } from './store'
 
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
 
@@ -37,9 +44,9 @@ const refusal = (at: number, failure: Failure): Refusal => ({ at, ...failure })
 /** A checked document, and where it was in the batch as passed. */
 type Item = { at: number; doc: LedgerDocument }
 
-/** Accounts before transactions, so one batch can make an account and post to it. Stable. */
-const accountsFirst = <T extends Item>(items: T[]) =>
-  items.toSorted((a, b) => Number(a.doc.type !== 'account') - Number(b.doc.type !== 'account'))
+/** Lowest rank first, so one batch can make an account and post to it. Stable. */
+export const byRank = <T extends { doc: LedgerDocument }>(items: T[]) =>
+  items.toSorted((a, b) => DOCUMENT_TYPES[a.doc.type].rank - DOCUMENT_TYPES[b.doc.type].rank)
 
 // Thrown inside the transaction to roll it back, and caught outside it.
 class Refused extends Error {
@@ -61,7 +68,7 @@ export function applyLocal(ledger: Ledger, docs: unknown[], now: number): BatchO
   }
 
   try {
-    const items = accountsFirst(read)
+    const items = byRank(read)
     return { ok: true, value: ledger.db.transaction(() => writeLocal(ledger, items, now))() }
   } catch (e) {
     if (e instanceof Refused) return { ok: false, failure: e.refusal }
@@ -87,7 +94,7 @@ export function applyReceived(ledger: Ledger, items: unknown[], now: number): Ap
     let clock = loadClock(db)
     const applied: Applied = { written: [], same: 0, stale: 0, refused, clockAhead: false }
 
-    for (const { at, doc, version } of accountsFirst(read)) {
+    for (const { at, doc, version } of byRank(read)) {
       const received = receive(clock, version, now)
       if (!received.ok) {
         refused.push(refusal(at, received.failure))
@@ -113,15 +120,15 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   const { db } = ledger
   let clock = loadClock(db)
   const written: Written[] = []
-  /** Locks this batch sets, by account: the last word on each is the one checked. */
-  const locks = new Map<string, { at: number; locked: string }>()
+  const batch: WrittenItem<LedgerDocument>[] = []
 
   for (const { at, doc } of items) {
     const ticked = tick(clock, now, ledger.meta.deviceId)
     clock = ticked.clock
     const { version } = ticked
 
-    if (doc.type === 'transaction') checkPostedAccounts(db, at, doc)
+    const failure = checkEach(doc.type, db, at, doc)
+    if (failure !== null) throw new Refused(refusal(at, failure))
     const { decision, stored, previous } = store(db, doc, version, { at })
     // The clock has seen every version in this file, so a tick beats them all. If it doesn't,
     // the file holds a version the clock never saw: a bug, not an edit to drop quietly.
@@ -133,24 +140,33 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     }
     written.push({ type: doc.type, id: doc.id, version })
     enqueue(db, { doc, version })
-
-    // Only a lock this write sets: a rename keeps whatever the lock already holds.
-    if (doc.type === 'account') {
-      const was = previous?.type === 'account' ? previous.currency : null
-      if (doc.currency === null) locks.delete(doc.id)
-      else if (doc.currency !== was) locks.set(doc.id, { at, locked: doc.currency })
-    }
+    batch.push({ at, doc, previous })
   }
 
-  // After the whole batch, so deleting an account with the transactions that used it succeeds,
-  // and so does locking one in the batch that moves its other currencies off it.
-  for (const { at, doc } of items) {
-    if (doc.type === 'account' && doc.deletedAt !== null) checkUnused(db, at, doc.id)
+  for (const type of Object.keys(STORED_TYPES) as DocumentTypeName[]) {
+    const refused = checkBatch(type, db, batch)
+    if (refused !== null) throw new Refused(refused)
   }
-  for (const [accountId, { at, locked }] of locks) checkLockFits(db, at, accountId, locked)
 
   saveClock(db, clock)
   return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }
+}
+
+const checkEach = <T extends DocumentTypeName>(
+  type: T,
+  db: Database.Database,
+  at: number,
+  doc: DocumentOf<T>,
+) => STORED_TYPES[type].checkEach(db, at, doc)
+
+/** A type's check over the items of that type in a local batch. */
+function checkBatch<T extends DocumentTypeName>(
+  type: T,
+  db: Database.Database,
+  batch: WrittenItem<LedgerDocument>[],
+): Refusal | null {
+  const ofType = batch.filter((item): item is WrittenItem<DocumentOf<T>> => item.doc.type === type)
+  return STORED_TYPES[type].checkBatch(db, ofType)
 }
 
 /**
@@ -175,46 +191,3 @@ function store(
 
 /** A clock stuck in the future (a device that once read 2030) is reported, not refused. */
 const isAhead = (clock: Clock, now: number) => clock.wallMs > now + MAX_DRIFT_MS
-
-/** A local posting points at an account this file holds, that is live, in a currency it takes. */
-function checkPostedAccounts(db: Database.Database, at: number, doc: TransactionDoc): void {
-  for (const accountId of new Set(doc.postings.map((p) => p.accountId))) {
-    const account = getDocument(db, 'account', accountId)
-    if (account === null) {
-      throw new Refused({ at, code: 'ACCOUNT_NOT_FOUND', details: { accountId } })
-    }
-    if (account.doc.deletedAt !== null) {
-      throw new Refused({ at, code: 'ACCOUNT_DELETED', details: { accountId } })
-    }
-    const locked = account.doc.currency
-    if (locked === null) continue
-    const other = doc.postings.find((p) => p.accountId === accountId && p.currency !== locked)
-    if (other !== undefined) {
-      throw new Refused({
-        at,
-        code: 'ACCOUNT_CURRENCY_LOCKED',
-        details: { accountId, currency: other.currency, locked },
-      })
-    }
-  }
-}
-
-/** A locally deleted account has no live transactions posting to it. */
-function checkUnused(db: Database.Database, at: number, accountId: string): void {
-  const transactions = countTransactionsUsing(db, accountId)
-  if (transactions > 0) {
-    throw new Refused({ at, code: 'ACCOUNT_IN_USE', details: { accountId, transactions } })
-  }
-}
-
-/** A lock set locally fits what the account already holds. */
-function checkLockFits(db: Database.Database, at: number, accountId: string, locked: string) {
-  const currencies = currenciesPostedTo(db, accountId).filter((c) => c !== locked)
-  if (currencies.length > 0) {
-    throw new Refused({
-      at,
-      code: 'ACCOUNT_HOLDS_OTHER_CURRENCIES',
-      details: { accountId, currencies },
-    })
-  }
-}

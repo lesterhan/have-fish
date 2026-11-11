@@ -2,13 +2,23 @@
 // that writes the document, so the two never disagree; sync reads it and clears it.
 
 import { randomUUID } from 'node:crypto'
-import type { LedgerDocument } from '@have-fish/core/documents'
+import { DOCUMENT_TYPES, type LedgerDocument } from '@have-fish/core/documents'
 import { formatVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
 import { outbox } from '../db/schema'
+
+/** Each type's rank from the table, so the outbox sends in the order a batch applies in. */
+const rankOf = sql.join(
+  [
+    sql`CASE ${outbox.docType}`,
+    ...Object.entries(DOCUMENT_TYPES).map(([type, { rank }]) => sql`WHEN ${type} THEN ${rank}`),
+    sql`END`,
+  ],
+  sql` `,
+)
 
 const statements = perConnection((orm) => ({
   enqueue: orm
@@ -28,7 +38,7 @@ const statements = perConnection((orm) => ({
   queued: orm
     .select()
     .from(outbox)
-    .orderBy(sql`${outbox.docType} = 'account' DESC`, outbox.version)
+    .orderBy(rankOf, outbox.version)
     .limit(sql.placeholder('limit'))
     .prepare(),
   acknowledge: orm
@@ -55,7 +65,7 @@ export function supersede(db: Database.Database, type: LedgerDocument['type'], i
 
 export type OutboxRow = typeof outbox.$inferSelect
 
-/** What waits to be sent: accounts first, so a posting rarely arrives before its account. */
+/** What waits to be sent, by rank: a posting rarely arrives before its account. */
 export function queued(db: Database.Database, limit: number): OutboxRow[] {
   return statements(db).queued.all({ limit })
 }
