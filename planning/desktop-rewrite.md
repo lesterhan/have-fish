@@ -160,6 +160,27 @@ are tracked with the stories.
   postings are replaced together with their transaction, and deletion leaves a tombstone.
 - **Dates** are calendar-day text (`YYYY-MM-DD`). Timestamps are UTC.
 
+### Words for sorts of things
+
+Six ideas each say what sort of thing something is. Each has one word in the code, and no other
+idea uses it. The first two are stored in the ledger file, so renaming them is a migration and a
+change to what sync sends.
+
+| Word | What it says | Values | Never means |
+|---|---|---|---|
+| `type` | Which document: a document's discriminant, and the outbox's `docType` | `account`, `transaction` | anything about an account |
+| `kind` (`AccountKind`) | What an account is, in my words | `cash`, `bank`, `card`, `loan`, `category`, `income`, `opening`, `conversion` | hledger's account type |
+| class (`AccountClass`) | An account's place in the books, from its kind | `asset`, `liability`, `expense`, `income`, `equity` | anything shown: the window never says asset or liability |
+| root | A path's first part, one per class | `assets`, `liabilities`, `expenses`, `income`, `equity` | a class: `asset` is the class, `assets` the root |
+| shape | What a transaction is, from its postings and their accounts' kinds | `spend`, `transfer`, `income`, `start`, `other` | which way it shows |
+| way | Which way a row's money went, as the window shows it, from its shape | `in`, `between`, `out` | anything stored |
+
+- **hledger's account type** (the `type:` tag: Asset, Liability, Equity, Revenue, Expense, Cash,
+  Conversion) is our class, a little finer: Cash and Conversion are kinds here. The export writes
+  it from the kind. In this code, "type" alone is always a document's.
+- **An account can't have a `type` field**, since its document already has `type: 'account'`.
+  That is why an account's sort is its `kind`.
+
 ## Living beside the current app
 
 - **The hosted edition stays the real ledger** until the rewrite reaches R6. Nothing is ported
