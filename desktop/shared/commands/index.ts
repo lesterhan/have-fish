@@ -2,18 +2,18 @@
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
 import { z } from 'zod'
-import { DENSITIES, type Density } from '../density'
 import type { StepName } from '../steps'
-import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
 import { type AccountValues, accountInputs } from './accounts'
 import { type PathValues, pathInputs } from './paths'
 import { type ReportValues, reportInputs } from './reports'
+import { type SettingsValues, settingsInputs } from './settings'
 import { type SpendValues, spendInputs } from './spends'
 import type { Changed, Typing, Wire } from './wire'
 
 export * from './accounts'
 export * from './paths'
 export * from './reports'
+export * from './settings'
 export * from './spends'
 export * from './wire'
 
@@ -26,11 +26,7 @@ export const inputs = {
   'ledger.redo': z.strictObject({}),
   /** What Undo and Redo would take, by name; it changes nothing. */
   'ledger.steps': z.strictObject({}),
-  /** This machine's theme: never the ledger's. */
-  'settings.theme.set': z.strictObject({ theme: z.enum(THEME_CHOICES) }),
-  /** How tightly this machine sets the ledger: never the ledger's. */
-  'settings.density.get': z.strictObject({}),
-  'settings.density.set': z.strictObject({ density: z.enum(DENSITIES) }),
+  ...settingsInputs,
   /** Text the window put together, onto the system clipboard. It writes nothing to the ledger. */
   'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
 }
@@ -38,14 +34,16 @@ export const inputs = {
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
 export type Moved = { spends: string[]; accounts: string[] }
 
-export interface Values extends SpendValues, AccountValues, PathValues, ReportValues {
+export interface Values
+  extends SpendValues,
+    AccountValues,
+    PathValues,
+    ReportValues,
+    SettingsValues {
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved
   'ledger.steps': { undo: StepName | null; redo: StepName | null }
-  'settings.theme.set': { theme: ThemeChoice }
-  'settings.density.get': { density: Density }
-  'settings.density.set': { density: Density }
   'clipboard.copy': null
 }
 
