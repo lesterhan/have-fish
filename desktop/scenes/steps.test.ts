@@ -4,12 +4,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { Replay } from './bridge'
 import type { Step } from './scenes'
-import { run } from './steps'
+import { play, run } from './steps'
 
 class FakeElement {
   clicked = 0
   focused = 0
   value = ''
+  dataset: Record<string, string> = {}
   events: Event[] = []
   click() {
     this.clicked += 1
@@ -139,5 +140,35 @@ describe('run', () => {
     // A button isn't a field, even though it is an element.
     found = new FakeElement()
     await expect(run([{ fill: 'button', text: 'x' }], aBridge())).rejects.toThrow(/button/)
+  })
+})
+
+describe('play', () => {
+  test('marks the page ready only once its steps have run and its fonts are in', async () => {
+    const frames: (() => void)[] = []
+    let fontsIn = () => {}
+    const fonts = new Promise<void>((done) => {
+      fontsIn = done
+    })
+    Object.assign(globalThis, {
+      requestAnimationFrame: (then: () => void) => frames.push(then),
+    })
+    Object.assign(document, { fonts: { ready: fonts } })
+    const body = document.body as unknown as FakeElement
+    const tick = () => new Promise((done) => setTimeout(done, 0))
+
+    const playing = play([{ key: 'Enter' }], aBridge())
+    await tick()
+    // The step waits on a frame that hasn't drawn.
+    expect(body.dataset.scene).toBeUndefined()
+
+    for (const draw of frames.splice(0)) draw()
+    await tick()
+    // The steps are done, the fonts aren't.
+    expect(body.dataset.scene).toBeUndefined()
+
+    fontsIn()
+    await playing
+    expect(body.dataset.scene).toBe('ready')
   })
 })

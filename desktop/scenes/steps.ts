@@ -31,3 +31,10 @@ export async function run(steps: readonly Step[], bridge: Replay): Promise<void>
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   }
 }
+
+/** Runs the steps, then marks the page ready once the fonts are in: a shot waits for this. */
+export async function play(steps: readonly Step[], bridge: Replay): Promise<void> {
+  await run(steps, bridge)
+  await document.fonts.ready
+  document.body.dataset.scene = 'ready'
+}
