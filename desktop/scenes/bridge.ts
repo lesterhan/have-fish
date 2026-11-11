@@ -55,7 +55,10 @@ type Refused = (typeof REFUSED)[number]
 export const handled: Record<Exclude<CommandName, Answered | Refused>, never> = {}
 
 /** The bridge over `fixture`: the window can't tell it from main. */
-export function replayBridge(fixture: Fixture, options?: { density?: Density }): Replay {
+export function replayBridge(
+  fixture: Fixture,
+  options?: { density?: Density | undefined },
+): Replay {
   let density: Density = options?.density ?? 'regular'
   const actionListeners = new Set<(id: string) => void>()
 

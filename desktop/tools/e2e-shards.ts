@@ -17,9 +17,12 @@ if (!Number.isInteger(shards) || shards < 1) {
 /** One display per shard, from here up: clear of the session's own, and of each other. */
 let nextDisplay = 91
 
-/** The suite as CI runs it: every file, the dot reporter. */
+/** The suite as CI runs it: every file, the dot reporter. Positional words name files to run,
+ * as vitest does: `bun run e2e scenes`. None: the whole suite. */
 const vitest = join('node_modules', '.bin', 'vitest')
-const args = ['run', '--config', 'vitest.e2e.config.ts', '--reporter=dot']
+const filter = process.argv.slice(2).filter((word) => !word.startsWith('--'))
+// passWithNoTests: a filter can leave a shard nothing, and that's not a failure.
+const args = ['run', '--config', 'vitest.e2e.config.ts', '--reporter=dot', '--passWithNoTests', ...filter]
 
 const children: ChildProcess[] = []
 process.once('SIGINT', () => {

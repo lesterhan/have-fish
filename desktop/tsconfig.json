@@ -28,7 +28,10 @@
     "renderer/parts/parts.test.ts",
     "scenes/fixture.test.ts",
     "scenes/bridge.test.ts",
+    "scenes/scenes.test.ts",
+    "scenes/door.test.ts",
     "vite.sheet.config.ts",
+    "vite.scenes.config.ts",
     "electron.vite.config.ts"
   ]
 }
