@@ -26,6 +26,9 @@ export type Scene = {
   steps: readonly Step[]
 }
 
+/** The line that writes a spend, as a step's selector finds it. */
+export const COMPOSER = 'form[aria-label="Write down a spend"]'
+
 export const SCENES: readonly Scene[] = [
   { name: 'ledger/empty', fixture: 'empty', steps: [] },
   { name: 'ledger/starter', fixture: 'starter', steps: [] },
@@ -39,7 +42,7 @@ export const SCENES: readonly Scene[] = [
     // Emptied and a key down: the field opens the list of every account and income source.
     steps: [
       { action: 'newSpend' },
-      { fill: 'form[aria-label="Write down a spend"] input[name=from]', text: '' },
+      { fill: `${COMPOSER} input[name=from]`, text: '' },
       { key: 'ArrowDown' },
     ],
   },
@@ -49,8 +52,8 @@ export const SCENES: readonly Scene[] = [
     // The stand-in bridge can't write, so the line says it wasn't saved.
     steps: [
       { action: 'newSpend' },
-      { fill: 'form[aria-label="Write down a spend"] input[name=amount]', text: '12.50' },
-      { fill: 'form[aria-label="Write down a spend"] input[name=description]', text: 'Lunch' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
       { key: 'Enter' },
     ],
   },
@@ -64,8 +67,8 @@ export const SCENES: readonly Scene[] = [
     fixture: 'year',
     steps: [
       { action: 'newSpend' },
-      { fill: 'form[aria-label="Write down a spend"] input[name=amount]', text: '12.50' },
-      { fill: 'form[aria-label="Write down a spend"] input[name=description]', text: 'Lunch' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
     ],
   },
   { name: 'accounts/year', fixture: 'year', steps: [{ action: 'showAccounts' }] },

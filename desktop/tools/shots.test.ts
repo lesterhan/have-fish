@@ -26,9 +26,11 @@ describe('SIZES', () => {
       { name: 'narrow', width: 640, height: 800 },
     ])
   })
+})
 
-  test('names wide, opens and narrow', () => {
-    expect(SIZES.map((size) => size.name)).toEqual(['wide', 'opens', 'narrow'])
+describe('THEMES', () => {
+  test('lists light then dark', () => {
+    expect(THEMES).toEqual(['light', 'dark'])
   })
 })
 
@@ -59,7 +61,6 @@ describe('shotsOf', () => {
     expect(NAMES).toHaveLength(14)
     expect(files).toHaveLength(84)
     expect(new Set(files).size).toBe(84)
-    expect(THEMES).toEqual(['light', 'dark'])
   })
 })
 
@@ -84,6 +85,14 @@ describe('changedShots', () => {
     expect(changedShots(['a.png', 'g.png'], ['a.png'], { 'a.png': 0 }).gone).toEqual(['g.png'])
   })
 
+  test('with no counts, every shot both sides have is changed', () => {
+    expect(changedShots(['a.png', 'g.png'], ['a.png', 'c.png'])).toEqual({
+      changed: ['a.png'],
+      added: ['c.png'],
+      gone: ['g.png'],
+    })
+  })
+
   test('sorts each list, so the page reads the same on every run', () => {
     expect(
       changedShots(['z.png', 'y.png'], ['y.png', 'z.png'], { 'z.png': 3, 'y.png': 1 }),
@@ -92,7 +101,10 @@ describe('changedShots', () => {
       'm.png',
       'z.png',
     ])
-    expect(changedShots(['z.png', 'b.png'], ['b.png'], {}).gone).toEqual(['z.png'])
+    expect(changedShots(['z.png', 'b.png', 'm.png'], ['b.png'], {}).gone).toEqual([
+      'm.png',
+      'z.png',
+    ])
   })
 })
 
@@ -117,9 +129,11 @@ describe('galleryPage', () => {
   })
 
   test('escapes what it writes', () => {
-    const page = galleryPage(shotsOf(['a<b']))
-    expect(page).toContain('<figcaption>a&lt;b · wide · light</figcaption>')
-    expect(page).not.toContain('a<b ·')
+    const page = galleryPage(shotsOf(['a<b/c"d']))
+    expect(page).toContain('<h2>a&lt;b</h2>')
+    expect(page).toContain('<figure id="a&lt;b~c&quot;d.wide.light">')
+    expect(page).toContain('<figcaption>a&lt;b/c&quot;d · wide · light</figcaption>')
+    expect(page).not.toContain('a<b')
   })
 })
 

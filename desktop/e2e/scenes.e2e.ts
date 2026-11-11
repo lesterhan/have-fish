@@ -134,6 +134,7 @@ test('each new scene opens on what it names', { timeout: 120_000 }, async () => 
 test('a scene says it is ready once its steps have run and its fonts loaded', async () => {
   const page = await openScene('ledger/palette')
   await page.waitForSelector('body[data-scene=ready]')
-  // Ready comes after the steps: what they open is on the page too.
-  await page.locator(`${PALETTE} [role=listbox]`).waitFor()
+  // Look once, at the moment it says ready: a wait here would poll past a broken order.
+  expect(await page.locator(`${PALETTE} [role=listbox]`).count()).toBe(1)
+  expect(await page.evaluate(() => document.fonts.status)).toBe('loaded')
 })

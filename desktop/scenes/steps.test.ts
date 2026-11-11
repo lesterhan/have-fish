@@ -24,6 +24,9 @@ class FakeElement {
   }
 }
 
+/** A field a fill can type in; the click and key steps see it as any element. */
+class FakeInput extends FakeElement {}
+
 class FakeKeyboardEvent extends Event {
   key: string
   constructor(type: string, init: { key: string; bubbles?: boolean }) {
@@ -51,6 +54,8 @@ beforeEach(() => {
       querySelector: () => found,
     },
     HTMLElement: FakeElement,
+    HTMLInputElement: FakeInput,
+    HTMLTextAreaElement: FakeInput,
     KeyboardEvent: FakeKeyboardEvent,
     requestAnimationFrame: (then: () => void) => {
       frames += 1
@@ -61,7 +66,14 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  for (const name of ['document', 'HTMLElement', 'KeyboardEvent', 'requestAnimationFrame']) {
+  for (const name of [
+    'document',
+    'HTMLElement',
+    'HTMLInputElement',
+    'HTMLTextAreaElement',
+    'KeyboardEvent',
+    'requestAnimationFrame',
+  ]) {
     Reflect.deleteProperty(globalThis, name)
   }
 })
@@ -107,11 +119,11 @@ describe('run', () => {
   })
 
   test('a fill step focuses its field, sets the text and says it changed', async () => {
-    const field = new FakeElement()
+    const field = new FakeInput()
     found = field
-    await run([{ fill: 'input[name=from]', text: '' }, { key: 'ArrowDown' }], aBridge())
+    await run([{ fill: 'input[name=from]', text: 'Lunch' }, { key: 'ArrowDown' }], aBridge())
     expect(field.focused).toBe(1)
-    expect(field.value).toBe('')
+    expect(field.value).toBe('Lunch')
     const typed = field.events.find((event) => event.type === 'input')
     expect(typed).toBeDefined()
     expect(typed?.bubbles).toBe(true)
@@ -124,7 +136,8 @@ describe('run', () => {
     await expect(run([{ fill: 'input[name=from]', text: 'x' }], aBridge())).rejects.toThrow(
       /input\[name=from\]/,
     )
-    found = { value: '' }
-    await expect(run([{ fill: 'textarea', text: 'x' }], aBridge())).rejects.toThrow(/textarea/)
+    // A button isn't a field, even though it is an element.
+    found = new FakeElement()
+    await expect(run([{ fill: 'button', text: 'x' }], aBridge())).rejects.toThrow(/button/)
   })
 })

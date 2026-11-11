@@ -39,17 +39,22 @@ export function shotsOf(scenes: readonly string[]): Shot[] {
 
 /**
  * What moved between two sets of shot files, by file. `differing` is the pixels that differ for
- * each file both sides have. Each list is sorted, so the page reads the same on every run.
+ * each file both sides have; without it, as on a machine with no compare, every file both sides
+ * have is in `changed`, since none could be compared. Each list is sorted.
  */
 export function changedShots(
   base: readonly string[],
   branch: readonly string[],
-  differing: Record<string, number>,
+  differing?: Record<string, number>,
 ): Change {
   const inBase = new Set(base)
   const inBranch = new Set(branch)
   return {
-    changed: base.filter((file) => inBranch.has(file) && (differing[file] ?? 0) > 0).sort(),
+    changed: base
+      .filter(
+        (file) => inBranch.has(file) && (differing === undefined || (differing[file] ?? 0) > 0),
+      )
+      .sort(),
     added: branch.filter((file) => !inBase.has(file)).sort(),
     gone: base.filter((file) => !inBranch.has(file)).sort(),
   }
@@ -67,22 +72,38 @@ const escaped = (text: string) => text.replace(/[&<>"']/g, (letter) => ESCAPED[l
 
 const CAPTION = /^(.*)\.(wide|opens|narrow)\.(light|dark)\.png$/
 
-/** A shot's caption from its file: `ledger/year · opens · dark`. */
+/** A shot's scene from its file: `ledger~year.wide.light.png` is `ledger/year`. */
+export function sceneOf(file: string): string {
+  const found = CAPTION.exec(file)
+  return found === null ? file : (found[1] ?? file).replaceAll('~', '/')
+}
+
+/** A shot's caption from its file: `ledger/year · wide · light`. */
 function captionOf(file: string): string {
   const found = CAPTION.exec(file)
   if (found === null) return file
-  const [, scene = '', size = '', theme = ''] = found
-  return `${scene.replaceAll('~', '/')} · ${size} · ${theme}`
+  const [, , size = '', theme = ''] = found
+  return `${sceneOf(file)} · ${size} · ${theme}`
 }
 
 /** Where a shot's caption sits: its file without the extension. */
 const anchorOf = (file: string) => file.replace(/\.png$/, '')
 
-/** One shot on a page: its file, what it shows, and where it is anchored. */
-function figureOf(file: string, src: string, alt: string, inner: string): string {
-  return `      <figure id="${escaped(anchorOf(file))}">
-        <img src="${escaped(src)}" alt="${escaped(alt)}">
-${inner}      </figure>`
+/** What a picture of one side is, read out; its own file, for a gallery shot. */
+const SIDES: Record<string, string> = { base: 'Before', branch: 'After', diff: 'The difference' }
+const altOf = (src: string, caption: string) => SIDES[src.split('/')[0] ?? ''] ?? caption
+
+/** One shot on a page: its anchor, its pictures and what it shows. */
+function figureOf(file: string, sources: readonly string[], caption = captionOf(file)): string {
+  const pictures = sources
+    .map((src) => `        <img src="${escaped(src)}" alt="${escaped(altOf(src, caption))}">`)
+    .join('\n')
+  // Three pictures read as columns; one reads as itself.
+  const sides = sources.length > 1 ? ' class="shots"' : ''
+  return `      <figure id="${escaped(anchorOf(file))}"${sides}>
+${pictures}
+        <figcaption>${escaped(caption)}</figcaption>
+      </figure>`
 }
 
 /** The shots grouped by place, in the order the places first appear. */
@@ -100,8 +121,11 @@ function byPlace(shots: readonly Shot[]): Map<string, Shot[]> {
 const PAGE_STYLE = `      :root { color-scheme: light dark }
       body { margin: 0; padding: 2rem; font: 15px/1.4 system-ui, sans-serif }
       h1 { font-size: 1.4rem; margin: 0 0 1.5rem }
-      h2 { font-size: 1.1rem; margin: 2rem 0 1rem; border-bottom: 1px solid #8884; padding-bottom: .3rem }
+      h2 { font-size: 1.1rem; margin: 2rem 0 1rem; border-bottom: 1px solid #8884;
+        padding-bottom: .3rem }
       figure { margin: 0 0 1.5rem }
+      figure.shots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem }
+      figure.shots img { width: 100% }
       figcaption { margin-top: .4rem; color: #666 }
       img { display: block; max-width: 100%; height: auto; border: 1px solid #8884 }`
 
@@ -129,15 +153,9 @@ ${body}
  */
 export function galleryPage(shots: readonly Shot[]): string {
   const sections = [...byPlace(shots)].map(([place, group]) => {
-    const figures = group.map((shot) => {
-      const caption = captionOf(shot.file)
-      return figureOf(
-        shot.file,
-        shot.file,
-        caption,
-        `        <figcaption>${escaped(caption)}</figcaption>\n`,
-      )
-    })
+    const figures = group.map((shot) =>
+      figureOf(shot.file, [shot.file], `${shot.scene} · ${shot.size} · ${shot.theme}`),
+    )
     return `    <section>
       <h2>${escaped(place)}</h2>
 ${figures.join('\n')}
@@ -147,37 +165,7 @@ ${figures.join('\n')}
 }
 
 const DIFF_STYLE = `${PAGE_STYLE}
-      .shots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem }
-      .shots img { width: 100% }
       .note { color: #666 }`
-
-/** One shot of each side a shot has, in columns, its file naming the picture. */
-function diffFigureOf(file: string, lit: boolean): string {
-  const caption = captionOf(file)
-  const pictures = [`base/${file}`, `branch/${file}`]
-  if (lit) pictures.push(`diff/${file}`)
-  const alts = lit ? ['Before', 'After', 'The difference'] : ['Before', 'After']
-  const cells = pictures
-    .map((src, i) => `          <img src="${escaped(src)}" alt="${alts[i] ?? ''}">`)
-    .join('\n')
-  return `      <figure id="${escaped(anchorOf(file))}">
-        <figcaption>${escaped(caption)}</figcaption>
-        <div class="shots">
-${cells}
-        </div>
-      </figure>`
-}
-
-/** One shot a side alone has: no before or after to lay beside it. */
-function oneSideFigureOf(file: string, side: 'base' | 'branch'): string {
-  const caption = captionOf(file)
-  return figureOf(
-    file,
-    `${side}/${file}`,
-    caption,
-    `        <figcaption>${escaped(caption)}</figcaption>\n`,
-  )
-}
 
 /**
  * The page of only what moved: each changed shot's before, after and difference; then the shots
@@ -192,26 +180,32 @@ export function diffPage(result: Change, lit = true): string {
   const sections: string[] = []
   if (!lit) {
     sections.push(
-      '    <p class="note">No compare on this machine: before and after, with nothing marked as different.</p>',
+      '    <p class="note">No compare on this machine: before and after, ' +
+        'with nothing marked as different.</p>',
     )
   }
   if (changed.length > 0) {
     const heading = lit ? 'Changed' : 'Before and after'
+    const figures = changed.map((file) =>
+      figureOf(file, [`base/${file}`, `branch/${file}`, ...(lit ? [`diff/${file}`] : [])]),
+    )
     sections.push(`    <section>
       <h2>${heading}</h2>
-${changed.map((file) => diffFigureOf(file, lit)).join('\n')}
+${figures.join('\n')}
     </section>`)
   }
   if (added.length > 0) {
+    const figures = added.map((file) => figureOf(file, [`branch/${file}`]))
     sections.push(`    <section>
       <h2>Added</h2>
-${added.map((file) => oneSideFigureOf(file, 'branch')).join('\n')}
+${figures.join('\n')}
     </section>`)
   }
   if (gone.length > 0) {
+    const figures = gone.map((file) => figureOf(file, [`base/${file}`]))
     sections.push(`    <section>
       <h2>Gone</h2>
-${gone.map((file) => oneSideFigureOf(file, 'base')).join('\n')}
+${figures.join('\n')}
     </section>`)
   }
   return pageOf('Scenes that moved', DIFF_STYLE, sections.join('\n'))

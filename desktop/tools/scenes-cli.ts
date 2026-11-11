@@ -19,7 +19,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { type Browser, chromium, type Page } from 'playwright-core'
+import { type Browser, chromium, type LaunchOptions, type Page } from 'playwright-core'
 import { SCENES } from '../scenes/scenes'
 import { SCENES_OUT } from '../vite.scenes.config'
 import {
@@ -65,14 +65,16 @@ export function serve(root: string): Promise<{ url: string; close: () => Promise
       response.writeHead(403).end()
       return
     }
+    // Read before the head: a missing file is a 404, not a head already sent.
+    let body: Buffer
     try {
-      response.writeHead(200, {
-        'content-type': TYPES[extname(file)] ?? 'application/octet-stream',
-      })
-      response.end(readFileSync(file))
+      body = readFileSync(file)
     } catch {
       response.writeHead(404).end()
+      return
     }
+    response.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' })
+    response.end(body)
   })
   return new Promise((settle, fail) => {
     server.once('error', fail)
@@ -90,16 +92,21 @@ export function serve(root: string): Promise<{ url: string; close: () => Promise
   })
 }
 
-/** Playwright's Chromium where it is installed, else the machine's Chrome; null for neither. */
-export async function launch(): Promise<Browser | null> {
-  const tries: [string, { channel?: 'chrome' }][] = [
-    ["Playwright's Chromium", {}],
-    ['Chrome', { channel: 'chrome' }],
-  ]
+/** A browser to try: its name for the message, and how Playwright launches it. */
+export type BrowserTry = { name: string; options: LaunchOptions }
+
+/** Playwright's Chromium where it is installed, else the machine's Chrome. */
+const TRIES: readonly BrowserTry[] = [
+  { name: "Playwright's Chromium", options: {} },
+  { name: 'Chrome', options: { channel: 'chrome' } },
+]
+
+/** The first browser that launches, or null after saying which it tried. */
+export async function launch(tries: readonly BrowserTry[] = TRIES): Promise<Browser | null> {
   const missed: string[] = []
-  for (const [name, options] of tries) {
+  for (const { name, options } of tries) {
     try {
-      return await chromium.launch({ ...options, args: SANDBOX })
+      return await chromium.launch({ ...(options ?? {}), args: SANDBOX })
     } catch (error) {
       missed.push(`${name}: ${(error as Error).message.split('\n')[0]}`)
     }
@@ -118,14 +125,20 @@ async function sceneNames(page: Page, url: string): Promise<string[]> {
 }
 
 /** Whether a built side says when a scene is drawn; a base older than the marker does not. */
-async function marked(page: Page, url: string, scene: string | undefined): Promise<boolean> {
-  if (scene === undefined) return false
-  await page.goto(`${url}/?scene=${encodeURIComponent(scene)}`)
+async function probed(browser: Browser, url: string): Promise<boolean> {
+  const page = await browser.newPage()
   try {
-    await page.waitForSelector('body[data-scene=ready]', { timeout: 5_000 })
-    return true
-  } catch {
-    return false
+    const first = (await sceneNames(page, url))[0]
+    if (first === undefined) return false
+    await page.goto(`${url}/?scene=${encodeURIComponent(first)}`)
+    try {
+      await page.waitForSelector('body[data-scene=ready]', { timeout: 5_000 })
+      return true
+    } catch {
+      return false
+    }
+  } finally {
+    await page.close()
   }
 }
 
@@ -133,30 +146,33 @@ async function marked(page: Page, url: string, scene: string | undefined): Promi
 async function drawn(page: Page, marked: boolean): Promise<void> {
   if (marked) {
     await page.waitForSelector('body[data-scene=ready]', { timeout: 30_000 })
-    return
+  } else {
+    // No marker: the page quiets down once its steps have run, then a frame draws it.
+    await page.waitForLoadState('networkidle')
+    await page.waitForFunction(() => document.fonts.status === 'loaded')
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    )
   }
-  // No marker: the page quiets down once its steps have run, then a frame draws it.
-  await page.waitForLoadState('networkidle')
-  await page.waitForFunction(() => document.fonts.status === 'loaded')
-  await page.evaluate(
-    () =>
-      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
-  )
+  // A pane sliding in leaves the edges of its fields a hair different between runs.
+  await page.waitForFunction(() => document.getAnimations().length === 0)
 }
 
 /** Every scene at every size and theme, written under `out`; the shots it wrote. */
-export async function shoot(browser: Browser, url: string, out: string): Promise<Shot[]> {
+async function shoot(browser: Browser, url: string, out: string, marked: boolean): Promise<Shot[]> {
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
   const page = await browser.newPage()
   try {
     const scenes = await sceneNames(page, url)
-    const mark = await marked(page, url, scenes[0])
     for (const size of SIZES) {
       await page.setViewportSize({ width: size.width, height: size.height })
       for (const scene of scenes) {
         await page.goto(`${url}/?scene=${encodeURIComponent(scene)}`)
-        await drawn(page, mark)
+        await drawn(page, marked)
         for (const theme of THEMES) {
           await page.emulateMedia({ colorScheme: theme })
           await page.screenshot({
@@ -172,12 +188,14 @@ export async function shoot(browser: Browser, url: string, out: string): Promise
   }
 }
 
-/** A command's output, or an exit naming it: a build that fails must not read as a shot run. */
+/** A command's output, or an error naming it: a build that fails must not read as a shot run. */
 function run(command: string, args: string[], cwd: string, quiet = false): void {
   const result = spawnSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 1 << 28 })
   if (result.status !== 0) {
-    process.stderr.write(`${result.stdout ?? ''}${result.stderr ?? ''}`)
-    process.exit(result.status ?? 1)
+    const said = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim()
+    throw new Error(
+      `${command} ${args.join(' ')} failed (${result.status ?? 'no exit'})${said ? `:\n${said}` : ''}`,
+    )
   }
   if (!quiet && result.stdout) process.stdout.write(result.stdout)
 }
@@ -195,10 +213,10 @@ function text(command: string, args: string[], cwd: string): string {
 async function shots(): Promise<void> {
   run('bun', ['run', 'scenes'], DESKTOP)
   const browser = await launch()
-  if (browser === null) process.exit(1)
+  if (browser === null) throw new Error('no browser to shoot with')
   const server = await serve(SCENES_OUT)
   try {
-    const written = await shoot(browser, server.url, SHOTS)
+    const written = await shoot(browser, server.url, SHOTS, true)
     console.log(`shots: ${written.length} in ${relative(DESKTOP, SHOTS)}/`)
   } finally {
     await browser.close()
@@ -211,8 +229,7 @@ function gallery(): void {
   const shots = shotsOf(SCENES.map((scene) => scene.name))
   const missing = shots.filter((shot) => !existsSync(join(SHOTS, shot.file)))
   if (missing.length > 0) {
-    console.error(`gallery: ${missing.length} shots missing; run bun run scenes:shots first`)
-    process.exit(1)
+    throw new Error(`gallery: ${missing.length} shots missing; run bun run scenes:shots first`)
   }
   rmSync(GALLERY, { recursive: true, force: true })
   mkdirSync(GALLERY, { recursive: true })
@@ -222,7 +239,7 @@ function gallery(): void {
 }
 
 /** Whether ImageMagick's compare is here to say what pixels differ. */
-export const canCompare = (): boolean => spawnSync('compare', ['-version']).status === 0
+const canCompare = (): boolean => spawnSync('compare', ['-version']).status === 0
 
 /** The pixels that differ between two shots, writing their difference to `out`. */
 export function pixelsDifferent(before: string, after: string, out: string): number {
@@ -238,11 +255,15 @@ export function pixelsDifferent(before: string, after: string, out: string): num
   return count
 }
 
-/** The shots of one side, over that side's own build. */
-async function side(browser: Browser, root: string, out: string): Promise<Shot[]> {
+/**
+ * The shots of one side, over that side's own build. The branch always waits for its ready
+ * marker; only the base is probed, since a base older than the marker has none.
+ */
+async function side(browser: Browser, root: string, out: string, base = false): Promise<Shot[]> {
   const server = await serve(root)
   try {
-    return await shoot(browser, server.url, out)
+    const marked = base ? await probed(browser, server.url) : true
+    return await shoot(browser, server.url, out, marked)
   } finally {
     await server.close()
   }
@@ -258,8 +279,8 @@ async function withBase<T>(base: string, then: (desktop: string) => Promise<T>):
   const repo = text('git', ['rev-parse', '--show-toplevel'], DESKTOP)
   try {
     run('git', ['worktree', 'add', '--detach', worktree, base], repo)
-    // The base's own packages, so its core and its window are the base's, not the branch's.
-    run('bun', ['install', '--frozen-lockfile'], worktree, true)
+    // The base's own packages from bun's cache, so its core is the base's, not the branch's.
+    run('bun', ['install', '--frozen-lockfile', '--offline'], worktree, true)
     run('bun', ['run', 'scenes'], join(worktree, 'desktop'))
     return await then(join(worktree, 'desktop'))
   } finally {
@@ -275,7 +296,7 @@ async function withBase<T>(base: string, then: (desktop: string) => Promise<T>):
 async function diff(base: string): Promise<void> {
   run('bun', ['run', 'scenes'], DESKTOP)
   const browser = await launch()
-  if (browser === null) process.exit(1)
+  if (browser === null) throw new Error('no browser to shoot with')
   const temp = mkdtempSync(join(tmpdir(), 'have-fish-shots-'))
   const branchOut = join(temp, 'branch')
   const baseOut = join(temp, 'base')
@@ -283,14 +304,15 @@ async function diff(base: string): Promise<void> {
   try {
     const branch = await side(browser, SCENES_OUT, branchOut)
     const older = await withBase(base, (desktop) =>
-      side(browser, join(desktop, 'scenes-out'), baseOut),
+      side(browser, join(desktop, 'scenes-out'), baseOut, true),
     )
     const baseFiles = older.map((shot) => shot.file)
     const branchFiles = branch.map((shot) => shot.file)
     const shared = baseFiles.filter((file) => branchFiles.includes(file)).sort()
     const lit = canCompare()
-    const differing: Record<string, number> = {}
+    let differing: Record<string, number> | undefined
     if (lit) {
+      differing = {}
       mkdirSync(compared, { recursive: true })
       for (const file of shared) {
         differing[file] = pixelsDifferent(
@@ -304,25 +326,16 @@ async function diff(base: string): Promise<void> {
         'diff: no ImageMagick compare, so before and after only, nothing marked different',
       )
     }
-    const change: Change = lit
-      ? changedShots(baseFiles, branchFiles, differing)
-      : {
-          changed: shared,
-          added: branchFiles.filter((file) => !baseFiles.includes(file)).sort(),
-          gone: baseFiles.filter((file) => !branchFiles.includes(file)).sort(),
-        }
+    const change: Change = changedShots(baseFiles, branchFiles, differing)
     rmSync(DIFF, { recursive: true, force: true })
-    const copies: [string, string[]][] = [
-      ['base', [...change.changed, ...change.gone]],
-      ['branch', [...change.changed, ...change.added]],
-      ...(lit ? ([['diff', change.changed]] as [string, string[]][]) : []),
+    const copies: [string, string, string[]][] = [
+      ['base', baseOut, [...change.changed, ...change.gone]],
+      ['branch', branchOut, [...change.changed, ...change.added]],
     ]
-    for (const [side, files] of copies) {
-      mkdirSync(join(DIFF, side), { recursive: true })
-      for (const file of files) {
-        const from = side === 'branch' ? branchOut : side === 'base' ? baseOut : compared
-        cpSync(join(from, file), join(DIFF, side, file))
-      }
+    if (lit) copies.push(['diff', compared, change.changed])
+    for (const [name, from, files] of copies) {
+      mkdirSync(join(DIFF, name), { recursive: true })
+      for (const file of files) cpSync(join(from, file), join(DIFF, name, file))
     }
     writeFileSync(join(DIFF, 'index.html'), diffPage(change, lit))
     console.log(
@@ -338,13 +351,19 @@ async function diff(base: string): Promise<void> {
 const isMain =
   process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 
-if (isMain) {
+async function main(): Promise<void> {
   const [command, base] = process.argv.slice(2)
   if (command === 'shots') await shots()
   else if (command === 'gallery') gallery()
   else if (command === 'diff' && base !== undefined) await diff(base)
-  else {
-    console.error('usage: bun tools/scenes-cli.ts shots | gallery | diff <base>')
+  else throw new Error('usage: bun tools/scenes-cli.ts shots | gallery | diff <base>')
+}
+
+if (isMain) {
+  try {
+    await main()
+  } catch (error) {
+    console.error((error as Error).message)
     process.exit(1)
   }
 }
