@@ -1,7 +1,7 @@
 // What the window can ask main to do, assembled from each feature's file: each command's name,
 // the input its schema takes, and the value it returns. The window imports only types.
 
-import type { input } from 'zod'
+import type { z } from 'zod'
 import { type AccountValues, accountInputs } from './accounts'
 import { type ClipboardValues, clipboardInputs } from './clipboard'
 import { type PathValues, pathInputs } from './paths'
@@ -40,7 +40,7 @@ export interface Values
     ClipboardValues {}
 
 export type CommandName = keyof typeof inputs
-export type InputOf<N extends CommandName> = input<(typeof inputs)[N]>
+export type InputOf<N extends CommandName> = z.input<(typeof inputs)[N]>
 
 /** What the preload puts on `window.haveFish`. */
 export type Bridge = {

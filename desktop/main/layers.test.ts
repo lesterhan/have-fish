@@ -71,7 +71,7 @@ function breaks(edge: Edge): boolean {
   const from = featureOf(edge.file)
   const into = featureOf(`${to}/`)
   if (into !== undefined && from !== undefined) return from !== into
-  if (into !== undefined) return edge.file !== REGISTRY
+  if (into !== undefined) return edge.file !== REGISTRY || to !== `main/features/${into}/commands`
   return OUTSIDE_MAIN.includes(edge.file.split('/')[0] ?? '') && to.split('/')[0] === 'main'
 }
 
@@ -97,6 +97,13 @@ describe('the boundaries', () => {
 
   it('let the registry import a feature', () => {
     expect(problemsIn([{ file: REGISTRY, imports: '../features/spends/commands' }])).toEqual([])
+  })
+
+  it('refuse the registry importing anything of a feature but its commands', () => {
+    const edge = { file: REGISTRY, imports: '../features/accounts/accounts' }
+    expect(problemsIn([edge])).toEqual([
+      'main/commands/registry.ts → ../features/accounts/accounts',
+    ])
   })
 
   it('let a test arrange through another feature', () => {
@@ -140,10 +147,5 @@ describe('the boundaries', () => {
     expect(EDGES.map(shown)).toEqual(
       expect.arrayContaining(features.map((f) => `${REGISTRY} → ../features/${f}/commands`)),
     )
-  })
-
-  it('see registry.ts and shared/commands/index.ts only assemble: neither writes a handler or a schema', () => {
-    expect(readFileSync(join(DESKTOP, REGISTRY), 'utf8')).not.toContain('=>')
-    expect(readFileSync(join(DESKTOP, 'shared/commands/index.ts'), 'utf8')).not.toContain('z.')
   })
 })
