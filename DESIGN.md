@@ -144,7 +144,9 @@ screen that needs it, not copied until a third copy forces it out.
    shadow and motion belong to parts and to `tokens.css`.
 3. **Use, extend, or replace.** Use a part that does the job. Extend it with a prop only when the
    prop names a variant of the same thing; a boolean that changes what it is makes a second part.
-   A part past about 250 lines, or growing a third mode, is asking to be two.
+   A component past 150 script lines, 10 props or 5 `$state`s, or growing a third mode, is asking
+   to be two. `desktop/tools/components.test.ts` holds each to those numbers, or to the size its
+   table holds it at, which may go down and never up.
 4. **Replacing means deleting.** The change that brings a part moves every caller onto it and
    deletes what it replaces. There are never two ways to do one thing.
 5. **What a part owns can't be hand-rolled elsewhere**, and a guard says so: a listbox's role and
