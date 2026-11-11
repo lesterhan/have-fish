@@ -29,7 +29,10 @@ type Head = {
   originLine: number | null
 }
 type Key = { date: string; originCreatedAt: number; version: string; id: string }
-type Row = { transactionId: string; position: number; accountId: string } & {
+type Row = {
+  transactionId: string
+  position: number
+  accountId: string
   currency: string
   cents: number
   path: string | null
@@ -148,13 +151,13 @@ const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 function listed(db: Database.Database, heads: readonly Head[]): ListedTransaction[] {
   if (heads.length === 0) return []
   const here = statements(db).device.get() ?? ''
-  const legsOf = new Map<string, Row[]>(heads.map((h) => [h.id, []]))
+  const rowsOf = new Map<string, Row[]>(heads.map((h) => [h.id, []]))
   for (const row of statements(db).postings.all(JSON.stringify(heads.map((h) => h.id)))) {
-    legsOf.get(row.transactionId)?.push(row)
+    rowsOf.get(row.transactionId)?.push(row)
   }
   return heads.map((head) => {
     const { id, date, description } = head
-    const rows = (legsOf.get(id) ?? []).sort((a, b) => a.position - b.position)
+    const rows = (rowsOf.get(id) ?? []).sort((a, b) => a.position - b.position)
     const accounts = new Map(rows.map((r) => [r.accountId, r]))
     const shape = shapeOf(rows, (accountId) => accounts.get(accountId)?.kind ?? undefined)
     const simple = amountOf(shape)

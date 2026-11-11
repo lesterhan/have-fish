@@ -40,8 +40,10 @@ export function shapeOf(
 }
 
 /** The postings a shape the app writes is made of: `to` first, as a spend is written. */
-export function legsOf(shape: Exclude<Shape, { shape: 'other' }>): ShapeLeg[] {
-  return shape.shape === 'start' ? [shape.account, shape.opening] : [shape.to, shape.from]
+export function legsOf(
+  ends: { from: ShapeLeg; to: ShapeLeg } | { account: ShapeLeg; opening: ShapeLeg },
+): ShapeLeg[] {
+  return 'account' in ends ? [ends.account, ends.opening] : [ends.to, ends.from]
 }
 
 /** The one amount a transaction moves, positive; null when it has none. */
@@ -55,17 +57,5 @@ export function amountOf(shape: Shape): Leg | null {
     }
     default:
       return { cents: shape.to.cents, currency: shape.to.currency }
-  }
-}
-
-/** What an edit may change: everything, the amount alone, or nothing. */
-export function editable(shape: Shape): 'all' | 'amount' | 'none' {
-  switch (shape.shape) {
-    case 'other':
-      return shape.amount === null ? 'none' : 'amount'
-    case 'start':
-      return 'amount'
-    default:
-      return 'all'
   }
 }

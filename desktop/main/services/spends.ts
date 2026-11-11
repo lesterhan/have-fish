@@ -9,7 +9,7 @@ import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
-import { amountOf, editable, legsOf, shapeOf } from '@have-fish/core/shapes'
+import { amountOf, legsOf, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { InputOf, To } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
@@ -54,7 +54,6 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
   }
   const legs = legsOf({
-    shape: income ? 'income' : 'category' in goesTo ? 'spend' : 'transfer',
     from: { accountId: from.value.id, cents: -cents, currency },
     to: { accountId: to.value.id, cents, currency },
   })
@@ -163,7 +162,7 @@ function edit(
 
   const now = ctx.now()
   // Only a spend, transfer or income can go elsewhere: a start's and an other's accounts stay.
-  const ends = editable(shape) === 'all' && 'to' in shape ? shape : null
+  const ends = 'to' in shape ? shape : null
   if (ends?.shape === 'income' && input.to !== undefined && 'category' in input.to) {
     return refused(failure('INCOME_NOT_TO_ACCOUNT', { accountId: ends.from.accountId }))
   }

@@ -15,6 +15,7 @@ import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { OPENING } from '@have-fish/core/own-accounts'
+import { legsOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
@@ -134,15 +135,20 @@ function startOf(
   if (!fitsCurrency(cents, currency))
     return failure('AMOUNT_TOO_PRECISE', { amount: typed, currency })
   const opening = accountFor(ctx.ledger.db, OPENING, made)
+  const legs = legsOf({
+    account: { accountId: account.id, cents: signed, currency },
+    opening: { accountId: opening.id, cents: -signed, currency },
+  })
   const transaction: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
     date: calendarDateAt(made.createdAt, ctx.timeZone()),
     description: copy.accounts.startDescription,
-    postings: [
-      { accountId: account.id, amount: format(signed), currency },
-      { accountId: opening.id, amount: format(-signed), currency },
-    ],
+    postings: legs.map((l) => ({
+      accountId: l.accountId,
+      amount: format(l.cents),
+      currency: l.currency,
+    })),
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
