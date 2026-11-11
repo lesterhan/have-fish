@@ -7,7 +7,7 @@ import { handlers as paths } from '../features/paths/commands'
 import { handlers as reports } from '../features/reports/commands'
 import { handlers as settings } from '../features/settings/commands'
 import { handlers as spends } from '../features/spends/commands'
-import { nextSteps, redoLast, undoLast } from '../undo/steps'
+import { handlers as undo } from '../undo/commands'
 import type { Handlers } from './handlers'
 
 export const handlers: Handlers = {
@@ -15,9 +15,7 @@ export const handlers: Handlers = {
   ...accounts,
   ...paths,
   ...reports,
-  'ledger.undo': undoLast,
-  'ledger.redo': redoLast,
-  'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
+  ...undo,
   ...settings,
   ...clipboard,
 }

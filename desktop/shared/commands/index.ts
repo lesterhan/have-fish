@@ -1,14 +1,14 @@
 // What the window can ask main to do: each command's name, the input its schema takes, and the
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
-import { z } from 'zod'
-import type { StepName } from '../steps'
+import type { z } from 'zod'
 import { type AccountValues, accountInputs } from './accounts'
 import { type ClipboardValues, clipboardInputs } from './clipboard'
 import { type PathValues, pathInputs } from './paths'
 import { type ReportValues, reportInputs } from './reports'
 import { type SettingsValues, settingsInputs } from './settings'
 import { type SpendValues, spendInputs } from './spends'
+import { type UndoValues, undoInputs } from './undo'
 import type { Changed, Typing, Wire } from './wire'
 
 export * from './accounts'
@@ -17,6 +17,7 @@ export * from './paths'
 export * from './reports'
 export * from './settings'
 export * from './spends'
+export * from './undo'
 export * from './wire'
 
 export const inputs = {
@@ -24,29 +25,19 @@ export const inputs = {
   ...accountInputs,
   ...pathInputs,
   ...reportInputs,
-  'ledger.undo': z.strictObject({}),
-  'ledger.redo': z.strictObject({}),
-  /** What Undo and Redo would take, by name; it changes nothing. */
-  'ledger.steps': z.strictObject({}),
+  ...undoInputs,
   ...settingsInputs,
   ...clipboardInputs,
 }
-
-/** What an undo or redo changed, so the window can select it: spends, or accounts. */
-export type Moved = { spends: string[]; accounts: string[] }
 
 export interface Values
   extends SpendValues,
     AccountValues,
     PathValues,
     ReportValues,
+    UndoValues,
     SettingsValues,
-    ClipboardValues {
-  /** Both empty when there was nothing to undo. */
-  'ledger.undo': Moved
-  'ledger.redo': Moved
-  'ledger.steps': { undo: StepName | null; redo: StepName | null }
-}
+    ClipboardValues {}
 
 export type CommandName = keyof typeof inputs
 export type InputOf<N extends CommandName> = z.input<(typeof inputs)[N]>
