@@ -28,7 +28,7 @@ fetch() {
       sleep $((attempt * 60))
     fi
   done
-  echo "debs: no mirror answered after 3 attempts" >&2
+  echo "debs: still no download after 3 attempts" >&2
   return 1
 }
 
