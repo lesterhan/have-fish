@@ -22,7 +22,7 @@ import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
 export type WrittenItem<D extends LedgerDocument> = { at: number; doc: D; previous: D | null }
 
 export type StoredType<D extends LedgerDocument> = {
-  /** Writes its rows; inside a caller's transaction they are one savepoint. */
+  /** Writes its rows. `putDocument` wraps it in one transaction, so it opens none itself. */
   put(db: Database.Database, v: Versioned<D>): void
   /** The document stored under `id`, tombstones included, or null. */
   get(db: Database.Database, id: string): Versioned<D> | null
@@ -100,15 +100,13 @@ function getAccount(db: Database.Database, id: string): Versioned<AccountDoc> | 
   return account === undefined ? null : accountOf(account)
 }
 
-/** Its root row and postings change together. */
+/** Its root row and postings, inside `putDocument`'s transaction. */
 function putTransaction(db: Database.Database, v: Versioned<TransactionDoc>): void {
   const s = statements(db)
   const rows = transactionRows(v)
-  db.transaction(() => {
-    s.putTransaction.run(rows.transaction)
-    s.deletePostings.run({ transactionId: v.doc.id })
-    for (const posting of rows.postings) s.insertPosting.run(posting)
-  })()
+  s.putTransaction.run(rows.transaction)
+  s.deletePostings.run({ transactionId: v.doc.id })
+  for (const posting of rows.postings) s.insertPosting.run(posting)
 }
 
 function getTransaction(db: Database.Database, id: string): Versioned<TransactionDoc> | null {

@@ -27,11 +27,11 @@ const statements = perConnection((orm) => ({
 }))
 
 /**
- * Replaces whatever the file holds under this document's id. Its rows change together; inside a
- * caller's transaction this becomes a savepoint.
+ * Replaces whatever the file holds under this document's id. Its rows change together, in one
+ * transaction here so no type's put has to remember it; inside a caller's this is a savepoint.
  */
 export function putDocument(db: Database.Database, v: Versioned<LedgerDocument>): void {
-  put(v.doc.type, db, v)
+  db.transaction(() => put(v.doc.type, db, v))()
 }
 
 // Generic over the type, so indexing the table by a union type-checks.

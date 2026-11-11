@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { DOCUMENT_TYPES } from '@have-fish/core/documents'
 import { describe, expect, test, vi } from 'vitest'
 import { applyLocal } from './apply'
-import { STORED_TYPES } from './document-types'
+import { currenciesPostedTo, STORED_TYPES } from './document-types'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { getDocument, putDocument } from './store'
 
@@ -92,6 +92,27 @@ describe('STORED_TYPES', () => {
     expect(
       STORED_TYPES.transaction.checkBatch(ledger.db, [{ at: 0, doc: spend, previous: null }]),
     ).toBeNull()
+  })
+})
+
+describe('currenciesPostedTo', () => {
+  test('the distinct currencies posted to an account, sorted', () => {
+    const ledger = tempLedger()
+    const card = anAccount({ path: 'liabilities:card', kind: 'card' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const other = anAccount({ path: 'expenses:eating out', kind: 'category' })
+    const conversion = aSpend(card.id, food.id, '1500')
+    conversion.postings = [
+      { accountId: card.id, amount: '-1500', currency: 'JPY' },
+      { accountId: food.id, amount: '1500', currency: 'JPY' },
+      { accountId: card.id, amount: '-5.00', currency: 'CAD' },
+      { accountId: food.id, amount: '5.00', currency: 'CAD' },
+    ]
+    for (const doc of [card, food, other, conversion])
+      putDocument(ledger.db, { doc, version: VERSION })
+
+    expect(currenciesPostedTo(ledger.db, card.id)).toEqual(['CAD', 'JPY'])
+    expect(currenciesPostedTo(ledger.db, other.id)).toEqual([])
   })
 })
 
