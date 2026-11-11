@@ -525,6 +525,27 @@ describe('editSpend', () => {
     expect(spendOf(ledger, split.id)).toEqual(split)
   })
 
+  test('a refund into the bank from a category takes a new amount, in its stored order', () => {
+    const ledger = tempLedger()
+    const bank = anAccount({ path: 'assets:chequing', kind: 'bank' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const refund = aSpend(food.id, bank.id, '5.00', {
+      postings: [
+        { accountId: bank.id, amount: '5.00', currency: 'CAD' },
+        { accountId: food.id, amount: '-5.00', currency: 'CAD' },
+      ],
+    })
+    ok(applyLocal(ledger, [bank, food, refund], NOW))
+    const { ctx } = setup(ledger)
+
+    ok(editSpend(ctx, { id: refund.id, amount: '6', description: 'Refund' }))
+
+    expect(spendOf(ledger, refund.id).postings).toEqual([
+      { accountId: bank.id, amount: '6.00', currency: 'CAD' },
+      { accountId: food.id, amount: '-6.00', currency: 'CAD' },
+    ])
+  })
+
   test('a refusal from the ledger comes back without its place in the batch', () => {
     const { ctx, id } = written()
 
@@ -688,6 +709,7 @@ describe('listTransactions', () => {
         id: lunch.id,
         date: '2026-10-29',
         description: 'Lunch',
+        shape: 'spend',
         amounts: [{ amount: '12.00', currency: 'CAD' }],
         simple: { amount: '12.00', currency: 'CAD' },
         from: 'cash',
@@ -710,6 +732,7 @@ describe('listTransactions', () => {
         id: coffee.id,
         date: '2026-10-29',
         description: 'Coffee',
+        shape: 'spend',
         amounts: [{ amount: '4.50', currency: 'CAD' }],
         simple: { amount: '4.50', currency: 'CAD' },
         from: 'cash',

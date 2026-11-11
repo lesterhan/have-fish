@@ -201,6 +201,7 @@ describe('spendsBehind', () => {
     id,
     date: '2026-11-04',
     description: id,
+    shape: 'spend',
     amounts: [],
     simple: null,
     from: null,

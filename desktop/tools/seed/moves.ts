@@ -2,6 +2,7 @@
 // the accounts it draws on above zero: it tops them up first, as a person would.
 
 import { addDays } from '@have-fish/core/calendar-date'
+import { CONVERSION, OPENING, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
 import type { Book, Entry, Meta } from './book'
 import { type Cur, convert } from './rates'
 
@@ -9,9 +10,10 @@ export const CHEQUING = 'assets:bank:chequing'
 export const SAVINGS = 'assets:bank:savings'
 export const VISA = 'liabilities:visa'
 export const LOAN = 'liabilities:loan:car'
-export const CASH = 'assets:cash'
-export const FX = 'equity:conversion'
-export const OPENING = 'equity:opening'
+export const CASH = WALLET.path
+export const FX = CONVERSION.path
+export const OPENING_PATH = OPENING.path
+export const UNSORTED_PATH = UNSORTED.path
 export const FX_FEES = 'expenses:fees:fx'
 export const ATM_FEES = 'expenses:fees:atm'
 

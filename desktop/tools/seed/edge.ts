@@ -3,7 +3,17 @@
 
 import { addDays } from '@have-fish/core/calendar-date'
 import type { Book, Leg } from './book'
-import { CASH, CHEQUING, FX, FX_FEES, OPENING, SAVINGS, VISA, wise } from './moves'
+import {
+  CASH,
+  CHEQUING,
+  FX,
+  FX_FEES,
+  OPENING_PATH,
+  SAVINGS,
+  UNSORTED_PATH,
+  VISA,
+  wise,
+} from './moves'
 
 const USD_CARD = 'liabilities:card:usd'
 const EMPTIED = 'assets:bank:old-savings'
@@ -39,7 +49,7 @@ export function edges(book: Book, today: string) {
       'Starting balance',
       [
         [path, c, cur],
-        [OPENING, -c, cur],
+        [OPENING_PATH, -c, cur],
       ],
       { shape: 'opening', note },
     )
@@ -219,7 +229,7 @@ export function edges(book: Book, today: string) {
     650,
     'CAD',
     CASH,
-    'expenses:unsorted',
+    UNSORTED_PATH,
     'No category: reports count it as unsorted',
   )
   spend(11, 'Bike shop', 2_000, 'CAD', VISA, 'expenses:hobbies', 'Spent 20...')

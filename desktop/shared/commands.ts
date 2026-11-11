@@ -4,6 +4,7 @@
 import { type AccountKind, ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
 import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
+import type { ShapeName } from '@have-fish/core/shapes'
 import { z } from 'zod'
 import { DENSITIES, type Density } from './density'
 import type { StepName } from './steps'
@@ -125,18 +126,20 @@ export type ListedTransaction = {
   id: string
   date: string
   description: string
+  /** What it is: a spend, a transfer, income, a starting balance, or other. */
+  shape: ShapeName
   /** What it moved: the sum of its positive postings in each currency, by currency code. */
   amounts: Money[]
   /** Its one amount, when it moves one between two accounts in one currency: what an edit sets. */
   simple: Money | null
   /**
-   * For one amount, the name of the account of mine or income source it came out of, without its
-   * root.
+   * For a spend, transfer or income, the name of the account of mine or income source it came out
+   * of, without its root; for a starting balance, the card or loan it put what I owe on.
    */
   from: string | null
   /**
-   * For one amount from an account of mine, the name of the category or account it went to; from
-   * an income source, the account of mine it went to. Without its root: what an edit can change.
+   * For a spend or transfer, the name of the category or account it went to; for income, the
+   * account of mine it went to. Without its root: what an edit can change.
    */
   to: string | null
   /** `from` and `to` as whole paths, root and all, for their tags. */

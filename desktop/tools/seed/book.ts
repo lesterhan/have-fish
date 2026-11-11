@@ -4,6 +4,7 @@
 import type { AccountKind } from '@have-fish/core/account-kind'
 import type { AccountDoc, TransactionDoc, TransactionOrigin } from '@have-fish/core/documents'
 import { cents as centsOf, format } from '@have-fish/core/money'
+import { CONVERSION, OPENING } from '@have-fish/core/own-accounts'
 import { type Rng, rngFrom, uuidFrom } from './random'
 
 /** What a transaction is there to show. `guide.ts` says what each one looks like in the app. */
@@ -227,7 +228,7 @@ export class Book {
 function madeKind(path: string): AccountKind | null {
   if (path.startsWith('expenses:')) return 'category'
   if (path.startsWith('income:')) return 'income'
-  if (path === 'equity:opening') return 'opening'
-  if (path === 'equity:conversion') return 'conversion'
+  if (path === OPENING.path) return OPENING.kind
+  if (path === CONVERSION.path) return CONVERSION.kind
   return null
 }

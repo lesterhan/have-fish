@@ -3,6 +3,7 @@
 
 import { isAddable } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
+import { UNSORTED } from '@have-fish/core/own-accounts'
 import type { ListedPath } from '../shared/commands'
 import { finds } from './picker'
 
@@ -31,9 +32,6 @@ const ROOTS: Record<Mode, readonly string[]> = {
 
 const ALL_ROOTS = ['assets', 'liabilities', 'expenses', 'income', 'equity']
 
-/** What an empty To means: never offered as a path. */
-const UNSORTED = 'expenses:unsorted'
-
 /** The first part of a path: `liabilities` in `liabilities:cibc:visa`. */
 export const rootOfPath = (path: string) => path.split(':')[0] ?? ''
 
@@ -56,7 +54,8 @@ export const parentsOf = (path: string) => {
 /** The paths a picker of this mode may offer: what can pay or receive, and income or categories. */
 export function offered(paths: readonly ListedPath[], mode: Mode): ListedPath[] {
   return paths.filter((p) => {
-    if (p.path === UNSORTED) return false
+    // What an empty To means: never offered as a path.
+    if (p.path === UNSORTED.path) return false
     if (!ROOTS[mode].includes(rootOfPath(p.path))) return false
     return mode === 'from'
       ? isAddable(p.kind) || p.kind === 'income'

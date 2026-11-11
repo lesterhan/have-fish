@@ -2,14 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { columnsOf, daysOf, NARROW_LIST, wayOf } from './row'
 
 describe('which way a row’s money went', () => {
-  test('from income is in; between two of my accounts is between; to a category is out', () => {
-    expect(wayOf({ fromPath: 'income:sales', toPath: 'assets:cash' })).toBe('in')
-    expect(wayOf({ fromPath: 'assets:chequing', toPath: 'liabilities:visa' })).toBe('between')
-    expect(wayOf({ fromPath: 'liabilities:visa', toPath: 'expenses:food' })).toBe('out')
-  })
-
-  test('with no one From and To, out: no sign', () => {
-    expect(wayOf({ fromPath: null, toPath: null })).toBe('out')
+  test('income is in; a transfer is between; a spend, a start or an other is out', () => {
+    expect(wayOf('income')).toBe('in')
+    expect(wayOf('transfer')).toBe('between')
+    for (const shape of ['spend', 'start', 'other'] as const) expect(wayOf(shape)).toBe('out')
   })
 })
 
