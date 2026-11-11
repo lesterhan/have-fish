@@ -1,8 +1,10 @@
 /**
  * Keeps main's features apart and the window out of main. A feature in `main/features/<name>/`
  * stands on the core (the rest of `main/`), `shared/`, `copy/` and its own files, never on another
- * feature, and only the registry assembles them. The window, the sheet, the scenes, the preload,
- * `copy/` and `shared/` import nothing from `main/`: that split is a security boundary.
+ * feature, and only the registry assembles them, from their `commands.ts`. Their schemas in
+ * `shared/commands/` keep apart the same way: only its index assembles them. The window, the
+ * sheet, the scenes, the preload, `copy/` and `shared/` import nothing from `main/`: that split
+ * is a security boundary.
  *
  * Imports are read with TypeScript 5's scanner, as `core/src/layers.test.ts` does, and a
  * component's from its scripts alone. A test may arrange through another feature, so the rules
@@ -63,6 +65,9 @@ const target = ({ file, imports }: Edge) =>
 
 const featureOf = (path: string) => /^main\/features\/([^/]+)\//.exec(path)?.[1]
 
+/** A feature's file of schemas in `shared/commands/`: every one but the index and wire.ts. */
+const isSharedFeature = (path: string) => /^shared\/commands\/(?!index$|wire$)[^/]+$/.test(path)
+
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
 
 function breaks(edge: Edge): boolean {
@@ -71,6 +76,9 @@ function breaks(edge: Edge): boolean {
   const from = featureOf(edge.file)
   const into = featureOf(`${to}/`)
   if (into !== undefined && from !== undefined) return from !== into
+  if (isSharedFeature(to) && edge.file.startsWith('shared/commands/')) {
+    return edge.file !== 'shared/commands/index.ts'
+  }
   if (into !== undefined) return edge.file !== REGISTRY || to !== `main/features/${into}/commands`
   return OUTSIDE_MAIN.includes(edge.file.split('/')[0] ?? '') && to.split('/')[0] === 'main'
 }
@@ -104,6 +112,25 @@ describe('the boundaries', () => {
     expect(problemsIn([edge])).toEqual([
       'main/commands/registry.ts → ../features/accounts/accounts',
     ])
+  })
+
+  it("refuse a feature's shared file importing another feature's", () => {
+    const edge = { file: 'shared/commands/reports.ts', imports: './spends' }
+    expect(problemsIn([edge])).toEqual(['shared/commands/reports.ts → ./spends'])
+  })
+
+  it("refuse wire.ts importing a feature's shared file", () => {
+    const edge = { file: 'shared/commands/wire.ts', imports: './spends' }
+    expect(problemsIn([edge])).toEqual(['shared/commands/wire.ts → ./spends'])
+  })
+
+  it("let only index.ts in shared/commands import a feature's file", () => {
+    const edges = [
+      { file: 'shared/commands/spends.ts', imports: './wire' },
+      { file: 'shared/commands/index.ts', imports: './spends' },
+      { file: 'shared/steps.ts', imports: './commands/spends' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
   })
 
   it('let a test arrange through another feature', () => {
