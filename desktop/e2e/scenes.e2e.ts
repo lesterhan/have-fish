@@ -71,9 +71,7 @@ test('ledger/compact is Compact', async () => {
 test('accounts/year lists the fixture’s accounts, their parents among them', async () => {
   const page = await openScene('accounts/year')
   await page.locator(`${ACCOUNTS} li`).first().waitFor()
-  expect(await page.locator(`${ACCOUNTS} li`).count()).toBeGreaterThanOrEqual(
-    year.accounts.length,
-  )
+  expect(await page.locator(`${ACCOUNTS} li`).count()).toBeGreaterThanOrEqual(year.accounts.length)
 })
 
 test('reports/year reads the fixture’s last week as this week', async () => {

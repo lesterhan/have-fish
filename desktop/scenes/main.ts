@@ -3,7 +3,7 @@
 
 import { replayBridge } from './bridge'
 import { EMPTY, type Fixture, noonOf } from './fixture'
-import { type Scene, SCENES, sceneNamed } from './scenes'
+import { SCENES, type Scene, sceneNamed } from './scenes'
 import { run } from './steps'
 
 const scene = sceneNamed(new URLSearchParams(location.search).get('scene'))

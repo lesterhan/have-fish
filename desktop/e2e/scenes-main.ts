@@ -31,7 +31,5 @@ app.whenReady().then(() => {
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   })
   const scene = process.env.SCENE
-  void window.loadURL(
-    scene === undefined || scene === '' ? APP_URL : `${APP_URL}?scene=${scene}`,
-  )
+  void window.loadURL(scene === undefined || scene === '' ? APP_URL : `${APP_URL}?scene=${scene}`)
 })

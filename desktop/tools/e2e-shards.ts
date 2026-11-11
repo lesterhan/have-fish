@@ -22,7 +22,14 @@ let nextDisplay = 91
 const vitest = join('node_modules', '.bin', 'vitest')
 const filter = process.argv.slice(2).filter((word) => !word.startsWith('--'))
 // passWithNoTests: a filter can leave a shard nothing, and that's not a failure.
-const args = ['run', '--config', 'vitest.e2e.config.ts', '--reporter=dot', '--passWithNoTests', ...filter]
+const args = [
+  'run',
+  '--config',
+  'vitest.e2e.config.ts',
+  '--reporter=dot',
+  '--passWithNoTests',
+  ...filter,
+]
 
 const children: ChildProcess[] = []
 process.once('SIGINT', () => {
