@@ -26,6 +26,8 @@
     "renderer/fonts.test.ts",
     "sheet/sheet.test.ts",
     "renderer/parts/parts.test.ts",
+    "scenes/fixture.test.ts",
+    "scenes/bridge.test.ts",
     "vite.sheet.config.ts",
     "electron.vite.config.ts"
   ]

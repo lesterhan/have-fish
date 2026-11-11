@@ -6,13 +6,15 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["copy", "renderer", "shared", "sheet"],
+  "include": ["copy", "renderer", "shared", "sheet", "scenes"],
   // These tests read the source files, so they need Node; `tsconfig.json` checks them.
   "exclude": [
     "copy/**/*.test.ts",
     "renderer/tokens.test.ts",
     "renderer/fonts.test.ts",
     "sheet/sheet.test.ts",
-    "renderer/parts/parts.test.ts"
+    "renderer/parts/parts.test.ts",
+    "scenes/fixture.test.ts",
+    "scenes/bridge.test.ts"
   ]
 }
