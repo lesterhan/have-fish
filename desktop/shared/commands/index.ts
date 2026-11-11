@@ -1,30 +1,22 @@
 // What the window can ask main to do: each command's name, the input its schema takes, and the
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
-import { type AccountKind, ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
+import type { AccountKind } from '@have-fish/core/account-kind'
 import { z } from 'zod'
 import { DENSITIES, type Density } from '../density'
 import type { StepName } from '../steps'
 import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
+import { type AccountValues, accountInputs } from './accounts'
 import { type SpendValues, spendInputs } from './spends'
-import { type Changed, date, type Money, type Typing, typed, type Wire } from './wire'
+import { type Changed, date, type Money, type Typing, type Wire } from './wire'
 
+export * from './accounts'
 export * from './spends'
 export * from './wire'
 
 export const inputs = {
   ...spendInputs,
-  /** `currency` null: it can hold any. */
-  'account.add': z.strictObject({
-    name: typed(200),
-    kind: z.enum(ADDABLE_KINDS),
-    currency: typed(8).nullable(),
-    /** How much is in it today, or owed on it, as typed; empty for nothing. */
-    start: typed(64).default(''),
-  }),
-  /** A starting balance for an account that has none. */
-  'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
-  'account.list': z.strictObject({}),
+  ...accountInputs,
   /** Every account and category, for a path picker: its whole path, kind and last use. */
   'path.list': z.strictObject({}),
   /** What went to each category from `start` to `end`, both days in it. */
@@ -52,23 +44,6 @@ export type ListedPath = {
   lastUsed: number | null
 }
 
-/** An account I added, as the Accounts list shows it. */
-export type ListedAccount = {
-  id: string
-  /** Its path without the root: `visa`, `wise:cad`. */
-  name: string
-  kind: AddableKind
-  /** The one currency it holds, or null for any. */
-  currency: string | null
-  /** What was in it, or owed on it, the day it started; null if it was never said. */
-  start: (Money & { date: string }) | null
-  /**
-   * What its own postings sum to in each currency, by code, as the ledger holds it: what I owe is
-   * below zero. None that sum to zero; empty for nothing in it.
-   */
-  balance: Money[]
-}
-
 /** One spend's money in one category, as a report sums it. */
 export type ReportedSpend = {
   /** The transaction's id. */
@@ -81,12 +56,7 @@ export type ReportedSpend = {
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
 export type Moved = { spends: string[]; accounts: string[] }
 
-export interface Values extends SpendValues {
-  'account.add': { id: string }
-  /** The starting balance's transaction; null when there was nothing to write (empty, or zero). */
-  'account.start': { id: string | null }
-  /** Sorted by name, without regard to case. */
-  'account.list': ListedAccount[]
+export interface Values extends SpendValues, AccountValues {
   /** Every live account and category, by path. */
   'path.list': ListedPath[]
   /**

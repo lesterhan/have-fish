@@ -1,7 +1,7 @@
 // Each command the window can run, by name. The names and input schemas are in
 // `shared/commands.ts`; this maps each to the service that does it.
 
-import { addAccount, listAccounts, startAccount } from '../features/accounts/accounts'
+import { handlers as accounts } from '../features/accounts/commands'
 import { handlers as spends } from '../features/spends/commands'
 import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
@@ -11,10 +11,8 @@ import type { Handlers } from './handlers'
 
 export const handlers: Handlers = {
   ...spends,
-  'account.add': addAccount,
-  'account.start': startAccount,
+  ...accounts,
   'path.list': (ctx) => ({ ok: true, value: listPaths(ctx.ledger.db) }),
-  'account.list': (ctx) => ({ ok: true, value: listAccounts(ctx.ledger.db) }),
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,
