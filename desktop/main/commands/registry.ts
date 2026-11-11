@@ -2,8 +2,8 @@
 // `shared/commands.ts`; this maps each to the service that does it.
 
 import { handlers as accounts } from '../features/accounts/commands'
+import { listPaths } from '../features/paths/paths'
 import { handlers as spends } from '../features/spends/commands'
-import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
 import { getDensity, setDensity, setTheme } from '../services/settings'
 import { nextSteps, redoLast, undoLast } from '../undo/steps'
