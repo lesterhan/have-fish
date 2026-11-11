@@ -1,11 +1,13 @@
 // The impure half's own tests: the server a shot loads from, and what a launch says when it
 // finds no browser. Neither needs a browser to run.
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { launch, serve } from './scenes-cli'
+
+const REPO = join(import.meta.dirname, '..', '..')
 
 describe('serve', () => {
   test('answers a missing file 404 and goes on serving', async () => {
@@ -39,5 +41,12 @@ describe('launch', () => {
       console.error = error
     }
     expect(said.join('\n')).toContain('Nowhere')
+  })
+})
+
+describe('CI', () => {
+  test('installs the compare the diff needs, beside xdotool', () => {
+    const ci = readFileSync(join(REPO, '.github', 'workflows', 'ci.yml'), 'utf8')
+    expect(ci).toContain('xdotool imagemagick')
   })
 })
