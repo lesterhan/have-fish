@@ -1,8 +1,6 @@
 import { afterAll, describe, expect, test } from 'vitest'
-import { contextFor, type Time } from '../context'
-import { addAccount } from '../features/accounts/accounts'
-import { removeSpend, writeSpend } from '../features/spends/spends'
-import { applyLocal } from '../ledger/apply'
+import { contextFor, type Time } from '../../context'
+import { applyLocal } from '../../ledger/apply'
 import {
   aLedgerOf,
   anAccount,
@@ -12,7 +10,9 @@ import {
   openTempLedger,
   recorded,
   tempLedger,
-} from '../ledger/fixtures'
+} from '../../ledger/fixtures'
+import { addAccount } from '../accounts/accounts'
+import { removeSpend, writeSpend } from '../spends/spends'
 import { spendingIn } from './reports'
 
 function setup() {
