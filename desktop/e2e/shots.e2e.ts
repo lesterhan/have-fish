@@ -1,8 +1,8 @@
 // The shots and the pages over them, run as a person runs them: the commands, the browser, git
 // and ImageMagick. Needs the scenes built; the gate's e2e command builds them first.
 //
-// `scenes:diff` is run twice, once against a base whose Button is rounder, and once with no
-// ImageMagick compare on the path: a diff is minutes, not seconds.
+// `scenes:diff` is run three times: against a base whose palette is rounder, against a ref that
+// isn't there, and with no ImageMagick compare on the path. A diff is minutes, not seconds.
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
@@ -20,7 +20,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { SCENES } from '../scenes/scenes'
 import { launch, pixelsDifferent, serve } from '../tools/scenes-cli'
-import { shotsOf } from '../tools/shots'
+import { sceneOf, shotsOf } from '../tools/shots'
 import { SCENES_OUT } from '../vite.scenes.config'
 
 const DESKTOP = resolve(import.meta.dirname, '..')
@@ -55,13 +55,15 @@ function sourcesOf(page: string): string[] {
   return [...page.matchAll(/<img src="([^"]+)"/g)].map((found) => found[1] ?? '')
 }
 
-/** A scene's name from a shot's file: `ledger~year.wide.light.png` is `ledger/year`. */
-const sceneOf = (file: string) =>
-  file.replace(/\.(wide|opens|narrow)\.(light|dark)\.png$/, '').replaceAll('~', '/')
-
-/** The set of scenes a set of shot files names, once each, sorted. */
+/** The set of scenes a set of picture sources names, once each, sorted. */
 const scenesOf = (sources: readonly string[]) =>
   [...new Set(sources.map((source) => sceneOf(source.replace(/^(base|branch|diff)\//, ''))))].sort()
+
+/** The temp folders a diff makes: none of these may be left behind. */
+const leftovers = () =>
+  readdirSync(tmpdir()).filter(
+    (name) => name.startsWith('have-fish-diff-') || name.startsWith('have-fish-shots-'),
+  )
 
 describe('the shots, as a person runs them', () => {
   test('scenes:shots writes eighty-four shots, each named by fileOf', { timeout: 600_000 }, () => {
@@ -80,20 +82,17 @@ describe('the shots, as a person runs them', () => {
     expect(sourcesOf(page)).toEqual(FILES)
   })
 
-  test('scenes:diff lists the scenes with a button in changed, and no other', {
+  test("scenes:diff lists the palette's six shots in changed, and no other", {
     timeout: 900_000,
   }, () => {
-    // A base of this branch with one part changed: a Button whose corners are round again.
-    const parent = mkdtempSync(join(tmpdir(), 'have-fish-button-'))
+    // A base of this branch with one part changed: a palette whose corners are rounder.
+    const parent = mkdtempSync(join(tmpdir(), 'have-fish-palette-'))
     const worktree = join(parent, 'base')
     try {
       execFileSync('git', ['worktree', 'add', '--detach', worktree, 'HEAD'], { cwd: REPO })
-      const file = join(worktree, 'desktop', 'renderer', 'parts', 'Button.svelte')
+      const file = join(worktree, 'desktop', 'renderer', 'Palette.svelte')
       const source = readFileSync(file, 'utf8')
-      const rounder = source.replace(
-        'border-radius: var(--radius-control);',
-        'border-radius: 1rem;',
-      )
+      const rounder = source.replace('border-radius: var(--radius-card);', 'border-radius: 2rem;')
       expect(rounder).not.toBe(source)
       writeFileSync(file, rounder)
       execFileSync(
@@ -107,7 +106,7 @@ describe('the shots, as a person runs them', () => {
           '-q',
           '-a',
           '-m',
-          'a rounder button',
+          'a rounder palette',
         ],
         { cwd: worktree },
       )
@@ -116,10 +115,10 @@ describe('the shots, as a person runs them', () => {
 
       const page = readFileSync(join(DIFF, 'index.html'), 'utf8')
       const sources = sourcesOf(page)
-      expect(sources.filter((src) => src.startsWith('base/'))).toHaveLength(FILES.length)
-      expect(sources.filter((src) => src.startsWith('diff/'))).toHaveLength(FILES.length)
-      // Every scene of this branch shows a Button, and no shot of another scene moved.
-      expect(scenesOf(sources)).toEqual(SCENES.map((scene) => scene.name).sort())
+      const changed = sources.filter((src) => src.startsWith('base/'))
+      expect(changed).toHaveLength(6)
+      expect(scenesOf(changed)).toEqual(['ledger/palette'])
+      expect(sources.filter((src) => src.startsWith('diff/'))).toHaveLength(6)
       expect(page).not.toContain('<h2>Added</h2>')
       expect(page).not.toContain('<h2>Gone</h2>')
     } finally {
@@ -128,6 +127,28 @@ describe('the shots, as a person runs them', () => {
       }
       rmSync(parent, { recursive: true, force: true })
     }
+  })
+
+  test("scenes:diff of a ref that isn't there exits 1 and leaves nothing behind", {
+    timeout: 300_000,
+  }, () => {
+    const worktrees = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: REPO,
+      encoding: 'utf8',
+    })
+    const before = leftovers()
+    const result = spawnSync('bun', ['run', 'scenes:diff', 'no-such-ref'], {
+      cwd: DESKTOP,
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+      timeout: 300_000,
+    })
+    expect(result.status).toBe(1)
+    expect(`${result.stdout}${result.stderr}`).toContain('no-such-ref')
+    expect(
+      execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: REPO, encoding: 'utf8' }),
+    ).toBe(worktrees)
+    expect(leftovers()).toEqual(before)
   })
 
   test('a scene shot twice on one machine differs in no pixel', { timeout: 120_000 }, async () => {

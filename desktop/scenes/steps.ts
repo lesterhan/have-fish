@@ -15,13 +15,12 @@ export async function run(steps: readonly Step[], bridge: Replay): Promise<void>
       target.dispatchEvent(new KeyboardEvent('keydown', { key: step.key, bubbles: true }))
     } else if ('fill' in step) {
       const found = document.querySelector(step.fill)
-      if (!(found instanceof HTMLElement)) {
+      if (!(found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement)) {
         throw new Error(`a fill found nothing it could type in: ${step.fill}`)
       }
-      const input = found as HTMLInputElement
-      input.focus()
-      input.value = step.text
-      input.dispatchEvent(new Event('input', { bubbles: true }))
+      found.focus()
+      found.value = step.text
+      found.dispatchEvent(new Event('input', { bubbles: true }))
     } else {
       const found = document.querySelector(step.click)
       if (!(found instanceof HTMLElement)) {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { PLACES } from '../renderer/places'
-import { SCENES, sceneNamed } from './scenes'
+import { COMPOSER, SCENES, sceneNamed } from './scenes'
 
 describe('SCENES', () => {
   test('the eight to start, each once', () => {
@@ -67,7 +67,6 @@ describe('SCENES', () => {
 })
 
 describe('the six new scenes', () => {
-  const WRITE = 'form[aria-label="Write down a spend"]'
   const scene = (name: string) => {
     const found = sceneNamed(name)
     if (found === null) throw new Error(`no scene ${name}`)
@@ -84,7 +83,7 @@ describe('the six new scenes', () => {
   test('ledger/path-picker opens the picker on From', () => {
     expect(scene('ledger/path-picker').steps).toEqual([
       { action: 'newSpend' },
-      { fill: `${WRITE} input[name=from]`, text: '' },
+      { fill: `${COMPOSER} input[name=from]`, text: '' },
       { key: 'ArrowDown' },
     ])
   })
@@ -92,8 +91,8 @@ describe('the six new scenes', () => {
   test('ledger/refused writes a spend, and the bridge refuses it', () => {
     expect(scene('ledger/refused').steps).toEqual([
       { action: 'newSpend' },
-      { fill: `${WRITE} input[name=amount]`, text: '12.50' },
-      { fill: `${WRITE} input[name=description]`, text: 'Lunch' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
       { key: 'Enter' },
     ])
   })
@@ -115,8 +114,8 @@ describe('the six new scenes', () => {
   test('ledger/composer-typing leaves a line half written', () => {
     expect(scene('ledger/composer-typing').steps).toEqual([
       { action: 'newSpend' },
-      { fill: `${WRITE} input[name=amount]`, text: '12.50' },
-      { fill: `${WRITE} input[name=description]`, text: 'Lunch' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
     ])
   })
 })
