@@ -15,8 +15,8 @@ import type {
   ListedTransaction,
   Money,
   Values,
-} from '../../shared/commands'
-import { perConnection } from '../db/prepared'
+} from '../../../shared/commands'
+import { perConnection } from '../../db/prepared'
 
 type Head = {
   id: string

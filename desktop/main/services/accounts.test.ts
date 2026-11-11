@@ -3,14 +3,14 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../shared/commands'
 import { contextFor, type Time } from '../context'
+import { removeSpend, writeSpend } from '../features/spends/spends'
+import { listTransactions } from '../features/spends/transactions'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { undoItems } from '../undo/menu'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, balancesQuery, listAccounts, startAccount } from './accounts'
-import { removeSpend, writeSpend } from './spends'
-import { listTransactions } from './transactions'
 
 function setup() {
   const ledger = tempLedger()
