@@ -3,12 +3,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DOCUMENT_TYPES } from '@have-fish/core/documents'
 import { describe, expect, test, vi } from 'vitest'
-import { contextFor } from '../context'
-import { applyKeeping, record, undoLast } from '../undo/steps'
-import { applyLocal, byRank } from './apply'
+import { applyLocal } from './apply'
 import { STORED_TYPES } from './document-types'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
-import { queued } from './outbox'
 import { getDocument, putDocument } from './store'
 
 const VERSION = { wallMs: NOW, counter: 0, deviceId: 'a1b2c3d4e5f60718' }
@@ -42,17 +39,17 @@ describe('STORED_TYPES', () => {
     const { checkEach } = STORED_TYPES.transaction
     const missing = anAccount().id
 
-    expect(checkEach(ledger.db, 0, aSpend(missing, food.id))).toEqual({
+    expect(checkEach(ledger.db, aSpend(missing, food.id))).toEqual({
       code: 'ACCOUNT_NOT_FOUND',
       details: { accountId: missing },
     })
-    expect(checkEach(ledger.db, 0, aSpend(gone.id, food.id))).toEqual({
+    expect(checkEach(ledger.db, aSpend(gone.id, food.id))).toEqual({
       code: 'ACCOUNT_DELETED',
       details: { accountId: gone.id },
     })
     const euros = aSpend(card.id, food.id)
     euros.postings = euros.postings.map((p) => ({ ...p, currency: 'EUR' }))
-    expect(checkEach(ledger.db, 0, euros)).toEqual({
+    expect(checkEach(ledger.db, euros)).toEqual({
       code: 'ACCOUNT_CURRENCY_LOCKED',
       details: { accountId: card.id, currency: 'EUR', locked: 'CAD' },
     })
@@ -61,8 +58,8 @@ describe('STORED_TYPES', () => {
   test("an account's checkEach passes any account", () => {
     const ledger = tempLedger()
     const { checkEach } = STORED_TYPES.account
-    expect(checkEach(ledger.db, 0, anAccount())).toBeNull()
-    expect(checkEach(ledger.db, 0, anAccount({ deletedAt: NOW, currency: 'EUR' }))).toBeNull()
+    expect(checkEach(ledger.db, anAccount())).toBeNull()
+    expect(checkEach(ledger.db, anAccount({ deletedAt: NOW, currency: 'EUR' }))).toBeNull()
   })
 
   test("an account's checkBatch refuses one in use or holding other currencies, and passes one deleted with its transactions", () => {
@@ -96,54 +93,9 @@ describe('STORED_TYPES', () => {
       STORED_TYPES.transaction.checkBatch(ledger.db, [{ at: 0, doc: spend, previous: null }]),
     ).toBeNull()
   })
-
-  test("an undo step over an account and a transaction moves each to its type's list", () => {
-    const ledger = tempLedger()
-    const ctx = contextFor({
-      ledger,
-      announce: () => {},
-      time: { now: () => NOW, timeZone: () => 'UTC' },
-    })
-    const cash = anAccount()
-    const food = anAccount({ path: 'expenses:food', kind: 'category' })
-    const spend = aSpend(cash.id, food.id)
-    const { changes } = applyKeeping(ctx, [cash, food, spend], NOW, [food, spend])
-    record(ctx, { kind: 'write', description: spend.description }, changes)
-
-    expect(STORED_TYPES.account.shows).toBe('accounts')
-    expect(STORED_TYPES.transaction.shows).toBe('spends')
-    expect(ok(undoLast(ctx))).toEqual({ spends: [spend.id], accounts: [food.id] })
-  })
 })
 
-describe('byRank', () => {
-  test('puts accounts before transactions, and keeps the order within a type', () => {
-    const [a1, a2] = [anAccount(), anAccount()]
-    const [t1, t2] = [aSpend(a1.id, a2.id), aSpend(a2.id, a1.id)]
-    const items = [t1, a1, t2, a2].map((doc) => ({ doc }))
-    expect(byRank(items).map((i) => i.doc)).toEqual([a1, a2, t1, t2])
-  })
-
-  test('of nothing is nothing', () => {
-    expect(byRank([])).toEqual([])
-  })
-})
-
-describe("the outbox's order", () => {
-  test("is a CASE over each type's rank, naming no type but through the table", () => {
-    const ledger = tempLedger()
-    const prepare = vi.spyOn(ledger.db, 'prepare')
-    queued(ledger.db, 10)
-    const sql = prepare.mock.calls.map(([text]) => text).find((text) => /order by/i.test(text))
-
-    expect(sql).toMatch(/order by case "outbox"."docType" when \? then \? when \? then \? end/i)
-    expect(sql).not.toMatch(/'(account|transaction)'/)
-    expect(readFileSync(join(HERE, 'outbox.ts'), 'utf8')).not.toMatch(/'(account|transaction)'/)
-  })
-})
-
-const HERE = fileURLToPath(new URL('.', import.meta.url))
-const ROOT = join(HERE, '../../..')
+const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
 /** The two files that may ask a document's type what to do. */
 const TABLES = ['core/src/documents.ts', 'desktop/main/ledger/document-types.ts']

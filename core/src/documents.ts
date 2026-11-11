@@ -153,15 +153,15 @@ export function readDocument(input: unknown): Outcome<LedgerDocument> {
   return checked(shape.value.type, shape.value)
 }
 
+// Generic over the type, so indexing the table by a union type-checks.
 const checked = <T extends DocumentTypeName>(type: T, doc: DocumentOf<T>) =>
   DOCUMENT_TYPES[type].check(doc)
 
 export type DocumentTypeName = LedgerDocument['type']
 export type DocumentOf<T extends DocumentTypeName> = Extract<LedgerDocument, { type: T }>
 
-/** What core knows of one type of document. Adding a type is one entry in the table below. */
+/** One type of document. A new type is a schema in DocumentSchema and an entry below. */
 export type DocumentType<D extends LedgerDocument> = {
-  schema: z.ZodType<D>
   /** Its checks, and its canonical form. */
   check(doc: D): Outcome<D>
   /** Lower applies first in a batch, and is sent first. */
@@ -172,7 +172,6 @@ export type DocumentType<D extends LedgerDocument> = {
 
 export const DOCUMENT_TYPES: { [T in DocumentTypeName]: DocumentType<DocumentOf<T>> } = {
   account: {
-    schema: AccountSchema,
     check: (doc) => {
       const result = checkAccount(doc)
       return result.ok ? { ok: true, value: doc } : result
@@ -181,7 +180,6 @@ export const DOCUMENT_TYPES: { [T in DocumentTypeName]: DocumentType<DocumentOf<
     tombstone: (doc, now) => ({ ...doc, deletedAt: now }),
   },
   transaction: {
-    schema: TransactionSchema,
     check: (doc) => {
       const result = checkTransaction(doc)
       return result.ok ? { ok: true, value: canonicalize(doc) } : result

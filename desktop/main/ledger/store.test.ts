@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { migrate } from '../db/migrate'
 import { MIGRATIONS } from '../db/migrations'
 import { transactions } from '../db/schema'
-import { currenciesPostedTo, getDocument, putDocument } from './store'
+import { currenciesPostedTo } from './document-types'
+import { getDocument, putDocument } from './store'
 
 const NOW = Date.UTC(2026, 9, 29, 12)
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'

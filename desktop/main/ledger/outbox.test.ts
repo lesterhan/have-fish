@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { DOCUMENT_TYPES } from '@have-fish/core/documents'
 import { formatVersion, type Version } from '@have-fish/core/version'
 import { readVersioned } from '@have-fish/core/versioned'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import type { Ledger } from '../db/ledger'
 import { outbox } from '../db/schema'
 import { applyLocal, applyReceived } from './apply'
@@ -156,6 +158,21 @@ describe('queued', () => {
     expect(queued(ledger.db, 10)).toEqual(
       allRows(ledger).toSorted((a, b) => (a.version < b.version ? -1 : 1)),
     )
+  })
+})
+
+describe("the outbox's order", () => {
+  test("is a CASE over each type's rank, naming no type but through the table", () => {
+    const ledger = tempLedger()
+    const prepare = vi.spyOn(ledger.db, 'prepare')
+    queued(ledger.db, 10)
+    const sql = prepare.mock.calls.map(([text]) => text).find((text) => /order by/i.test(text))
+    const whens = 'when \\? then \\? '.repeat(Object.keys(DOCUMENT_TYPES).length)
+
+    expect(sql).toMatch(new RegExp(`order by case "outbox"."docType" ${whens}end`, 'i'))
+    expect(sql).not.toMatch(/'(account|transaction)'/)
+    const source = readFileSync(new URL('outbox.ts', import.meta.url), 'utf8')
+    expect(source).not.toMatch(/'(account|transaction)'/)
   })
 })
 

@@ -4,23 +4,12 @@
 import type { DocumentOf, DocumentTypeName, LedgerDocument } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { and, countDistinct, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { perConnection } from '../db/prepared'
 import { accounts, postings } from '../db/schema'
 import { STORED_TYPES } from './document-types'
 
 const statements = perConnection((orm) => ({
-  transactionsUsing: orm
-    .select({ n: countDistinct(postings.transactionId) })
-    .from(postings)
-    .where(eq(postings.accountId, sql.placeholder('accountId')))
-    .prepare(),
-  currenciesPostedTo: orm
-    .selectDistinct({ currency: postings.currency })
-    .from(postings)
-    .where(eq(postings.accountId, sql.placeholder('accountId')))
-    .orderBy(postings.currency)
-    .prepare(),
   liveAccountAt: orm
     .select({ id: accounts.id })
     .from(accounts)
@@ -45,6 +34,7 @@ export function putDocument(db: Database.Database, v: Versioned<LedgerDocument>)
   put(v.doc.type, db, v)
 }
 
+// Generic over the type, so indexing the table by a union type-checks.
 const put = <T extends DocumentTypeName>(
   type: T,
   db: Database.Database,
@@ -66,18 +56,6 @@ export function getDocument<T extends DocumentTypeName>(
  */
 export function liveAccountAt(db: Database.Database, path: string): string | undefined {
   return statements(db).liveAccountAt.get({ pathKey: path.toLowerCase() })?.id
-}
-
-/** How many transactions post to this account. A tombstone has no postings, so all are live. */
-export function countTransactionsUsing(db: Database.Database, accountId: string): number {
-  return statements(db).transactionsUsing.get({ accountId })?.n ?? 0
-}
-
-/** The currencies posted to this account, sorted. A tombstone has no postings, so all are live. */
-export function currenciesPostedTo(db: Database.Database, accountId: string): string[] {
-  return statements(db)
-    .currenciesPostedTo.all({ accountId })
-    .map((r) => r.currency)
 }
 
 /**

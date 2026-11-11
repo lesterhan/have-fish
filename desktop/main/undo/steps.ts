@@ -23,7 +23,7 @@ import { getDocument } from '../ledger/store'
  * new version, and the version follows it.
  */
 export type Change = {
-  type: LedgerDocument['type']
+  type: DocumentTypeName
   id: string
   before: { doc: LedgerDocument | null; version: Version | null }
   after: { doc: LedgerDocument; version: Version }
@@ -183,6 +183,7 @@ const keyOf = (d: { type: string; id: string }) => `${d.type}:${d.id}`
 const versionsIn = (applied: BatchOutcome & { ok: true }): Written =>
   new Map(applied.value.written.map((w) => [keyOf(w), w.version]))
 
+// Generic over the type, so indexing the table by a union type-checks.
 const tombstoneOf = <T extends DocumentTypeName>(type: T, doc: DocumentOf<T>, now: number) =>
   DOCUMENT_TYPES[type].tombstone(doc, now)
 

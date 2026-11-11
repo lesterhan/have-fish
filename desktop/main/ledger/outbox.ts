@@ -2,7 +2,11 @@
 // that writes the document, so the two never disagree; sync reads it and clears it.
 
 import { randomUUID } from 'node:crypto'
-import { DOCUMENT_TYPES, type LedgerDocument } from '@have-fish/core/documents'
+import {
+  DOCUMENT_TYPES,
+  type DocumentTypeName,
+  type LedgerDocument,
+} from '@have-fish/core/documents'
 import { formatVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
@@ -59,7 +63,7 @@ export function enqueue(db: Database.Database, v: Versioned<LedgerDocument>): vo
 }
 
 /** A version from elsewhere won, so what was queued here for the document is already beaten. */
-export function supersede(db: Database.Database, type: LedgerDocument['type'], id: string): void {
+export function supersede(db: Database.Database, type: DocumentTypeName, id: string): void {
   statements(db).supersede.run({ docType: type, docId: id })
 }
 

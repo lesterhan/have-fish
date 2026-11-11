@@ -3,12 +3,13 @@ import { formatVersion, type Version } from '@have-fish/core/version'
 import { describe, expect, test } from 'vitest'
 import { contextFor, type Time } from '../context'
 import { applyReceived } from '../ledger/apply'
-import { ok, tempLedger } from '../ledger/fixtures'
+import { STORED_TYPES } from '../ledger/document-types'
+import { anAccount, aSpend, ok, tempLedger } from '../ledger/fixtures'
 import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
 import { editSpend, removeSpend, writeSpend } from '../services/spends'
 import { listTransactions } from '../services/transactions'
-import { nextSteps, redoLast, undoLast } from './steps'
+import { applyKeeping, nextSteps, record, redoLast, undoLast } from './steps'
 
 const START = Date.UTC(2026, 9, 29, 12)
 
@@ -42,6 +43,19 @@ function fromThePhone(ledger: ReturnType<typeof tempLedger>, doc: TransactionDoc
 }
 
 describe('undo and redo', () => {
+  test("an undo step over an account and a transaction moves each to its type's list", () => {
+    const { ctx } = setup()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const spend = aSpend(cash.id, food.id)
+    const { changes } = applyKeeping(ctx, [cash, food, spend], ctx.now(), [food, spend])
+    record(ctx, { kind: 'write', description: spend.description }, changes)
+
+    expect(STORED_TYPES.account.shows).toBe('accounts')
+    expect(STORED_TYPES.transaction.shows).toBe('spends')
+    expect(ok(undoLast(ctx))).toEqual({ spends: [spend.id], accounts: [food.id] })
+  })
+
   test('undoing a write leaves a tombstone, and redo brings the spend back exactly', () => {
     const { ctx, later, stored, listed } = setup()
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))

@@ -48,7 +48,7 @@ const ACCOUNT: Versioned<AccountDoc> = {
   version: VERSION,
 }
 
-describe('rowsOf', () => {
+describe('transactionRows and accountRows', () => {
   test('a two-leg spend is a transaction row and a posting row per leg, in order', () => {
     expect(transactionRows(SPEND)).toEqual({
       transaction: {
@@ -116,7 +116,7 @@ describe('rowsOf', () => {
   })
 })
 
-describe('docOf', () => {
+describe('transactionOf and accountOf', () => {
   test('transaction round trip does not change a document', () => {
     const { transaction, postings } = transactionRows(SPEND)
     expect(transactionOf(transaction, postings)).toEqual(SPEND)

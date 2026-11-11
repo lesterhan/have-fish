@@ -8,16 +8,10 @@ import type { Ledger } from '../db/ledger'
 import { editSpend, writeSpend } from '../services/spends'
 import { listTransactions } from '../services/transactions'
 import { applyLocal, applyReceived } from './apply'
+import { countTransactionsUsing, currenciesPostedTo } from './document-types'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { acknowledge, enqueue, queued, supersede } from './outbox'
-import {
-  countTransactionsUsing,
-  currenciesPostedTo,
-  getDocument,
-  liveAccountAt,
-  pendingReferences,
-  putDocument,
-} from './store'
+import { getDocument, liveAccountAt, pendingReferences, putDocument } from './store'
 
 /** How many statements `work` prepares, the second time it runs. */
 function preparedOnSecondRun(ledger: Ledger, work: () => void): number {

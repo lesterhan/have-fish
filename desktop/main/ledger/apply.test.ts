@@ -1,10 +1,10 @@
 import { MAX_DRIFT_MS } from '@have-fish/core/clock'
-import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import { type AccountDoc, DOCUMENT_TYPES, type TransactionDoc } from '@have-fish/core/documents'
 import { compareVersions } from '@have-fish/core/version'
-import { describe, expect, expectTypeOf, test } from 'vitest'
+import { describe, expect, expectTypeOf, onTestFinished, test } from 'vitest'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { applyLocal } from './apply'
+import { applyLocal, byRank } from './apply'
 import { anAccount, aSpend, MAKER, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { getDocument, putDocument } from './store'
 
@@ -485,5 +485,33 @@ describe('applyLocal, a clock stuck in the future', () => {
     const { ledger, cash, food } = withAccounts()
     saveClock(ledger.db, { wallMs: NOW + MAX_DRIFT_MS, counter: 0 })
     expect(ok(applyLocal(ledger, [aSpend(cash.id, food.id)], NOW)).clockAhead).toBe(false)
+  })
+})
+
+describe('byRank', () => {
+  test('puts accounts before transactions, and keeps the order within a type', () => {
+    const [a1, a2] = [anAccount(), anAccount()]
+    const [t1, t2] = [aSpend(a1.id, a2.id), aSpend(a2.id, a1.id)]
+    const items = [t1, a1, t2, a2].map((doc) => ({ doc }))
+    expect(byRank(items).map((i) => i.doc)).toEqual([a1, a2, t1, t2])
+  })
+
+  test('of nothing is nothing', () => {
+    expect(byRank([])).toEqual([])
+  })
+
+  test("follows the table's ranks, not the alphabet", () => {
+    const { account, transaction } = DOCUMENT_TYPES
+    const ranks = { account: account.rank, transaction: transaction.rank }
+    onTestFinished(() => {
+      account.rank = ranks.account
+      transaction.rank = ranks.transaction
+    })
+    account.rank = ranks.transaction
+    transaction.rank = ranks.account
+
+    const a1 = anAccount()
+    const t1 = aSpend(a1.id, a1.id)
+    expect(byRank([t1, a1].map((doc) => ({ doc }))).map((i) => i.doc)).toEqual([t1, a1])
   })
 })

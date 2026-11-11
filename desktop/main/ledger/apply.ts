@@ -21,7 +21,7 @@ import { STORED_TYPES, type WrittenItem } from './document-types'
 import { enqueue, supersede } from './outbox'
 import { getDocument, putDocument } from './store'
 
-export type Written = { type: LedgerDocument['type']; id: string; version: Version }
+export type Written = { type: DocumentTypeName; id: string; version: Version }
 
 /** An item a batch refused: where it was in the batch as passed, and why. */
 export type Refusal = Failure & { at: number }
@@ -127,7 +127,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     clock = ticked.clock
     const { version } = ticked
 
-    const failure = checkEach(doc.type, db, at, doc)
+    const failure = checkEach(doc.type, db, doc)
     if (failure !== null) throw new Refused(refusal(at, failure))
     const { decision, stored, previous } = store(db, doc, version, { at })
     // The clock has seen every version in this file, so a tick beats them all. If it doesn't,
@@ -152,12 +152,12 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }
 }
 
+// Generic over the type, so indexing the table by a union type-checks.
 const checkEach = <T extends DocumentTypeName>(
   type: T,
   db: Database.Database,
-  at: number,
   doc: DocumentOf<T>,
-) => STORED_TYPES[type].checkEach(db, at, doc)
+) => STORED_TYPES[type].checkEach(db, doc)
 
 /** A type's check over the items of that type in a local batch. */
 function checkBatch<T extends DocumentTypeName>(

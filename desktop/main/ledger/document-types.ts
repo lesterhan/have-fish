@@ -11,13 +11,12 @@ import type {
 import type { Failure } from '@have-fish/core/outcome'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { eq, sql } from 'drizzle-orm'
+import { countDistinct, eq, sql } from 'drizzle-orm'
 import type { Moved } from '../../shared/commands'
 import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
 import type { Refusal } from './apply'
 import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
-import { countTransactionsUsing, currenciesPostedTo } from './store'
 
 /** One document a local batch wrote, where it was in the batch, and what it replaced. */
 export type WrittenItem<D extends LedgerDocument> = { at: number; doc: D; previous: D | null }
@@ -28,7 +27,7 @@ export type StoredType<D extends LedgerDocument> = {
   /** The document stored under `id`, tombstones included, or null. */
   get(db: Database.Database, id: string): Versioned<D> | null
   /** A local write's check, before it's stored. */
-  checkEach(db: Database.Database, at: number, doc: D): Failure | null
+  checkEach(db: Database.Database, doc: D): Failure | null
   /** Run once after a local batch, over the items of this type it wrote. */
   checkBatch(db: Database.Database, written: WrittenItem<D>[]): Refusal | null
   /** The list an undo or redo of it moves. */
@@ -66,6 +65,17 @@ const statements = perConnection((orm) => ({
     .from(postings)
     .where(eq(postings.transactionId, sql.placeholder('transactionId')))
     .prepare(),
+  transactionsUsing: orm
+    .select({ n: countDistinct(postings.transactionId) })
+    .from(postings)
+    .where(eq(postings.accountId, sql.placeholder('accountId')))
+    .prepare(),
+  currenciesPostedTo: orm
+    .selectDistinct({ currency: postings.currency })
+    .from(postings)
+    .where(eq(postings.accountId, sql.placeholder('accountId')))
+    .orderBy(postings.currency)
+    .prepare(),
 }))
 
 export const STORED_TYPES: { [T in DocumentTypeName]: StoredType<DocumentOf<T>> } = {
@@ -79,7 +89,7 @@ export const STORED_TYPES: { [T in DocumentTypeName]: StoredType<DocumentOf<T>> 
   transaction: {
     put: putTransaction,
     get: getTransaction,
-    checkEach: (db, _at, doc) => checkPostedAccounts(db, doc),
+    checkEach: checkPostedAccounts,
     checkBatch: () => null,
     shows: 'spends',
   },
@@ -156,4 +166,16 @@ function checkAccounts(db: Database.Database, written: WrittenItem<AccountDoc>[]
     }
   }
   return null
+}
+
+/** How many transactions post to this account. A tombstone has no postings, so all are live. */
+export function countTransactionsUsing(db: Database.Database, accountId: string): number {
+  return statements(db).transactionsUsing.get({ accountId })?.n ?? 0
+}
+
+/** The currencies posted to this account, sorted. A tombstone has no postings, so all are live. */
+export function currenciesPostedTo(db: Database.Database, accountId: string): string[] {
+  return statements(db)
+    .currenciesPostedTo.all({ accountId })
+    .map((r) => r.currency)
 }
