@@ -6,6 +6,7 @@ import {
   ADD_ACCOUNT,
   aHome,
   BACK,
+  focusedIn,
   launch,
   openChip,
   openSelected,
@@ -34,13 +35,6 @@ const accounts = (page: Page) =>
 const selected = (page: Page) =>
   page.locator(`${LIST} li[aria-selected=true] [data-cell=name]`).allInnerTexts()
 const current = (page: Page) => page.locator(`${NAV} [aria-current=page]`).innerText()
-const focused = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.activeElement
-    const where = el?.closest('form, section, ol, nav, main')?.getAttribute('aria-label')
-    return `${where} ${el?.getAttribute('name') ?? el?.tagName}`
-  })
-
 /** Add account, a name, a kind and maybe a currency, Enter: as a person does it. */
 async function add(page: Page, name: string, kind: string, currency?: string) {
   await page.click(ADD_ACCOUNT)
@@ -70,7 +64,7 @@ describe('the places', () => {
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
     // A fresh ledger: the line is open and every part is empty, so the cursor is in the first.
-    expect(await focused(page)).toBe('Write down a spend from')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend from')
   })
 
   test('the wallet the first spend made is already there, as cash', async () => {
@@ -114,7 +108,7 @@ describe('adding an account', () => {
     expect(await page.locator(ACCOUNT).innerText()).toContain(
       'A credit card. Spending on it adds to what you owe.',
     )
-    expect(await focused(page)).toBe('Accounts OL')
+    await expect.poll(() => focusedIn(page)).toBe('Accounts OL')
   })
 
   test('a loan is something I owe, like a card', async () => {
@@ -197,7 +191,7 @@ describe('adding an account', () => {
         .poll(() => page.locator(`${ADDING} [role=alert]`).innerText())
         .toBe('You already have an account with that name.')
       expect(await page.getAttribute(NAME, 'aria-invalid')).toBe('true')
-      expect(await focused(page)).toBe('Add an account name')
+      await expect.poll(() => focusedIn(page)).toBe('Add an account name')
       await page.keyboard.press('Escape')
     }
     expect(await accounts(page)).toEqual(['cash | −4.50', 'Visa | 0.00'])
@@ -233,7 +227,7 @@ describe('adding an account', () => {
 
     press('ctrl+shift+n')
 
-    await expect.poll(() => focused(page)).toBe('Add an account name')
+    await expect.poll(() => focusedIn(page)).toBe('Add an account name')
     expect(await current(page)).toMatch(/^Accounts/)
   })
 
@@ -247,7 +241,7 @@ describe('adding an account', () => {
 
     await page.click(ADD_ACCOUNT)
     await expect.poll(() => pane.isVisible()).toBe(true)
-    expect(await focused(page)).toBe('Add an account name')
+    await expect.poll(() => focusedIn(page)).toBe('Add an account name')
 
     await page.click(`${ACCOUNT} >> ${BACK}`)
     await expect.poll(() => pane.isVisible()).toBe(false)

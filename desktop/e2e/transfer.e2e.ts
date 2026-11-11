@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  focusedName,
   fromLine,
   launch,
   offeredPaths,
@@ -115,7 +116,7 @@ describe('moving money between my accounts', () => {
 
     await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('same account')
     expect(await page.getAttribute(TO, 'aria-invalid')).toBe('true')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
+    await expect.poll(() => focusedName(page)).toBe('to')
     expect(await rows(page)).toHaveLength(1)
   })
 })

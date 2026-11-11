@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest'
 import {
   aHome,
   chip,
+  focusedName,
   launch,
   openChip,
   openComposer,
@@ -29,8 +30,6 @@ const WRITE_DATE = `${WRITE} input[name=date]`
 const PANE_DATE = `${PANE} input[name=date]`
 const LIST = 'ol[aria-label=Ledger]'
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
-const focusedName = (page: Page) =>
-  page.evaluate(() => document.activeElement?.getAttribute('name'))
 
 describe('write down a spend from another day', () => {
   test('the date starts as today, and amount, what for, Enter never touches it', async () => {
@@ -49,13 +48,13 @@ describe('write down a spend from another day', () => {
     await openComposer(page)
     await page.focus(`${WRITE} input[name=from]`)
     await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('date')
+    await expect.poll(() => focusedName(page)).toBe('date')
     await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('amount')
+    await expect.poll(() => focusedName(page)).toBe('amount')
     await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('description')
+    await expect.poll(() => focusedName(page)).toBe('description')
     await page.keyboard.press('Tab')
-    expect(await focusedName(page)).toBe('to')
+    await expect.poll(() => focusedName(page)).toBe('to')
   })
 
   test('set a date, Enter: saved on that day, and the next line carries the date', async () => {
@@ -74,7 +73,7 @@ describe('write down a spend from another day', () => {
       .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(2))} | Lunch | 12.00`])
     await openComposer(page)
     expect(await page.inputValue(WRITE_DATE)).toBe(daysAgo(2))
-    expect(await focusedName(page)).toBe('amount')
+    await expect.poll(() => focusedName(page)).toBe('amount')
   })
 
   test('a date cleared from the field is today', async () => {

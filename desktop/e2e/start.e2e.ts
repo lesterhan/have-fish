@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, launch, rows, shownDay, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, focusedName, launch, rows, shownDay, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const LIST = 'ol[aria-label=Accounts]'
@@ -20,9 +20,7 @@ async function add(page: Page, name: string, kind: string, start?: string) {
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   if (start !== undefined) {
     await page.click(QUESTION)
-    await expect
-      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('name')))
-      .toBe('start')
+    await expect.poll(() => focusedName(page)).toBe('start')
     await page.keyboard.type(start)
   }
   await page.keyboard.press('Enter')
@@ -31,9 +29,7 @@ async function add(page: Page, name: string, kind: string, start?: string) {
 /** Opens the question and waits for the cursor to land in it. */
 async function ask(page: Page) {
   await page.click(QUESTION)
-  await expect
-    .poll(() => page.evaluate(() => document.activeElement?.getAttribute('name')))
-    .toBe('start')
+  await expect.poll(() => focusedName(page)).toBe('start')
 }
 
 /** What the selected account's pane says, its starting balance among it. */
@@ -88,9 +84,7 @@ describe('a starting balance, said when adding', () => {
     await page.locator(QUESTION).focus()
     await page.keyboard.press('Enter')
 
-    await expect
-      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('name')))
-      .toBe('start')
+    await expect.poll(() => focusedName(page)).toBe('start')
   })
 
   test('skipped, the account is added with nothing in it', async () => {
@@ -131,7 +125,7 @@ describe('a starting balance, said when adding', () => {
       .poll(() => page.locator(`${ACCOUNT} #account-start-error`).innerText())
       .toBe("That isn't an amount. Type a number, like 4.50.")
     expect(await page.getAttribute(START, 'aria-invalid')).toBe('true')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('start')
+    await expect.poll(() => focusedName(page)).toBe('start')
     expect(await page.locator(`${LIST} li`).count()).toBe(0)
   })
 

@@ -3,7 +3,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, offeredPaths, openComposer, rows, WRITE } from './app'
+import { aHome, focusedIn, launch, offeredPaths, openComposer, rows, WRITE } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const OPTIONS = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
@@ -75,12 +75,7 @@ describe('refiling a spend from the list', () => {
     await expect.poll(() => page.locator(OPTIONS).isVisible()).toBe(true)
     await page.keyboard.press('Escape')
     await expect.poll(() => page.locator(REFILE).isVisible()).toBe(false)
-    expect(
-      await page.evaluate(() => {
-        const el = document.activeElement
-        return `${el?.tagName} ${el?.getAttribute('role')} ${el?.getAttribute('aria-label')}`
-      }),
-    ).toBe('OL listbox Ledger')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
 
     await page.keyboard.press('ArrowDown')
     expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Bus')

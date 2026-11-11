@@ -6,6 +6,7 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
+  focusedIn,
   launch,
   openChip,
   openComposer,
@@ -27,12 +28,6 @@ const P_DESCRIPTION = `${PANE} input[name=description]`
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const selected = (page: Page) =>
   page.locator(`${LIST} li[aria-selected=true]`).evaluateAll((li) => li.map((l) => l.textContent))
-const focused = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.activeElement
-    const where = el?.closest('form, section, ol')?.getAttribute('aria-label')
-    return `${where} ${el?.getAttribute('name') ?? el?.tagName}`
-  })
 /** Long enough for a key that should change nothing to have changed something. */
 const settle = (page: Page) => page.waitForTimeout(400)
 
@@ -44,7 +39,7 @@ describe('undo and redo', () => {
 
     press('ctrl+z')
     await expect.poll(() => rows(page)).toEqual([])
-    expect(await focused(page)).toBe('Ledger OL')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
 
     press('ctrl+shift+z')
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Coffee | 4.50`])
@@ -78,7 +73,7 @@ describe('undo and redo', () => {
     await expect.poll(() => rows(page)).toEqual([])
     expect(await page.inputValue(W_DESCRIPTION)).toBe('Tea')
     expect(await page.inputValue(W_AMOUNT)).toBe('7')
-    expect(await focused(page)).toBe('Write down a spend amount')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
   })
 
   test('with your typing in the field, Ctrl+Z takes back the typing, not the ledger', async () => {
@@ -107,7 +102,7 @@ describe('undo and redo', () => {
     press('ctrl+z')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Lunch | 12.00`])
-    expect(await focused(page)).toBe('Ledger OL')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
   })
 
   test('a saved edit is taken back as the edit, not as typing in its details', async () => {
@@ -148,7 +143,7 @@ describe('undo and redo', () => {
     await page.focus(W_AMOUNT)
     press('ctrl+z')
     await settle(page)
-    expect(await focused(page)).toBe('Write down a spend amount')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
     expect(await rows(page)).toEqual([])
   })
 })
