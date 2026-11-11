@@ -323,10 +323,33 @@ jobs:
 
       # The shortcut tests press real keys, since Electron's menu never sees the ones Playwright
       # sends over DevTools. The scenes' shots need ImageMagick's compare to say what moved.
+      # Their .debs are cached per runner image, so a mirror that's down fails only a run with
+      # nothing cached, and that one retries first.
+      - name: Name the runner image
+        id: image
+        run: echo "name=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xdotool and ImageMagick
+        id: debs
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/e2e-debs
+          key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
+
+      - name: Fetch xdotool and ImageMagick
+        if: steps.debs.outputs.cache-hit != 'true'
+        run: ../.github/ci/debs.sh fetch ~/e2e-debs xdotool imagemagick
+
+      # Saved now, not at the job's end, so a red e2e run still keeps them.
+      - name: Keep xdotool and ImageMagick
+        if: steps.debs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/e2e-debs
+          key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
+
       - name: Install xdotool and ImageMagick
-        run: >-
-          sudo apt-get update -q &&
-          sudo apt-get install -y -q --no-install-recommends xdotool imagemagick
+        run: ../.github/ci/debs.sh install ~/e2e-debs xdotool imagemagick
 
       # The built app, driven as a person would use it: the stories' acceptance. The runner gives
       # each of its four shards a virtual display of its own, since the shortcut tests press keys
