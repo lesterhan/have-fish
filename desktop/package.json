@@ -27,7 +27,10 @@
     "try": "bun tools/seed/run.ts try",
     "scenes:record": "bun tools/seed/run.ts record",
     "scenes": "bun run scenes:record && vite build -c vite.scenes.config.ts",
-    "scenes:dev": "bun run scenes:record && vite -c vite.scenes.config.ts"
+    "scenes:dev": "bun run scenes:record && vite -c vite.scenes.config.ts",
+    "scenes:shots": "bun tools/scenes-cli.ts shots",
+    "scenes:gallery": "bun tools/scenes-cli.ts gallery",
+    "scenes:diff": "bun tools/scenes-cli.ts diff"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"

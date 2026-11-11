@@ -7,5 +7,5 @@ shots/
 .sandbox/
 # The scenes' fixtures, recorded fresh by `scenes:record` (scenes/, tools/seed/record.ts).
 scenes/fixtures/
-# The scenes build, for the e2e suite only (vite.scenes.config.ts).
+# The scenes build, and the shots, gallery and diff over it (tools/scenes-cli.ts).
 scenes-out/

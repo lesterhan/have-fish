@@ -4,7 +4,7 @@
 import { replayBridge } from './bridge'
 import { EMPTY, type Fixture, noonOf } from './fixture'
 import { SCENES, type Scene, sceneNamed } from './scenes'
-import { run } from './steps'
+import { play } from './steps'
 
 const scene = sceneNamed(new URLSearchParams(location.search).get('scene'))
 
@@ -39,5 +39,6 @@ async function show(scene: Scene) {
   const bridge = replayBridge(fixture, { density: scene.density })
   window.haveFish = bridge
   await import('../renderer/main')
-  await run(scene.steps, bridge)
+  // A shot waits for the mark play sets, never for a timer.
+  await play(scene.steps, bridge)
 }

@@ -1,5 +1,6 @@
 // Runs a scene's steps in the page: an action as the menu would send it, a key on whatever has
-// the cursor, a click on the first element a selector finds. A step that finds nothing throws.
+// the cursor, a click on the first element a selector finds, or text typed into the first field
+// one finds. A step that finds nothing throws.
 
 import type { Replay } from './bridge'
 import type { Step } from './scenes'
@@ -12,6 +13,14 @@ export async function run(steps: readonly Step[], bridge: Replay): Promise<void>
     } else if ('key' in step) {
       const target = document.activeElement ?? document.body
       target.dispatchEvent(new KeyboardEvent('keydown', { key: step.key, bubbles: true }))
+    } else if ('fill' in step) {
+      const found = document.querySelector(step.fill)
+      if (!(found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement)) {
+        throw new Error(`a fill found nothing it could type in: ${step.fill}`)
+      }
+      found.focus()
+      found.value = step.text
+      found.dispatchEvent(new Event('input', { bubbles: true }))
     } else {
       const found = document.querySelector(step.click)
       if (!(found instanceof HTMLElement)) {
@@ -21,4 +30,11 @@ export async function run(steps: readonly Step[], bridge: Replay): Promise<void>
     }
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   }
+}
+
+/** Runs the steps, then marks the page ready once the fonts are in: a shot waits for this. */
+export async function play(steps: readonly Step[], bridge: Replay): Promise<void> {
+  await run(steps, bridge)
+  await document.fonts.ready
+  document.body.dataset.scene = 'ready'
 }

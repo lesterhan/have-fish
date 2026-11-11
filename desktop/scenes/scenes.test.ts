@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { PLACES } from '../renderer/places'
-import { SCENES, sceneNamed } from './scenes'
+import { COMPOSER, SCENES, sceneNamed } from './scenes'
 
 describe('SCENES', () => {
   test('the eight to start, each once', () => {
-    expect(SCENES.map((scene) => scene.name).sort()).toEqual([
+    const eight = [
       'accounts/year',
       'ledger/compact',
       'ledger/empty',
@@ -13,7 +13,29 @@ describe('SCENES', () => {
       'ledger/year',
       'reports/category-open',
       'reports/year',
-    ])
+    ]
+    expect(
+      SCENES.filter((scene) => eight.includes(scene.name))
+        .map((scene) => scene.name)
+        .sort(),
+    ).toEqual(eight)
+  })
+
+  test('the six design argues about, each once', () => {
+    const six = [
+      'accounts/adding',
+      'ledger/chip-changing',
+      'ledger/composer-typing',
+      'ledger/palette',
+      'ledger/path-picker',
+      'ledger/refused',
+    ]
+    expect(
+      SCENES.filter((scene) => six.includes(scene.name))
+        .map((scene) => scene.name)
+        .sort(),
+    ).toEqual(six)
+    expect(SCENES).toHaveLength(14)
   })
 
   test("every scene's name starts with a place, then a slash", () => {
@@ -41,6 +63,60 @@ describe('SCENES', () => {
     expect(rest).toHaveLength(2)
     expect(rest[0]).toHaveProperty('click')
     expect(rest[0]).toEqual(rest[1])
+  })
+})
+
+describe('the six new scenes', () => {
+  const scene = (name: string) => {
+    const found = sceneNamed(name)
+    if (found === null) throw new Error(`no scene ${name}`)
+    return found
+  }
+
+  test('ledger/palette opens the palette from the menu', () => {
+    expect(scene('ledger/palette')).toMatchObject({
+      fixture: 'year',
+      steps: [{ action: 'palette' }],
+    })
+  })
+
+  test('ledger/path-picker opens the picker on From', () => {
+    expect(scene('ledger/path-picker').steps).toEqual([
+      { action: 'newSpend' },
+      { fill: `${COMPOSER} input[name=from]`, text: '' },
+      { key: 'ArrowDown' },
+    ])
+  })
+
+  test('ledger/refused writes a spend, and the bridge refuses it', () => {
+    expect(scene('ledger/refused').steps).toEqual([
+      { action: 'newSpend' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
+      { key: 'Enter' },
+    ])
+  })
+
+  test('ledger/chip-changing opens a spend, its amount being changed', () => {
+    expect(scene('ledger/chip-changing').steps).toEqual([
+      { key: 'Enter' },
+      { click: 'button[aria-label=Amount]' },
+    ])
+  })
+
+  test('accounts/adding opens the account pane on a new account', () => {
+    expect(scene('accounts/adding').steps).toEqual([
+      { action: 'showAccounts' },
+      { action: 'addAccount' },
+    ])
+  })
+
+  test('ledger/composer-typing leaves a line half written', () => {
+    expect(scene('ledger/composer-typing').steps).toEqual([
+      { action: 'newSpend' },
+      { fill: `${COMPOSER} input[name=amount]`, text: '12.50' },
+      { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
+    ])
   })
 })
 
