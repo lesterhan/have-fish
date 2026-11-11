@@ -6,9 +6,9 @@ import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import type { ShapeName } from '@have-fish/core/shapes'
 import { z } from 'zod'
-import { DENSITIES, type Density } from './density'
-import type { StepName } from './steps'
-import { THEME_CHOICES, type ThemeChoice } from './theme/theme'
+import { DENSITIES, type Density } from '../density'
+import type { StepName } from '../steps'
+import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
 
 /** Long enough for anything typed by hand; the window is the least trusted process. */
 const typed = (max: number) => z.string().max(max)
