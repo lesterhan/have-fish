@@ -31,7 +31,7 @@ const LIST = 'ol[aria-label=Ledger]'
 const SELECTED = `${LIST} li[aria-selected=true]`
 const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`
-const LINE = `${WRITE} input[name=amount]`
+const W_AMOUNT = `${WRITE} input[name=amount]`
 
 /** Lunch, then Coffee: Coffee is newest, at the top, and selected. */
 async function twoSpends(page: Page) {
@@ -397,41 +397,6 @@ describe('open a transaction where it sits', () => {
   })
 })
 
-describe('the cursor readers', () => {
-  test('focusedName names the control, else its tag', async () => {
-    const { page } = await launch(aHome())
-    await openComposer(page)
-    await page.locator(LINE).focus()
-    await expect.poll(() => focusedName(page)).toBe('amount')
-
-    await page.locator(LIST).focus()
-    await expect.poll(() => focusedName(page)).toBe('OL')
-  })
-
-  test('focusedLabel reads out what the control is called', async () => {
-    const { page } = await launch(aHome())
-    await writeDown(page, '4.50', 'Coffee')
-    await expect.poll(() => rows(page)).toHaveLength(1)
-    await openSelected(page)
-
-    await expect.poll(() => focusedLabel(page)).toBe('What for')
-  })
-
-  test('focusedIn says where the cursor is, then its name', async () => {
-    const { page, press } = await launch(aHome())
-    await openComposer(page)
-    await page.locator(LINE).focus()
-    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
-
-    await page.locator(LIST).focus()
-    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
-
-    press('ctrl+k')
-    await page.waitForSelector('role=dialog[name="Do anything"]')
-    await expect.poll(() => focusedIn(page)).toBe('Do anything palette')
-  })
-})
-
 /** `n` spends through the bridge, all today, numbered so the newest is `Spend n`. */
 async function manySpends(page: Page, n: number) {
   await page.evaluate(async (n) => {
@@ -450,3 +415,38 @@ async function manySpends(page: Page, n: number) {
     }
   }, n)
 }
+
+describe('the cursor readers', () => {
+  test('focusedName names the control, else its tag', async () => {
+    const { page } = await launch(aHome())
+    await openComposer(page)
+    await page.locator(W_AMOUNT).focus()
+    await expect.poll(() => focusedName(page)).toBe('amount')
+
+    await page.locator(LIST).focus()
+    await expect.poll(() => focusedName(page)).toBe('OL')
+  })
+
+  test('focusedLabel reads out what the control is called', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '4.50', 'Coffee')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    await openSelected(page)
+
+    await expect.poll(() => focusedLabel(page)).toBe('What for')
+  })
+
+  test('focusedIn says where the cursor is, then its name', async () => {
+    const { page, press } = await launch(aHome())
+    await openComposer(page)
+    await page.locator(W_AMOUNT).focus()
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
+
+    await page.locator(LIST).focus()
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
+
+    press('ctrl+k')
+    await page.waitForSelector('role=dialog[name="Do anything"]')
+    await expect.poll(() => focusedIn(page)).toBe('Do anything palette')
+  })
+})

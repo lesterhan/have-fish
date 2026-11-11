@@ -18,10 +18,10 @@ function readsCursor(source: string): number[] {
   return source.split('\n').flatMap((line, i) => (line.includes('activeElement') ? [i + 1] : []))
 }
 
-/** An `expect(` that awaits a focus reader with no poll: it looks where the cursor is once. */
-const LOOKS_ONCE = /expect\(\s*await\s+focused/g
+/** A look at the cursor with no poll: an `expect(` on a reader, awaited or not, or an `await`. */
+const LOOKS_ONCE = /expect\(\s*(?:await\s+)?focused|await\s+focused/g
 
-/** The lines where an `expect(` looks at the cursor once, 1-based, at the line it opens. */
+/** The lines where the cursor is looked at once, 1-based, at the `expect(` or the `await`. */
 function looksOnce(source: string): number[] {
   return [...source.matchAll(LOOKS_ONCE)].map((match) => lineAt(source, match.index))
 }
@@ -64,6 +64,14 @@ describe('the e2e suite and the cursor', () => {
 
   test('a poll around the reader is left alone', () => {
     expect(looksOnce("await expect.poll(() => focusedName(page)).toBe('amount')")).toEqual([])
+  })
+
+  test('a look through a variable is found at the await', () => {
+    expect(looksOnce("const at = await focusedIn(page)\nexpect(at).toBe('Ledger OL')")).toEqual([1])
+  })
+
+  test('resolves reads once too', () => {
+    expect(looksOnce("await expect(focusedName(page)).resolves.toBe('amount')")).toEqual([1])
   })
 
   test('activeElement is found where it is read, and a comment without one is not', () => {
