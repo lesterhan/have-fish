@@ -14,6 +14,9 @@ import { PANE, WRITE } from './app'
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const TREE = 'ol[aria-label="Spending by category"]'
+const PALETTE = '[role=dialog][aria-label="Do anything"]'
+const FROM_OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
+const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 
 /** The fixtures, as `scenes:record` wrote them. */
 const fixtureOf = (profile: string): Fixture =>
@@ -102,4 +105,35 @@ test('with no scene named, a link to each', async () => {
   const links = page.locator('#app a')
   expect(await links.count()).toBe(SCENES.length)
   expect(await links.allTextContents()).toEqual(SCENES.map((scene) => scene.name))
+})
+
+test('each new scene opens on what it names', { timeout: 120_000 }, async () => {
+  const palette = await openScene('ledger/palette')
+  await palette.locator(`${PALETTE} [role=listbox]`).waitFor()
+
+  const picker = await openScene('ledger/path-picker')
+  await picker.locator(`${FROM_OPTIONS} [role=option]`).first().waitFor()
+
+  const refused = await openScene('ledger/refused')
+  await expect
+    .poll(() => refused.locator(`${WRITE} [role=alert]`).textContent())
+    .toContain(copy.spends.composer.refused.form)
+
+  const chip = await openScene('ledger/chip-changing')
+  await chip.locator(`${PANE} input[name=amount]`).waitFor()
+
+  const adding = await openScene('accounts/adding')
+  await adding.locator(ADDING).waitFor()
+
+  const typing = await openScene('ledger/composer-typing')
+  await typing.locator(`${WRITE} input[name=description]`).waitFor()
+  expect(await typing.inputValue(`${WRITE} input[name=amount]`)).toBe('12.50')
+  expect(await typing.inputValue(`${WRITE} input[name=description]`)).toBe('Lunch')
+})
+
+test('a scene says it is ready once its steps have run and its fonts loaded', async () => {
+  const page = await openScene('ledger/palette')
+  await page.waitForSelector('body[data-scene=ready]')
+  // Ready comes after the steps: what they open is on the page too.
+  await page.locator(`${PALETTE} [role=listbox]`).waitFor()
 })

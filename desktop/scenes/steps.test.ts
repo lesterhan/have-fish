@@ -8,9 +8,15 @@ import { run } from './steps'
 
 class FakeElement {
   clicked = 0
+  focused = 0
+  value = ''
   events: Event[] = []
   click() {
     this.clicked += 1
+  }
+  focus() {
+    this.focused += 1
+    active = this
   }
   dispatchEvent(event: Event): boolean {
     this.events.push(event)
@@ -27,16 +33,20 @@ class FakeKeyboardEvent extends Event {
 }
 
 let cursor: FakeElement
+let active: FakeElement
 let found: unknown
 let frames: number
 
 beforeEach(() => {
   cursor = new FakeElement()
+  active = cursor
   found = new FakeElement()
   frames = 0
   Object.assign(globalThis, {
     document: {
-      activeElement: cursor,
+      get activeElement() {
+        return active
+      },
       body: new FakeElement(),
       querySelector: () => found,
     },
@@ -94,5 +104,27 @@ describe('run', () => {
     const steps: Step[] = [{ action: 'showReports' }, { key: 'Enter' }]
     await run(steps, aBridge())
     expect(frames).toBe(2)
+  })
+
+  test('a fill step focuses its field, sets the text and says it changed', async () => {
+    const field = new FakeElement()
+    found = field
+    await run([{ fill: 'input[name=from]', text: '' }, { key: 'ArrowDown' }], aBridge())
+    expect(field.focused).toBe(1)
+    expect(field.value).toBe('')
+    const typed = field.events.find((event) => event.type === 'input')
+    expect(typed).toBeDefined()
+    expect(typed?.bubbles).toBe(true)
+    // The key after it lands on the field that was filled, as it would after typing.
+    expect(field.events.some((event) => event.type === 'keydown')).toBe(true)
+  })
+
+  test('a fill step that finds nothing throws, naming its selector', async () => {
+    found = null
+    await expect(run([{ fill: 'input[name=from]', text: 'x' }], aBridge())).rejects.toThrow(
+      /input\[name=from\]/,
+    )
+    found = { value: '' }
+    await expect(run([{ fill: 'textarea', text: 'x' }], aBridge())).rejects.toThrow(/textarea/)
   })
 })
