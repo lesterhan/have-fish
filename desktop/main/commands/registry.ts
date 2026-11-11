@@ -2,6 +2,7 @@
 // `shared/commands.ts`; this maps each to the service that does it.
 
 import { handlers as accounts } from '../features/accounts/commands'
+import { handlers as clipboard } from '../features/clipboard/commands'
 import { handlers as paths } from '../features/paths/commands'
 import { handlers as reports } from '../features/reports/commands'
 import { handlers as settings } from '../features/settings/commands'
@@ -18,8 +19,5 @@ export const handlers: Handlers = {
   'ledger.redo': redoLast,
   'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
   ...settings,
-  'clipboard.copy': (ctx, { text }) => {
-    ctx.copy(text)
-    return { ok: true, value: null }
-  },
+  ...clipboard,
 }

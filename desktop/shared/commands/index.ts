@@ -4,6 +4,7 @@
 import { z } from 'zod'
 import type { StepName } from '../steps'
 import { type AccountValues, accountInputs } from './accounts'
+import { type ClipboardValues, clipboardInputs } from './clipboard'
 import { type PathValues, pathInputs } from './paths'
 import { type ReportValues, reportInputs } from './reports'
 import { type SettingsValues, settingsInputs } from './settings'
@@ -11,6 +12,7 @@ import { type SpendValues, spendInputs } from './spends'
 import type { Changed, Typing, Wire } from './wire'
 
 export * from './accounts'
+export * from './clipboard'
 export * from './paths'
 export * from './reports'
 export * from './settings'
@@ -27,8 +29,7 @@ export const inputs = {
   /** What Undo and Redo would take, by name; it changes nothing. */
   'ledger.steps': z.strictObject({}),
   ...settingsInputs,
-  /** Text the window put together, onto the system clipboard. It writes nothing to the ledger. */
-  'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
+  ...clipboardInputs,
 }
 
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
@@ -39,12 +40,12 @@ export interface Values
     AccountValues,
     PathValues,
     ReportValues,
-    SettingsValues {
+    SettingsValues,
+    ClipboardValues {
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved
   'ledger.steps': { undo: StepName | null; redo: StepName | null }
-  'clipboard.copy': null
 }
 
 export type CommandName = keyof typeof inputs
