@@ -40,6 +40,16 @@ describe('scriptLinesIn', () => {
     const instance = '<script lang="ts">\n  1\n  2\n  3\n  4\n  5\n</script>\n'
     expect(scriptLinesIn(module + instance)).toBe(5)
   })
+
+  it('reads a tag that wraps, its module attribute on a line of its own', () => {
+    const module = '<script\n  module\n>\n  1\n  2\n  3\n</script>\n'
+    const instance = '<script\n  lang="ts"\n  generics="T"\n>\n  let a = 1\n</script>\n'
+    expect(scriptLinesIn(module + instance)).toBe(1)
+  })
+
+  it('takes the word module inside a quoted attribute for no module script', () => {
+    expect(scriptLinesIn('<script lang="ts" generics="T extends module">\n  1\n</script>')).toBe(1)
+  })
 })
 
 describe('propsIn', () => {
@@ -72,6 +82,10 @@ describe('propsIn', () => {
 
   it('counts the destructuring $props() is assigned to, not the nearest one before it', () => {
     expect(propsIn('let { x } = foo()\nlet { a, b }: Props = $props()')).toBe(2)
+  })
+
+  it('counts the names, not the members of an inline type holding an arrow', () => {
+    expect(propsIn('let { a, b }: { a: () => void; b: number } = $props()')).toBe(2)
   })
 
   it('counts a const destructuring', () => {

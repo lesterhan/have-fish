@@ -30,20 +30,29 @@ const strip = (source: string) =>
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/(^|\s)\/\/.*$/gm, '$1')
 
-/** The instance script's lines: its `<script …>` line without `module`, to `</script>`. */
+/** The instance script's lines: from its `<script …>` tag, without `module`, to `</script>`. */
 export function scriptLinesIn(source: string): number {
-  const script = /^\s*<script\b(?![^\n]*\smodule\b)[^\n]*\n([\s\S]*?)^\s*<\/script>/m.exec(
-    source,
-  )?.[1]
-  return script ? script.split('\n').length - 1 : 0
+  // The tag may wrap, and a quoted attribute may hold a `>` or the word module.
+  const scripts = source.matchAll(
+    /^\s*<script\b((?:[^>"']|"[^"]*"|'[^']*')*)>[^\n]*\n([\s\S]*?)^\s*<\/script>/gm,
+  )
+  for (const [, attributes = '', script = ''] of scripts) {
+    const unquoted = attributes.replace(/"[^"]*"|'[^']*'/g, '')
+    if (!/\bmodule\b/.test(unquoted)) return script.split('\n').length - 1
+  }
+  return 0
 }
 
-/** The names the destructuring assigned from `$props()` takes, at its top level. */
+/**
+ * The names the destructuring assigned from `$props()` takes, at its top level. A generic in a
+ * default (`new Map<string, number>()`) counts its comma as a prop: loud, and no component has one.
+ */
 export function propsIn(source: string): number {
   const code = strip(source)
   const props = code.search(/\$props\(\)/)
   if (props < 0) return 0
-  const close = /\}\s*(?::[^=]*)?=\s*$/.exec(code.slice(0, props))
+  // The destructuring's `}`, then its type, which may hold an `=>`, then `=`.
+  const close = /\}\s*(?::(?:[^=]|=>)*)?=\s*$/.exec(code.slice(0, props))
   if (!close) throw new Error('$props() must be destructured to be counted')
   let depth = 0
   let open = close.index
