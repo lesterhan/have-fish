@@ -23,30 +23,44 @@ export const HELD: Record<string, Size> = {
   'parts/Row.svelte': { lines: 56, props: 17, states: 0 },
 }
 
+// Comments out of the count; strings aren't looked inside, which no component needs yet.
 const strip = (source: string) =>
   source
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/(^|\s)\/\/.*$/gm, '$1')
 
-/** The lines between the first `<script …>` line and its `</script>`. */
+/** The instance script's lines: its `<script …>` line without `module`, to `</script>`. */
 export function scriptLinesIn(source: string): number {
-  const script = /<script[^>]*>\n([\s\S]*?)^\s*<\/script>/m.exec(source)?.[1]
+  const script = /^\s*<script\b(?![^\n]*\smodule\b)[^\n]*\n([\s\S]*?)^\s*<\/script>/m.exec(
+    source,
+  )?.[1]
   return script ? script.split('\n').length - 1 : 0
 }
 
-/** The names the `$props()` destructuring takes, at its top level. */
+/** The names the destructuring assigned from `$props()` takes, at its top level. */
 export function propsIn(source: string): number {
   const code = strip(source)
   const props = code.search(/\$props\(\)/)
-  const destructuring = [...code.slice(0, Math.max(props, 0)).matchAll(/let\s*\{/g)].at(-1)
-  if (destructuring === undefined) return 0
+  if (props < 0) return 0
+  const close = /\}\s*(?::[^=]*)?=\s*$/.exec(code.slice(0, props))
+  if (!close) throw new Error('$props() must be destructured to be counted')
   let depth = 0
+  let open = close.index
+  while (open > 0) {
+    open--
+    const char = code[open] as string
+    if (')]}'.includes(char)) depth++
+    else if ('([{'.includes(char)) {
+      if (depth === 0) break
+      depth--
+    }
+  }
+  depth = 0
   let names = 0
   let name = false
-  for (const char of code.slice(destructuring.index + destructuring[0].length)) {
+  for (const char of code.slice(open + 1, close.index)) {
     if ('([{'.includes(char)) depth++
-    else if (depth === 0 && char === '}') break
     else if (')]}'.includes(char)) depth--
     else if (depth === 0 && char === ',') {
       if (name) names++

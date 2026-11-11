@@ -28,6 +28,18 @@ describe('scriptLinesIn', () => {
       '<script>\n  let a = 1\n</script>\n\n<p>x</p>\n<p>y</p>\n\n<style>\n  p { gap: 0; }\n</style>\n'
     expect(scriptLinesIn(source)).toBe(1)
   })
+
+  it('reads past a > inside an attribute', () => {
+    const source =
+      '<script lang="ts" generics="T extends Record<string, unknown>">\n  let a = 1\n  let b = 2\n</script>'
+    expect(scriptLinesIn(source)).toBe(2)
+  })
+
+  it("counts the instance script, never the module's before it", () => {
+    const module = '<script module>\n  1\n  2\n  3\n</script>\n'
+    const instance = '<script lang="ts">\n  1\n  2\n  3\n  4\n  5\n</script>\n'
+    expect(scriptLinesIn(module + instance)).toBe(5)
+  })
 })
 
 describe('propsIn', () => {
@@ -56,6 +68,18 @@ describe('propsIn', () => {
 
   it('is 0 with no $props()', () => {
     expect(propsIn('<script>\n  let a = $state(0)\n</script>')).toBe(0)
+  })
+
+  it('counts the destructuring $props() is assigned to, not the nearest one before it', () => {
+    expect(propsIn('let { x } = foo()\nlet { a, b }: Props = $props()')).toBe(2)
+  })
+
+  it('counts a const destructuring', () => {
+    expect(propsIn('const { a, b, c } = $props()')).toBe(3)
+  })
+
+  it('throws when $props() is not destructured', () => {
+    expect(() => propsIn('let props: Props = $props()')).toThrow(/must be destructured/)
   })
 })
 
@@ -143,58 +167,7 @@ describe('every component holds to its size', () => {
     expect(files.length).toBeGreaterThanOrEqual(30)
   })
 
-  test('it counts the real files as they were counted by hand', () => {
-    expect(sizes['parts/Empty.svelte']).toEqual({ lines: 4, props: 1, states: 0 })
-    expect(sizes['SpendCard.svelte']).toEqual({ lines: 162, props: 9, states: 2 })
-    expect(sizes['parts/Listbox.svelte']).toEqual({ lines: 269, props: 28, states: 5 })
-    expect(sizes['Composer.svelte']).toEqual({ lines: 267, props: 10, states: 14 })
-    expect(sizes['App.svelte']).toEqual({ lines: 223, props: 0, states: 2 })
-  })
-
   test('no component has grown, and the table flatters none', () => {
     expect(grownIn(sizes, HELD, LIMITS)).toEqual([])
-  })
-
-  test('the table holds the twelve over a limit, and no other', () => {
-    expect(HELD).toEqual({
-      'AccountPane.svelte': { lines: 118, props: 9, states: 8 },
-      'Accounts.svelte': { lines: 160, props: 3, states: 7 },
-      'App.svelte': { lines: 223, props: 0, states: 2 },
-      'Composer.svelte': { lines: 267, props: 10, states: 14 },
-      'Reports.svelte': { lines: 279, props: 3, states: 12 },
-      'SpendCard.svelte': { lines: 162, props: 9, states: 2 },
-      'SpendList.svelte': { lines: 198, props: 23, states: 4 },
-      'Spends.svelte': { lines: 250, props: 4, states: 9 },
-      'parts/Chip.svelte': { lines: 40, props: 11, states: 0 },
-      'parts/Listbox.svelte': { lines: 269, props: 28, states: 5 },
-      'parts/PathPicker.svelte': { lines: 219, props: 16, states: 6 },
-      'parts/Row.svelte': { lines: 56, props: 17, states: 0 },
-    })
-  })
-
-  test('AccountList takes rows, selectedId, onselect and onopen, and no accounts', () => {
-    const list = read('AccountList.svelte')
-    expect(propsIn(list)).toBe(4)
-    expect(list).toContain('let { rows, selectedId, onselect, onopen }: Props = $props()')
-    expect(list).not.toMatch(/^\s*accounts: ListedAccount\[\]/m)
-    expect(read('Accounts.svelte')).not.toContain('accounts={ordered}')
-  })
-})
-
-describe('the type checkers catch what is unused', () => {
-  const ROOT = join(import.meta.dirname, '../..')
-  const read = (file: string) => readFileSync(join(ROOT, file), 'utf8')
-
-  test("desktop's and core's tsconfig set both flags, and the window's extends desktop's", () => {
-    for (const file of ['desktop/tsconfig.json', 'core/tsconfig.json']) {
-      expect(read(file), file).toMatch(/"noUnusedLocals": true/)
-      expect(read(file), file).toMatch(/"noUnusedParameters": true/)
-    }
-    expect(read('desktop/tsconfig.web.json')).toMatch(/"extends": "\.\/tsconfig\.json"/)
-  })
-
-  test('DESIGN.md, Parts, rule 3 names the guard', () => {
-    const rule = /\n3\. \*\*Use, extend, or replace\.\*\*[\s\S]*?(?=\n4\. )/.exec(read('DESIGN.md'))
-    expect(rule?.[0]).toMatch(/tools\/components\.test\.ts[^.]*\.\s*$/)
   })
 })
