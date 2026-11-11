@@ -28,17 +28,15 @@ type Edge = { file: string; imports: string }
 const importsOf = (text: string) =>
   ts.preProcessFile(text, true, true).importedFiles.map((i) => i.fileName)
 
-type Script = { content: { start: number; end: number } } | null
-
 /** A component's imports, from its scripts and not its markup. */
 function svelteImportsOf(source: string): string[] {
-  const { instance, module } = parse(source, { modern: true }) as unknown as {
-    instance: Script
-    module: Script
-  }
-  return [module, instance].flatMap((script) =>
-    script ? importsOf(source.slice(script.content.start, script.content.end)) : [],
-  )
+  const { instance, module } = parse(source, { modern: true })
+  return [module, instance].flatMap((script) => {
+    if (!script) return []
+    // estree's Program doesn't type the offsets Svelte's parser puts on it.
+    const { start, end } = script.content as typeof script.content & { start: number; end: number }
+    return importsOf(source.slice(start, end))
+  })
 }
 
 function edgesOf(file: string, source: string): Edge[] {
