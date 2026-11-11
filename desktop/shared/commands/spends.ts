@@ -62,7 +62,10 @@ export const spendInputs = {
   'transaction.get': z.strictObject({ ids: z.array(z.uuid()).max(1000) }),
 }
 
-/** One posting as a row's details read it: what it moved, and the account or category it touched. */
+/**
+ * One posting as a row's details read it: what it moved, and the account or category it
+ * touched.
+ */
 export type ListedLeg = {
   /** Signed: below zero is money leaving that account. */
   amount: string
@@ -117,7 +120,10 @@ export type ListedTransaction = {
 /** A day of the ledger's list, and how many rows it has. */
 export type ListedDay = { date: string; count: number }
 
-/** What a day came to: money in less money out, per currency. A move between my accounts is neither. */
+/**
+ * What a day came to: money in less money out, per currency. A move between my accounts is
+ * neither.
+ */
 export type DayNet = { date: string; net: Money[] }
 
 export interface SpendValues {
