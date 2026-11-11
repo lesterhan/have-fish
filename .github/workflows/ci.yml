@@ -322,9 +322,11 @@ jobs:
         run: bun run check
 
       # The shortcut tests press real keys, since Electron's menu never sees the ones Playwright
-      # sends over DevTools.
-      - name: Install xdotool
-        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xdotool
+      # sends over DevTools. The scenes' shots need ImageMagick's compare to say what moved.
+      - name: Install xdotool and ImageMagick
+        run: >-
+          sudo apt-get update -q &&
+          sudo apt-get install -y -q --no-install-recommends xdotool imagemagick
 
       # The built app, driven as a person would use it: the stories' acceptance. The runner gives
       # each of its four shards a virtual display of its own, since the shortcut tests press keys

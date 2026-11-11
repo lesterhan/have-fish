@@ -142,6 +142,19 @@ async function probed(browser: Browser, url: string): Promise<boolean> {
   }
 }
 
+/**
+ * Waits until nothing animates and two frames have drawn. A pane sliding in leaves the edges of
+ * its fields a hair different, and its layer settles a frame after the animation ends; so does a
+ * theme switch.
+ */
+async function settled(page: Page): Promise<void> {
+  await page.waitForFunction(() => document.getAnimations().length === 0)
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
+  )
+}
+
 /** Waits until the scene is drawn, and the fonts are in. */
 async function drawn(page: Page, marked: boolean): Promise<void> {
   if (marked) {
@@ -150,20 +163,8 @@ async function drawn(page: Page, marked: boolean): Promise<void> {
     // No marker: the page quiets down once its steps have run, then a frame draws it.
     await page.waitForLoadState('networkidle')
     await page.waitForFunction(() => document.fonts.status === 'loaded')
-    await page.evaluate(
-      () =>
-        new Promise<void>((done) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => done())),
-        ),
-    )
   }
-  // A pane sliding in leaves the edges of its fields a hair different between runs, and its
-  // layer settles a frame after the animation ends.
-  await page.waitForFunction(() => document.getAnimations().length === 0)
-  await page.evaluate(
-    () =>
-      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
-  )
+  await settled(page)
 }
 
 /** Every scene at every size and theme, written under `out`; the shots it wrote. */
@@ -180,6 +181,7 @@ async function shoot(browser: Browser, url: string, out: string, marked: boolean
         await drawn(page, marked)
         for (const theme of THEMES) {
           await page.emulateMedia({ colorScheme: theme })
+          await settled(page)
           await page.screenshot({
             path: join(out, fileOf(scene, size.name, theme)),
             animations: 'disabled',
