@@ -7,11 +7,13 @@ import type { StepName } from '../steps'
 import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
 import { type AccountValues, accountInputs } from './accounts'
 import { type PathValues, pathInputs } from './paths'
+import { type ReportValues, reportInputs } from './reports'
 import { type SpendValues, spendInputs } from './spends'
-import { type Changed, date, type Money, type Typing, type Wire } from './wire'
+import type { Changed, Typing, Wire } from './wire'
 
 export * from './accounts'
 export * from './paths'
+export * from './reports'
 export * from './spends'
 export * from './wire'
 
@@ -19,8 +21,7 @@ export const inputs = {
   ...spendInputs,
   ...accountInputs,
   ...pathInputs,
-  /** What went to each category from `start` to `end`, both days in it. */
-  'report.spending': z.strictObject({ start: date, end: date }),
+  ...reportInputs,
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
   /** What Undo and Redo would take, by name; it changes nothing. */
@@ -34,24 +35,10 @@ export const inputs = {
   'clipboard.copy': z.strictObject({ text: z.string().max(20_000) }),
 }
 
-/** One spend's money in one category, as a report sums it. */
-export type ReportedSpend = {
-  /** The transaction's id. */
-  id: string
-  /** Its name without the root (`food:coffee`); `''` for unsorted. */
-  category: string
-  amount: string
-}
-
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
 export type Moved = { spends: string[]; accounts: string[] }
 
-export interface Values extends SpendValues, AccountValues, PathValues {
-  /**
-   * In the home currency, `currency`, oldest day first. `other` is what went to categories in
-   * each other currency, by code: none that sum to zero.
-   */
-  'report.spending': { currency: string; spent: ReportedSpend[]; other: Money[] }
+export interface Values extends SpendValues, AccountValues, PathValues, ReportValues {
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved

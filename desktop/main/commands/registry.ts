@@ -3,7 +3,7 @@
 
 import { handlers as accounts } from '../features/accounts/commands'
 import { handlers as paths } from '../features/paths/commands'
-import { spendingIn } from '../features/reports/reports'
+import { handlers as reports } from '../features/reports/commands'
 import { handlers as spends } from '../features/spends/commands'
 import { getDensity, setDensity, setTheme } from '../services/settings'
 import { nextSteps, redoLast, undoLast } from '../undo/steps'
@@ -13,7 +13,7 @@ export const handlers: Handlers = {
   ...spends,
   ...accounts,
   ...paths,
-  'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
+  ...reports,
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,
   'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
