@@ -1,8 +1,8 @@
 // Each command the window can run, by name. The names and input schemas are in
 // `shared/commands.ts`; this maps each to the service that does it.
 
+import { addAccount, listAccounts, startAccount } from '../features/accounts/accounts'
 import { handlers as spends } from '../features/spends/commands'
-import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import { listPaths } from '../services/paths'
 import { spendingIn } from '../services/reports'
 import { getDensity, setDensity, setTheme } from '../services/settings'

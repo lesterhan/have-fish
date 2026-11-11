@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from 'vitest'
 import { contextFor, type Time } from '../context'
+import { addAccount } from '../features/accounts/accounts'
 import { removeSpend, writeSpend } from '../features/spends/spends'
 import { applyLocal } from '../ledger/apply'
 import {
@@ -12,7 +13,6 @@ import {
   recorded,
   tempLedger,
 } from '../ledger/fixtures'
-import { addAccount } from './accounts'
 import { spendingIn } from './reports'
 
 function setup() {

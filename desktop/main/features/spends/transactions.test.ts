@@ -4,7 +4,7 @@ import type { Ledger } from '../../db/ledger'
 import { applyLocal } from '../../ledger/apply'
 import { aLedgerOf, anAccount, aSpend, NOW, ok, tempLedger } from '../../ledger/fixtures'
 import { liveAccountAt } from '../../ledger/store'
-import { addAccount } from '../../services/accounts'
+import { addAccount } from '../accounts/accounts'
 import { removeSpend, writeSpend } from './spends'
 import {
   daysOfTransactions,
