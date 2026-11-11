@@ -157,8 +157,13 @@ async function drawn(page: Page, marked: boolean): Promise<void> {
         ),
     )
   }
-  // A pane sliding in leaves the edges of its fields a hair different between runs.
+  // A pane sliding in leaves the edges of its fields a hair different between runs, and its
+  // layer settles a frame after the animation ends.
   await page.waitForFunction(() => document.getAnimations().length === 0)
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
+  )
 }
 
 /** Every scene at every size and theme, written under `out`; the shots it wrote. */
