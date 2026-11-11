@@ -14,5 +14,6 @@
 
 <!-- One line on what ran (tests, type check, the app). One on what wasn't checked. -->
 
-<!-- Title: [scope] Imperative description (AGENTS.md, "PR workflow"). Current-app UI change:
-     frontend/DESIGN.md §9 is the review checklist. Rewrite UI: DESIGN.md. -->
+<!-- Title: [key] Imperative description — the key as the branch has it ([desktop-48]), or an
+     area word when there is no note ([repo]). See AGENTS.md, "PR workflow". Current-app UI
+     change: frontend/DESIGN.md §9 is the review checklist. Rewrite UI: DESIGN.md. -->
