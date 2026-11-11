@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  focusedName,
   fromLine,
   launch,
   offeredPaths,
@@ -133,7 +134,7 @@ describe('picking the account that paid', () => {
       .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
       .toBe('not an account')
     expect(await page.getAttribute(`${WRITE} input[name=to]`, 'aria-invalid')).toBe('true')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
+    await expect.poll(() => focusedName(page)).toBe('to')
     expect(await rows(page)).toEqual([])
   })
 

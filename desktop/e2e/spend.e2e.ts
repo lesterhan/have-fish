@@ -10,6 +10,7 @@ import {
   aHome,
   BATCH,
   commandFor,
+  focusedName,
   launch,
   ledgerDirIn,
   openComposer,
@@ -26,8 +27,6 @@ const FROM = `${WRITE} input[name=from]`
 const DATE = `${WRITE} input[name=date]`
 const LEDGER = 'ol[aria-label=Ledger]'
 
-const focusedName = (page: Page) =>
-  page.evaluate(() => document.activeElement?.getAttribute('name'))
 /** What a part of the line reads, its Tab mark among it while that shows. */
 const partText = (page: Page, part: string) => page.locator(`[data-part=${part}]`).innerText()
 

@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  focusedName,
   launch,
   offeredPaths,
   openChip,
@@ -140,7 +141,7 @@ describe('a category for a spend I write down', () => {
     await expect
       .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
       .toBe('not a category')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
+    await expect.poll(() => focusedName(page)).toBe('to')
     expect(await rows(page)).toEqual([])
   })
 })

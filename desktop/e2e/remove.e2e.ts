@@ -5,6 +5,7 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   aHome,
+  focusedIn,
   launch,
   openChip,
   openComposer,
@@ -28,12 +29,6 @@ const REMOVE = `${PANE} >> role=button[name="Remove"s]`
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const selected = (page: Page) =>
   spendCells(page.locator(`${LIST} li[aria-selected=true]`)).then((rows) => rows.map(([, d]) => d))
-const focused = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.activeElement
-    const where = el?.closest('form, section, ol')?.getAttribute('aria-label')
-    return `${where} ${el?.getAttribute('name') ?? el?.tagName}`
-  })
 
 /** Lunch, Coffee and Tea, newest first in the list. */
 async function threeSpends(page: Page) {
@@ -60,7 +55,7 @@ describe('removing a spend', () => {
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Tea | 3.00`, `${shownDay(today())} | Lunch | 12.00`])
     expect(await selected(page)).toEqual(['Lunch'])
-    expect(await focused(page)).toBe('Ledger OL')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
   })
 
   test('Remove in its details does the same, with no “are you sure?”', async () => {
@@ -138,6 +133,6 @@ describe('removing a spend', () => {
     await openSelected(page)
     await page.click(REMOVE)
     await expect.poll(() => rows(page)).toEqual([])
-    expect(await focused(page)).toBe('Write down a spend amount')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
   })
 })

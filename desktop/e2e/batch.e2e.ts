@@ -4,7 +4,17 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, BATCH, launch, openComposer, rows, shownDay, WRITE } from './app'
+import {
+  aHome,
+  BATCH,
+  focusedIn,
+  focusedName,
+  launch,
+  openComposer,
+  rows,
+  shownDay,
+  WRITE,
+} from './app'
 
 const DAY = 86_400_000
 const here = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -32,9 +42,6 @@ const lines = (page: Page) =>
 
 /** What each line of the batch is for, newest first. */
 const what = async (page: Page) => (await lines(page)).map((line) => line.said.split(' ')[0])
-
-const focusedName = (page: Page) =>
-  page.evaluate(() => document.activeElement?.getAttribute('name'))
 
 /** How many ledger rows are lit where they land. */
 const lit = (page: Page) => page.locator(`${LIST} li[data-landed]`).count()
@@ -171,9 +178,7 @@ describe('closing it', () => {
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Coffee | 4.50`, `${shownDay(daysAgo(1))} | Lunch | 12.00`])
     expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Lunch')
-    await expect
-      .poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')))
-      .toBe('listbox')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
   })
 
   test('Done closes it too, and the amount typed after is a draft, not a third spend', async () => {

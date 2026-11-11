@@ -174,6 +174,32 @@ export async function openComposer(page: Page): Promise<void> {
     () => document.activeElement?.closest('form[aria-label="Write down a spend"]') !== null,
   )
 }
+
+// Where the cursor is. A test polls these, since it lands a flush after the key that moves it.
+
+/** The name of the control holding the cursor, else its tag: `amount`, or `OL`. */
+export const focusedName = (page: Page) =>
+  page.evaluate(
+    () => document.activeElement?.getAttribute('name') ?? document.activeElement?.tagName,
+  )
+
+/** What the control holding the cursor is called, read out: a chip's part, such as `What for`. */
+export const focusedLabel = (page: Page) =>
+  page.evaluate(
+    () =>
+      document.activeElement?.getAttribute('aria-label') ??
+      document.activeElement?.getAttribute('name') ??
+      document.activeElement?.tagName,
+  )
+
+/** Where: the nearest labelled form, section, list, place or dialog, then its name or its tag. */
+export const focusedIn = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.activeElement
+    const where = el?.closest('form, section, ol, nav, main, [role=dialog]')
+    return `${where?.getAttribute('aria-label')} ${el?.getAttribute('name') ?? el?.tagName}`
+  })
+
 /** A spend's details, open under its row in the ledger. */
 export const PANE = 'section[aria-label="The spend"]'
 

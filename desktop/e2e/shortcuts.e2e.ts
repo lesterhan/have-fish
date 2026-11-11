@@ -3,17 +3,22 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openChip, openSelected, openSpend, PANE, rows, writeDown } from './app'
+import {
+  aHome,
+  focusedIn,
+  launch,
+  openChip,
+  openSelected,
+  openSpend,
+  PANE,
+  rows,
+  writeDown,
+} from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const DESCRIPTION = `${PANE} input[name=description]`
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
-const focused = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.activeElement
-    return `${el?.closest('form')?.getAttribute('aria-label')} ${el?.getAttribute('name')}`
-  })
 
 /** Lunch, then Coffee, with Coffee selected. */
 async function twoSpends(page: Page) {
@@ -32,7 +37,7 @@ describe('shortcuts', () => {
     await openChip(page, 'description')
     press('ctrl+n')
 
-    await expect.poll(() => focused(page)).toBe('Write down a spend amount')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
   })
 
   test('Ctrl+N in a narrow window closes the details on its way to the form', async () => {
@@ -44,7 +49,7 @@ describe('shortcuts', () => {
     press('ctrl+n')
 
     await expect.poll(() => page.isVisible(PANE)).toBe(false)
-    await expect.poll(() => focused(page)).toBe('Write down a spend amount')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend amount')
   })
 
   test('Ctrl+= zooms in, Ctrl+- out, and Ctrl+0 back to actual size', async () => {

@@ -4,7 +4,7 @@
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { copy } from '../copy'
-import { aHome, launch, openSpend, rows, WRITE, writeDown } from './app'
+import { aHome, focusedIn, launch, openSpend, rows, WRITE, writeDown } from './app'
 
 const PALETTE = 'role=dialog[name="Do anything"]'
 const INPUT = `${PALETTE} >> input[name=palette]`
@@ -25,16 +25,10 @@ const listed = (page: Page) =>
     })
   })
 
-const focusedName = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.activeElement
-    return `${el?.closest('form, section, ol, nav, main, [role=dialog]')?.getAttribute('aria-label')} ${el?.getAttribute('name') ?? el?.tagName}`
-  })
-
 async function open(page: Page, press: (keys: string) => void) {
   press('ctrl+k')
   await page.waitForSelector(INPUT)
-  await expect.poll(() => focusedName(page)).toBe('Do anything palette')
+  await expect.poll(() => focusedIn(page)).toBe('Do anything palette')
 }
 
 describe('do anything from Ctrl+K', () => {
@@ -102,7 +96,7 @@ describe('do anything from Ctrl+K', () => {
     await page.keyboard.press('Escape')
 
     await page.waitForSelector(PALETTE, { state: 'detached' })
-    expect(await focusedName(page)).toBe('Write down a spend description')
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
   })
 
   test('Show or hide postings and Refile spend act on the spend selected', async () => {
@@ -119,7 +113,7 @@ describe('do anything from Ctrl+K', () => {
     await open(page, press)
     await page.keyboard.type('refile')
     await page.keyboard.press('Enter')
-    await expect.poll(() => focusedName(page)).toBe('Ledger to')
+    await expect.poll(() => focusedIn(page)).toBe('Ledger to')
   })
 
   test('Enter on a setting runs it: the theme changes, and the palette closes', async () => {
