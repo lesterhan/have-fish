@@ -2,8 +2,10 @@
 // a command returns it.
 
 import { randomUUID } from 'node:crypto'
-import type { AccountDoc } from '@have-fish/core/documents'
+import type { AccountDoc, PostingDoc } from '@have-fish/core/documents'
+import { format } from '@have-fish/core/money'
 import type { Failure, Outcome } from '@have-fish/core/outcome'
+import type { ShapeLeg } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { BatchOutcome } from '../ledger/apply'
 import { liveAccountAt } from '../ledger/store'
@@ -34,4 +36,13 @@ export function accountFor(
     origin: { source: 'system', ...made },
   }
   return { id: account.id, made: [account] }
+}
+
+/** A shape's legs as the postings a transaction stores. */
+export function postingsOf(legs: readonly ShapeLeg[]): PostingDoc[] {
+  return legs.map((l) => ({
+    accountId: l.accountId,
+    amount: format(l.cents),
+    currency: l.currency,
+  }))
 }

@@ -1,16 +1,13 @@
 // A ledger row's rules: which way its money went, and the days a list held whole falls into.
 
+import type { ShapeName } from '@have-fish/core/shapes'
 import type { ListedDay, ListedTransaction } from '../shared/commands'
 import type { Way } from './format'
-import { rootOfPath } from './pathPicker'
 
-const MINE = new Set(['assets', 'liabilities'])
-
-/** In from an income source; between two accounts of mine; out otherwise, which has no sign. */
-export function wayOf({ fromPath, toPath }: Pick<ListedTransaction, 'fromPath' | 'toPath'>): Way {
-  const [from, to] = [fromPath, toPath].map((path) => path && rootOfPath(path))
-  if (from === 'income') return 'in'
-  return from && to && MINE.has(from) && MINE.has(to) ? 'between' : 'out'
+/** Income comes in; a transfer moves between two accounts of mine; the rest go out, unsigned. */
+export function wayOf(shape: ShapeName): Way {
+  if (shape === 'income') return 'in'
+  return shape === 'transfer' ? 'between' : 'out'
 }
 
 /**

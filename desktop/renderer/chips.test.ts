@@ -6,6 +6,7 @@ const spend: ListedTransaction = {
   id: 'a',
   date: '2026-10-29',
   description: 'Coffee',
+  shape: 'spend',
   amounts: [{ amount: '4.50', currency: 'CAD' }],
   simple: { amount: '4.50', currency: 'CAD' },
   from: 'cash',

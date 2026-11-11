@@ -11,6 +11,7 @@ const aRow = (at: number): ListedTransaction => ({
   id: `row-${at}`,
   date: addDays(SCENE_TODAY, -Math.floor(at / 25)),
   description: `spend ${at}`,
+  shape: 'spend',
   amounts: [{ amount: '1.00', currency: 'CAD' }],
   simple: { amount: '1.00', currency: 'CAD' },
   from: 'chequing',
