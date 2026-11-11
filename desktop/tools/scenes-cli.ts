@@ -106,7 +106,7 @@ export async function launch(tries: readonly BrowserTry[] = TRIES): Promise<Brow
   const missed: string[] = []
   for (const { name, options } of tries) {
     try {
-      return await chromium.launch({ ...(options ?? {}), args: SANDBOX })
+      return await chromium.launch({ ...options, args: SANDBOX })
     } catch (error) {
       missed.push(`${name}: ${(error as Error).message.split('\n')[0]}`)
     }
