@@ -2,16 +2,15 @@
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
 import { type AccountKind, ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
-import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
-import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
+import type { OriginSource } from '@have-fish/core/documents'
 import type { ShapeName } from '@have-fish/core/shapes'
 import { z } from 'zod'
 import { DENSITIES, type Density } from '../density'
 import type { StepName } from '../steps'
 import { THEME_CHOICES, type ThemeChoice } from '../theme/theme'
+import { type Changed, date, type Money, type Typing, typed, type Wire } from './wire'
 
-/** Long enough for anything typed by hand; the window is the least trusted process. */
-const typed = (max: number) => z.string().max(max)
+export * from './wire'
 
 /**
  * Where the money goes: a category by name, without its root (`food:coffee`), one I've used or a
@@ -32,9 +31,6 @@ export type To = z.infer<typeof to>
 const from = z.union([z.uuid(), z.strictObject({ income: typed(200) })]).nullable()
 
 export type From = z.infer<typeof from>
-
-/** A calendar day as typed, `YYYY-MM-DD`; main says whether it is one. */
-const date = typed(10)
 
 /** `to` or `date` left out: unchanged. */
 const edit = z.strictObject({
@@ -167,8 +163,6 @@ export type ListedPath = {
   lastUsed: number | null
 }
 
-export type Money = { amount: string; currency: string }
-
 /** An account I added, as the Accounts list shows it. */
 export type ListedAccount = {
   id: string
@@ -238,21 +232,6 @@ export interface Values {
 export type CommandName = keyof typeof inputs
 export type InputOf<N extends CommandName> = z.input<(typeof inputs)[N]>
 
-/** A refusal as it crosses to the window: today's `{ error: CODE, detail }`. */
-export type WireFailure = {
-  [C in FailureCode]: { ok: false; error: C; detail: FailureDetails[C] }
-}[FailureCode]
-
-export type Wire<T> = { ok: true; value: T } | WireFailure
-
-export function wireFailure({ code, details }: Failure): WireFailure {
-  // The pair came from one member of `Failure`, so it fits one member of `WireFailure`.
-  return { ok: false, error: code, detail: details } as WireFailure
-}
-
-/** A document a command wrote, announced once per command after its last batch commits. */
-export type Changed = { type: LedgerDocument['type']; id: string }
-
 /** What the preload puts on `window.haveFish`. */
 export type Bridge = {
   invoke<N extends CommandName>(name: N, input: InputOf<N>): Promise<Wire<Values[N]>>
@@ -263,6 +242,3 @@ export type Bridge = {
   /** Tells main where Undo and Redo would go now, so the menu can name it. */
   setTyping(typing: Typing): void
 }
-
-/** Whether Undo and Redo would take back or put back the focused field's typing. */
-export type Typing = { undo: boolean; redo: boolean }
