@@ -7,18 +7,21 @@ core (the rest of `main/`). The window reaches main only through a command, whic
 
 1. **Its schema and value**: `shared/commands/<feature>.ts`, in `<feature>Inputs` and
    `<Feature>Values`. What several features use goes in `shared/commands/wire.ts`.
-2. **Its service, test first**: `main/features/<feature>/`, the test beside it.
+2. **Its service, test first**: `main/features/<feature>/`, the test beside it. Code two features
+   need goes into the core, named for what it is, as `commands/applied.ts` did.
 3. **Its handler**: `main/features/<feature>/commands.ts`. A new feature's map is spread into
-   `registry.ts`, and its schemas into `shared/commands/index.ts`; neither writes its own.
+   `registry.ts`, and its schemas into `shared/commands/index.ts`.
 4. **A new failure code**: in `core/src/outcome.ts`, with its words in `copy/errors.ts`.
 5. **Its caller** in the window, with any words in `copy/`.
 
 ## What the edge keeps
 
-- Every input is parsed by its schema before a handler sees it: `run.test.ts`.
-- A refusal crosses as `{ error, detail }`, and a throw as `UNEXPECTED`: `run.test.ts`.
-- One log line per command, never its input: `run.test.ts`.
+- An input reaches its handler only through its schema: `run.test.ts`, "an edit names its spend
+  by a UUID, or never reaches the command".
+- A refusal crosses as `{ error, detail }`, a throw as `UNEXPECTED`, and the log never holds the
+  input: `run.test.ts`.
 - A command without a handler fails to compile: `handlers.test.ts`.
-- No feature imports another; only `registry.ts` imports a feature; nothing outside main imports
-  main: `main/layers.test.ts`. Shared code goes into the core, named for what it is.
-- A write to a document goes through `main/ledger/`, which keeps its versions and outbox.
+- `registry.ts` and `shared/commands/index.ts` only assemble: `registry.test.ts`, `index.test.ts`.
+- No feature imports another, and nothing outside main imports main: `main/layers.test.ts`.
+- A write gets its version and outbox row in `main/ledger/`: `ledger/apply.test.ts`, "applyLocal,
+  one document", and `ledger/outbox.test.ts`, "a local write".
