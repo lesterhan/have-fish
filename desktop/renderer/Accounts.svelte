@@ -179,7 +179,6 @@
   <AccountList
     bind:this={list}
     {rows}
-    accounts={ordered}
     {selectedId}
     onselect={select}
     onopen={() => (open = matchMedia(NARROW).matches)}

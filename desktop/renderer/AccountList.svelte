@@ -3,7 +3,6 @@
   // indented under its parent and named from it (`:chequing`), and a parent nobody added there
   // for its children's total, never selected.
   import { copy } from '../copy'
-  import type { ListedAccount } from '../shared/commands'
   import { accountColumnsOf, type AccountRow, accountGroups } from './balances'
   import Band from './parts/Band.svelte'
   import Headings from './parts/Headings.svelte'
@@ -14,14 +13,12 @@
   type Props = {
     /** What shows: every account, and the parents their names imply. */
     rows: AccountRow[]
-    /** The accounts the arrows move through, in the order they show. */
-    accounts: ListedAccount[]
     selectedId: string | null
     onselect: (id: string) => void
     /** Show the pane, in a narrow window. */
     onopen: () => void
   }
-  let { rows, accounts, selectedId, onselect, onopen }: Props = $props()
+  let { rows, selectedId, onselect, onopen }: Props = $props()
 
   let listbox: ReturnType<typeof Listbox<AccountRow>>
 
