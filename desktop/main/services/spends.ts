@@ -13,10 +13,10 @@ import { amountOf, legsOf, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { InputOf, To } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
+import { accountFor, idOf, postingsOf } from '../commands/applied'
 import type { Context } from '../context'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
-import { accountFor, idOf, postingsOf } from './applied'
 
 /**
  * A spend from the account that paid to its category, a transfer to another account of mine, or
