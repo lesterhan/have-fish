@@ -14,6 +14,7 @@ import { fitsCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
+import { OPENING } from '@have-fish/core/own-accounts'
 import type Database from 'better-sqlite3'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
@@ -27,9 +28,6 @@ import { accounts, postings, transactions } from '../db/schema'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, record } from '../undo/steps'
 import { accountFor, idOf } from './applied'
-
-/** Where a starting balance comes from, as in hledger: made by the app on first use. */
-const OPENING = { path: 'equity:opening', kind: 'opening' } as const
 
 type Made = { createdAt: number; deviceId: string }
 
@@ -116,7 +114,7 @@ export function startAccount(
 }
 
 /**
- * The transaction that says what was in an account today, against `equity:opening`, with that
+ * The transaction that says what was in an account today, against the opening account, with that
  * account if the app hasn't made it yet. Null when nothing was typed, or zero: there's nothing
  * to say. What I owe on a card or a loan goes on as a negative, which is what owing is.
  */
@@ -180,7 +178,7 @@ const statements = perConnection((orm) => ({
     .from(accounts)
     .where(and(isNull(accounts.deletedAt), inArray(accounts.kind, [...ADDABLE_KINDS])))
     .prepare(),
-  // Each live transaction with a leg on `equity:opening`: its other legs, oldest first. CROSS
+  // Each live transaction with a leg on the opening account: its other legs, oldest first. CROSS
   // JOIN pins the order SQLite reads them in: from the opening account out, a few rows, where
   // any other order reads every transaction (see #608).
   starts: orm

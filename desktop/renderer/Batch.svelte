@@ -28,7 +28,7 @@
       {#if shown.cells.includes('from')}
         <span data-cell="from">{#if line.fromPath}<Path path={line.fromPath} />{/if}</span>
       {/if}
-      <span data-cell="amount"><Money of={line.simple ?? line.amounts} way={wayOf(line)} /></span>
+      <span data-cell="amount"><Money of={line.simple ?? line.amounts} way={wayOf(line.shape)} /></span>
       <span data-cell="to">{#if line.toPath}<Path path={line.toPath} />{/if}</span>
       <span data-cell="description">
         <span class="what">{line.description || copy.spends.noDescription}</span>

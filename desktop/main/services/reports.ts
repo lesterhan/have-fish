@@ -4,15 +4,13 @@ import { nameOf } from '@have-fish/core/account-path'
 import { isCalendarDate } from '@have-fish/core/calendar-date'
 import { format } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
+import { UNSORTED } from '@have-fish/core/own-accounts'
 import type Database from 'better-sqlite3'
 import { and, between, eq, isNull, sql } from 'drizzle-orm'
 import type { InputOf, Money, Values } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
 import { perConnection } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
-
-/** What a spend with no category goes to; it reports as unsorted, `''`. */
-const UNSORTED_KEY = 'expenses:unsorted'
 
 const statements = perConnection((orm) => ({
   // Each live posting to a category in the period. A tombstone keeps no postings.
@@ -59,7 +57,8 @@ export function spendingIn(
       other.set(row.currency, (other.get(row.currency) ?? 0) + row.cents)
       continue
     }
-    const category = row.pathKey === UNSORTED_KEY ? '' : nameOf(row.path)
+    // A spend with no category reports as unsorted, `''`.
+    const category = row.pathKey === UNSORTED.path ? '' : nameOf(row.path)
     spent.push({ id: row.id, category, amount: format(row.cents) })
   }
   const elsewhere: Money[] = [...other]
