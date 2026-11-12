@@ -7,7 +7,10 @@ import type { CommandName } from './commands'
 export type Traits = {
   /** Whether it writes documents to the ledger; settings and the clipboard aren't the ledger. */
   writes: boolean
-  /** The kinds of document whose change can change its answer, never fewer than its SQL reads. */
+  /**
+   * The kinds of document whose change can change its answer: never fewer than its SQL reads, or
+   * than a write moves outside the ledger, as a spend moves the account used last.
+   */
   reads: readonly DocumentTypeName[]
 }
 

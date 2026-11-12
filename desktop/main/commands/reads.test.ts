@@ -71,7 +71,7 @@ describe("a command's reads", () => {
       ok: true,
       value: { id: wallet.id },
     })
-    runCommand(ctx, 'spend.write', fromCard(card.id), log)
+    expect(runCommand(ctx, 'spend.write', fromCard(card.id), log).ok).toBe(true)
     expect(runCommand(ctx, 'spend.assumedFrom', {}, log)).toEqual({
       ok: true,
       value: { id: card.id },

@@ -4,15 +4,18 @@ import ts from 'typescript5'
 import { describe, expect, it } from 'vitest'
 import { ALL_KINDS, type TraitsTable } from '../../shared/traits'
 
+const specifierOf = (spec: ts.Expression | undefined) =>
+  spec !== undefined && ts.isStringLiteral(spec) ? [spec.text] : []
+
 /** Each import or re-export that loads its module at run time, by its specifier. */
 function valueImportsIn(source: string): string[] {
   const file = ts.createSourceFile('source.ts', source, ts.ScriptTarget.Latest)
   return file.statements.flatMap((statement) => {
     if (ts.isImportDeclaration(statement) && !statement.importClause?.isTypeOnly) {
-      return [(statement.moduleSpecifier as ts.StringLiteral).text]
+      return specifierOf(statement.moduleSpecifier)
     }
-    if (ts.isExportDeclaration(statement) && statement.moduleSpecifier && !statement.isTypeOnly) {
-      return [(statement.moduleSpecifier as ts.StringLiteral).text]
+    if (ts.isExportDeclaration(statement) && !statement.isTypeOnly) {
+      return specifierOf(statement.moduleSpecifier)
     }
     return []
   })
