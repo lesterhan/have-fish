@@ -11,8 +11,10 @@ core (the rest of `main/`). The window reaches main only through a command, whic
    need goes into the core, named for what it is, as `commands/applied.ts` did.
 3. **Its handler**: `main/features/<feature>/commands.ts`. A new feature's map is spread into
    `registry.ts`, and its schemas into `shared/commands/index.ts`.
-4. **A new failure code**: in `core/src/outcome.ts`, with its words in `copy/errors.ts`.
-5. **Its caller** in the window, with any words in `copy/`.
+4. **Its line in `shared/traits.ts`**: whether it writes to the ledger, and the kinds of
+   document its answer reads. When its `reads` leaves a kind out, a sample in `reads.test.ts`.
+5. **A new failure code**: in `core/src/outcome.ts`, with its words in `copy/errors.ts`.
+6. **Its caller** in the window, with any words in `copy/`.
 
 ## What the edge keeps
 
@@ -21,6 +23,9 @@ core (the rest of `main/`). The window reaches main only through a command, whic
 - A refusal crosses as `{ error, detail }`, a throw as `UNEXPECTED`, and the log never holds the
   input: `run.test.ts`.
 - A command without a handler fails to compile: `handlers.test.ts`.
+- A command that says it writes nothing and applies is refused as `UNEXPECTED`: `writes.test.ts`.
+- A change of a kind a command's `reads` leaves out leaves its answer the same: `reads.test.ts`.
+- Every command has a caller in the window, unless it's main's own: `callers.test.ts`.
 - `registry.ts` and `shared/commands/index.ts` only assemble: `registry.test.ts`, `index.test.ts`.
 - No feature imports another, directly or through the registry, `run.ts` or the schemas' index,
   and nothing outside main imports main: `main/layers.test.ts`.
