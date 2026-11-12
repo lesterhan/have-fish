@@ -1,17 +1,17 @@
 <script lang="ts">
   import { comparedAt } from '@have-fish/core/spending'
   import { format } from '@have-fish/core/money'
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedTransaction, Values as Returned, WireFailure } from '../shared/commands'
+  import type { ListedTransaction } from '../shared/commands'
   import { todayIn } from './format'
   import Day from './parts/Day.svelte'
-  import type { LedgerState, LedgerStore } from './ledger'
+  import type { LedgerStore } from './ledger'
 
   import { toOf } from './picker'
+  import { query } from './query'
   import { wordsFor } from './refusals'
   import {
-    idsWanted,
     otherText,
     spendsBehind,
     spentOf,
@@ -20,6 +20,7 @@
     treeRows,
     type Week,
     weekAfter,
+    weekSpending,
   } from './report'
   import { afterRemoving, kept } from './selection'
   import Button from './parts/Button.svelte'
@@ -41,9 +42,13 @@
   let { hidden, ledger, actions }: Props = $props()
 
   let week = $state.raw<Week>(thisWeek(todayIn()))
-  let report = $state.raw<Returned['report.spending'] | null>(null)
-  /** The week before the one shown, for each row's comparison. */
-  let earlier = $state.raw<Returned['report.spending'] | null>(null)
+  /** The week, the week before it for each row's comparison, and the week's spends. */
+  const spending = query(window.haveFish, ['report.spending', 'transaction.get'], weekSpending)
+  spending.set(untrack(() => week))
+  $effect(() => spending.start())
+  $effect(() => spending.show(!hidden))
+  const report = $derived($spending.value?.report ?? null)
+  const earlier = $derived($spending.value?.earlier ?? null)
   /** The categories that are open in the tree, by name. */
   let opened = $state.raw<ReadonlySet<string>>(new Set())
   /** The tree's selected row, by its key. */
@@ -51,13 +56,12 @@
   let error = $state<string | null>(null)
 
   /** The week's spends, and any with a draft: asked of main, never the store. */
-  let transactions = $state.raw<ListedTransaction[]>([])
+  const transactions = $derived($spending.value?.spends ?? [])
   // For the card: the accounts a To can name.
   const payers = $derived($ledger.accounts)
   /** Why the lists or the report couldn't load, until they next do. */
-  let reportFailure = $state<WireFailure | null>(null)
   const unloaded = $derived.by(() => {
-    const failure = $ledger.failure ?? reportFailure
+    const failure = $ledger.failure ?? $spending.failure
     return failure && wordsFor(failure)
   })
   /** The load failure I put away; a different one shows again. */
@@ -113,71 +117,10 @@
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
 
-  /** The store load the report was last asked for, and that ask. */
-  let reportedFor: LedgerState | null = null
-  let reporting: Promise<void> = Promise.resolve()
-
-  /** The shown week's spending beside the week before, asked of main. A week moved on wins. */
-  async function loadReport() {
-    const shownWeek = week
-    const lastWeek = weekAfter(shownWeek, -1)
-    const [now, before] = await Promise.all([
-      window.haveFish.invoke('report.spending', {
-        start: shownWeek.start,
-        end: shownWeek.end,
-      }),
-      window.haveFish.invoke('report.spending', {
-        start: lastWeek.start,
-        end: lastWeek.end,
-      }),
-    ])
-    if (shownWeek !== week) return
-    if (!now.ok) {
-      reportFailure = now
-      return
-    }
-    if (!before.ok) {
-      reportFailure = before
-      return
-    }
-    report = now.value
-    earlier = before.value
-    reportFailure = null
-    await loadSpends(idsWanted(spentOf(now.value)))
-  }
-
-  let spendsAsked = 0
-
-  /** The spends with these ids, as the list shows them. The latest ask wins. */
-  async function loadSpends(ids: string[]) {
-    const mine = ++spendsAsked
-    if (ids.length === 0) {
-      transactions = []
-      return
-    }
-    const found = await window.haveFish.invoke('transaction.get', { ids })
-    if (mine !== spendsAsked) return
-    if (found.ok) transactions = found.value
-    else reportFailure = found
-  }
-
-  function reportFor(state: LedgerState): Promise<void> {
-    reportedFor = state
-    reporting = loadReport()
-    return reporting
-  }
-
-  // Showing, with a ledger the report hasn't seen: ask again. Hidden, it waits until it shows.
-  $effect(() => {
-    const state = $ledger
-    if (!hidden && state !== reportedFor) void reportFor(state)
-  })
-
-  /** After a write: the lists, then the report, as they are now; one ask for each. */
+  /** After a write: the lists, then the report, as they are now. */
   async function caughtUp() {
     await ledger.caughtUp()
-    const state = ledger.current()
-    await (state === reportedFor ? reporting : reportFor(state))
+    await spending.caughtUp()
   }
 
   /** R on the selected row: its To picked by path, saved at once; undo takes it back. */
@@ -218,7 +161,7 @@
 
   function goWeek(by: number) {
     week = weekAfter(week, by)
-    void reportFor(ledger.current())
+    spending.set(week)
   }
 
   /** A category opens or closes. */
