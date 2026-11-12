@@ -13,7 +13,7 @@ export const HELD: Record<string, Size> = {
   'Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'App.svelte': { lines: 225, props: 0, states: 2 },
   'Composer.svelte': { lines: 267, props: 10, states: 14 },
-  'Reports.svelte': { lines: 279, props: 3, states: 12 },
+  'Reports.svelte': { lines: 222, props: 3, states: 8 },
   'SpendCard.svelte': { lines: 162, props: 9, states: 2 },
   'SpendList.svelte': { lines: 198, props: 23, states: 4 },
   'Spends.svelte': { lines: 250, props: 4, states: 9 },

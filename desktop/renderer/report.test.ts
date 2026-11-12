@@ -1,6 +1,7 @@
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
-import type { ListedTransaction } from '../shared/commands'
+import type { Bridge, CommandName, ListedTransaction, Values, Wire } from '../shared/commands'
+import { type Ask, query } from './query'
 import {
   changeOf,
   idsWanted,
@@ -13,6 +14,7 @@ import {
   treeKey,
   treeRows,
   weekAfter,
+  weekSpending,
 } from './report'
 
 describe('the week shown', () => {
@@ -231,5 +233,100 @@ describe('spendsBehind', () => {
     expect(ids(spendsBehind(listed, week, food))).toEqual(['lunch'])
     const unsorted = { kind: 'unsorted', category: '' } as const
     expect(ids(spendsBehind(listed, week, unsorted))).toEqual(['bus'])
+  })
+})
+
+describe('weekSpending', () => {
+  type Report = Values['report.spending']
+  const week = { start: '2026-11-02', end: '2026-11-08' }
+  const refused = { ok: false, error: 'UNEXPECTED', detail: undefined } as const
+  const reportOf = (ids: string[]): Report => ({
+    currency: 'CAD',
+    spent: ids.map((id) => ({ id, category: 'food', amount: '4.50' })),
+    other: [],
+  })
+  const earlier = reportOf(['older'])
+  const spends = [{ id: 'lunch' }, { id: 'snack' }] as ListedTransaction[]
+
+  /**
+   * A bridge that answers at once from fixed values and counts what it is asked: `report` for
+   * the week, `earlier` for the week before, `spends` for the transactions.
+   */
+  function answering(answers: {
+    report: Wire<Report>
+    earlier?: Wire<Report>
+    spends?: Wire<ListedTransaction[]>
+  }) {
+    const asked: { name: CommandName; input: unknown }[] = []
+    const bridge = {
+      async invoke(name: CommandName, input: unknown) {
+        asked.push({ name, input })
+        if (name === 'transaction.get') return answers.spends ?? { ok: true, value: spends }
+        const { start } = input as { start: string }
+        return start === week.start
+          ? answers.report
+          : (answers.earlier ?? { ok: true, value: earlier })
+      },
+      onChanged: () => () => {},
+    } as unknown as Bridge
+    const ask: Ask<'report.spending' | 'transaction.get'> = bridge.invoke
+    return {
+      bridge,
+      ask,
+      asked,
+      count: (name: CommandName) => asked.filter((c) => c.name === name).length,
+    }
+  }
+
+  test('asks the week and the week before, then the week’s spends once', async () => {
+    const report = reportOf(['lunch', 'snack', 'lunch'])
+    const { ask, asked } = answering({ report: { ok: true, value: report } })
+
+    expect(await weekSpending(ask, week)).toEqual({ ok: true, value: { report, earlier, spends } })
+    expect(asked).toEqual([
+      { name: 'report.spending', input: { start: '2026-11-02', end: '2026-11-08' } },
+      { name: 'report.spending', input: { start: '2026-10-26', end: '2026-11-01' } },
+      { name: 'transaction.get', input: { ids: ['lunch', 'snack'] } },
+    ])
+  })
+
+  test('a week with no spends never asks for them', async () => {
+    const report = reportOf([])
+    const { ask, count } = answering({ report: { ok: true, value: report } })
+
+    expect(await weekSpending(ask, week)).toEqual({
+      ok: true,
+      value: { report, earlier, spends: [] },
+    })
+    expect(count('report.spending')).toBe(2)
+    expect(count('transaction.get')).toBe(0)
+  })
+
+  test('the week’s report refused is the answer, and the spends aren’t asked', async () => {
+    const { ask, count } = answering({ report: refused })
+
+    expect(await weekSpending(ask, week)).toEqual(refused)
+    expect(count('transaction.get')).toBe(0)
+  })
+
+  test('the spends refused is the answer', async () => {
+    const { ask } = answering({ report: { ok: true, value: reportOf(['lunch']) }, spends: refused })
+
+    expect(await weekSpending(ask, week)).toEqual(refused)
+  })
+
+  test('once answered, subscribing, showing and catching up ask nothing more', async () => {
+    const { bridge, asked } = answering({ report: { ok: true, value: reportOf(['lunch']) } })
+    const spending = query(bridge, ['report.spending', 'transaction.get'], weekSpending)
+    spending.start()
+    spending.show(true)
+    spending.set(week)
+    await spending.caughtUp()
+    expect(asked).toHaveLength(3)
+
+    spending.subscribe(() => {})
+    spending.show(true)
+    await spending.caughtUp()
+    expect(asked).toHaveLength(3)
   })
 })

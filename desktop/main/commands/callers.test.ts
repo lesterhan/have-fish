@@ -17,7 +17,7 @@ const SOURCES = new Map(
     .map((file) => [file, readFileSync(join(RENDERER, file), 'utf8')]),
 )
 
-/** Each name no source invokes by its whole name, less `mains`, in `names`' order. */
+/** Each name no source invokes or asks by its whole name, less `mains`, in `names`' order. */
 function uncalled(
   names: readonly string[],
   sources: readonly string[],
@@ -25,7 +25,7 @@ function uncalled(
 ): string[] {
   return names.filter((name) => {
     if (mains.includes(name)) return false
-    const call = new RegExp(`invoke\\(\\s*(['"\`])${name.replaceAll('.', '\\.')}\\1`)
+    const call = new RegExp(`\\b(?:invoke|ask)\\(\\s*(['"\`])${name.replaceAll('.', '\\.')}\\1`)
     return !sources.some((source) => call.test(source))
   })
 }
@@ -50,6 +50,16 @@ describe('uncalled', () => {
   it('matches the whole name, not a prefix', () => {
     expect(uncalled(['spend.write', 'spend.writes'], ["invoke('spend.writes', {})"], [])).toEqual([
       'spend.write',
+    ])
+  })
+
+  it("finds a query's ask", () => {
+    expect(uncalled(['report.spending'], ["ask('report.spending', week)"], [])).toEqual([])
+  })
+
+  it('counts an ask only as a whole word', () => {
+    expect(uncalled(['report.spending'], ["task('report.spending')"], [])).toEqual([
+      'report.spending',
     ])
   })
 
