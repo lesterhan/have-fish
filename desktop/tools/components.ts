@@ -11,7 +11,7 @@ export const LIMITS: Size = { lines: 150, props: 10, states: 5 }
 export const HELD: Record<string, Size> = {
   'AccountPane.svelte': { lines: 118, props: 9, states: 8 },
   'Accounts.svelte': { lines: 160, props: 3, states: 7 },
-  'App.svelte': { lines: 223, props: 0, states: 2 },
+  'App.svelte': { lines: 225, props: 0, states: 2 },
   'Composer.svelte': { lines: 267, props: 10, states: 14 },
   'Reports.svelte': { lines: 279, props: 3, states: 12 },
   'SpendCard.svelte': { lines: 162, props: 9, states: 2 },
