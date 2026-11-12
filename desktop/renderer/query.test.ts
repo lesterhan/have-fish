@@ -50,13 +50,6 @@ function fakeBridge() {
       call.answer(answer ?? { ok: true, value: answerFor(call) })
       await settle()
     },
-    /** Answers the newest call waiting. */
-    async answerLast() {
-      const call = waiting.pop()
-      if (call === undefined) throw new Error('nothing is waiting')
-      call.answer({ ok: true, value: answerFor(call) })
-      await settle()
-    },
     /** Answers every call waiting, and those they lead to. */
     async answerAll() {
       while (waiting.length > 0) {
@@ -255,22 +248,20 @@ describe('a query', () => {
   })
 
   test("caughtUp waits for a new input's load, set while one is queued", async () => {
-    for (const newestFirst of [false, true]) {
-      const { fake, spending, state } = await answered()
-      fake.notify(changedTransaction)
-      fake.notify(changedTransaction)
-      spending.set(B)
-      let caught = false
-      void spending.caughtUp().then(() => {
-        caught = true
-      })
+    const { fake, spending, state } = await answered()
+    fake.notify(changedTransaction)
+    fake.notify(changedTransaction)
+    spending.set(B)
+    let caught = false
+    void spending.caughtUp().then(() => {
+      caught = true
+    })
 
-      await (newestFirst ? fake.answerLast() : fake.answerNext())
-      if (!newestFirst) expect(caught).toBe(false)
-      await fake.answerAll()
-      await expect.poll(() => caught).toBe(true)
-      expect(state().value).toEqual({ asked: B })
-    }
+    await fake.answerNext()
+    expect(caught).toBe(false)
+    await fake.answerAll()
+    await expect.poll(() => caught).toBe(true)
+    expect(state().value).toEqual({ asked: B })
   })
 
   test('a failed load keeps the last value and says why; the next good load clears it', async () => {

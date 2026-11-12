@@ -77,21 +77,16 @@ export function query<N extends CommandName, I, V>(
     return loading
   }
 
-  /** A load after the one on its way, if any; changes meanwhile share it. */
-  function refresh(asked: I): Promise<void> {
-    if (running === null) return loadNow(asked)
+  /** A load for what is due, after the one on its way if any; changes meanwhile share it. */
+  function refresh(): Promise<void> {
+    const next = due()
+    if (next === null) return Promise.resolve()
+    if (running === null) return loadNow(next.of)
     queued ??= running.then(() => {
       queued = null
-      const next = due()
-      return next === null ? undefined : refresh(next.of)
+      return refresh()
     })
     return queued
-  }
-
-  /** Loads for the input if it is due. */
-  function refreshIfDue(): void {
-    const next = due()
-    if (next !== null) void refresh(next.of)
   }
 
   return {
@@ -99,7 +94,7 @@ export function query<N extends CommandName, I, V>(
       return bridge.onChanged((changed) => {
         if (!changed.some((c) => reads.has(c.type))) return
         stale = true
-        refreshIfDue()
+        void refresh()
       })
     },
     set(next: I): void {
@@ -109,7 +104,7 @@ export function query<N extends CommandName, I, V>(
     },
     show(next: boolean): void {
       shown = next
-      refreshIfDue()
+      void refresh()
     },
     // A `set` can replace the load on its way while one is queued, so wait until both are done.
     async caughtUp(): Promise<void> {
