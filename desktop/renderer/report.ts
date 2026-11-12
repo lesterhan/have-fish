@@ -5,9 +5,10 @@ import { addDays, weekOf } from '@have-fish/core/calendar-date'
 import { cents, format } from '@have-fish/core/money'
 import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
 import { copy } from '../copy'
-import type { ListedTransaction, Money, Values } from '../shared/commands'
+import type { ListedTransaction, Money, Values, Wire } from '../shared/commands'
 import { amountsText } from './format'
 import type { TreeSpot } from './parts/listbox'
+import type { Ask } from './query'
 
 export type Week = { start: string; end: string }
 
@@ -148,4 +149,30 @@ export function spendsBehind(
 ): ListedTransaction[] {
   const ids = new Set(spent.filter((s) => (picked ? isIn(s, picked) : true)).map((s) => s.id))
   return transactions.filter((t) => ids.has(t.id))
+}
+
+/** The week, the week before it, and the week's spends, from one load. */
+export type WeekSpending = {
+  report: Values['report.spending']
+  earlier: Values['report.spending']
+  spends: ListedTransaction[]
+}
+
+/** Reports' load: the week beside the week before, then its spends. The first failure wins. */
+export async function weekSpending(
+  ask: Ask<'report.spending' | 'transaction.get'>,
+  week: Week,
+): Promise<Wire<WeekSpending>> {
+  const before = weekAfter(week, -1)
+  const [report, earlier] = await Promise.all([
+    ask('report.spending', { start: week.start, end: week.end }),
+    ask('report.spending', { start: before.start, end: before.end }),
+  ])
+  if (!report.ok) return report
+  if (!earlier.ok) return earlier
+  const ids = idsWanted(spentOf(report.value))
+  const spends: Wire<ListedTransaction[]> =
+    ids.length === 0 ? { ok: true, value: [] } : await ask('transaction.get', { ids })
+  if (!spends.ok) return spends
+  return { ok: true, value: { report: report.value, earlier: earlier.value, spends: spends.value } }
 }
