@@ -206,7 +206,9 @@
    * the change is in another place: that place shows, so you see what moved.
    */
   async function ledger(way: Way) {
-    const moved = await window.haveFish.invoke(`ledger.${way}`, {})
+    const moved = await (way === 'undo'
+      ? window.haveFish.invoke('ledger.undo', {})
+      : window.haveFish.invoke('ledger.redo', {}))
     if (!moved.ok) {
       view(place).refused(wordsFor(moved))
       return

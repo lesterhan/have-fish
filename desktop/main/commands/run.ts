@@ -10,6 +10,7 @@ import {
   type Wire,
   wireFailure,
 } from '../../shared/commands'
+import { traits } from '../../shared/traits'
 import type { Context } from '../context'
 import { handlers } from './registry'
 
@@ -48,10 +49,20 @@ function run(
     if (!parsed.success) return failure('INPUT_MALFORMED', firstIssue(parsed.error))
     // tsc can't tie `parsed.data` to `command`'s own handler; the schema just did.
     const handler = handlers[command] as (ctx: Context, input: unknown) => Outcome<unknown>
-    return handler(ctx, parsed.data)
+    return handler(traits[command].writes ? ctx : readOnly(ctx, command), parsed.data)
   } catch (e) {
     log.error(`${command} threw`, e)
     return failure('UNEXPECTED')
+  }
+}
+
+/** `ctx` for a command that says it writes nothing: if it applies, it throws. */
+function readOnly(ctx: Context, command: CommandName): Context {
+  return {
+    ...ctx,
+    apply() {
+      throw new Error(`${command} says it writes nothing`)
+    },
   }
 }
 
