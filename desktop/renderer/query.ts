@@ -49,14 +49,16 @@ export function query<N extends CommandName, I, V>(
   let running: Promise<void> | null = null
   let queued: Promise<void> | null = null
 
-  const wanted = () => stale && shown && input !== null
+  /** The input to load for: set, shown and stale; else null. */
+  const due = (): { of: I } | null => (stale && shown ? input : null)
 
   function emit(next: QueryState<V>) {
     state = next
     for (const listener of listeners) listener(state)
   }
 
-  async function loaded(asked: I): Promise<void> {
+  /** A numbered load: its answer is kept only while no later load has started. */
+  async function loadAndKeep(asked: I): Promise<void> {
     const mine = ++epoch
     stale = false
     const answer = await load(ask, asked)
@@ -68,7 +70,7 @@ export function query<N extends CommandName, I, V>(
 
   /** Starts a load now, whatever is on its way: the one before it loses. */
   function loadNow(asked: I): Promise<void> {
-    const loading: Promise<void> = loaded(asked).finally(() => {
+    const loading: Promise<void> = loadAndKeep(asked).finally(() => {
       if (running === loading) running = null
     })
     running = loading
@@ -76,13 +78,20 @@ export function query<N extends CommandName, I, V>(
   }
 
   /** A load after the one on its way, if any; changes meanwhile share it. */
-  function refresh(): Promise<void> {
-    if (running === null) return input === null ? Promise.resolve() : loadNow(input.of)
+  function refresh(asked: I): Promise<void> {
+    if (running === null) return loadNow(asked)
     queued ??= running.then(() => {
       queued = null
-      return wanted() ? refresh() : undefined
+      const next = due()
+      return next === null ? undefined : refresh(next.of)
     })
     return queued
+  }
+
+  /** Loads for the input if it is due. */
+  function refreshIfDue(): void {
+    const next = due()
+    if (next !== null) void refresh(next.of)
   }
 
   return {
@@ -90,7 +99,7 @@ export function query<N extends CommandName, I, V>(
       return bridge.onChanged((changed) => {
         if (!changed.some((c) => reads.has(c.type))) return
         stale = true
-        if (wanted()) void refresh()
+        refreshIfDue()
       })
     },
     set(next: I): void {
@@ -100,10 +109,11 @@ export function query<N extends CommandName, I, V>(
     },
     show(next: boolean): void {
       shown = next
-      if (wanted()) void refresh()
+      refreshIfDue()
     },
-    caughtUp(): Promise<void> {
-      return queued ?? running ?? Promise.resolve()
+    // A `set` can replace the load on its way while one is queued, so wait until both are done.
+    async caughtUp(): Promise<void> {
+      for (let next = queued ?? running; next !== null; next = queued ?? running) await next
     },
     subscribe(listener: (state: QueryState<V>) => void): () => void {
       listeners.add(listener)
