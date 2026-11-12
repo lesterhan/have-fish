@@ -26,8 +26,8 @@ function setup() {
   return { ctx, log, lines, errors, announced }
 }
 
-describe('a command that says it writes nothing', () => {
-  test('is refused if it applies, and the ledger is unchanged', () => {
+describe('runCommand', () => {
+  test('refuses a command that says it writes nothing if it applies, leaving the ledger', () => {
     const { ctx, log, lines, errors, announced } = setup()
     expect(runCommand(ctx, 'spend.write', { amount: '12.50', description: 'Lunch' }, log)).toEqual({
       ok: false,
@@ -38,11 +38,11 @@ describe('a command that says it writes nothing', () => {
     expect(page.ok && page.value.total).toBe(0)
     expect(runCommand(ctx, 'account.list', {}, log)).toEqual({ ok: true, value: [] })
     expect(announced).toEqual([])
-    expect(errors).toHaveLength(1)
+    expect(errors).toEqual([new Error('spend.write says it writes nothing')])
     expect(lines[0]).toMatch(/ UNEXPECTED$/)
   })
 
-  test('leaves a command that says it writes to write', () => {
+  test('lets a command that says it writes, write', () => {
     const { ctx, log } = setup()
     const added = { name: 'savings', kind: 'bank', currency: null }
     expect(runCommand(ctx, 'account.add', added, log)).toMatchObject({ ok: true })
@@ -52,7 +52,7 @@ describe('a command that says it writes nothing', () => {
     })
   })
 
-  test('answers as before when it never applies', () => {
+  test('answers as before for a command that says it writes nothing and never applies', () => {
     const { ctx, log } = setup()
     expect(runCommand(ctx, 'settings.density.set', { density: 'large' }, log)).toEqual({
       ok: true,
