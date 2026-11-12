@@ -20,7 +20,8 @@ export const traits: TraitsTable = {
   'spend.write': { writes: true, reads: ALL_KINDS },
   'spend.edit': { writes: true, reads: ALL_KINDS },
   'spend.remove': { writes: true, reads: ALL_KINDS },
-  'spend.assumedFrom': { writes: false, reads: ['account'] },
+  // A spend from another account moves the machine's last account.
+  'spend.assumedFrom': { writes: false, reads: ALL_KINDS },
   'transaction.page': { writes: false, reads: ALL_KINDS },
   'transaction.position': { writes: false, reads: ALL_KINDS },
   'transaction.days': { writes: false, reads: ALL_KINDS },
