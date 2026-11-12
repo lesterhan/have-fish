@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import type { ThemeChoice } from '../../shared/theme/theme'
-import { runCommand } from '../commands/run'
-import { contextFor } from '../context'
-import { NOW, tempLedger } from '../ledger/fixtures'
-import { forgetful } from '../machine'
+import type { ThemeChoice } from '../../../shared/theme/theme'
+import { runCommand } from '../../commands/run'
+import { contextFor } from '../../context'
+import { NOW, tempLedger } from '../../ledger/fixtures'
+import { forgetful } from '../../machine'
 
 function setup() {
   const shown: ThemeChoice[] = []

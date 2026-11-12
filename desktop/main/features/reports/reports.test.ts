@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'vitest'
-import { contextFor, type Time } from '../context'
-import { applyLocal } from '../ledger/apply'
+import { contextFor, type Time } from '../../context'
+import { applyLocal } from '../../ledger/apply'
 import {
   aLedgerOf,
   anAccount,
@@ -10,10 +10,10 @@ import {
   openTempLedger,
   recorded,
   tempLedger,
-} from '../ledger/fixtures'
-import { addAccount } from './accounts'
+} from '../../ledger/fixtures'
+import { addAccount } from '../accounts/accounts'
+import { removeSpend, writeSpend } from '../spends/spends'
 import { spendingIn } from './reports'
-import { removeSpend, writeSpend } from './spends'
 
 function setup() {
   const ledger = tempLedger()

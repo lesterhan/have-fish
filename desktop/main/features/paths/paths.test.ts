@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { contextFor } from '../context'
-import type { Ledger } from '../db/ledger'
-import { aLedgerOf, ok, recorded, tempLedger } from '../ledger/fixtures'
-import { addAccount } from './accounts'
+import { contextFor } from '../../context'
+import type { Ledger } from '../../db/ledger'
+import { aLedgerOf, ok, recorded, tempLedger } from '../../ledger/fixtures'
+import { addAccount } from '../accounts/accounts'
+import { removeSpend, writeSpend } from '../spends/spends'
 import { listPaths } from './paths'
-import { removeSpend, writeSpend } from './spends'
 
 const LATE = Date.UTC(2026, 9, 29, 12)
 

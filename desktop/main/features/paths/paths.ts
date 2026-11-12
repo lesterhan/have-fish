@@ -3,8 +3,8 @@
 
 import type { AccountKind } from '@have-fish/core/account-kind'
 import type Database from 'better-sqlite3'
-import type { ListedPath } from '../../shared/commands'
-import { perConnection } from '../db/prepared'
+import type { ListedPath } from '../../../shared/commands'
+import { perConnection } from '../../db/prepared'
 
 type Row = { id: string; path: string; kind: AccountKind; lastUsed: number | null }
 

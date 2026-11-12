@@ -97,7 +97,7 @@ for reasons that are Electron's own, the question opens again.
 ```
 core/          pure domain, copied or rewritten from backend/src when a story needs it
 desktop/
-├── main/      window and lifecycle; db/ (schema, migrations); services/; commands/
+├── main/      window and lifecycle; db/ (schema, migrations); commands/; features/
 ├── preload/   the typed bridge
 └── renderer/  Svelte 5 + Vite: tokens, components, copy, pages
 ```

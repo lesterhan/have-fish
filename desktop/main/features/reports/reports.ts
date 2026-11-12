@@ -7,10 +7,10 @@ import { failure, type Outcome } from '@have-fish/core/outcome'
 import { UNSORTED } from '@have-fish/core/own-accounts'
 import type Database from 'better-sqlite3'
 import { and, between, eq, isNull, sql } from 'drizzle-orm'
-import type { InputOf, Money, Values } from '../../shared/commands'
-import { HOME_CURRENCY } from '../../shared/currency'
-import { perConnection } from '../db/prepared'
-import { accounts, postings, transactions } from '../db/schema'
+import type { InputOf, Money, Values } from '../../../shared/commands'
+import { HOME_CURRENCY } from '../../../shared/currency'
+import { perConnection } from '../../db/prepared'
+import { accounts, postings, transactions } from '../../db/schema'
 
 const statements = perConnection((orm) => ({
   // Each live posting to a category in the period. A tombstone keeps no postings.

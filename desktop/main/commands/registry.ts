@@ -1,58 +1,21 @@
-// Each command the window can run, by name. The names and input schemas are in
-// `shared/commands.ts`; this maps each to the service that does it.
+// Each command the window can run, by name: every feature's handler map, and undo's, assembled.
+// The schemas are in `shared/commands/`.
 
-import type { Outcome } from '@have-fish/core/outcome'
-import type { z } from 'zod'
-import type { CommandName, inputs, Values } from '../../shared/commands'
-import type { Context } from '../context'
-import { addAccount, listAccounts, startAccount } from '../services/accounts'
-import { listPaths } from '../services/paths'
-import { spendingIn } from '../services/reports'
-import { getDensity, setDensity, setTheme } from '../services/settings'
-import { assumedFrom, editSpend, removeSpend, writeSpend } from '../services/spends'
-import {
-  daysOfTransactions,
-  pageOfTransactions,
-  positionOf,
-  transactionsWithIds,
-} from '../services/transactions'
-import { nextSteps, redoLast, undoLast } from '../undo/steps'
-
-type Handlers = {
-  [N in CommandName]: (ctx: Context, input: z.output<(typeof inputs)[N]>) => Outcome<Values[N]>
-}
+import { handlers as accounts } from '../features/accounts/commands'
+import { handlers as clipboard } from '../features/clipboard/commands'
+import { handlers as paths } from '../features/paths/commands'
+import { handlers as reports } from '../features/reports/commands'
+import { handlers as settings } from '../features/settings/commands'
+import { handlers as spends } from '../features/spends/commands'
+import { handlers as undo } from '../undo/commands'
+import type { Handlers } from './handlers'
 
 export const handlers: Handlers = {
-  'spend.write': writeSpend,
-  'spend.assumedFrom': (ctx) => ({ ok: true, value: assumedFrom(ctx) }),
-  'spend.edit': editSpend,
-  'spend.remove': removeSpend,
-  'transaction.page': (ctx, input) => ({
-    ok: true,
-    value: pageOfTransactions(ctx.ledger.db, input),
-  }),
-  'transaction.position': (ctx, { id }) => ({
-    ok: true,
-    value: { at: positionOf(ctx.ledger.db, id) },
-  }),
-  'transaction.days': (ctx) => ({ ok: true, value: daysOfTransactions(ctx.ledger.db) }),
-  'transaction.get': (ctx, { ids }) => ({
-    ok: true,
-    value: transactionsWithIds(ctx.ledger.db, ids),
-  }),
-  'account.add': addAccount,
-  'account.start': startAccount,
-  'path.list': (ctx) => ({ ok: true, value: listPaths(ctx.ledger.db) }),
-  'account.list': (ctx) => ({ ok: true, value: listAccounts(ctx.ledger.db) }),
-  'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
-  'ledger.undo': undoLast,
-  'ledger.redo': redoLast,
-  'ledger.steps': (ctx) => ({ ok: true, value: nextSteps(ctx) }),
-  'settings.theme.set': setTheme,
-  'settings.density.get': getDensity,
-  'settings.density.set': setDensity,
-  'clipboard.copy': (ctx, { text }) => {
-    ctx.copy(text)
-    return { ok: true, value: null }
-  },
+  ...spends,
+  ...accounts,
+  ...paths,
+  ...reports,
+  ...undo,
+  ...settings,
+  ...clipboard,
 }
