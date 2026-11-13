@@ -7,6 +7,11 @@
  * the sheet, the scenes, the preload, `copy/` and `shared/` import nothing from `main/`: that
  * split is a security boundary.
  *
+ * The window's files keep to layers, each importing only those under it: the root, `parts/`,
+ * `ledger/`, a place in `places/<name>/` (never another place), then `shell/`, which may import
+ * any. A root file or a part names no command. A rule module beside a component stays free of the
+ * DOM, so the rules could run without a page.
+ *
  * Imports are read with TypeScript 5's scanner, as `core/src/layers.test.ts` does, and a
  * component's from its scripts alone. A test may arrange through another feature, so the rules
  * hold source files only.
@@ -76,9 +81,69 @@ const RUNS_FEATURES = ['main/commands/registry', 'main/commands/run']
 
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
 
+/** The files directly in `renderer/` that every layer may use, and the tests beside them. */
+const ROOT = [
+  'density.ts',
+  'env.d.ts',
+  'fonts.css',
+  'format.ts',
+  'index.html',
+  'main.ts',
+  'narrow.ts',
+  'shortcuts.ts',
+  'tokens.css',
+]
+
+/** A file's name without its extension or `.test`, so an import and its test match the file. */
+const stemOf = (name: string) => name.replace(/(\.test)?\.(ts|svelte|css|html)$/, '')
+
+const ROOT_STEMS = ROOT.map(stemOf)
+
+type Layer = { layer: 'root' | 'parts' | 'ledger' | 'shell' } | { layer: 'place'; name: string }
+
+/** Where a window file sits, from its path under desktop/; undefined for any other path. */
+function layerOf(path: string): Layer | undefined {
+  const rest = /^renderer\/(.+)$/.exec(path)?.[1]
+  if (rest === undefined) return undefined
+  if (!rest.includes('/')) return ROOT_STEMS.includes(stemOf(rest)) ? { layer: 'root' } : undefined
+  const folder = rest.split('/')[0]
+  if (folder === 'parts' || folder === 'ledger' || folder === 'shell') return { layer: folder }
+  const name = /^places\/([^/]+)\/./.exec(rest)?.[1]
+  return name === undefined ? undefined : { layer: 'place', name }
+}
+
+/** The layers from the bottom: each may import those before it, and a place only its own. */
+const LAYERS = ['root', 'parts', 'ledger', 'place', 'shell'] as const
+
+function mayUse(from: Layer, to: Layer | undefined): boolean {
+  if (from.layer === 'shell') return true
+  if (to === undefined) return false
+  if (to.layer === 'place') return from.layer === 'place' && from.name === to.name
+  return LAYERS.indexOf(to.layer) <= LAYERS.indexOf(from.layer)
+}
+
+/** A root file's one import past the root's rule: the entry mounts the shell, Bridge types it. */
+const ROOT_EXCEPTIONS = [
+  { file: 'renderer/main.ts', to: 'renderer/shell/App.svelte' },
+  { file: 'renderer/env.d.ts', to: 'shared/commands' },
+]
+
+const isCommands = (path: string) =>
+  path === 'shared/commands' || path.startsWith('shared/commands/')
+
+/** Whether a window file's import, landing at `to`, is on a layer it may not use. */
+function breaksLayers(file: string, to: string): boolean {
+  const from = layerOf(file)
+  if (from === undefined) return false
+  if (ROOT_EXCEPTIONS.some((e) => e.file === file && e.to === to)) return false
+  if (to.startsWith('renderer/')) return !mayUse(from, layerOf(to))
+  return isCommands(to) && (from.layer === 'root' || from.layer === 'parts')
+}
+
 function breaks(edge: Edge): boolean {
   const to = target(edge)
   if (isTest(edge.file) || to === undefined) return false
+  if (breaksLayers(edge.file, to)) return true
   const from = featureOf(edge.file)
   const into = featureOf(`${to}/`)
   if (from !== undefined && RUNS_FEATURES.includes(to)) return true
@@ -93,6 +158,69 @@ function breaks(edge: Edge): boolean {
 function problemsIn(edges: Edge[]): string[] {
   return edges.filter(breaks).map(shown)
 }
+
+/** The window's files with no layer. */
+const unplacedIn = (files: string[]) => files.filter((f) => layerOf(f) === undefined)
+
+const GLOBALS = ['document', 'window']
+
+const { SyntaxKind } = ts
+
+/** What a `/` after it divides, rather than opening a regular expression. */
+const ENDS_VALUE: ts.SyntaxKind[] = [
+  SyntaxKind.Identifier,
+  SyntaxKind.CloseParenToken,
+  SyntaxKind.CloseBracketToken,
+  SyntaxKind.CloseBraceToken,
+  SyntaxKind.NumericLiteral,
+  SyntaxKind.StringLiteral,
+  SyntaxKind.NoSubstitutionTemplateLiteral,
+  SyntaxKind.TemplateTail,
+  SyntaxKind.ThisKeyword,
+]
+
+/** Each use of the identifier `document` or `window`: not in a comment, a string, or as a key. */
+function globalsIn(source: string): string[] {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    true,
+    ts.LanguageVariant.Standard,
+    source,
+  )
+  const hits: string[] = []
+  // For each open brace, whether it is a template's `${`, so its `}` goes back into the template.
+  const braces: boolean[] = []
+  let before = SyntaxKind.Unknown
+  let token = scanner.scan()
+  while (token !== SyntaxKind.EndOfFileToken) {
+    if (token === SyntaxKind.CloseBraceToken && braces.pop()) {
+      token = scanner.reScanTemplateToken(false)
+    }
+    const slash = token === SyntaxKind.SlashToken || token === SyntaxKind.SlashEqualsToken
+    if (slash && !ENDS_VALUE.includes(before)) token = scanner.reScanSlashToken()
+    if (token === SyntaxKind.TemplateHead || token === SyntaxKind.TemplateMiddle) braces.push(true)
+    else if (token === SyntaxKind.OpenBraceToken) braces.push(false)
+    if (token === SyntaxKind.Identifier && GLOBALS.includes(scanner.getTokenText())) {
+      const property = before === SyntaxKind.DotToken || before === SyntaxKind.QuestionDotToken
+      const key =
+        before !== SyntaxKind.QuestionToken &&
+        scanner.lookAhead(() => scanner.scan()) === SyntaxKind.ColonToken
+      if (!property && !key) hits.push(scanner.getTokenText())
+    }
+    before = token
+    token = scanner.scan()
+  }
+  return hits
+}
+
+/** Each way a source touches the DOM: an import of svelte, or the global document or window. */
+function domTouchesIn(source: string): string[] {
+  const svelte = importsOf(source).filter((spec) => spec === 'svelte' || spec.startsWith('svelte/'))
+  return [...svelte, ...globalsIn(source)]
+}
+
+/** The window's modules that must touch the DOM: the density, the entry, and the floating box. */
+const TOUCH_DOM = ['renderer/density.ts', 'renderer/main.ts', 'renderer/parts/floating.ts']
 
 describe('the boundaries', () => {
   it('hold for every import in desktop today', () => {
@@ -162,7 +290,7 @@ describe('the boundaries', () => {
 
   it('refuse the window, sheet, scenes, preload, copy and shared importing main', () => {
     const edges = [
-      { file: 'renderer/Reports.svelte', imports: '../main/db/ledger' },
+      { file: 'renderer/places/reports/Reports.svelte', imports: '../../../main/db/ledger' },
       { file: 'shared/commands/index.ts', imports: '../../main/db/ledger' },
       { file: 'sheet/main.ts', imports: '../main/db/ledger' },
       { file: 'scenes/bridge.ts', imports: '../main/db/ledger' },
@@ -179,8 +307,8 @@ describe('the boundaries', () => {
       '</script>',
       "<p>import { app } from '../main/index'</p>",
     ].join('\n')
-    expect(edgesOf('renderer/Reports.svelte', source)).toEqual([
-      { file: 'renderer/Reports.svelte', imports: '../main/db/ledger' },
+    expect(edgesOf('renderer/places/reports/Reports.svelte', source)).toEqual([
+      { file: 'renderer/places/reports/Reports.svelte', imports: '../main/db/ledger' },
     ])
   })
 
@@ -188,7 +316,11 @@ describe('the boundaries', () => {
     expect(FILES).toEqual(
       expect.arrayContaining([
         'main/features/spends/commands.ts',
-        'renderer/Reports.svelte',
+        'renderer/places/reports/Reports.svelte',
+        'renderer/ledger/ledger.ts',
+        'renderer/parts/Listbox.svelte',
+        'renderer/shell/App.svelte',
+        'renderer/format.ts',
         'shared/commands/index.ts',
       ]),
     )
@@ -196,5 +328,167 @@ describe('the boundaries', () => {
     expect(EDGES.map(shown)).toEqual(
       expect.arrayContaining(features.map((f) => `${REGISTRY} → ../features/${f}/commands`)),
     )
+  })
+})
+
+describe("the window's layers", () => {
+  it('refuse a place importing another place', () => {
+    const edge = { file: 'renderer/places/spends/Spends.svelte', imports: '../reports/report' }
+    expect(problemsIn([edge])).toEqual(['renderer/places/spends/Spends.svelte → ../reports/report'])
+  })
+
+  it('let a place import its own files, the ledger, the parts and the root', () => {
+    const edges = [
+      { file: 'renderer/places/accounts/Accounts.svelte', imports: './balances' },
+      { file: 'renderer/places/reports/Reports.svelte', imports: '../../ledger/SpendList.svelte' },
+      { file: 'renderer/places/reports/report.ts', imports: '../../parts/listbox' },
+      { file: 'renderer/places/spends/Spends.svelte', imports: '../../format' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('refuse a place importing the shell', () => {
+    const edge = { file: 'renderer/places/reports/Reports.svelte', imports: '../../shell/places' }
+    expect(problemsIn([edge])).toHaveLength(1)
+  })
+
+  it('refuse a part importing the commands', () => {
+    const edges = [
+      { file: 'renderer/parts/Band.svelte', imports: '../../shared/commands' },
+      { file: 'renderer/parts/Money.svelte', imports: '../../shared/commands/wire' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
+  })
+
+  it('refuse a part importing the ledger, a place or the shell', () => {
+    const edges = [
+      { file: 'renderer/parts/Day.svelte', imports: '../ledger/sentence' },
+      { file: 'renderer/parts/Row.svelte', imports: '../places/reports/report' },
+      { file: 'renderer/parts/Keys.svelte', imports: '../shell/places' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
+  })
+
+  it('let a part import the root, copy, shared and the parts', () => {
+    const edges = [
+      { file: 'renderer/parts/Day.svelte', imports: '../format' },
+      { file: 'renderer/parts/Day.svelte', imports: '../../copy' },
+      { file: 'renderer/parts/Keys.svelte', imports: '../../shared/actions' },
+      { file: 'renderer/parts/Band.svelte', imports: '../../shared/currency' },
+      { file: 'renderer/parts/Listbox.svelte', imports: './Row.svelte' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('refuse the ledger importing a place or the shell', () => {
+    const edges = [
+      { file: 'renderer/ledger/query.ts', imports: '../places/reports/report' },
+      { file: 'renderer/ledger/SpendList.svelte', imports: '../shell/places' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
+  })
+
+  it('let the ledger import the parts, the commands and its own files', () => {
+    const edges = [
+      { file: 'renderer/ledger/SpendCard.svelte', imports: '../parts/Card.svelte' },
+      { file: 'renderer/ledger/ledger.ts', imports: '../../shared/commands' },
+      { file: 'renderer/ledger/spendActions.ts', imports: './refusals' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('refuse a root file importing the commands, but not the currency or the actions', () => {
+    const edge = { file: 'renderer/format.ts', imports: '../shared/commands' }
+    expect(problemsIn([edge])).toEqual(['renderer/format.ts → ../shared/commands'])
+    const edges = [
+      { file: 'renderer/format.ts', imports: '../shared/currency' },
+      { file: 'renderer/shortcuts.ts', imports: '../shared/actions' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('refuse a root file importing a part or the ledger', () => {
+    const edges = [
+      { file: 'renderer/format.ts', imports: './parts/listbox' },
+      { file: 'renderer/shortcuts.ts', imports: './ledger/ledger' },
+    ]
+    expect(problemsIn(edges)).toEqual(edges.map(shown))
+  })
+
+  it("let main.ts import the shell's App and nothing else of it, and env.d.ts the commands", () => {
+    const edges = [
+      { file: 'renderer/main.ts', imports: './shell/App.svelte' },
+      { file: 'renderer/env.d.ts', imports: '../shared/commands' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+    const edge = { file: 'renderer/main.ts', imports: './ledger/ledger' }
+    expect(problemsIn([edge])).toEqual(['renderer/main.ts → ./ledger/ledger'])
+  })
+
+  it('let the shell import any layer', () => {
+    const edges = [
+      { file: 'renderer/shell/App.svelte', imports: '../places/spends/Spends.svelte' },
+      { file: 'renderer/shell/Sidebar.svelte', imports: './places' },
+      { file: 'renderer/shell/App.svelte', imports: '../ledger/ledger' },
+    ]
+    expect(problemsIn(edges)).toEqual([])
+  })
+
+  it('let a test arrange through a place', () => {
+    const edge = { file: 'renderer/ledger/query.test.ts', imports: '../places/reports/report' }
+    expect(problemsIn([edge])).toEqual([])
+  })
+
+  it('place a file by its folder, and a file outside the layers nowhere', () => {
+    expect(layerOf('renderer/Thing.svelte')).toBeUndefined()
+    expect(layerOf('renderer/format.ts')).toEqual({ layer: 'root' })
+    expect(layerOf('renderer/places/reports/report.ts')).toEqual({
+      layer: 'place',
+      name: 'reports',
+    })
+    expect(layerOf('renderer/places/report.ts')).toBeUndefined()
+  })
+
+  it('give every file in renderer/ a layer', () => {
+    const window = FILES.filter((f) => f.startsWith('renderer/') && !isTest(f))
+    expect(window).not.toEqual([])
+    expect(unplacedIn(window)).toEqual([])
+    expect(unplacedIn([...window, 'renderer/Thing.svelte'])).toEqual(['renderer/Thing.svelte'])
+  })
+})
+
+describe('the DOM guard', () => {
+  it('find an import of svelte, and not of a file named like it', () => {
+    expect(domTouchesIn("import { tick } from 'svelte'")).toEqual(['svelte'])
+    expect(domTouchesIn("import { writable } from 'svelte/store'")).toEqual(['svelte/store'])
+    expect(domTouchesIn("import { x } from './svelte-ish'")).toEqual([])
+  })
+
+  it('find the globals document and window', () => {
+    expect(domTouchesIn('const el = document.body')).toEqual(['document'])
+    expect(domTouchesIn('window.haveFish.invoke(name)')).toEqual(['window'])
+  })
+
+  it('pass the words in a comment, a string, a property and a key', () => {
+    const source = [
+      '// the window shows it',
+      "const a = 'window'",
+      'const b = place.window',
+      'const c = { document: 1 }',
+    ].join('\n')
+    expect(domTouchesIn(source)).toEqual([])
+  })
+
+  it('hold for every rule module in the window today, and need its exception for density.ts', () => {
+    const modules = FILES.filter(
+      (f) => f.startsWith('renderer/') && f.endsWith('.ts') && !isTest(f) && !f.endsWith('.d.ts'),
+    )
+    expect(modules).toEqual(expect.arrayContaining(['renderer/ledger/ledger.ts']))
+    const touching = modules
+      .filter((f) => !TOUCH_DOM.includes(f))
+      .filter((f) => domTouchesIn(readFileSync(join(DESKTOP, f), 'utf8')).length > 0)
+    expect(touching).toEqual([])
+    const density = readFileSync(join(DESKTOP, 'renderer/density.ts'), 'utf8')
+    expect(domTouchesIn(density).length).toBeGreaterThan(0)
   })
 })
