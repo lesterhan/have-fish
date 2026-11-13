@@ -5,7 +5,7 @@
   import type { WindowActionId } from '../shared/actions'
   import type { Density } from '../shared/density'
   import type { ThemeChoice } from '../shared/theme/theme'
-  import Accounts from './Accounts.svelte'
+  import Accounts from './places/accounts/Accounts.svelte'
   import { runAction } from './actions'
   import { showDensity } from './density'
   import { ledgerStore } from './ledger/ledger'

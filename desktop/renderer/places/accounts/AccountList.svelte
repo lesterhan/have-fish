@@ -2,13 +2,13 @@
   // The accounts as a tree under their roots: each root a band with what it comes to, each child
   // indented under its parent and named from it (`:chequing`), and a parent nobody added there
   // for its children's total, never selected.
-  import { copy } from '../copy'
+  import { copy } from '../../../copy'
   import { accountColumnsOf, type AccountRow, accountGroups } from './balances'
-  import Band from './parts/Band.svelte'
-  import Headings from './parts/Headings.svelte'
-  import Listbox from './parts/Listbox.svelte'
-  import Money from './parts/Money.svelte'
-  import Path from './parts/Path.svelte'
+  import Band from '../../parts/Band.svelte'
+  import Headings from '../../parts/Headings.svelte'
+  import Listbox from '../../parts/Listbox.svelte'
+  import Money from '../../parts/Money.svelte'
+  import Path from '../../parts/Path.svelte'
 
   type Props = {
     /** What shows: every account, and the parents their names imply. */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { HOME_CURRENCY } from '../shared/currency'
+import { HOME_CURRENCY } from '../../../shared/currency'
 import { ANY, accountFieldOf, lockOf, owes, startCurrency, startingCurrency } from './accounts'
 
 describe('startingCurrency', () => {

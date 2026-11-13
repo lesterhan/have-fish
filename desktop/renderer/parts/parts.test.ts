@@ -21,9 +21,9 @@ const LAYOUT_ONLY = [
   'App.svelte',
   'ledger/SpendList.svelte',
   'ledger/SpendCard.svelte',
-  'Accounts.svelte',
-  'AccountList.svelte',
-  'AccountPane.svelte',
+  'places/accounts/Accounts.svelte',
+  'places/accounts/AccountList.svelte',
+  'places/accounts/AccountPane.svelte',
 ]
 
 describe('parts own what they draw', () => {

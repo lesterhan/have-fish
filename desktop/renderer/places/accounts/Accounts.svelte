@@ -1,17 +1,17 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte'
-  import { copy } from '../copy'
+  import { copy } from '../../../copy'
   import AccountList from './AccountList.svelte'
   import AccountPane from './AccountPane.svelte'
   import { type AccountField, accountFieldOf, type Adding, lockOf } from './accounts'
   import { accountRows } from './balances'
-  import type { LedgerStore } from './ledger/ledger'
-  import { NARROW } from './narrow'
-  import { wordsFor } from './ledger/refusals'
-  import { kept } from './ledger/selection'
-  import Button from './parts/Button.svelte'
-  import Header from './parts/Header.svelte'
-  import Notice from './parts/Notice.svelte'
+  import type { LedgerStore } from '../../ledger/ledger'
+  import { NARROW } from '../../narrow'
+  import { wordsFor } from '../../ledger/refusals'
+  import { kept } from '../../ledger/selection'
+  import Button from '../../parts/Button.svelte'
+  import Header from '../../parts/Header.svelte'
+  import Notice from '../../parts/Notice.svelte'
 
   type Props = {
     hidden: boolean

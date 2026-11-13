@@ -5,8 +5,8 @@
   import { ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
   import { CURRENCIES } from '@have-fish/core/currencies'
   import { tick } from 'svelte'
-  import { copy } from '../copy'
-  import type { ListedAccount } from '../shared/commands'
+  import { copy } from '../../../copy'
+  import type { ListedAccount } from '../../../shared/commands'
   import {
     type AccountField,
     ANY,
@@ -15,14 +15,14 @@
     startCurrency,
     startingCurrency,
   } from './accounts'
-  import Button from './parts/Button.svelte'
-  import Day from './parts/Day.svelte'
-  import Empty from './parts/Empty.svelte'
-  import Field from './parts/Field.svelte'
-  import Fold from './parts/Fold.svelte'
-  import Money from './parts/Money.svelte'
-  import Pane from './parts/Pane.svelte'
-  import Path from './parts/Path.svelte'
+  import Button from '../../parts/Button.svelte'
+  import Day from '../../parts/Day.svelte'
+  import Empty from '../../parts/Empty.svelte'
+  import Field from '../../parts/Field.svelte'
+  import Fold from '../../parts/Fold.svelte'
+  import Money from '../../parts/Money.svelte'
+  import Pane from '../../parts/Pane.svelte'
+  import Path from '../../parts/Path.svelte'
 
   type Props = {
     account: ListedAccount | undefined

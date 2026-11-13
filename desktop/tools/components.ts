@@ -9,8 +9,6 @@ export const LIMITS: Size = { lines: 150, props: 10, states: 5 }
 
 /** Each component over a limit, by its path under `renderer/`, at the size it has. */
 export const HELD: Record<string, Size> = {
-  'AccountPane.svelte': { lines: 118, props: 9, states: 8 },
-  'Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'App.svelte': { lines: 225, props: 0, states: 2 },
   'Reports.svelte': { lines: 222, props: 3, states: 8 },
   'ledger/Composer.svelte': { lines: 267, props: 10, states: 14 },
@@ -20,6 +18,8 @@ export const HELD: Record<string, Size> = {
   'parts/Chip.svelte': { lines: 40, props: 11, states: 0 },
   'parts/Listbox.svelte': { lines: 269, props: 28, states: 5 },
   'parts/Row.svelte': { lines: 56, props: 17, states: 0 },
+  'places/accounts/AccountPane.svelte': { lines: 118, props: 9, states: 8 },
+  'places/accounts/Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'places/spends/Spends.svelte': { lines: 250, props: 4, states: 9 },
 }
 

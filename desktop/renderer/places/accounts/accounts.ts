@@ -1,8 +1,8 @@
 // The add-account pane's rules: the currency a kind starts at, and which field shows a refusal.
 
 import { type AddableKind, classOf } from '@have-fish/core/account-kind'
-import type { WireFailure } from '../shared/commands'
-import { HOME_CURRENCY } from '../shared/currency'
+import type { WireFailure } from '../../../shared/commands'
+import { HOME_CURRENCY } from '../../../shared/currency'
 
 /**
  * What the pane's fields hold. `currency` is `ANY` or a currency code; `start` is what's in it

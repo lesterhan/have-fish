@@ -3,8 +3,8 @@
 import { pathFor } from '@have-fish/core/account-path'
 import { balanceRows, type Total } from '@have-fish/core/balances'
 import { cents, format } from '@have-fish/core/money'
-import type { ListedAccount, Money } from '../shared/commands'
-import { HOME_CURRENCY } from '../shared/currency'
+import type { ListedAccount, Money } from '../../../shared/commands'
+import { HOME_CURRENCY } from '../../../shared/currency'
 
 /** One row of the list: an account I added, or a parent its name implies (no account). */
 export type AccountRow = {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedAccount } from '../shared/commands'
+import type { ListedAccount } from '../../../shared/commands'
+import { money } from '../../format'
 import {
   accountColumnsOf,
   accountGroups,
@@ -8,7 +9,6 @@ import {
   balanceOf,
   NARROW_ACCOUNTS,
 } from './balances'
-import { money } from './format'
 
 const account = (fields: Partial<ListedAccount>): ListedAccount => ({
   id: 'a',
