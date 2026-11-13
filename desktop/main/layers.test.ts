@@ -81,7 +81,10 @@ const RUNS_FEATURES = ['main/commands/registry', 'main/commands/run']
 
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
 
-/** The files directly in `renderer/` that every layer may use, and the tests beside them. */
+/**
+ * The files directly in `renderer/` that every layer may use, and the tests beside them. Its
+ * `public/`, Vite's static folder of licence texts, holds no source and sits outside the layers.
+ */
 const ROOT = [
   'density.ts',
   'env.d.ts',
@@ -94,10 +97,16 @@ const ROOT = [
   'tokens.css',
 ]
 
-/** A file's name without its extension or `.test`, so an import and its test match the file. */
-const stemOf = (name: string) => name.replace(/(\.test)?\.(ts|svelte|css|html)$/, '')
+/** The root's names without their extensions, which an import may leave off. */
+const ROOT_STEMS = ROOT.map((name) => name.replace(/\.[^.]+$/, ''))
 
-const ROOT_STEMS = ROOT.map(stemOf)
+/** Whether a name in `renderer/` is a root file, a test beside one, or an import of one. */
+function atRoot(name: string): boolean {
+  if (ROOT.includes(name)) return true
+  const tested = /^(.+)\.test\.ts$/.exec(name)?.[1]
+  if (tested !== undefined) return ROOT_STEMS.includes(tested)
+  return !name.includes('.') && ROOT_STEMS.includes(name)
+}
 
 type Layer = { layer: 'root' | 'parts' | 'ledger' | 'shell' } | { layer: 'place'; name: string }
 
@@ -105,7 +114,7 @@ type Layer = { layer: 'root' | 'parts' | 'ledger' | 'shell' } | { layer: 'place'
 function layerOf(path: string): Layer | undefined {
   const rest = /^renderer\/(.+)$/.exec(path)?.[1]
   if (rest === undefined) return undefined
-  if (!rest.includes('/')) return ROOT_STEMS.includes(stemOf(rest)) ? { layer: 'root' } : undefined
+  if (!rest.includes('/')) return atRoot(rest) ? { layer: 'root' } : undefined
   const folder = rest.split('/')[0]
   if (folder === 'parts' || folder === 'ledger' || folder === 'shell') return { layer: folder }
   const name = /^places\/([^/]+)\/./.exec(rest)?.[1]
@@ -441,6 +450,8 @@ describe("the window's layers", () => {
 
   it('place a file by its folder, and a file outside the layers nowhere', () => {
     expect(layerOf('renderer/Thing.svelte')).toBeUndefined()
+    expect(layerOf('renderer/tokens.ts')).toBeUndefined()
+    expect(layerOf('renderer/index.ts')).toBeUndefined()
     expect(layerOf('renderer/format.ts')).toEqual({ layer: 'root' })
     expect(layerOf('renderer/places/reports/report.ts')).toEqual({
       layer: 'place',
@@ -450,10 +461,10 @@ describe("the window's layers", () => {
   })
 
   it('give every file in renderer/ a layer', () => {
-    const window = FILES.filter((f) => f.startsWith('renderer/') && !isTest(f))
-    expect(window).not.toEqual([])
-    expect(unplacedIn(window)).toEqual([])
-    expect(unplacedIn([...window, 'renderer/Thing.svelte'])).toEqual(['renderer/Thing.svelte'])
+    const windowFiles = FILES.filter((f) => f.startsWith('renderer/') && !isTest(f))
+    expect(windowFiles).not.toEqual([])
+    expect(unplacedIn(windowFiles)).toEqual([])
+    expect(unplacedIn([...windowFiles, 'renderer/Thing.svelte'])).toEqual(['renderer/Thing.svelte'])
   })
 })
 
@@ -477,6 +488,15 @@ describe('the DOM guard', () => {
       'const c = { document: 1 }',
     ].join('\n')
     expect(domTouchesIn(source)).toEqual([])
+  })
+
+  it("tell a template's text and a regular expression from code", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the source read holds a template
+    expect(domTouchesIn('const a = `${b} window`')).toEqual([])
+    expect(domTouchesIn('const r = /window/')).toEqual([])
+    expect(domTouchesIn('const c = a ? window : b')).toEqual(['window'])
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the source read holds a template
+    expect(domTouchesIn('const d = `${window.x}`')).toEqual(['window'])
   })
 
   it('hold for every rule module in the window today, and need its exception for density.ts', () => {
