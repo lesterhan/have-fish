@@ -20,7 +20,7 @@ export const HELD: Record<string, Size> = {
   'places/accounts/Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'places/reports/Reports.svelte': { lines: 222, props: 3, states: 8 },
   'places/spends/Spends.svelte': { lines: 250, props: 4, states: 9 },
-  'shell/App.svelte': { lines: 225, props: 0, states: 2 },
+  'shell/App.svelte': { lines: 221, props: 0, states: 2 },
 }
 
 // Comments out of the count; strings aren't looked inside, which no component needs yet.
