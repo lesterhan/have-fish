@@ -17,7 +17,7 @@
   import Reports from './Reports.svelte'
   import { MAC } from './shortcuts'
   import { spendActions } from './ledger/spendActions'
-  import Spends from './Spends.svelte'
+  import Spends from './places/spends/Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
 
   // Every place stays mounted, hidden while another shows, so its selection and typing stay too.
