@@ -139,7 +139,9 @@ screens are rebuilt, so a part that several screens will use is built as a part 
 screen that needs it, not copied until a third copy forces it out.
 
 1. **A part lives in `desktop/renderer/parts/`**, one per file. Its rules are in a `.ts` module
-   beside it, tested without a DOM, as `picker.ts` and `selection.ts` already are.
+   beside it, tested without a DOM, as `listbox.ts` and `path.ts` already are. The ledger's
+   components, `Postings` and `PathPicker` among them, live in `ledger/`, with their rules
+   (`picker.ts`, `selection.ts`) beside them there.
 2. **A place's style is layout only**: grid, widths, gaps, order. Colour, type, borders, radius,
    shadow and motion belong to parts and to `tokens.css`.
 3. **Use, extend, or replace.** Use a part that does the job. Extend it with a prop only when the
@@ -170,11 +172,14 @@ screen that needs it, not copied until a third copy forces it out.
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
-| `Postings` | Shown or hidden; a balance check per currency, Copy, the transaction as text with a root per kind | The card |
-| `PathPicker` | Opens on focus at the current level; letters in order anywhere in the path; last used first; a trail you can click at every level; Create last | The composer, chips, Refile, Accounts |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
 | `Notice` | Under a place's header, where you were looking; an action and ✕; stays until acted on | Every place |
 | `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open | Every list, the palette |
+
+| The ledger's, in `ledger/` | States | Used by |
+|---|---|---|
+| `Postings` | Shown or hidden; a balance check per currency, Copy, the transaction as text with a root per kind | The card |
+| `PathPicker` | Opens on focus at the current level; letters in order anywhere in the path; last used first; a trail you can click at every level; Create last | The composer, chips, Refile, Accounts |
 
 **Focus** is always a 2px accent ring outside the control. Every control has a hover state.
 
