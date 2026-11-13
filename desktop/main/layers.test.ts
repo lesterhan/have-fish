@@ -173,52 +173,28 @@ const unplacedIn = (files: string[]) => files.filter((f) => layerOf(f) === undef
 
 const GLOBALS = ['document', 'window']
 
-const { SyntaxKind } = ts
-
-/** What a `/` after it divides, rather than opening a regular expression. */
-const ENDS_VALUE: ts.SyntaxKind[] = [
-  SyntaxKind.Identifier,
-  SyntaxKind.CloseParenToken,
-  SyntaxKind.CloseBracketToken,
-  SyntaxKind.CloseBraceToken,
-  SyntaxKind.NumericLiteral,
-  SyntaxKind.StringLiteral,
-  SyntaxKind.NoSubstitutionTemplateLiteral,
-  SyntaxKind.TemplateTail,
-  SyntaxKind.ThisKeyword,
-]
-
-/** Each use of the identifier `document` or `window`: not in a comment, a string, or as a key. */
-function globalsIn(source: string): string[] {
-  const scanner = ts.createScanner(
-    ts.ScriptTarget.Latest,
-    true,
-    ts.LanguageVariant.Standard,
-    source,
+/** Whether an identifier is a property's name: `x.window`, `{ window: 1 }`, `{ window: T }`. */
+function namesProperty(node: ts.Identifier): boolean {
+  const { parent } = node
+  return (
+    (ts.isPropertyAccessExpression(parent) ||
+      ts.isPropertyAssignment(parent) ||
+      ts.isPropertySignature(parent)) &&
+    parent.name === node
   )
+}
+
+/** Each use of the identifier `document` or `window`, read from the parsed tree. */
+function globalsIn(source: string): string[] {
+  const file = ts.createSourceFile('module.ts', source, ts.ScriptTarget.Latest, true)
   const hits: string[] = []
-  // For each open brace, whether it is a template's `${`, so its `}` goes back into the template.
-  const braces: boolean[] = []
-  let before = SyntaxKind.Unknown
-  let token = scanner.scan()
-  while (token !== SyntaxKind.EndOfFileToken) {
-    if (token === SyntaxKind.CloseBraceToken && braces.pop()) {
-      token = scanner.reScanTemplateToken(false)
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && GLOBALS.includes(node.text) && !namesProperty(node)) {
+      hits.push(node.text)
     }
-    const slash = token === SyntaxKind.SlashToken || token === SyntaxKind.SlashEqualsToken
-    if (slash && !ENDS_VALUE.includes(before)) token = scanner.reScanSlashToken()
-    if (token === SyntaxKind.TemplateHead || token === SyntaxKind.TemplateMiddle) braces.push(true)
-    else if (token === SyntaxKind.OpenBraceToken) braces.push(false)
-    if (token === SyntaxKind.Identifier && GLOBALS.includes(scanner.getTokenText())) {
-      const property = before === SyntaxKind.DotToken || before === SyntaxKind.QuestionDotToken
-      const key =
-        before !== SyntaxKind.QuestionToken &&
-        scanner.lookAhead(() => scanner.scan()) === SyntaxKind.ColonToken
-      if (!property && !key) hits.push(scanner.getTokenText())
-    }
-    before = token
-    token = scanner.scan()
+    ts.forEachChild(node, visit)
   }
+  visit(file)
   return hits
 }
 
