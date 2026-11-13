@@ -1,6 +1,6 @@
 import { mount } from 'svelte'
-import App from './App.svelte'
 import { showDensity } from './density'
+import App from './shell/App.svelte'
 import './fonts.css'
 import './tokens.css'
 

@@ -3,7 +3,7 @@
   // the right. A day's net is main's, summed in SQL over the whole day, never over the rows the
   // window holds (see #611).
   import type { Snippet } from 'svelte'
-  import type { Money as Amount } from '../../shared/commands'
+  import type { Money as Amount } from '../../shared/currency'
   import Day from './Day.svelte'
   import Money from './Money.svelte'
 

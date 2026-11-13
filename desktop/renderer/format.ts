@@ -4,8 +4,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { minorUnits } from '@have-fish/core/currencies'
 import { dateFrom } from '@have-fish/core/typed-date'
-import type { Money } from '../shared/commands'
-import { HOME_CURRENCY } from '../shared/currency'
+import { HOME_CURRENCY, type Money } from '../shared/currency'
 
 /** Grouped thousands, by the currency's decimals: at least its own, and any the amount carries. */
 const AMOUNT = new Map(

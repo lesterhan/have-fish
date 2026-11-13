@@ -176,7 +176,7 @@ describe('every component holds to its size', () => {
   const sizes = Object.fromEntries(files.map((f) => [f, sizeOf(read(f))]))
 
   test('it read the window', () => {
-    expect(files).toContain('Spends.svelte')
+    expect(files).toContain('places/spends/Spends.svelte')
     expect(files).toContain('parts/Listbox.svelte')
     expect(files.length).toBeGreaterThanOrEqual(30)
   })

@@ -18,17 +18,17 @@ const files = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' })
  * files, and the list ends as every place.
  */
 const LAYOUT_ONLY = [
-  'App.svelte',
-  'SpendList.svelte',
-  'SpendCard.svelte',
-  'Accounts.svelte',
-  'AccountList.svelte',
-  'AccountPane.svelte',
+  'shell/App.svelte',
+  'ledger/SpendList.svelte',
+  'ledger/SpendCard.svelte',
+  'places/accounts/Accounts.svelte',
+  'places/accounts/AccountList.svelte',
+  'places/accounts/AccountPane.svelte',
 ]
 
 describe('parts own what they draw', () => {
   test('it read the renderer', () => {
-    expect(files).toContain('App.svelte')
+    expect(files).toContain('shell/App.svelte')
     expect(files).toContain('parts/Keys.svelte')
   })
 

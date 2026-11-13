@@ -2,7 +2,7 @@
   // An amount, or several, as they read everywhere (DESIGN.md, "Money and days"): the figures face,
   // a true minus, the code small and quiet when it's said, and which way it went without colour
   // alone. The rules are `moneyParts` in `format.ts`.
-  import type { Money } from '../../shared/commands'
+  import type { Money } from '../../shared/currency'
   import { moneyParts, type Way } from '../format'
 
   type Props = {

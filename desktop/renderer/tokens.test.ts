@@ -37,7 +37,7 @@ const appFiles = () =>
 describe('colour lives in tokens.css and nowhere else', () => {
   test('it read the app', () => {
     const files = appFiles()
-    expect(files).toContain('renderer/App.svelte')
+    expect(files).toContain('renderer/shell/App.svelte')
     expect(files).toContain('renderer/index.html')
     expect(files.length).toBeGreaterThan(30)
   })
