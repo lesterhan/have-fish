@@ -17,11 +17,11 @@
     trailOf,
     type Mode,
     type Pick,
-  } from '../pathPicker'
-  import Listbox from './Listbox.svelte'
-  import Path from './Path.svelte'
-  import Popover from './Popover.svelte'
-  import { floating } from './floating'
+  } from './pathPicker'
+  import Listbox from '../parts/Listbox.svelte'
+  import Path from '../parts/Path.svelte'
+  import Popover from '../parts/Popover.svelte'
+  import { floating } from '../parts/floating'
 
   type Props = {
     /** The field's id, for its label; the list's is built from it. */

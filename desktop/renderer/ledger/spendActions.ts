@@ -2,7 +2,7 @@
 // command and says saved, or why not in the words its place shows. No place or part sends a spend
 // command itself.
 
-import type { Bridge, InputOf, ListedTransaction, To } from '../shared/commands'
+import type { Bridge, InputOf, ListedTransaction, To } from '../../shared/commands'
 import { composerWordsFor, type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
 import { changeOf, savedValues } from './sentence'
 

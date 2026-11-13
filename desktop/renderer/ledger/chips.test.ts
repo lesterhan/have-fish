@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedTransaction } from '../shared/commands'
+import type { ListedTransaction } from '../../shared/commands'
 import { closed, committing, flashed, opened, putBack, refused, saved, sending } from './chips'
 
 const spend: ListedTransaction = {

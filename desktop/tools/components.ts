@@ -12,14 +12,14 @@ export const HELD: Record<string, Size> = {
   'AccountPane.svelte': { lines: 118, props: 9, states: 8 },
   'Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'App.svelte': { lines: 225, props: 0, states: 2 },
-  'Composer.svelte': { lines: 267, props: 10, states: 14 },
   'Reports.svelte': { lines: 222, props: 3, states: 8 },
-  'SpendCard.svelte': { lines: 162, props: 9, states: 2 },
-  'SpendList.svelte': { lines: 198, props: 23, states: 4 },
   'Spends.svelte': { lines: 250, props: 4, states: 9 },
+  'ledger/Composer.svelte': { lines: 267, props: 10, states: 14 },
+  'ledger/PathPicker.svelte': { lines: 219, props: 16, states: 6 },
+  'ledger/SpendCard.svelte': { lines: 162, props: 9, states: 2 },
+  'ledger/SpendList.svelte': { lines: 198, props: 23, states: 4 },
   'parts/Chip.svelte': { lines: 40, props: 11, states: 0 },
   'parts/Listbox.svelte': { lines: 269, props: 28, states: 5 },
-  'parts/PathPicker.svelte': { lines: 219, props: 16, states: 6 },
   'parts/Row.svelte': { lines: 56, props: 17, states: 0 },
 }
 

@@ -1,8 +1,8 @@
 // A ledger row's rules: which way its money went, and the days a list held whole falls into.
 
 import type { ShapeName } from '@have-fish/core/shapes'
-import type { ListedDay, ListedTransaction } from '../shared/commands'
-import type { Way } from './format'
+import type { ListedDay, ListedTransaction } from '../../shared/commands'
+import type { Way } from '../format'
 
 /** Income comes in; a transfer moves between two accounts of mine; the rest go out, unsigned. */
 export function wayOf(shape: ShapeName): Way {

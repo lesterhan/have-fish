@@ -5,8 +5,8 @@
   // and Esc puts it back. A spend that moves more than one amount is read only: its chips are
   // locked, and a second line says where each part came from.
   import { tick } from 'svelte'
-  import { copy } from '../copy'
-  import type { ListedPath, ListedTransaction } from '../shared/commands'
+  import { copy } from '../../copy'
+  import type { ListedPath, ListedTransaction } from '../../shared/commands'
   import {
     closed,
     committing,
@@ -17,20 +17,20 @@
     saved as savedChip,
     sending,
   } from './chips'
-  import { moment, understood } from './format'
-  import { chipKey } from './parts/chip'
-  import Button from './parts/Button.svelte'
-  import Card from './parts/Card.svelte'
-  import Chip from './parts/Chip.svelte'
-  import Day from './parts/Day.svelte'
-  import Money from './parts/Money.svelte'
-  import Path from './parts/Path.svelte'
+  import { moment, understood } from '../format'
+  import { chipKey } from '../parts/chip'
+  import Button from '../parts/Button.svelte'
+  import Card from '../parts/Card.svelte'
+  import Chip from '../parts/Chip.svelte'
+  import Day from '../parts/Day.svelte'
+  import Money from '../parts/Money.svelte'
+  import Path from '../parts/Path.svelte'
   import { type Option, toOf } from './picker'
-  import PathPicker from './parts/PathPicker.svelte'
-  import Postings from './parts/Postings.svelte'
+  import PathPicker from './PathPicker.svelte'
+  import Postings from './Postings.svelte'
   import { provenanceOf } from './postings'
   import { type Changable, destinationOf, paymentsOf, savedValues } from './sentence'
-  import { windowKeyOf } from './shortcuts'
+  import { windowKeyOf } from '../shortcuts'
   import type { SpendActions } from './spendActions'
 
   type Props = {

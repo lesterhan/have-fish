@@ -7,7 +7,7 @@ import { contextFor } from '../context'
 import { aLedgerOf, NOW, openTempLedger, recorded } from '../ledger/fixtures'
 import { runCommand } from './run'
 
-/** What the window asks for after each change: `renderer/ledger.ts`'s load. */
+/** What the window asks for after each change: `renderer/ledger/ledger.ts`'s load. */
 const LOAD: [CommandName, unknown][] = [
   ['account.list', {}],
   ['spend.assumedFrom', {}],

@@ -2,8 +2,8 @@
 // why its last save was refused, and which one just saved. `SpendCard.svelte` holds one of these
 // and draws it; what a change sends is `changeOf`'s.
 
-import type { InputOf, ListedTransaction, To } from '../shared/commands'
-import { todayIn } from './format'
+import type { InputOf, ListedTransaction, To } from '../../shared/commands'
+import { todayIn } from '../format'
 import { type Changable, changeOf, savedValues } from './sentence'
 
 export type Editing = {

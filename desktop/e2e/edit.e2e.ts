@@ -6,7 +6,7 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { copy } from '../copy'
-import { postingsText } from '../renderer/postings'
+import { postingsText } from '../renderer/ledger/postings'
 import {
   aHome,
   chip,

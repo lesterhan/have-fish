@@ -1,8 +1,8 @@
 // A spend's details as the sentence they read as: its parts, the values a chip changes, and what
 // changing one sends. No DOM.
 
-import type { InputOf, ListedLeg, ListedTransaction, Money, To } from '../shared/commands'
-import { dayOf, todayIn } from './format'
+import type { InputOf, ListedLeg, ListedTransaction, Money, To } from '../../shared/commands'
+import { dayOf, todayIn } from '../format'
 
 /**
  * The parts of the sentence, in the order they read. From is shown but, until a later note, can't

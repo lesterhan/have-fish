@@ -4,7 +4,7 @@
 import { isAddable } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
 import { UNSORTED } from '@have-fish/core/own-accounts'
-import type { ListedPath } from '../shared/commands'
+import type { ListedPath } from '../../shared/commands'
 import { finds } from './picker'
 
 export type Mode = 'from' | 'to'

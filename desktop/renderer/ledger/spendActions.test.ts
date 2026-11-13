@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { copy } from '../copy'
-import type { Bridge, CommandName, ListedTransaction, WireFailure } from '../shared/commands'
+import { copy } from '../../copy'
+import type { Bridge, CommandName, ListedTransaction, WireFailure } from '../../shared/commands'
 import { spendActions } from './spendActions'
 
 const spend: ListedTransaction = {

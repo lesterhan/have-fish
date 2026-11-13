@@ -74,6 +74,6 @@ describe('every command', () => {
   })
 
   it('is looked for in the files that invoke them', () => {
-    expect([...SOURCES.keys()]).toEqual(expect.arrayContaining(['App.svelte', 'ledger.ts']))
+    expect([...SOURCES.keys()]).toEqual(expect.arrayContaining(['App.svelte', 'ledger/ledger.ts']))
   })
 })

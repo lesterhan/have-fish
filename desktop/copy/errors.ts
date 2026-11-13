@@ -1,5 +1,5 @@
 // The words for each refusal, said where a save was refused. Core and main send a code; the
-// words live here. Which field shows them is the window's call (`renderer/refusals.ts`).
+// words live here. Which field shows them is the window's call (`renderer/ledger/refusals.ts`).
 
 import type { FailureCode } from '@have-fish/core/outcome'
 

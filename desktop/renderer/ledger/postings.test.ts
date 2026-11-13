@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedLeg, ListedOrigin } from '../shared/commands'
+import type { ListedLeg, ListedOrigin } from '../../shared/commands'
 import {
   balancesOf,
   postingsOf,

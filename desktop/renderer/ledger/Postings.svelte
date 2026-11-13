@@ -4,8 +4,8 @@
   // `postings.ts`; Copy puts the same text on the system clipboard.
   import { copy } from '../../copy'
   import type { ListedTransaction } from '../../shared/commands'
-  import { balancesOf, postingsOf, postingsText, rootAndRest, widthsOf } from '../postings'
-  import Button from './Button.svelte'
+  import { balancesOf, postingsOf, postingsText, rootAndRest, widthsOf } from './postings'
+  import Button from '../parts/Button.svelte'
 
   let { transaction }: { transaction: ListedTransaction } = $props()
 

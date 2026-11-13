@@ -4,8 +4,8 @@
   // and a part it can't read is underlined red with two words of why. Enter writes it, the line
   // stays open for the next one, and Esc or Done closes it. While it's open, the ledger steps back.
   import { type Snippet, tick, untrack } from 'svelte'
-  import { copy } from '../copy'
-  import type { ListedAccount, ListedPath } from '../shared/commands'
+  import { copy } from '../../copy'
+  import type { ListedAccount, ListedPath } from '../../shared/commands'
   import {
     after,
     before,
@@ -15,14 +15,14 @@
     startPart,
     tabMark,
   } from './composer'
-  import { dayOf, todayIn } from './format'
-  import Button from './parts/Button.svelte'
-  import Day from './parts/Day.svelte'
-  import { floating } from './parts/floating'
-  import Keys from './parts/Keys.svelte'
-  import Listbox from './parts/Listbox.svelte'
-  import PathPicker from './parts/PathPicker.svelte'
-  import Popover from './parts/Popover.svelte'
+  import { dayOf, todayIn } from '../format'
+  import Button from '../parts/Button.svelte'
+  import Day from '../parts/Day.svelte'
+  import { floating } from '../parts/floating'
+  import Keys from '../parts/Keys.svelte'
+  import Listbox from '../parts/Listbox.svelte'
+  import PathPicker from './PathPicker.svelte'
+  import Popover from '../parts/Popover.svelte'
   import { fromOf, toOf } from './picker'
   import type { Field as Where } from './refusals'
   import type { SpendActions } from './spendActions'

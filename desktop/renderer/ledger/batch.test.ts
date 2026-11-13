@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedTransaction } from '../shared/commands'
+import type { ListedTransaction } from '../../shared/commands'
 import { added, EMPTY, landing, movedBy } from './batch'
 
 /** A line as the batch holds it, named for its description. */

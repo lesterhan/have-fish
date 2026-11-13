@@ -14,7 +14,7 @@ import type {
   Values,
   Wire,
   WireFailure,
-} from '../shared/commands'
+} from '../../shared/commands'
 
 /** Rows per page: a few views' worth, so a scroll asks again rarely. */
 export const PAGE = 100

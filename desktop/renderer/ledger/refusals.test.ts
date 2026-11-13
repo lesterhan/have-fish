@@ -1,7 +1,7 @@
 import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
-import { copy } from '../copy'
-import type { WireFailure } from '../shared/commands'
+import { copy } from '../../copy'
+import type { WireFailure } from '../../shared/commands'
 import { composerWordsFor, fieldOf, spendWordsFor, wordsFor } from './refusals'
 
 const refused = <C extends FailureCode>(error: C, detail: FailureDetails[C]) =>

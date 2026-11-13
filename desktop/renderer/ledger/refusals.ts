@@ -1,7 +1,7 @@
 // Which field shows a refusal, and the words it shows.
 
-import { copy } from '../copy'
-import type { To, WireFailure } from '../shared/commands'
+import { copy } from '../../copy'
+import type { To, WireFailure } from '../../shared/commands'
 
 export type Field = 'amount' | 'description' | 'date' | 'to' | 'from' | 'form'
 

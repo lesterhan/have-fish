@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import type { Bridge, Changed, CommandName, Wire } from '../shared/commands'
+import type { Bridge, Changed, CommandName, Wire } from '../../shared/commands'
+import type { Week } from '../report'
 import { type Ask, type QueryState, query } from './query'
-import type { Week } from './report'
 
 type Call = { name: CommandName; input: unknown; answer(value: Wire<unknown>): void }
 

@@ -1,8 +1,8 @@
 // What a place reads of main beside the ledger's lists: one load over the commands it names, asked
 // again after a change of a kind they read. The latest load wins, and a hidden place waits.
 
-import type { Bridge, CommandName, InputOf, Values, Wire, WireFailure } from '../shared/commands'
-import { traits } from '../shared/traits'
+import type { Bridge, CommandName, InputOf, Values, Wire, WireFailure } from '../../shared/commands'
+import { traits } from '../../shared/traits'
 
 /** The bridge's invoke, narrowed to the commands a query was given. */
 export type Ask<N extends CommandName> = <M extends N>(

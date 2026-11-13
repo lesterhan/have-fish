@@ -60,12 +60,12 @@ describe('money and days go through here', () => {
 
   /** The ledger's own text form, copied to another tool: not an amount formatted for the screen. */
   const MACHINE_TEXT: Record<string, string> = {
-    'postings.ts': 'the transaction as text, for copying',
-    'parts/Postings.svelte': 'the same text, drawn',
+    'ledger/postings.ts': 'the transaction as text, for copying',
+    'ledger/Postings.svelte': 'the same text, drawn',
   }
 
   test('it read the window', () => {
-    expect(files).toContain('SpendList.svelte')
+    expect(files).toContain('ledger/SpendList.svelte')
     expect(files.length).toBeGreaterThan(30)
   })
 

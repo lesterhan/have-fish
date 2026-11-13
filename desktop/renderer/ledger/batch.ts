@@ -1,7 +1,7 @@
 // What one opening of the line wrote: the lines it wrote, newest first, and the ones an undo took
 // back out of it, so a redo can put them back. `Batch.svelte` draws it; `Spends.svelte` holds it.
 
-import type { ListedTransaction } from '../shared/commands'
+import type { ListedTransaction } from '../../shared/commands'
 
 export type Batch = {
   /** The lines this opening wrote, newest first. */

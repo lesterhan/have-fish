@@ -19,8 +19,8 @@ const files = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' })
  */
 const LAYOUT_ONLY = [
   'App.svelte',
-  'SpendList.svelte',
-  'SpendCard.svelte',
+  'ledger/SpendList.svelte',
+  'ledger/SpendCard.svelte',
   'Accounts.svelte',
   'AccountList.svelte',
   'AccountPane.svelte',

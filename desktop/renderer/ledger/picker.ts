@@ -1,7 +1,7 @@
 // What a picked name sends: an account of mine by id, an income source or a category by name.
 // The path picker's own rules (levels, search, new names) are in `pathPicker.ts`.
 
-import type { From, To } from '../shared/commands'
+import type { From, To } from '../../shared/commands'
 
 export type Option = { id: string; name: string }
 

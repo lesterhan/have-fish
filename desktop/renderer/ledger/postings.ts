@@ -3,8 +3,8 @@
 // balances. Plain text, so Copy puts something another tool can read.
 
 import { cents } from '@have-fish/core/money'
-import { copy, type OriginPart } from '../copy'
-import type { ListedLeg, ListedOrigin } from '../shared/commands'
+import { copy, type OriginPart } from '../../copy'
+import type { ListedLeg, ListedOrigin } from '../../shared/commands'
 
 /** One posting, as the block shows it. */
 export type Posting = {

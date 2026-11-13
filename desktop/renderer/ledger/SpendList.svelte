@@ -2,24 +2,24 @@
   // A list of spends: the ledger's, or a report's. Click a row to select it, and again, or Enter,
   // to open its details under it; Esc closes them, and Delete removes the spend.
   import { type Snippet, tick } from 'svelte'
-  import { copy } from '../copy'
+  import { copy } from '../../copy'
   import type {
     ListedDay,
     ListedPath,
     ListedTransaction,
     Money as Amount,
-  } from '../shared/commands'
-  import { todayIn } from './format'
-  import PathPicker from './parts/PathPicker.svelte'
-  import Band from './parts/Band.svelte'
-  import Headings from './parts/Headings.svelte'
-  import Keys from './parts/Keys.svelte'
-  import type { Paged } from './parts/listbox'
-  import Listbox from './parts/Listbox.svelte'
-  import Money from './parts/Money.svelte'
-  import Path from './parts/Path.svelte'
+  } from '../../shared/commands'
+  import { todayIn } from '../format'
+  import PathPicker from './PathPicker.svelte'
+  import Band from '../parts/Band.svelte'
+  import Headings from '../parts/Headings.svelte'
+  import Keys from '../parts/Keys.svelte'
+  import type { Paged } from '../parts/listbox'
+  import Listbox from '../parts/Listbox.svelte'
+  import Money from '../parts/Money.svelte'
+  import Path from '../parts/Path.svelte'
   import { columnsOf, daysOf, wayOf } from './row'
-  import { windowKeyOf } from './shortcuts'
+  import { windowKeyOf } from '../shortcuts'
 
   type Props = {
     /** The spends, all of them here; or `paged`, the ledger's list a page at a time. */

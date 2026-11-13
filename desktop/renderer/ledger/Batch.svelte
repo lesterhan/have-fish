@@ -2,12 +2,12 @@
   // The lines this opening of the line has written, newest first, each a ledger row under the
   // composer: its From, Amount and To, its description, its day in a pill where that isn't today,
   // and the tick and Saved at its end. It drops a new line in, scrolls past six rows, and stops.
-  import { copy } from '../copy'
+  import { copy } from '../../copy'
   import type { Batch } from './batch'
   import { columnsOf, wayOf } from './row'
-  import Day from './parts/Day.svelte'
-  import Money from './parts/Money.svelte'
-  import Path from './parts/Path.svelte'
+  import Day from '../parts/Day.svelte'
+  import Money from '../parts/Money.svelte'
+  import Path from '../parts/Path.svelte'
 
   type Props = {
     /** The lines the line has written, and what was taken back: only the lines show. */

@@ -7,8 +7,8 @@ import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core
 import { copy } from '../copy'
 import type { ListedTransaction, Money, Values, Wire } from '../shared/commands'
 import { amountsText } from './format'
+import type { Ask } from './ledger/query'
 import type { TreeSpot } from './parts/listbox'
-import type { Ask } from './query'
 
 export type Week = { start: string; end: string }
 

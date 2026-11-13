@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedTransaction } from '../shared/commands'
+import type { ListedTransaction } from '../../shared/commands'
 import { changeOf, destinationOf, paymentsOf, savedValues } from './sentence'
 
 const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => ({

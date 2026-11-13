@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { Bridge, Changed, CommandName, ListedTransaction, Wire } from '../shared/commands'
+import type { Bridge, Changed, CommandName, ListedTransaction, Wire } from '../../shared/commands'
 import { indexIn, type LedgerState, ledgerStore, PAGE, rowAt, rowWithId } from './ledger'
 
 /** What one load asks main for, besides the pages. */

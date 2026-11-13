@@ -303,12 +303,12 @@ describe('the boundaries', () => {
   it("read a component's imports from its script, not its markup", () => {
     const source = [
       '<script lang="ts">',
-      "  import { openLedger } from '../main/db/ledger'",
+      "  import { openLedger } from '../../../main/db/ledger'",
       '</script>',
-      "<p>import { app } from '../main/index'</p>",
+      "<p>import { app } from '../../../main/index'</p>",
     ].join('\n')
     expect(edgesOf('renderer/places/reports/Reports.svelte', source)).toEqual([
-      { file: 'renderer/places/reports/Reports.svelte', imports: '../main/db/ledger' },
+      { file: 'renderer/places/reports/Reports.svelte', imports: '../../../main/db/ledger' },
     ])
   })
 

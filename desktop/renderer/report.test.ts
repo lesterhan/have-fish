@@ -1,7 +1,7 @@
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
 import type { Bridge, CommandName, ListedTransaction, Values, Wire } from '../shared/commands'
-import { type Ask, query } from './query'
+import { type Ask, query } from './ledger/query'
 import {
   changeOf,
   idsWanted,

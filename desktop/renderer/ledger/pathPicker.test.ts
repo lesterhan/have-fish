@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { ListedPath } from '../shared/commands'
+import type { ListedPath } from '../../shared/commands'
 import {
   childrenAt,
   createPath,
