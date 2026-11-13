@@ -82,7 +82,7 @@ const RUNS_FEATURES = ['main/commands/registry', 'main/commands/run']
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
 
 /**
- * The files directly in `renderer/` that every layer may use, and the tests beside them. Its
+ * The files directly in `renderer/` that every layer may use; tests are free of the layers. Its
  * `public/`, Vite's static folder of licence texts, holds no source and sits outside the layers.
  */
 const ROOT = [
@@ -100,11 +100,9 @@ const ROOT = [
 /** The root's names without their extensions, which an import may leave off. */
 const ROOT_STEMS = ROOT.map((name) => name.replace(/\.[^.]+$/, ''))
 
-/** Whether a name in `renderer/` is a root file, a test beside one, or an import of one. */
+/** Whether a name in `renderer/` is a root file, or an import of one. */
 function atRoot(name: string): boolean {
   if (ROOT.includes(name)) return true
-  const tested = /^(.+)\.test\.ts$/.exec(name)?.[1]
-  if (tested !== undefined) return ROOT_STEMS.includes(tested)
   return !name.includes('.') && ROOT_STEMS.includes(name)
 }
 
@@ -462,6 +460,7 @@ describe('the DOM guard', () => {
       "const a = 'window'",
       'const b = place.window',
       'const c = { document: 1 }',
+      'type P = { window: number }',
     ].join('\n')
     expect(domTouchesIn(source)).toEqual([])
   })
