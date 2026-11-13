@@ -2,15 +2,15 @@
   import { comparedAt } from '@have-fish/core/spending'
   import { format } from '@have-fish/core/money'
   import { tick, untrack } from 'svelte'
-  import { copy } from '../copy'
-  import type { ListedTransaction } from '../shared/commands'
-  import { todayIn } from './format'
-  import Day from './parts/Day.svelte'
-  import type { LedgerStore } from './ledger/ledger'
+  import { copy } from '../../../copy'
+  import type { ListedTransaction } from '../../../shared/commands'
+  import { todayIn } from '../../format'
+  import Day from '../../parts/Day.svelte'
+  import type { LedgerStore } from '../../ledger/ledger'
 
-  import { toOf } from './ledger/picker'
-  import { query } from './ledger/query'
-  import { wordsFor } from './ledger/refusals'
+  import { toOf } from '../../ledger/picker'
+  import { query } from '../../ledger/query'
+  import { wordsFor } from '../../ledger/refusals'
   import {
     otherText,
     spendsBehind,
@@ -22,15 +22,15 @@
     weekAfter,
     weekSpending,
   } from './report'
-  import { afterRemoving, kept } from './ledger/selection'
-  import Button from './parts/Button.svelte'
-  import Empty from './parts/Empty.svelte'
-  import Header from './parts/Header.svelte'
-  import Notice from './parts/Notice.svelte'
+  import { afterRemoving, kept } from '../../ledger/selection'
+  import Button from '../../parts/Button.svelte'
+  import Empty from '../../parts/Empty.svelte'
+  import Header from '../../parts/Header.svelte'
+  import Notice from '../../parts/Notice.svelte'
   import SpendingTree from './SpendingTree.svelte'
-  import SpendCard from './ledger/SpendCard.svelte'
-  import SpendList from './ledger/SpendList.svelte'
-  import type { SpendActions } from './ledger/spendActions'
+  import SpendCard from '../../ledger/SpendCard.svelte'
+  import SpendList from '../../ledger/SpendList.svelte'
+  import type { SpendActions } from '../../ledger/spendActions'
 
   type Props = {
     hidden: boolean

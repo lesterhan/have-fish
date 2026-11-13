@@ -14,7 +14,7 @@
   import Sidebar from './parts/Sidebar.svelte'
   import { type Place, type PlaceView, type SpendView, shownBy } from './places'
   import { wordsFor } from './ledger/refusals'
-  import Reports from './Reports.svelte'
+  import Reports from './places/reports/Reports.svelte'
   import { MAC } from './shortcuts'
   import { spendActions } from './ledger/spendActions'
   import Spends from './places/spends/Spends.svelte'

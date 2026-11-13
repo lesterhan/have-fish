@@ -4,11 +4,11 @@
 import { addDays, weekOf } from '@have-fish/core/calendar-date'
 import { cents, format } from '@have-fish/core/money'
 import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
-import { copy } from '../copy'
-import type { ListedTransaction, Money, Values, Wire } from '../shared/commands'
-import { amountsText } from './format'
-import type { Ask } from './ledger/query'
-import type { TreeSpot } from './parts/listbox'
+import { copy } from '../../../copy'
+import type { ListedTransaction, Money, Values, Wire } from '../../../shared/commands'
+import { amountsText } from '../../format'
+import type { Ask } from '../../ledger/query'
+import type { TreeSpot } from '../../parts/listbox'
 
 export type Week = { start: string; end: string }
 

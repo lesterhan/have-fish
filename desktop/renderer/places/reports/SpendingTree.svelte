@@ -2,7 +2,7 @@
   // The week's spending as a tree, beside the week before: each category's two sums and the
   // change between them, and the categories under a row that's open, a level deeper. Under it,
   // what the week came to against the week before.
-  import { copy } from '../copy'
+  import { copy } from '../../../copy'
   import {
     type Change,
     changeOf,
@@ -11,11 +11,11 @@
     treeColumnsOf,
     type TreeRow,
   } from './report'
-  import Empty from './parts/Empty.svelte'
-  import Headings from './parts/Headings.svelte'
-  import Listbox from './parts/Listbox.svelte'
-  import Money from './parts/Money.svelte'
-  import Path from './parts/Path.svelte'
+  import Empty from '../../parts/Empty.svelte'
+  import Headings from '../../parts/Headings.svelte'
+  import Listbox from '../../parts/Listbox.svelte'
+  import Money from '../../parts/Money.svelte'
+  import Path from '../../parts/Path.svelte'
 
   type Props = {
     /** The tree's rows, the ones under an open category straight after it. */
