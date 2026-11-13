@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { actionFor } from '../shared/actions'
+import { actionFor } from '../../shared/actions'
 import { PLACES, SHOW, shownBy } from './places'
 
 describe('shownBy', () => {

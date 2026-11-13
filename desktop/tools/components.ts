@@ -9,7 +9,6 @@ export const LIMITS: Size = { lines: 150, props: 10, states: 5 }
 
 /** Each component over a limit, by its path under `renderer/`, at the size it has. */
 export const HELD: Record<string, Size> = {
-  'App.svelte': { lines: 225, props: 0, states: 2 },
   'ledger/Composer.svelte': { lines: 267, props: 10, states: 14 },
   'ledger/PathPicker.svelte': { lines: 219, props: 16, states: 6 },
   'ledger/SpendCard.svelte': { lines: 162, props: 9, states: 2 },
@@ -21,6 +20,7 @@ export const HELD: Record<string, Size> = {
   'places/accounts/Accounts.svelte': { lines: 160, props: 3, states: 7 },
   'places/reports/Reports.svelte': { lines: 222, props: 3, states: 8 },
   'places/spends/Spends.svelte': { lines: 250, props: 4, states: 9 },
+  'shell/App.svelte': { lines: 225, props: 0, states: 2 },
 }
 
 // Comments out of the count; strings aren't looked inside, which no component needs yet.

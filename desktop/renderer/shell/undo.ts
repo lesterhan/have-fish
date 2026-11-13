@@ -2,8 +2,8 @@
 // ledger's. Chromium keeps one undo history for the whole window, and text the app set itself
 // stays in it, so passing it a key with no typing behind it would undo something out of sight.
 
-import { actionFor } from '../shared/actions'
-import type { Typing } from '../shared/commands'
+import { actionFor } from '../../shared/actions'
+import type { Typing } from '../../shared/commands'
 
 export type Way = 'undo' | 'redo'
 

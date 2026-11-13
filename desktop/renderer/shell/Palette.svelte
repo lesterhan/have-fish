@@ -3,13 +3,13 @@
   // the letters typed in order. Opaque over the window, which it blurs and dims. Enter runs the
   // one highlighted; Esc, or a click outside, closes it. The rules are in `palette.ts`.
   import { onMount } from 'svelte'
-  import { copy } from '../copy'
-  import type { KeyedActionId, WindowActionId } from '../shared/actions'
+  import { copy } from '../../copy'
+  import type { KeyedActionId, WindowActionId } from '../../shared/actions'
   import { type PaletteItem, type Shown, shownFor } from './palette'
-  import Band from './parts/Band.svelte'
-  import Empty from './parts/Empty.svelte'
-  import Keys from './parts/Keys.svelte'
-  import Listbox from './parts/Listbox.svelte'
+  import Band from '../parts/Band.svelte'
+  import Empty from '../parts/Empty.svelte'
+  import Keys from '../parts/Keys.svelte'
+  import Listbox from '../parts/Listbox.svelte'
 
   type Props = {
     items: readonly PaletteItem[]

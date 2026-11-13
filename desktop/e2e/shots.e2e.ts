@@ -90,7 +90,7 @@ describe('the shots, as a person runs them', () => {
     const worktree = join(parent, 'base')
     try {
       execFileSync('git', ['worktree', 'add', '--detach', worktree, 'HEAD'], { cwd: REPO })
-      const file = join(worktree, 'desktop', 'renderer', 'Palette.svelte')
+      const file = join(worktree, 'desktop', 'renderer', 'shell', 'Palette.svelte')
       const source = readFileSync(file, 'utf8')
       const rounder = source.replace('border-radius: var(--radius-card);', 'border-radius: 2rem;')
       expect(rounder).not.toBe(source)

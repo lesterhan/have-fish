@@ -1,6 +1,6 @@
 // What the window does when the menu chooses one of its actions.
 
-import type { WindowActionId } from '../shared/actions'
+import type { WindowActionId } from '../../shared/actions'
 
 export type Handlers = Record<WindowActionId, () => void>
 

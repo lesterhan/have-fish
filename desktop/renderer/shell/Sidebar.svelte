@@ -1,9 +1,9 @@
 <script lang="ts">
   // The places, each with its keycap: down the left, or across the top below the narrow width.
   import { copy } from '../../copy'
-  import { PLACES, type Place, SHOW } from '../places'
+  import { PLACES, type Place, SHOW } from './places'
   import { ariaShortcut, MAC } from '../shortcuts'
-  import Keys from './Keys.svelte'
+  import Keys from '../parts/Keys.svelte'
 
   type Props = { current: Place; ongo: (place: Place) => void }
   let { current, ongo }: Props = $props()

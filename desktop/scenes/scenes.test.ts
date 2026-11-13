@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { PLACES } from '../renderer/places'
+import { PLACES } from '../renderer/shell/places'
 import { COMPOSER, SCENES, sceneNamed } from './scenes'
 
 describe('SCENES', () => {

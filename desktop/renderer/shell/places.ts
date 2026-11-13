@@ -1,7 +1,7 @@
 // The app's places down the left.
 
-import type { KeyedActionId, WindowActionId } from '../shared/actions'
-import type { Moved } from '../shared/commands'
+import type { KeyedActionId, WindowActionId } from '../../shared/actions'
+import type { Moved } from '../../shared/commands'
 
 export const PLACES = ['ledger', 'accounts', 'reports'] as const
 export type Place = (typeof PLACES)[number]

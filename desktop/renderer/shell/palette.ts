@@ -1,8 +1,8 @@
 // Ctrl+K's palette: every action the window carries out, from the one list that feeds the menu,
 // under its heading, found by the letters typed in order (see #616).
 
-import { copy } from '../copy'
-import { ACTIONS, type Action, type WindowActionId } from '../shared/actions'
+import { copy } from '../../copy'
+import { ACTIONS, type Action, type WindowActionId } from '../../shared/actions'
 
 export type Heading = 'actions' | 'goTo' | 'settings'
 

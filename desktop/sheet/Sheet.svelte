@@ -18,7 +18,7 @@
   import Path from '../renderer/parts/Path.svelte'
   import PathPicker from '../renderer/ledger/PathPicker.svelte'
   import Postings from '../renderer/ledger/Postings.svelte'
-  import Sidebar from '../renderer/parts/Sidebar.svelte'
+  import Sidebar from '../renderer/shell/Sidebar.svelte'
   import SpendCard from '../renderer/ledger/SpendCard.svelte'
   import SpendList from '../renderer/ledger/SpendList.svelte'
   import SpendingTree from '../renderer/places/reports/SpendingTree.svelte'
@@ -26,7 +26,7 @@
   import { spendActions } from '../renderer/ledger/spendActions'
   import Batch from '../renderer/ledger/Batch.svelte'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
-  import type { Place } from '../renderer/places'
+  import type { Place } from '../renderer/shell/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
   // Each part in each of its states. Hover, focus and pressed can't be drawn at rest: the capture
