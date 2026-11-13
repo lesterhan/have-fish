@@ -4,6 +4,7 @@
 import type { LedgerDocument } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
+import type { Money } from '../currency'
 
 /** Long enough for anything typed by hand; the window is the least trusted process. */
 export const typed = (max: number) => z.string().max(max)
@@ -11,7 +12,7 @@ export const typed = (max: number) => z.string().max(max)
 /** A calendar day as typed, `YYYY-MM-DD`; main says whether it is one. */
 export const date = typed(10)
 
-export type Money = { amount: string; currency: string }
+export type { Money }
 
 /** A refusal as it crosses to the window: today's `{ error: CODE, detail }`. */
 export type WireFailure = {
