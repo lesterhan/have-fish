@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { failure } from './outcome'
-import { readRate } from './rates'
+import { convert, invert, type Rate, readRate } from './rates'
+
+/** The value of a rate that reads, as `rate('0.0091')` below says. */
+function rate(text: string): Rate {
+  const read = readRate(text)
+  if (!read.ok) throw new Error(`readRate(${JSON.stringify(text)}) was refused`)
+  return read.value
+}
 
 const refused = (text: string) =>
   expect(readRate(text)).toMatchObject({ ok: false, failure: { code: 'RATE_INVALID' } })
@@ -89,5 +96,119 @@ describe('readRate', () => {
     const began = performance.now()
     refused('1e99999999')
     expect(performance.now() - began).toBeLessThan(50)
+  })
+})
+
+describe('convert', () => {
+  it('converts 1,500 at 0.0091 to 1365 cents', () => {
+    expect(convert(150000, rate('0.0091'))).toBe(1365)
+  })
+
+  it('rounds 11.375 down to 11', () => {
+    expect(convert(1250, rate('0.0091'))).toBe(11)
+  })
+
+  it('rounds 2.5 up, away from zero', () => {
+    expect(convert(5, rate('0.5'))).toBe(3)
+  })
+
+  it('rounds -2.5 down, away from zero', () => {
+    expect(convert(-5, rate('0.5'))).toBe(-3)
+  })
+
+  it('keeps the sign of a negative amount', () => {
+    expect(convert(-150000, rate('0.0091'))).toBe(-1365)
+  })
+
+  it('converts zero to zero', () => {
+    expect(convert(0, rate('0.0091'))).toBe(0)
+  })
+
+  it('answers +0 when a negative rounds to zero', () => {
+    expect(Object.is(convert(-54, rate('0.0091')), 0)).toBe(true)
+  })
+
+  it('converts by an inverted rate', () => {
+    expect(convert(100, invert(rate('0.5')))).toBe(200)
+  })
+
+  it('converts 13.65 back to 1,500', () => {
+    expect(convert(1365, invert(rate('0.0091')))).toBe(150000)
+  })
+
+  it('loses cents on the way back when the rate is below 1', () => {
+    expect(convert(convert(60, rate('0.0091')), invert(rate('0.0091')))).toBe(110)
+  })
+
+  it('converts exactly by the inverse, where six places would lose cents', () => {
+    expect(convert(100000000, invert(rate('0.0091')))).toBe(10989010989)
+  })
+
+  it('throws on a fraction of a cent', () => {
+    expect(() => convert(1.5, rate('2'))).toThrow(RangeError)
+  })
+
+  it('throws when the answer is past exact integers', () => {
+    expect(() => convert(999999999999, rate('100000'))).toThrow(RangeError)
+  })
+})
+
+describe('invert', () => {
+  it('swaps the two parts of a rate', () => {
+    expect(invert(rate('0.0091'))).toEqual({ num: 10000n, den: 91n })
+  })
+
+  it('is its own inverse', () => {
+    expect(invert(invert(rate('0.0091')))).toEqual(rate('0.0091'))
+  })
+})
+
+describe('the sweeps', () => {
+  it('round trips every cent by a rate of 1 or more, within 1', () => {
+    const lost: string[] = []
+    for (const text of ['1', '1.0001', '1.37', '2', '109.89', '150000']) {
+      const r = rate(text)
+      for (let c = -20000; c <= 20000; c++) {
+        const back = convert(convert(c, r), invert(r))
+        if (Math.abs(back - c) > 1) lost.push(`${c} at ${text} came back ${back}`)
+      }
+    }
+    expect(lost).toEqual([])
+  })
+
+  it('round trips every cent from the other side below 1, within 1', () => {
+    const lost: string[] = []
+    for (const text of ['0.0091', '0.5', '0.73', '0.999999']) {
+      const r = rate(text)
+      for (let c = -20000; c <= 20000; c++) {
+        const back = convert(convert(c, invert(r)), r)
+        if (Math.abs(back - c) > 1) lost.push(`${c} at ${text} came back ${back}`)
+      }
+    }
+    expect(lost).toEqual([])
+  })
+
+  it('keeps the sign of every cent at every rate, and answers +0', () => {
+    const wrong: string[] = []
+    for (const text of [
+      '1',
+      '1.0001',
+      '1.37',
+      '2',
+      '109.89',
+      '150000',
+      '0.0091',
+      '0.5',
+      '0.73',
+      '0.999999',
+    ]) {
+      const r = rate(text)
+      for (let c = -20000; c <= 20000; c++) {
+        // `0 - x`, never `-x`, which makes -0 of a zero answer and tells the two apart.
+        if (!Object.is(convert(-c, r), 0 - convert(c, r))) wrong.push(`${c} at ${text}`)
+      }
+      if (!Object.is(convert(0, r), 0)) wrong.push(`zero at ${text}`)
+    }
+    expect(wrong).toEqual([])
   })
 })

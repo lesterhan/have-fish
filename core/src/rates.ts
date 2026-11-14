@@ -47,6 +47,24 @@ export function readRate(text: string): Outcome<Rate> {
   return { ok: true, value: { num, den } }
 }
 
+/** Cents converted at a rate, rounded half away from zero. Throws unless both are exact integers. */
+export function convert(cents: number, rate: Rate): number {
+  if (!Number.isSafeInteger(cents)) throw new RangeError(`not a whole number of cents: ${cents}`)
+  const scaled = BigInt(cents) * rate.num
+  const whole = scaled / rate.den
+  const left = scaled % rate.den
+  const doubled = (left < 0n ? -left : left) * 2n
+  const rounded = doubled >= rate.den ? whole + (scaled < 0n ? -1n : 1n) : whole
+  const answer = Number(rounded)
+  if (!Number.isSafeInteger(answer)) throw new RangeError(`not a whole number of cents: ${answer}`)
+  return answer
+}
+
+/** The rate the other way: num and den swapped, so the conversion back is exact. */
+export function invert(rate: Rate): Rate {
+  return { num: rate.den, den: rate.num }
+}
+
 /** The largest whole number that divides both, for a ratio in lowest terms. */
 function gcd(a: bigint, b: bigint): bigint {
   while (b > 0n) [a, b] = [b, a % b]
