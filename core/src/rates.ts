@@ -47,7 +47,7 @@ export function readRate(text: string): Outcome<Rate> {
   return { ok: true, value: { num, den } }
 }
 
-/** Cents converted at a rate, rounded half away from zero. Throws unless both are exact integers. */
+/** Cents converted at a rate, rounded half away from zero. Throws unless both are whole. */
 export function convert(cents: number, rate: Rate): number {
   if (!Number.isSafeInteger(cents)) throw new RangeError(`not a whole number of cents: ${cents}`)
   const scaled = BigInt(cents) * rate.num
