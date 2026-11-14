@@ -11,7 +11,7 @@ const LIMIT_CENTS = 10 ** 12
 // What `parse` accepts: optional whitespace and sign, digits with an optional point (`5`,
 // `5.`, `.5`, `5.25`), and an optional exponent (`1e3`). It is lenient so that any way of
 // writing a number reads; canonical form then rewrites it, so `1.25e1` reads back as `12.50`.
-const DECIMAL = /^[ \t\n\r\f\v]*([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?[ \t\n\r\f\v]*$/
+export const DECIMAL = /^[ \t\n\r\f\v]*([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?[ \t\n\r\f\v]*$/
 
 /**
  * The amount in cents, rounded half away from zero: `12.345` is 1235 and `-12.345` is -1235.

@@ -26,6 +26,8 @@ export interface FailureDetails {
   AMOUNT_NOT_POSITIVE: { amount: string }
   /** An amount with cents in a currency that has none: ¥1,500.50. */
   AMOUNT_TOO_PRECISE: { amount: string; currency: string }
+  /** A rate that isn't a positive decimal, or has a part past what a rate can hold. */
+  RATE_INVALID: { rate: string }
   /** A command's input doesn't fit its schema: Zod's first issue, as `DOCUMENT_MALFORMED`. */
   INPUT_MALFORMED: { path: string; issue: string }
   /** The window asked for a command main doesn't have. */
