@@ -21,7 +21,7 @@
 
   // Every place stays mounted, hidden while another shows, so its selection and typing stay too.
   let place = $state<Place>('ledger')
-  // Filled by bind:this on mount, each place's key with its own component.
+  // bind:this fills it through `bound`, loosely typed to take any key; reads keep each type.
   const views = {} as { [P in Place]: ReturnType<(typeof VIEWS)[P]> }
   const bound: Record<Place, ReturnType<(typeof VIEWS)[Place]>> = views
 
