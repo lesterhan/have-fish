@@ -2,9 +2,7 @@
 
 import type { StepName } from '../shared/steps'
 
-/**
- * Words for every action a step takes, so a new action fails `bun run check` until it has some.
- */
+/** Words for every action a step takes, so a new action fails `bun run check` until it has some. */
 type Words = { [A in StepName['action']]: (step: Extract<StepName, { action: A }>) => string }
 
 const undo: Words = {
