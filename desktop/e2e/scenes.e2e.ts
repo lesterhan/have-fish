@@ -26,13 +26,15 @@ const fixtureOf = (profile: string): Fixture =>
 const year = fixtureOf('year')
 
 /** The scene named by `name` in a window of its own; none named, the index of scenes. */
-async function openScene(name?: string): Promise<Page> {
+async function openScene(name?: string, density?: string): Promise<Page> {
+  // scenes-main.ts writes SCENE into the page's address as it is, so a density rides after it.
+  const scene = density === undefined ? name : `${name}&density=${density}`
   const app = await electron.launch({
     args: [
       join(import.meta.dirname, 'scenes-main.ts'),
       ...(process.env.NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
     ],
-    env: { ...process.env, ...(name === undefined ? {} : { SCENE: name }), NODE_OPTIONS: '' },
+    env: { ...process.env, ...(scene === undefined ? {} : { SCENE: scene }), NODE_OPTIONS: '' },
   })
   onTestFinished(() => app.close())
   return app.firstWindow()
@@ -80,7 +82,7 @@ test('ledger/compact is Compact', async () => {
 })
 
 test('a density= in the address stands over the scene’s own', async () => {
-  const page = await openScene('ledger/compact&density=large')
+  const page = await openScene('ledger/compact', 'large')
   await expect.poll(() => page.locator('html').getAttribute('data-density')).toBe('large')
 })
 

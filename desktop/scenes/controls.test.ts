@@ -13,10 +13,12 @@ import {
   BOTH_NOTE,
   benchOf,
   CONTROLS,
+  chosen,
   DENSITY_STEPS,
   densityFor,
   densityLabel,
   framesOf,
+  MINIMUM_WIDTH,
   noteOf,
   remOf,
   rootStyleOf,
@@ -133,10 +135,40 @@ describe('widthOf', () => {
     expect(NARROW).toBe('(max-width: 44rem)')
     expect(widthOf('narrow')).toBe(704)
     expect(widthOf('minimum')).toBe(360)
+  })
+
+  test("the minimum is the window's own minWidth", () => {
+    const minWidth = /^\s*minWidth: (\d+),$/m.exec(read('main/window.ts'))?.[1]
+    expect(minWidth).toBe(String(MINIMUM_WIDTH))
+  })
+})
+
+describe('remOf', () => {
+  test("reads a media query's rem, and throws naming a query that has none", () => {
     expect(remOf('(max-width: 44rem)')).toBe(44)
     expect(() => remOf('(max-width: 700px)')).toThrow('(max-width: 700px)')
-    const minWidth = /^\s*minWidth: (\d+),$/m.exec(read('main/window.ts'))?.[1]
-    expect(minWidth).toBe('360')
+  })
+})
+
+describe('chosen', () => {
+  const start: Bench = { scene: 'ledger/year', density: 'large', width: 'narrow', shown: 'dark' }
+
+  test('a scene with a density of its own opens at it', () => {
+    expect(chosen(start, 'scene', 'ledger/compact')).toEqual({
+      ...start,
+      scene: 'ledger/compact',
+      density: 'compact',
+    })
+  })
+
+  test('a scene without one keeps the density the bench has', () => {
+    expect(chosen(start, 'scene', 'reports/year')).toEqual({ ...start, scene: 'reports/year' })
+  })
+
+  test('any other control changes only itself', () => {
+    expect(chosen(start, 'density', 'compact')).toEqual({ ...start, density: 'compact' })
+    expect(chosen(start, 'width', 'full')).toEqual({ ...start, width: 'full' })
+    expect(chosen(start, 'shown', 'both')).toEqual({ ...start, shown: 'both' })
   })
 })
 
@@ -192,6 +224,11 @@ describe('the bar', () => {
     expect(values('density')).toEqual([...DENSITIES])
     expect(values('width')).toEqual([...WIDTHS])
     expect(values('shown')).toEqual([...SHOWN])
+  })
+
+  test('the width choices say the widths they set', () => {
+    const labels = CONTROLS.find((control) => control.key === 'width')?.choices.map((c) => c.label)
+    expect(labels).toEqual(['Full', 'Narrow, 44rem', 'Minimum, 360px'])
   })
 })
 

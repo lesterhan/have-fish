@@ -60,8 +60,8 @@ export const CONTROLS: readonly Control[] = [
     label: 'Width',
     choices: [
       { value: 'full', label: 'Full' },
-      { value: 'narrow', label: 'Narrow, 44rem' },
-      { value: 'minimum', label: 'Minimum, 360px' },
+      { value: 'narrow', label: `Narrow, ${remOf(NARROW)}rem` },
+      { value: 'minimum', label: `Minimum, ${MINIMUM_WIDTH}px` },
     ],
   },
   {
@@ -91,6 +91,17 @@ function defaultScene(): Scene {
   const scene = sceneNamed(DEFAULT_SCENE)
   if (scene === null) throw new Error(`SCENES has no ${DEFAULT_SCENE}`)
   return scene
+}
+
+/**
+ * The bench after one control is set. A scene with a density of its own opens at it, since that
+ * density is what the scene is for; a scene without one keeps the density the bench has.
+ */
+export function chosen(bench: Bench, key: keyof Bench, value: string): Bench {
+  const params = new URLSearchParams(searchOf(bench))
+  params.set(key, value)
+  if (key === 'scene' && sceneNamed(value)?.density !== undefined) params.delete('density')
+  return benchOf(`?${params}`)
 }
 
 /** The address that names `bench`, so a reload shows the same view. */

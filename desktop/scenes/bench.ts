@@ -2,7 +2,16 @@
 // The rules are in controls.ts; this only draws them.
 
 import type { Theme } from '../shared/theme/theme'
-import { benchOf, CONTROLS, framesOf, noteOf, rootStyleOf, searchOf } from './controls'
+import {
+  type Bench,
+  benchOf,
+  CONTROLS,
+  chosen,
+  framesOf,
+  noteOf,
+  rootStyleOf,
+  searchOf,
+} from './controls'
 
 const bar = byId('controls')
 const shelf = byId('frames')
@@ -12,6 +21,9 @@ history.replaceState(null, '', searchOf(bench))
 
 /** The theme each frame holds now, read on every load so a reload keeps it. */
 const themes = new WeakMap<HTMLIFrameElement, Theme>()
+
+/** Each control's select, so a choice that moves another control shows it there too. */
+const selects = new Map<keyof Bench, HTMLSelectElement>()
 
 for (const control of CONTROLS) {
   const label = document.createElement('label')
@@ -25,12 +37,11 @@ for (const control of CONTROLS) {
     select.append(option)
   }
   select.addEventListener('change', () => {
-    const params = new URLSearchParams(searchOf(bench))
-    params.set(control.key, select.value)
-    bench = benchOf(`?${params}`)
+    bench = chosen(bench, control.key, select.value)
     history.replaceState(null, '', searchOf(bench))
     show()
   })
+  selects.set(control.key, select)
   label.append(select)
   bar.append(label)
 }
@@ -49,6 +60,7 @@ function byId(id: string): HTMLElement {
 
 /** Frames the bench's scene, reloading a frame only when its page changes. */
 function show() {
+  for (const [key, select] of selects) select.value = bench[key]
   const frames = framesOf(bench)
   frames.forEach((frame, i) => {
     const iframe = frameAt(i)
