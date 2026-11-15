@@ -240,6 +240,23 @@ describe('migrations', () => {
     const backup = join(dir, 'backups', readdirSync(join(dir, 'backups'))[0] ?? '')
     expect(inCopy(backup, (copy) => copy.prepare('SELECT x FROM item').pluck().all())).toEqual([1])
   })
+
+  test('a start that keeps failing leaves one backup', () => {
+    const dir = join(root, 'ledger')
+    const broken: Migration = { tag: '0001_broken', statements: ['ALTER TABLE missing ADD y'] }
+    const ledger = open({ dir, migrations: upToFirst })
+    ledger.db.prepare('INSERT INTO item VALUES (1)').run()
+    ledger.close()
+
+    for (const at of [NOW, NOW + 1000, NOW + 2000]) {
+      expect(() =>
+        openLedger({ dir, installId: INSTALL, migrations: [...upToFirst, broken], now: at }),
+      ).toThrow(/no such table/)
+    }
+    expect(readdirSync(join(dir, 'backups'))).toEqual([
+      'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite',
+    ])
+  })
 })
 
 describe('meta row', () => {
