@@ -227,6 +227,22 @@ export const offeredPaths = (options: Locator) =>
     ),
   )
 
+const ROOTS = ['assets', 'liabilities', 'expenses', 'income']
+
+/**
+ * Types a name into a path picker and clicks its option, as a person does: the path it names,
+ * else the one Create would make. Leaving without a pick puts the field back.
+ */
+export async function pickPath(page: Page, field: string, name: string): Promise<void> {
+  await page.fill(field, name)
+  const list = await page.getAttribute(field, 'aria-controls')
+  const named = ROOTS.flatMap((root) => [
+    `[data-path="${root}:${name}"]`,
+    `[data-create="${root}:${name}"]`,
+  ])
+  await page.locator(`#${list} [role=option]`, { has: page.locator(named.join(', ')) }).click()
+}
+
 /** An open spend's chip for one part: `amount`, `description`, `from`, `date` or `to`. */
 export const chip = (part: string, card = PANE) => `${card} [id$="-chip-${part}"]`
 

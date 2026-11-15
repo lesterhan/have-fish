@@ -3,7 +3,16 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, focusedIn, launch, offeredPaths, openComposer, rows, WRITE } from './app'
+import {
+  aHome,
+  focusedIn,
+  launch,
+  offeredPaths,
+  openComposer,
+  pickPath,
+  rows,
+  WRITE,
+} from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const OPTIONS = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
@@ -18,7 +27,7 @@ async function writeIn(page: Page, amount: string, description: string, category
   await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
-  await page.fill(`${WRITE} input[name=to]`, category)
+  await pickPath(page, `${WRITE} input[name=to]`, category)
   await page.locator(`${WRITE} input[name=amount]`).press('Enter')
   await expect.poll(() => rows(page)).toHaveLength(before + 1)
 }

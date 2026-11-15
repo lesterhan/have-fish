@@ -4,7 +4,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openComposer, rows, WRITE } from './app'
+import { aHome, launch, openComposer, pickPath, rows, WRITE } from './app'
 import { seed } from './month'
 
 const NAV = 'nav[aria-label=Places]'
@@ -33,7 +33,7 @@ async function spend(page: Page, amount: string, description: string, to: string
   await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
-  await page.fill(`${WRITE} input[name=to]`, to)
+  await pickPath(page, `${WRITE} input[name=to]`, to)
   await page.press(`${WRITE} input[name=amount]`, 'Enter')
   await expect.poll(async () => (await rows(page)).length).toBe(before + 1)
 }

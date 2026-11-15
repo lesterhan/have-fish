@@ -118,16 +118,71 @@ describe('a category for a spend I write down', () => {
     expect(await categoryOfSelected(page)).toBe('unsorted')
   })
 
-  test('typed and never picked, it is made all the same', async () => {
+  test('a half-typed name left with Tab goes back, and nothing is made', async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Tea', 'food:groceries')
+
+    await upToCategory(page, '9.99', '')
+    await page.keyboard.type('gro')
+    await expect.poll(() => offered(page)).toEqual(['expenses:food:groceries', 'expenses:gro'])
+    await page.keyboard.press('Tab')
+    await expect.poll(() => page.inputValue(CATEGORY)).toBe('')
+    await expect.poll(() => focusedName(page)).toBe('from')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => rows(page)).toHaveLength(2)
+    expect(await categoryOfSelected(page)).toBe('unsorted')
+    await openComposer(page)
+    await page.locator(CATEGORY).focus()
+    await page.keyboard.type('gro')
+    await expect.poll(() => offered(page)).toEqual(['expenses:food:groceries', 'expenses:gro'])
+    expect(await page.locator(`${OPTIONS} [data-create="expenses:gro"]`).count()).toBe(1)
+  })
+
+  test('a half-typed name left with a click goes back, and the spend is unsorted', async () => {
     const { page } = await launch(aHome())
 
     await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '30')
     await page.fill(CATEGORY, 'gifts')
+    await page.click(`${WRITE} input[name=amount]`)
+    await expect.poll(() => page.inputValue(CATEGORY)).toBe('')
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(1)
-    expect(await categoryOfSelected(page)).toBe('gifts')
+    expect(await categoryOfSelected(page)).toBe('unsorted')
+  })
+
+  test('a name I have, typed whole in another case and left with Tab, is the one I have', async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Tea', 'food:groceries')
+
+    await upToCategory(page, '5', 'Bread')
+    await page.keyboard.type('Food:Groceries')
+    await expect.poll(() => offered(page)).toContain('expenses:food:groceries')
+    await page.keyboard.press('Tab')
+    await expect.poll(() => page.inputValue(CATEGORY)).toBe('food:groceries')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => rows(page)).toHaveLength(2)
+    expect(await categoryOfSelected(page)).toBe('food:groceries')
+  })
+
+  test('a new name picked with Create stays when I leave', async () => {
+    const { page } = await launch(aHome())
+
+    await upToCategory(page, '12', 'Lunch')
+    await page.keyboard.type('gro')
+    await expect.poll(() => offered(page)).toEqual(['expenses:gro'])
+    await page.keyboard.press('Enter')
+    await expect.poll(() => page.inputValue(CATEGORY)).toBe('gro')
+    await page.keyboard.press('Tab')
+    await expect.poll(() => focusedName(page)).toBe('from')
+    expect(await page.inputValue(CATEGORY)).toBe('gro')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => rows(page)).toHaveLength(1)
+    expect(await categoryOfSelected(page)).toBe('gro')
   })
 
   test('a name with an empty part is refused, and To says why', async () => {
@@ -136,7 +191,9 @@ describe('a category for a spend I write down', () => {
     await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '30')
     await page.fill(CATEGORY, 'food::x')
-    await page.locator(`${WRITE} input[name=amount]`).press('Enter')
+    // The first Enter picks its Create; the second writes the line.
+    await page.press(CATEGORY, 'Enter')
+    await page.press(CATEGORY, 'Enter')
 
     await expect
       .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
@@ -161,6 +218,18 @@ describe('changing the category in its details', () => {
     await page.locator('ol[aria-label=Ledger]').focus()
     press('ctrl+z')
     await expect.poll(() => categoryOfSelected(page)).toBe('food')
+  })
+
+  test('a half-typed name left with Tab goes back to where the spend went', async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '12', 'Lunch', 'food')
+    await openSelected(page)
+
+    await openChip(page, 'to')
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.type('gro')
+    await page.keyboard.press('Tab')
+    await expect.poll(() => page.inputValue(PANE_CATEGORY)).toBe('food')
   })
 
   test('a starting balance has no category to change', async () => {
