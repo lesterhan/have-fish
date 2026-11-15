@@ -28,13 +28,18 @@ type Node = { id: string | null; path: string; children: Map<string, Node>; own:
  * level across roots, go by name without regard to case.
  */
 export function balanceRows(accounts: readonly Held[]): BalanceRow[] {
-  // The roots are only containers: their children are the top level.
+  // The roots are only containers: their children are the top level, beside any account at a root.
   const roots = new Map<string, Node>()
   for (const account of accounts) {
     const [root = '', ...parts] = account.path.split(':')
     let level = roots
     let path = root
     let node: Node | undefined
+    // An account at the root itself (`assets`) is a line of its own beside the root's children.
+    if (parts.length === 0) {
+      node = roots.get(root) ?? { id: null, path: root, children: new Map(), own: [] }
+      roots.set(root, node)
+    }
     for (const part of parts) {
       path = `${path}:${part}`
       node = level.get(path)
@@ -59,7 +64,7 @@ export function balanceRows(accounts: readonly Held[]): BalanceRow[] {
       const row: BalanceRow = {
         id: node.id,
         path: node.path,
-        root: node.path.slice(0, node.path.indexOf(':')),
+        root: rootOfPath(node.path),
         label: labelOf(node),
         depth,
         totals: [],
@@ -82,6 +87,12 @@ export function balanceRows(accounts: readonly Held[]): BalanceRow[] {
 const byName = new Intl.Collator('en', { sensitivity: 'accent' })
 
 const labelOf = (n: Node) => n.path.slice(n.path.lastIndexOf(':') + 1)
+
+/** The part before the first colon; all of it for an account at a root (`assets`). */
+function rootOfPath(path: string) {
+  const colon = path.indexOf(':')
+  return colon === -1 ? path : path.slice(0, colon)
+}
 
 /** By name, case aside; the same name under two roots in root order. */
 const sorted = (nodes: Iterable<Node>) =>
