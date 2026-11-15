@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { DOCUMENT_TYPES } from '@have-fish/core/documents'
 import ts from 'typescript5'
 import { describe, expect, it } from 'vitest'
-import { ALL_KINDS, type TraitsTable } from '../../shared/traits'
+import { ALL_TYPES, type TraitsTable } from '../../shared/traits'
 
 const specifierOf = (spec: ts.Expression | undefined) =>
   spec !== undefined && ts.isStringLiteral(spec) ? [spec.text] : []
@@ -31,7 +31,7 @@ describe('the table of traits', () => {
   })
 
   it('names every kind of document', () => {
-    expect([...ALL_KINDS].sort()).toEqual(Object.keys(DOCUMENT_TYPES).sort())
+    expect([...ALL_TYPES].sort()).toEqual(Object.keys(DOCUMENT_TYPES).sort())
   })
 })
 

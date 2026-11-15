@@ -175,6 +175,7 @@ change to what sync sends.
 | shape | What a transaction is, from its postings and their accounts' kinds | `spend`, `transfer`, `income`, `start`, `other` | which way it shows |
 | way | Which way a row's money went, as the window shows it, from its shape | `in`, `between`, `out` | anything stored |
 
+- **`kind` is an account's**; any other union's tag says what it tags.
 - **hledger's account type** (the `type:` tag: Asset, Liability, Equity, Revenue, Expense, Cash,
   Conversion) is our class, a little finer: Cash and Conversion are kinds here. The export writes
   it from the kind. In this code, "type" alone is always a document's.

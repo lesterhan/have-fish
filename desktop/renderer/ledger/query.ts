@@ -1,5 +1,6 @@
 // What a place reads of main beside the ledger's lists: one load over the commands it names, asked
-// again after a change of a kind they read. The latest load wins, and a hidden place waits.
+// again after a change to a type of document they read. The latest load wins, and a hidden
+// place waits.
 
 import type { Bridge, CommandName, InputOf, Values, Wire, WireFailure } from '../../shared/commands'
 import { traits } from '../../shared/traits'
