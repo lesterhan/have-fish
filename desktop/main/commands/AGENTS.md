@@ -24,6 +24,8 @@ core (the rest of `main/`). The window reaches main only through a command, whic
   input: `run.test.ts`.
 - A command without a handler fails to compile: `handlers.test.ts`.
 - A command that says it writes nothing and applies is refused as `UNEXPECTED`: `writes.test.ts`.
+- A command that writes applies once; a second apply throws, and it answers `UNEXPECTED`:
+  `once.test.ts`.
 - A change of a type a command's `reads` leaves out leaves its answer the same: `reads.test.ts`.
 - Every command has a caller in the window, unless it's main's own: `callers.test.ts`.
 - `registry.ts` and `shared/commands/index.ts` only assemble: `registry.test.ts`, `index.test.ts`.
@@ -31,3 +33,4 @@ core (the rest of `main/`). The window reaches main only through a command, whic
   and nothing outside main imports main: `main/layers.test.ts`.
 - A write gets its version and outbox row in `main/ledger/`: `ledger/apply.test.ts`, "applyLocal,
   one document", and `ledger/outbox.test.ts`, "a local write".
+- Only `main/ledger/` and `main/db/` write the ledger's tables: `main/tables.test.ts`.

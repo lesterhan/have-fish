@@ -4,8 +4,9 @@ This folder is the only code that writes a document's rows: the versions, the to
 outbox all depend on that. Each rule below names the test that fails when it breaks.
 
 - A document goes in through `applyLocal` or `applyReceived`, and nothing outside this folder and
-  `main/db/` writes its rows. In the app only `main/context.ts` calls `applyLocal`; the seed tool
-  and the tests call it too. No test pins this yet, so review holds it.
+  `main/db/` writes its rows: `main/tables.test.ts`, "no source in main outside main/ledger/ and
+  main/db/ writes a ledger table". In the app only `main/context.ts` calls `applyLocal`; the seed
+  tool and the tests call it too.
 - Every item is read by its schema before anything is written: `apply.test.ts`, "a malformed
   document is refused with its place in the batch, and nothing moves".
 - A local batch and the clock commit in one transaction, so one refusal refuses the whole batch
