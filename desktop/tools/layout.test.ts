@@ -53,6 +53,12 @@ describe('lookIn', () => {
     expect(lookIn(style)).toEqual([])
   })
 
+  it('passes the room kept for a scrollbar', () => {
+    expect(
+      lookIn('<style>.gutter { overflow: hidden; scrollbar-gutter: stable; }</style>'),
+    ).toEqual([])
+  })
+
   it('catches colour, type, borders and the rest', () => {
     const style = `<style>
   main { display: grid; color: var(--color-text); border: 1px solid; font-size: var(--text-base); }

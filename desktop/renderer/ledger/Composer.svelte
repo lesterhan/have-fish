@@ -445,12 +445,14 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-1) var(--space-3);
-    padding: var(--space-1) var(--space-3);
+    /* Off the headings and the list. */
+    margin-block: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border: var(--border-width) solid var(--color-accent);
     border-radius: calc(var(--radius-control) + 2px);
-    outline: 2px solid var(--color-accent);
+    /* The ring inside the edge, so it lines up with the list and nothing paints over it. */
+    box-shadow: inset 0 0 0 2px var(--color-accent);
     background: var(--color-background);
-    box-shadow: var(--shadow-lift);
   }
 
   .new {

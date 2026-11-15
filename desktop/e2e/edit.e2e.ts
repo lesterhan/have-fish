@@ -52,7 +52,7 @@ const chipText = (page: Page, part: string) =>
     .innerText()
     .then((text) => text.replace('✓', '').replace(/\s+/g, ' ').trim())
 
-/** The open card's box and its row's, the list's, and how faded each other row is. */
+/** The open card's box and its row's, the list's, and how each other row steps back. */
 const placed = async (page: Page) => {
   // The card drops in 4px; measure where it lands.
   await page.waitForFunction(() => document.getAnimations().length === 0)
@@ -76,7 +76,7 @@ const placed = async (page: Page) => {
         row: box(open),
         card: box(document.querySelector(card)),
         list: box(ol?.parentElement),
-        faded: others.map((li) => getComputedStyle(li).opacity),
+        faded: others.map((li) => getComputedStyle(li).filter),
       }
     },
     { list: LIST, card: PANE },
@@ -261,7 +261,7 @@ describe('open a transaction where it sits', () => {
     const at = await placed(page)
     // Attached: the card starts where its row ends, and is as wide as the tile.
     expect(Math.abs((at.card?.top ?? 0) - (at.row?.bottom ?? 0))).toBeLessThanOrEqual(1)
-    expect(at.faded).toEqual(['0.5'])
+    expect(at.faded).toEqual(['grayscale(1) opacity(0.5)'])
   })
 
   test('in a narrow window the details open in place just the same, inside the list', async () => {

@@ -200,8 +200,8 @@
 </script>
 
 <div class="list" class:composing={composer !== undefined} bind:clientWidth={width}>
-  <Headings columns={shown.template} names={headings} />
   {#if composer}{@render composer()}{/if}
+  <Headings columns={shown.template} names={headings} {dimmed} />
   <Listbox
     bind:this={listbox}
     items={transactions}

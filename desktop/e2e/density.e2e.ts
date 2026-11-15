@@ -253,7 +253,7 @@ describe('how dense the ledger is', () => {
     }
   })
 
-  test('150 spends, scrolled to the end with row 134 on top, Regular then Large: row 134 is still on top', {
+  test('150 spends, scrolled to the end with row 135 on top, Regular then Large: row 135 is still on top', {
     timeout: 30_000,
   }, async () => {
     const app = await launch(aHome())
@@ -264,13 +264,13 @@ describe('how dense the ledger is', () => {
     // height the list had, which loses the row altogether.
     await scrollToEnd(page)
     const before = await atTop(page)
-    expect(before?.posinset).toBe(134)
+    expect(before?.posinset).toBe(135)
     expect(before?.pageScrolls).toBe(false)
 
     await chooseDensity(app, page, 2)
     await chooseDensity(app, page, 4)
 
-    await expect.poll(async () => (await atTop(page))?.posinset).toBe(134)
+    await expect.poll(async () => (await atTop(page))?.posinset).toBe(135)
     const after = await atTop(page)
     expect(Math.abs(after?.top ?? 99)).toBeLessThanOrEqual(1)
     expect(after?.gaps).toEqual([0])

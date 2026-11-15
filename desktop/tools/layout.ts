@@ -45,6 +45,7 @@ const LAYOUT = new RegExp(
     'inset(-[a-z-]+)?',
     'top|right|bottom|left',
     'overflow(-[xy])?',
+    'scrollbar-gutter',
     'box-sizing',
     'z-index',
   ].join('|')})$`,

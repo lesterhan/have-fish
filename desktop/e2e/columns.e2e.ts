@@ -53,8 +53,9 @@ const cellsIn = (page: Page, list: string) =>
 /** The headings over a list, each with its edges. */
 const headingsOver = (page: Page, list: string) =>
   page.evaluate((list) => {
-    // The list's own block holds the headings, then maybe the composer, then the scroller.
-    const headings = document.querySelector(list)?.parentElement?.parentElement?.firstElementChild
+    // The list's own block holds maybe the composer, then the headings, then the scroller.
+    const block = document.querySelector(list)?.parentElement?.parentElement
+    const headings = block?.querySelector(':scope > [aria-hidden=true]')
     return [...(headings?.children ?? [])].map((h) => {
       const { left, right } = h.getBoundingClientRect()
       return { name: h.textContent, left, right }

@@ -124,13 +124,16 @@ lightness, light / dark:
 | Rule | 0.895 | 0.312 | The line under each row |
 
 - **Floating layers are opaque where you read from them** (the card, pickers, the date list, the
-  palette's panel, tooltips) and lift with a shadow from `tokens.css`.
+  palette's panel, tooltips). Pickers, tooltips and the palette lift with a shadow from
+  `tokens.css`; the card and the composer sit in the list and lift with an accent ring drawn
+  inside their edge, so it never paints over a neighbour.
 - **Glass is where things pass under**: a band header rows scroll beneath is frosted, and the
   palette's scrim blurs and dims the ledger. The contract checks ink on glass against the darkest
   surface that can show through it. `prefers-reduced-transparency` makes it opaque.
-- **Stepping back:** while the composer is open the rest of the ledger is at 42%, and while a card
-  is open the rest of the list is at 50%. What steps back isn't for reading; reaching for it
-  closes what's open.
+- **Stepping back:** while the composer is open the list, its bands and its headings step back,
+  and while a card is open the rest of the list does: grey and at half strength (`--step-back`),
+  still sharp. Only the list steps back, not the window, so the title and the sidebar stay as
+  they are. What steps back isn't for reading; reaching for it closes what's open.
 
 ### Parts
 
@@ -167,7 +170,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Listbox` | Windowed, keyboard, active option; a tree's rows at their levels, open or closed; empty | The ledger, Accounts, Reports, pickers, the palette |
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); landed where it lands (the selection tint and the accent edge, fading) | Every list |
 | `Band` | A day, or a root of accounts by its `Path`, with what its rows come to; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
-| `Card` | Attached to its row and lifted with it: inset 8px, radius 9px, the lift shadow; a foot band for where it came from and the actions | The ledger, Reports' spends |
+| `Card` | Attached to its row and lifted with it: the list's full width, a space below the row above, radius 9px, the accent ring; a foot band for where it came from and the actions | The ledger, Reports' spends |
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
@@ -185,7 +188,8 @@ screen that needs it, not copied until a third copy forces it out.
 
 ### Writing and changing
 
-- **The composer** opens with + New or Ctrl+N as a line in the ledger, lifted: an accent ring, a
+- **The composer** opens with + New or Ctrl+N as a line above the ledger's headings, which name
+  the list's columns and not its parts, lifted: an accent ring, a
   New pill, Done with its Esc key. Its parts are in the order you think of them: From, Date,
   Amount, Description, To. Each shows its word until filled; the next is underlined, dotted, with
   its Tab key; a refused part is underlined red with two words of why. The first time, the words
@@ -228,7 +232,7 @@ startles.
   as text.
 - **A transaction says what happened**: the row reads From, Amount, To, and the card is a sentence.
 - **It shows in the moments you finish something**: a line dropping into the batch, rows landing
-  on their day, a chip's flash, the card's offset shadow in the accent, a statement's "All
+  on their day, a chip's flash, the card's accent ring, a statement's "All
   sorted".
 - **It stays out of the way of the numbers**: nothing animates on scroll, on a change of place, or
   over an amount you are reading.
