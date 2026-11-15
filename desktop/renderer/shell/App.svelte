@@ -5,30 +5,28 @@
   import type { WindowActionId } from '../../shared/actions'
   import type { Density } from '../../shared/density'
   import type { ThemeChoice } from '../../shared/theme/theme'
-  import Accounts from '../places/accounts/Accounts.svelte'
   import { runAction } from './actions'
   import { showDensity } from '../density'
   import { ledgerStore } from '../ledger/ledger'
   import Palette from './Palette.svelte'
   import { type PaletteItem, paletteItems } from './palette'
   import Sidebar from './Sidebar.svelte'
-  import { type Place, type PlaceView, type SpendView, shownBy } from './places'
+  import { listsSpends, PLACES, showHandlers, shownBy } from './places'
+  import type { Place, PlaceView, SpendView } from './places'
   import { wordsFor } from '../ledger/refusals'
-  import Reports from '../places/reports/Reports.svelte'
   import { MAC } from '../shortcuts'
   import { spendActions } from '../ledger/spendActions'
-  import Spends from '../places/spends/Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
+  import { VIEWS } from './views'
 
   // Every place stays mounted, hidden while another shows, so its selection and typing stay too.
   let place = $state<Place>('ledger')
-  let spends: Spends
-  let accounts: Accounts
-  let reports: Reports
+  // bind:this fills it through `bound`, loosely typed to take any key; reads keep each type.
+  const views = {} as { [P in Place]: ReturnType<(typeof VIEWS)[P]> }
+  const bound: Record<Place, ReturnType<(typeof VIEWS)[Place]>> = views
 
   // Typed, so a place that stops doing what App asks of it fails the check.
-  const view = (p: Place): PlaceView => ({ ledger: spends, accounts, reports })[p]
-  const spendPlace = (p: Exclude<Place, 'accounts'>): SpendView => ({ ledger: spends, reports })[p]
+  const view = (p: Place): PlaceView => views[p]
 
   // One copy of the ledger's lists for every place, loaded once per change.
   const lists = ledgerStore(window.haveFish)
@@ -40,7 +38,7 @@
 
   /** An action on spends, which means nothing where spends aren't showing. */
   const whereSpendsShow = (act: (p: SpendView) => unknown) => () => {
-    if (place !== 'accounts') void act(spendPlace(place))
+    if (listsSpends(place)) void act(views[place])
   }
 
   /** Every action the window carries out: the menu's, and the palette's. */
@@ -53,9 +51,7 @@
     remove: whereSpendsShow((p) => p.remove()),
     postings: whereSpendsShow((p) => p.postings()),
     refile: whereSpendsShow((p) => p.refile()),
-    showLedger: () => void go('ledger'),
-    showAccounts: () => void go('accounts'),
-    showReports: () => void go('reports'),
+    ...showHandlers((p) => void go(p)),
     // Main remembers the density and the window sets it on the page; the stylesheet does the rest.
     densityCompact: () => void setDensity('compact'),
     densityRegular: () => void setDensity('regular'),
@@ -125,13 +121,13 @@
   async function newSpend() {
     place = 'ledger'
     await tick()
-    spends.newSpend()
+    views.ledger.newSpend()
   }
 
   async function addAccount() {
     place = 'accounts'
     await tick()
-    await accounts.startAdding()
+    await views.accounts.startAdding()
   }
 
   function forgetTyping() {
@@ -232,20 +228,16 @@
 
 <div class="app">
   <Sidebar current={place} ongo={(p) => void go(p)} />
-  <Spends
-    bind:this={spends}
-    hidden={place !== 'ledger'}
-    ledger={lists}
-    actions={spendsDo}
-    {forgetTyping}
-  />
-  <Accounts bind:this={accounts} hidden={place !== 'accounts'} ledger={lists} {forgetTyping} />
-  <Reports
-    bind:this={reports}
-    hidden={place !== 'reports'}
-    ledger={lists}
-    actions={spendsDo}
-  />
+  {#each PLACES as p (p)}
+    {@const View = VIEWS[p]}
+    <View
+      bind:this={bound[p]}
+      hidden={place !== p}
+      ledger={lists}
+      actions={spendsDo}
+      {forgetTyping}
+    />
+  {/each}
 </div>
 {#if palette !== null}
   <Palette items={palette} onrun={(id) => void runFromPalette(id)} onclose={closePalette} />

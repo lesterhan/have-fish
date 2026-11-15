@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { actionFor } from '../../shared/actions'
-import { PLACES, SHOW, shownBy } from './places'
+import { listsSpends, PLACES, type Place, SHOW, showHandlers, shownBy } from './places'
 
 describe('shownBy', () => {
   test('a step that moved spends shows the first in the ledger', () => {
@@ -36,5 +36,23 @@ describe('SHOW', () => {
       'CmdOrCtrl+2',
       'CmdOrCtrl+3',
     ])
+  })
+})
+
+describe('listsSpends', () => {
+  test('spends are listed in the Ledger and Reports, not in Accounts', () => {
+    expect(PLACES.filter(listsSpends)).toEqual(['ledger', 'reports'])
+  })
+})
+
+describe('showHandlers', () => {
+  test('each place’s action goes to that place, one handler per place', () => {
+    const went: Place[] = []
+    const handlers = showHandlers((p) => went.push(p))
+    handlers.showAccounts()
+    handlers.showReports()
+    handlers.showLedger()
+    expect(went).toEqual(['accounts', 'reports', 'ledger'])
+    expect(Object.keys(handlers)).toEqual(['showLedger', 'showAccounts', 'showReports'])
   })
 })

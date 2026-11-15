@@ -26,10 +26,27 @@ export type SpendView = PlaceView & {
 }
 
 /** The action that goes to each place, so the sidebar can show its shortcut. */
-export const SHOW: Record<Place, WindowActionId & KeyedActionId> = {
+export const SHOW = {
   ledger: 'showLedger',
   accounts: 'showAccounts',
   reports: 'showReports',
+} as const satisfies Record<Place, WindowActionId & KeyedActionId>
+
+/** The places that list spends: Remove, Refile and Show postings act there and nowhere else. */
+const SPEND_PLACES = ['ledger', 'reports'] as const satisfies readonly Place[]
+
+export const listsSpends = (place: Place): place is (typeof SPEND_PLACES)[number] =>
+  (SPEND_PLACES as readonly Place[]).includes(place)
+
+type ShowAction = (typeof SHOW)[Place]
+
+/** A handler for each place's action in SHOW, going to that place. */
+export function showHandlers(go: (place: Place) => void): Record<ShowAction, () => void> {
+  // fromEntries types its keys as string; PLACES and SHOW name every one.
+  return Object.fromEntries(PLACES.map((p) => [SHOW[p], () => go(p)])) as Record<
+    ShowAction,
+    () => void
+  >
 }
 
 /**
