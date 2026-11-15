@@ -23,9 +23,9 @@ export const spentOf = (report: Values['report.spending']): Spent[] =>
   report.spent.map((s) => ({ id: s.id, category: s.category, cents: cents(s.amount) }))
 
 /** How a line names itself. */
-export function lineLabel(line: Pick<ComparedLine, 'kind' | 'label'>): string {
-  if (line.kind === 'unsorted') return copy.reports.tree.unsorted
-  if (line.kind === 'own') return copy.reports.tree.own(line.label)
+export function lineLabel(line: Pick<ComparedLine, 'line' | 'label'>): string {
+  if (line.line === 'unsorted') return copy.reports.tree.unsorted
+  if (line.line === 'own') return copy.reports.tree.own(line.label)
   return line.label
 }
 
@@ -145,7 +145,7 @@ export function idsWanted(spent: readonly Spent[]): string[] {
 export function spendsBehind(
   transactions: readonly ListedTransaction[],
   spent: readonly Spent[],
-  picked: Pick<ComparedLine, 'kind' | 'category'> | undefined,
+  picked: Pick<ComparedLine, 'line' | 'category'> | undefined,
 ): ListedTransaction[] {
   const ids = new Set(spent.filter((s) => (picked ? isIn(s, picked) : true)).map((s) => s.id))
   return transactions.filter((t) => ids.has(t.id))

@@ -104,12 +104,12 @@
             >{line.open ? copy.reports.tree.open : copy.reports.tree.closed}</span
           >
         {/if}
-        {#if line.kind === 'category' && line.level === 1}
+        {#if line.line === 'category' && line.level === 1}
           <Path path={`expenses:${line.category}`} />
-        {:else if line.kind === 'category'}
+        {:else if line.line === 'category'}
           {`:${line.label}`}
         {:else}
-          <span class:unsorted={line.kind === 'unsorted'}>{lineLabel(line)}</span>
+          <span class:unsorted={line.line === 'unsorted'}>{lineLabel(line)}</span>
         {/if}
       </span>
       <span data-cell="shown">{@render figure(line.cents)}</span>
