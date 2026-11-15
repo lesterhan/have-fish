@@ -12,7 +12,7 @@ import {
 let n = 0
 const spent = (category: string, cents: number): Spent => ({ id: `s${++n}`, category, cents })
 
-/** A line as `label › cents`, with `›` for one that opens and its line when not a category. */
+/** A line as `label › cents`, `›` for one that opens, and what it holds when not a category. */
 const line = (l: SpendingLine) =>
   `${l.holds === 'category' ? '' : `${l.holds} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents}`
 
