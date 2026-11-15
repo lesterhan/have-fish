@@ -14,6 +14,7 @@ const codes: { [C in FailureCode]: string } = {
   AMOUNT_TOO_PRECISE: 'That currency has no cents. Type a whole amount, like 1500.',
   DATE_INVALID: "That isn't a day on the calendar.",
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
+  RATE_INVALID: "That isn't a rate. Type a number above zero, like 0.0091.",
   UNSUPPORTED_CURRENCY: "have-fish doesn't know that currency.",
 
   // A transaction.
