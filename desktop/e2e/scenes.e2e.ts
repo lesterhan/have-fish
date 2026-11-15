@@ -79,6 +79,11 @@ test('ledger/compact is Compact', async () => {
   expect(await page.locator('html').getAttribute('data-density')).toBe('compact')
 })
 
+test('a density= in the address stands over the scene’s own', async () => {
+  const page = await openScene('ledger/compact&density=large')
+  await expect.poll(() => page.locator('html').getAttribute('data-density')).toBe('large')
+})
+
 test('accounts/year lists the fixture’s accounts, their parents among them', async () => {
   const page = await openScene('accounts/year')
   await page.locator(`${ACCOUNTS} li`).first().waitFor()
