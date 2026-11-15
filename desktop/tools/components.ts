@@ -10,7 +10,7 @@ export const LIMITS: Size = { lines: 150, props: 10, states: 5 }
 /** Each component over a limit, by its path under `renderer/`, at the size it has. */
 export const HELD: Record<string, Size> = {
   'ledger/Composer.svelte': { lines: 267, props: 10, states: 14 },
-  'ledger/PathPicker.svelte': { lines: 219, props: 16, states: 6 },
+  'ledger/PathPicker.svelte': { lines: 226, props: 16, states: 6 },
   'ledger/SpendCard.svelte': { lines: 162, props: 9, states: 2 },
   'ledger/SpendList.svelte': { lines: 198, props: 23, states: 4 },
   'parts/Chip.svelte': { lines: 40, props: 11, states: 0 },

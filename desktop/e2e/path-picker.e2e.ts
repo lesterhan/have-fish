@@ -14,6 +14,7 @@ import {
   openComposer,
   openSpend,
   PANE,
+  pickPath,
   rows,
   WRITE,
 } from './app'
@@ -35,7 +36,7 @@ async function writeIn(page: Page, amount: string, description: string, category
   await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
-  await page.fill(WRITE_TO, category)
+  await pickPath(page, WRITE_TO, category)
   await page.locator(`${WRITE} input[name=amount]`).press('Enter')
   await expect.poll(() => rows(page)).toHaveLength(before + 1)
   await page.keyboard.press('Escape')
@@ -161,7 +162,7 @@ describe('a pick from a level is the path picked', () => {
     await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '3')
     await page.fill(`${WRITE} input[name=description]`, 'Muffin')
-    await page.fill(WRITE_TO, 'food:restaurants')
+    await pickPath(page, WRITE_TO, 'food:restaurants')
     // Entered again, it opens at the level its value is in.
     await page.focus(`${WRITE} input[name=amount]`)
     await page.focus(WRITE_TO)
@@ -186,7 +187,7 @@ describe('a pick from a level is the path picked', () => {
     await openComposer(page)
     await page.fill(`${WRITE} input[name=amount]`, '5')
     await page.fill(`${WRITE} input[name=description]`, 'Rent')
-    await page.fill(WRITE_FROM, 'tangerine:chequing')
+    await pickPath(page, WRITE_FROM, 'tangerine:chequing')
     await page.focus(`${WRITE} input[name=amount]`)
     await page.focus(WRITE_FROM)
     await page.keyboard.press('ArrowDown')

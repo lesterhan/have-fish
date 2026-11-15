@@ -11,6 +11,7 @@ import {
   openChip,
   openComposer,
   openSpend,
+  pickPath,
   rows,
   spendCells,
   WRITE,
@@ -41,8 +42,8 @@ async function spend(
   await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
-  await page.fill(`${WRITE} input[name=to]`, to)
-  if (from !== '') await page.fill(`${WRITE} input[name=from]`, from)
+  if (to !== '') await pickPath(page, `${WRITE} input[name=to]`, to)
+  if (from !== '') await pickPath(page, `${WRITE} input[name=from]`, from)
   if (date !== '') await page.fill(`${WRITE} input[name=date]`, date)
   await page.press(`${WRITE} input[name=amount]`, 'Enter')
   await expect.poll(async () => (await rows(page)).length).toBe(before + 1)

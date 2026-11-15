@@ -12,6 +12,7 @@ import {
   openComposer,
   openSelected,
   PANE,
+  pickPath,
   rows,
   WRITE,
 } from './app'
@@ -41,7 +42,7 @@ async function upToFrom(page: Page, amount: string, description: string, to: str
   await openComposer(page)
   await page.fill(`${WRITE} input[name=amount]`, amount)
   await page.fill(`${WRITE} input[name=description]`, description)
-  await page.fill(`${WRITE} input[name=to]`, to)
+  await pickPath(page, `${WRITE} input[name=to]`, to)
   await page.locator(FROM).focus()
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.press('Backspace')

@@ -45,6 +45,14 @@ export function pathNamed(paths: readonly ListedPath[], text: string): ListedPat
   return paths.find((p) => nameOf(p.path).toLowerCase() === typed || p.path.toLowerCase() === typed)
 }
 
+/** What a field keeps when the cursor leaves it: what it held, nothing, or the path it names. */
+export function leftWith(paths: readonly ListedPath[], text: string, kept: string): string {
+  if (text === kept) return text
+  if (text.trim() === '') return ''
+  const found = pathNamed(paths, text)
+  return found === undefined ? kept : nameOf(found.path)
+}
+
 /** The path a level is under: `assets:tangerine` in `assets:tangerine:chequing`; '' at a root. */
 export const parentsOf = (path: string) => {
   const at = path.lastIndexOf(':')
