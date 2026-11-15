@@ -250,6 +250,20 @@ describe('the backup', () => {
     ])
   })
 
+  test('a third failed start with nothing changed is not copied, though its match is not the first copy', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
+    addItem('since')
+    expect(() => migrate(db, [first, failing], NOW + 1000, backups)).toThrow(/no such table/)
+
+    expect(() => migrate(db, [first, failing], NOW + 2000, backups)).toThrow(/no such table/)
+    expect(copies()).toEqual([
+      'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite',
+      'ledger-2026-10-22T12-00-01-000Z-before-0001_broken.sqlite',
+    ])
+  })
+
   test('the first copy is left as it was when a later one is made', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
