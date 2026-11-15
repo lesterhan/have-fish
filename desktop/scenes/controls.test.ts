@@ -10,12 +10,15 @@ import { readTheme } from '../shared/theme/css'
 import { BUILTINS } from '../shared/theme/theme'
 import {
   type Bench,
+  BOTH_NOTE,
   benchOf,
   CONTROLS,
   DENSITY_STEPS,
   densityFor,
   densityLabel,
   framesOf,
+  noteOf,
+  remOf,
   rootStyleOf,
   SHOWN,
   searchOf,
@@ -130,6 +133,8 @@ describe('widthOf', () => {
     expect(NARROW).toBe('(max-width: 44rem)')
     expect(widthOf('narrow')).toBe(704)
     expect(widthOf('minimum')).toBe(360)
+    expect(remOf('(max-width: 44rem)')).toBe(44)
+    expect(() => remOf('(max-width: 700px)')).toThrow('(max-width: 700px)')
     const minWidth = /^\s*minWidth: (\d+),$/m.exec(read('main/window.ts'))?.[1]
     expect(minWidth).toBe('360')
   })
@@ -171,10 +176,15 @@ describe('the density labels', () => {
     }
   })
 
-  test('say the row and the type, and the bar holds the four controls in order', () => {
+  test('say the row and the type', () => {
     expect(densityLabel('compact')).toBe('Compact · 30px rows · 13px type')
     expect(densityLabel('regular')).toBe('Regular · 33px rows · 14px type')
     expect(densityLabel('large')).toBe('Large · 46px rows · 16px type')
+  })
+})
+
+describe('the bar', () => {
+  test('holds the four controls in order, each with every value of its list', () => {
     const values = (key: string) =>
       CONTROLS.find((control) => control.key === key)?.choices.map((choice) => choice.value)
     expect(CONTROLS.map((control) => control.key)).toEqual(['scene', 'density', 'width', 'shown'])
@@ -182,6 +192,20 @@ describe('the density labels', () => {
     expect(values('density')).toEqual([...DENSITIES])
     expect(values('width')).toEqual([...WIDTHS])
     expect(values('shown')).toEqual([...SHOWN])
+  })
+})
+
+describe('noteOf', () => {
+  test('says a page has one focus when Both is chosen, and nothing for one theme', () => {
+    const bench: Bench = {
+      scene: 'ledger/palette',
+      density: 'regular',
+      width: 'full',
+      shown: 'both',
+    }
+    expect(noteOf(bench)).toBe(BOTH_NOTE)
+    expect(noteOf({ ...bench, shown: 'light' })).toBeNull()
+    expect(noteOf({ ...bench, shown: 'dark' })).toBeNull()
   })
 })
 

@@ -34,6 +34,10 @@ export const DENSITY_STEPS: Record<Density, { row: number; type: number }> = {
   large: { row: 46, type: 16 },
 }
 
+/** Said whenever Both is chosen: the two frames share the bench's one focus. */
+export const BOTH_NOTE =
+  'Both shows one page twice, and a page has one focus: an open palette, picker or list shows in one frame only. Choose Light or Dark to see it open.'
+
 export const DEFAULT_SCENE = 'ledger/year'
 
 // The window's minWidth in main/window.ts, which the scenes may not import.
@@ -74,13 +78,19 @@ export const CONTROLS: readonly Control[] = [
 /** The bench an address names, each field read alone: one it can't read is its default. */
 export function benchOf(search: string): Bench {
   const asked = new URLSearchParams(search)
-  const scene = sceneNamed(asked.get('scene'))
+  const scene = sceneNamed(asked.get('scene')) ?? defaultScene()
   return {
-    scene: scene?.name ?? DEFAULT_SCENE,
-    density: DENSITIES.find((d) => d === asked.get('density')) ?? scene?.density ?? 'regular',
+    scene: scene.name,
+    density: densityFor(scene, asked.get('density')) ?? 'regular',
     width: WIDTHS.find((w) => w === asked.get('width')) ?? 'full',
     shown: SHOWN.find((s) => s === asked.get('shown')) ?? 'light',
   }
+}
+
+function defaultScene(): Scene {
+  const scene = sceneNamed(DEFAULT_SCENE)
+  if (scene === null) throw new Error(`SCENES has no ${DEFAULT_SCENE}`)
+  return scene
 }
 
 /** The address that names `bench`, so a reload shows the same view. */
@@ -97,7 +107,14 @@ export function densityLabel(density: Density): string {
 export function widthOf(width: Width): number | null {
   if (width === 'full') return null
   if (width === 'minimum') return MINIMUM_WIDTH
-  return Number.parseFloat(/([\d.]+)rem/.exec(NARROW)?.[1] ?? 'NaN') * 16
+  return remOf(NARROW) * 16
+}
+
+/** The `<n>rem` a media query names. */
+export function remOf(query: string): number {
+  const rem = /(\d+(?:\.\d+)?)rem/.exec(query)?.[1]
+  if (rem === undefined) throw new Error(`no rem in ${query}`)
+  return Number.parseFloat(rem)
 }
 
 /** The frames the bench shows: one for light or dark, light then dark for both. */
@@ -114,6 +131,11 @@ export function framesOf(bench: Bench): Frame[] {
 /** What a frame's root is painted with: every colour token, and the scheme controls follow. */
 export function rootStyleOf(theme: Theme): Record<string, string> {
   return { 'color-scheme': theme.scheme, ...deriveTokens(theme) }
+}
+
+/** What the bench says over its frames, if anything. */
+export function noteOf(bench: Bench): string | null {
+  return bench.shown === 'both' ? BOTH_NOTE : null
 }
 
 /** The density a scene opens at: the one asked for, else the scene's own. */
