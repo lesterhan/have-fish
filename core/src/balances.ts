@@ -36,7 +36,6 @@ export function balanceRows(accounts: readonly Held[]): BalanceRow[] {
     let level = roots
     let path = root
     let node: Node | undefined
-    // An account at the root itself (`assets`) is a line of its own beside the root's children.
     if (parts.length === 0) {
       node = { id: null, path: root, children: new Map(), own: [] }
       roots.set(root, node)
