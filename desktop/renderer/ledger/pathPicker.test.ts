@@ -186,6 +186,10 @@ describe('what a pick puts in the field', () => {
 describe('what a field keeps when the cursor leaves it', () => {
   const TO = offered(PATHS, 'to')
 
+  test('a whole path the place set, left as entered, comes back as held, not respelled', () => {
+    expect(leftWith(TO, 'assets:cash', 'assets:cash')).toBe('assets:cash')
+  })
+
   test('what it held when entered, or a Create picked since, stays though no path has it', () => {
     expect(leftWith(TO, 'gro', 'gro')).toBe('gro')
   })
