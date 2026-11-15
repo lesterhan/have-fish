@@ -12,16 +12,16 @@ import {
 let n = 0
 const spent = (category: string, cents: number): Spent => ({ id: `s${++n}`, category, cents })
 
-/** A line as `label › cents`, with `›` for one that opens and its kind when not a category. */
+/** A line as `label › cents`, `›` for one that opens, and what it holds when not a category. */
 const line = (l: SpendingLine) =>
-  `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents}`
+  `${l.holds === 'category' ? '' : `${l.holds} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents}`
 
 /** A level's lines by name: their order is `comparedAt`'s rule, not `spendingAt`'s. */
 const rolled = (level: { lines: SpendingLine[] }) => level.lines.map(line).sort()
 
 /** A compared line as `label › this before`, each a sum or `–`. */
 const compared = (l: ComparedLine) =>
-  `${l.kind === 'category' ? '' : `${l.kind} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents ?? '–'} ${l.before ?? '–'}`
+  `${l.holds === 'category' ? '' : `${l.holds} `}${l.label}${l.opens ? ' ›' : ''} ${l.cents ?? '–'} ${l.before ?? '–'}`
 
 describe('spendingAt', () => {
   test('nothing spent: no lines and a total of zero', () => {
@@ -68,7 +68,7 @@ describe('spendingAt', () => {
     const level = spendingAt(all, 'food')
     expect(rolled(level)).toEqual(['coffee 450', 'groceries › 1350', 'own food 200'])
     // The level's own comes last, whatever order its spends came in.
-    expect(level.lines.at(-1)?.kind).toBe('own')
+    expect(level.lines.at(-1)?.holds).toBe('own')
     expect(level.total).toBe(2000)
     expect(rolled(spendingAt(all, 'food:groceries'))).toEqual(['own groceries 350', 'produce 1000'])
   })
@@ -167,17 +167,17 @@ describe('which spends are behind a line', () => {
   const loose = spent('', 300)
 
   test('a category: it and everything under it', () => {
-    const line = { kind: 'category', category: 'food' } as const
+    const line = { holds: 'category', category: 'food' } as const
     expect([coffee, food, loose].map((s) => isIn(s, line))).toEqual([true, true, false])
   })
 
   test('the level’s own: only what went to it itself', () => {
-    const line = { kind: 'own', category: 'food' } as const
+    const line = { holds: 'own', category: 'food' } as const
     expect([coffee, food, loose].map((s) => isIn(s, line))).toEqual([false, true, false])
   })
 
   test('unsorted: what went to none', () => {
-    const line = { kind: 'unsorted', category: '' } as const
+    const line = { holds: 'unsorted', category: '' } as const
     expect([coffee, food, loose].map((s) => isIn(s, line))).toEqual([false, false, true])
   })
 

@@ -2,8 +2,8 @@
 
 import type { StepName } from '../shared/steps'
 
-/** Words for every kind of step, so a new kind fails `bun run check` until it has some. */
-type Words = { [K in StepName['kind']]: (step: Extract<StepName, { kind: K }>) => string }
+/** Words for every action a step takes, so a new action fails `bun run check` until it has some. */
+type Words = { [A in StepName['action']]: (step: Extract<StepName, { action: A }>) => string }
 
 const undo: Words = {
   write: ({ description }) => (description ? `Undo write ${description}` : 'Undo write a spend'),
@@ -24,7 +24,7 @@ const redo: Words = {
 /** What Undo or Redo says it would do with `name`: the menu's words, and the palette's. */
 function said(way: 'undo' | 'redo', name: StepName): string {
   const words = way === 'undo' ? undo : redo
-  switch (name.kind) {
+  switch (name.action) {
     case 'write':
       return words.write(name)
     case 'edit':

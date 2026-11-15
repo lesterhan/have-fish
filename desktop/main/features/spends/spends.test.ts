@@ -877,7 +877,7 @@ describe('removeSpend', () => {
     const { ctx } = setup()
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
     ok(removeSpend(ctx, { id }))
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'remove', description: 'Coffee' })
+    expect(ctx.history.nextUndo()?.name).toEqual({ action: 'remove', description: 'Coffee' })
   })
 
   test('a spend that is not there, or already removed, is refused and adds no step', () => {
@@ -894,7 +894,7 @@ describe('removeSpend', () => {
       ok: false,
       failure: { code: 'TRANSACTION_NOT_FOUND', details: { id: missing } },
     })
-    expect(ctx.history.nextUndo()?.name.kind).toBe('remove')
+    expect(ctx.history.nextUndo()?.name.action).toBe('remove')
   })
 })
 
@@ -1075,7 +1075,7 @@ describe('moving money between my accounts', () => {
     ])
     expect(count(ledger, "accounts WHERE kind = 'category'")).toBe(categories)
     expect(listTransactions(ledger.db)[0]).toMatchObject({ from: 'chequing', to: 'wallet' })
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'write', description: 'Cash out' })
+    expect(ctx.history.nextUndo()?.name).toEqual({ action: 'write', description: 'Cash out' })
   })
 
   test('paying off a card: what I owe on it goes down', () => {

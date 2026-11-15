@@ -11,7 +11,7 @@ export type SpendingLine = {
    * `category` is one of the level's categories with everything under it; `own` is what went to
    * the level's category itself; `unsorted` is what went to none.
    */
-  kind: 'category' | 'own' | 'unsorted'
+  holds: 'category' | 'own' | 'unsorted'
   /** The category's name (`food:coffee`); the level's, for `own`; `''` for unsorted. */
   category: string
   /** The last part of its name: what it shows as at this level. */
@@ -64,7 +64,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   // week before beside them.
   const lines: SpendingLine[] = [...children].map(([category, { cents, opens }]) => ({
     key: `category:${category}`,
-    kind: 'category' as const,
+    holds: 'category' as const,
     category,
     label: labelOf(category),
     cents,
@@ -73,7 +73,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   if (hasOwn) {
     lines.push({
       key: `own:${level}`,
-      kind: 'own',
+      holds: 'own',
       category: level,
       label: labelOf(level),
       cents: own,
@@ -83,7 +83,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   const unsorted = level === '' ? spent.filter((s) => s.category === '') : []
   if (unsorted.length > 0) {
     const cents = unsorted.reduce((sum, s) => sum + s.cents, 0)
-    lines.push({ key: 'unsorted', kind: 'unsorted', category: '', label: '', cents, opens: false })
+    lines.push({ key: 'unsorted', holds: 'unsorted', category: '', label: '', cents, opens: false })
   }
 
   const total = lines.reduce((sum, l) => sum + l.cents, 0)
@@ -118,17 +118,17 @@ export function comparedAt(
     total: now.total,
     before: then.total,
     lines: [
-      ...all.filter((l) => l.kind === 'category').sort(biggerFirst),
-      ...all.filter((l) => l.kind === 'own'),
-      ...all.filter((l) => l.kind === 'unsorted'),
+      ...all.filter((l) => l.holds === 'category').sort(biggerFirst),
+      ...all.filter((l) => l.holds === 'own'),
+      ...all.filter((l) => l.holds === 'unsorted'),
     ],
   }
 }
 
 /** Whether `s` is behind `line`. */
-export function isIn(s: Spent, line: Pick<SpendingLine, 'kind' | 'category'>): boolean {
-  if (line.kind === 'unsorted') return s.category === ''
-  if (line.kind === 'own') return s.category === line.category
+export function isIn(s: Spent, line: Pick<SpendingLine, 'holds' | 'category'>): boolean {
+  if (line.holds === 'unsorted') return s.category === ''
+  if (line.holds === 'own') return s.category === line.category
   return isUnder(s, line.category)
 }
 

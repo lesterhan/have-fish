@@ -49,7 +49,7 @@ describe('undo and redo', () => {
     const food = anAccount({ path: 'expenses:food', kind: 'category' })
     const spend = aSpend(cash.id, food.id)
     const { changes } = applyKeeping(ctx, [cash, food, spend], ctx.now(), [food, spend])
-    record(ctx, { kind: 'write', description: spend.description }, changes)
+    record(ctx, { action: 'write', description: spend.description }, changes)
 
     expect(STORED_TYPES.account.shows).toBe('accounts')
     expect(STORED_TYPES.transaction.shows).toBe('spends')
@@ -250,7 +250,7 @@ describe('undo and redo', () => {
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
     later()
     ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee' }))
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'write', description: 'Coffee' })
+    expect(ctx.history.nextUndo()?.name).toEqual({ action: 'write', description: 'Coffee' })
   })
 
   test('what Undo and Redo would take is said by name, and nothing is changed by asking', () => {
@@ -260,13 +260,13 @@ describe('undo and redo', () => {
     ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
     later()
     ok(writeSpend(ctx, { amount: '12', description: 'Lunch' }))
-    expect(nextSteps(ctx)).toEqual({ undo: { kind: 'write', description: 'Lunch' }, redo: null })
+    expect(nextSteps(ctx)).toEqual({ undo: { action: 'write', description: 'Lunch' }, redo: null })
 
     later()
     ok(undoLast(ctx))
     expect(nextSteps(ctx)).toEqual({
-      undo: { kind: 'write', description: 'Coffee' },
-      redo: { kind: 'write', description: 'Lunch' },
+      undo: { action: 'write', description: 'Coffee' },
+      redo: { action: 'write', description: 'Lunch' },
     })
     expect(listed()).toEqual(['Coffee'])
   })
@@ -293,9 +293,9 @@ describe('undo and redo', () => {
   test('each step is named for the menu', () => {
     const { ctx, later } = setup()
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'write', description: 'Coffee' })
+    expect(ctx.history.nextUndo()?.name).toEqual({ action: 'write', description: 'Coffee' })
     later()
     ok(editSpend(ctx, { id, amount: '5', description: ' Tea ' }))
-    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'edit', description: 'Tea' })
+    expect(ctx.history.nextUndo()?.name).toEqual({ action: 'edit', description: 'Tea' })
   })
 })

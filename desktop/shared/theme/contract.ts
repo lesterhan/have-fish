@@ -15,7 +15,7 @@ export type Schemes = Readonly<Record<Scheme, Palette>>
 /** WCAG 1.4.3 for text; 1.4.11 for a mark you need to see to use the screen. */
 export const MIN_RATIO = { text: 4.5, graphic: 3 } as const
 
-export type Ink = { ink: string; on: string; kind: keyof typeof MIN_RATIO }
+export type Ink = { ink: string; on: string; use: keyof typeof MIN_RATIO }
 
 /** `to` sits on `from`. */
 export type Step = { from: string; to: string }
@@ -49,29 +49,29 @@ const ON_EVERY_SURFACE = [
 
 /** Every ink the window draws, on every surface it draws it on. */
 export const INK: readonly Ink[] = [
-  ...SURFACES.flatMap((on) => ON_EVERY_SURFACE.map((ink): Ink => ({ ink, on, kind: 'text' }))),
-  { ink: '--color-error', on: '--color-background', kind: 'text' },
+  ...SURFACES.flatMap((on) => ON_EVERY_SURFACE.map((ink): Ink => ({ ink, on, use: 'text' }))),
+  { ink: '--color-error', on: '--color-background', use: 'text' },
   // Remove, on the card's foot; a field's edge, and a refusal, on the card.
-  { ink: '--color-error', on: '--color-band', kind: 'text' },
-  { ink: '--color-error', on: '--color-card', kind: 'text' },
-  { ink: '--color-border', on: '--color-card', kind: 'graphic' },
+  { ink: '--color-error', on: '--color-band', use: 'text' },
+  { ink: '--color-error', on: '--color-card', use: 'text' },
+  { ink: '--color-border', on: '--color-card', use: 'graphic' },
   // A primary button's words, and its keycap, at rest and under the pointer.
-  { ink: '--color-on-accent', on: '--color-accent', kind: 'text' },
-  { ink: '--color-on-accent', on: '--color-accent-hover', kind: 'text' },
+  { ink: '--color-on-accent', on: '--color-accent', use: 'text' },
+  { ink: '--color-on-accent', on: '--color-accent-hover', use: 'text' },
   // A notice: its words, its ✕, its edge, and a focus ring on it.
-  { ink: '--color-text', on: '--color-notice', kind: 'text' },
-  { ink: '--color-muted', on: '--color-notice', kind: 'text' },
-  { ink: '--color-error', on: '--color-notice', kind: 'graphic' },
-  { ink: '--color-accent', on: '--color-notice', kind: 'graphic' },
+  { ink: '--color-text', on: '--color-notice', use: 'text' },
+  { ink: '--color-muted', on: '--color-notice', use: 'text' },
+  { ink: '--color-error', on: '--color-notice', use: 'graphic' },
+  { ink: '--color-accent', on: '--color-notice', use: 'graphic' },
   // A path's tag: the root's initial on its tint.
   ...(['assets', 'liabilities', 'expenses', 'income'] as const).map(
-    (root): Ink => ({ ink: `--color-${root}`, on: `--color-${root}-tint`, kind: 'text' }),
+    (root): Ink => ({ ink: `--color-${root}`, on: `--color-${root}-tint`, use: 'text' }),
   ),
   // An input's edge.
-  { ink: '--color-border', on: '--color-background', kind: 'graphic' },
+  { ink: '--color-border', on: '--color-background', use: 'graphic' },
   // A bar, and the accent's edge, on the line under a row.
-  { ink: '--color-bar', on: '--color-rule', kind: 'graphic' },
-  { ink: '--color-accent', on: '--color-rule', kind: 'graphic' },
+  { ink: '--color-bar', on: '--color-rule', use: 'graphic' },
+  { ink: '--color-accent', on: '--color-rule', use: 'graphic' },
 ]
 
 /** Every surface, on the one beneath it. */
@@ -85,9 +85,9 @@ export const STEPS: readonly Step[] = [
 export type InkFailure = { scheme: Scheme; ink: string; on: string; ratio: number; needs: number }
 
 export type StepFailure =
-  | { kind: 'flat'; scheme: Scheme; from: string; to: string; step: number; needs: number }
+  | { problem: 'flat'; scheme: Scheme; from: string; to: string; step: number; needs: number }
   | {
-      kind: 'diverged'
+      problem: 'diverged'
       from: string
       to: string
       light: number
@@ -98,9 +98,9 @@ export type StepFailure =
 
 export function inkFailures(theme: Schemes, pairs: readonly Ink[] = INK): InkFailure[] {
   return SCHEMES.flatMap((scheme) =>
-    pairs.flatMap(({ ink, on, kind }) => {
+    pairs.flatMap(({ ink, on, use }) => {
       const ratio = contrastRatio(colour(theme, scheme, ink), colour(theme, scheme, on))
-      const needs = MIN_RATIO[kind]
+      const needs = MIN_RATIO[use]
       return ratio < needs ? [{ scheme, ink, on, ratio, needs }] : []
     }),
   )
@@ -113,13 +113,13 @@ export function stepFailures(theme: Schemes, steps: readonly Step[] = STEPS): St
 
     const flat = SCHEMES.flatMap((scheme): StepFailure[] => {
       const step = size(scheme)
-      return step < MIN_STEP ? [{ kind: 'flat', scheme, from, to, step, needs: MIN_STEP }] : []
+      return step < MIN_STEP ? [{ problem: 'flat', scheme, from, to, step, needs: MIN_STEP }] : []
     })
 
     const factor = Math.max(light, dark) / Math.min(light, dark)
     const diverged: StepFailure[] =
       factor > MAX_DIVERGENCE
-        ? [{ kind: 'diverged', from, to, light, dark, factor, allows: MAX_DIVERGENCE }]
+        ? [{ problem: 'diverged', from, to, light, dark, factor, allows: MAX_DIVERGENCE }]
         : []
 
     return [...flat, ...diverged]

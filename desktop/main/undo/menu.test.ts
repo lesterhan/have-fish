@@ -4,7 +4,10 @@ import { typingFrom, undoItems } from './menu'
 import type { Step } from './steps'
 
 const NONE = { undo: false, redo: false }
-const step = (description: string): Step => ({ name: { kind: 'write', description }, changes: [] })
+const step = (description: string): Step => ({
+  name: { action: 'write', description },
+  changes: [],
+})
 
 describe('undoItems', () => {
   test('with nothing to undo or redo, both are greyed out', () => {
@@ -40,9 +43,9 @@ describe('undoItems', () => {
 
   test('every kind of step is named', () => {
     const history = new History<Step>()
-    history.record({ name: { kind: 'remove', description: 'Coffee' }, changes: [] })
+    history.record({ name: { action: 'remove', description: 'Coffee' }, changes: [] })
     expect(undoItems(history, NONE).undo.label).toBe('Undo remove Coffee')
-    history.record({ name: { kind: 'edit', description: 'Tea' }, changes: [] })
+    history.record({ name: { action: 'edit', description: 'Tea' }, changes: [] })
     expect(undoItems(history, NONE).undo.label).toBe('Undo edit Tea')
   })
 })

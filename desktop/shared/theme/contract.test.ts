@@ -15,8 +15,8 @@ const theme = (light: [string, string], dark: [string, string]): Schemes => ({
 })
 
 describe('ink', () => {
-  const text: Ink[] = [{ ink: '--ink', on: '--ground', kind: 'text' }]
-  const graphic: Ink[] = [{ ink: '--ink', on: '--ground', kind: 'graphic' }]
+  const text: Ink[] = [{ ink: '--ink', on: '--ground', use: 'text' }]
+  const graphic: Ink[] = [{ ink: '--ink', on: '--ground', use: 'graphic' }]
 
   test('text that clears 4.5:1 on its surface in both schemes passes', () => {
     expect(inkFailures(theme(['#595959', WHITE], ['#a6a6a6', BLACK]), text)).toEqual([])
@@ -75,7 +75,7 @@ describe('surfaces', () => {
     const flat = theme([ink, ground], [grey(0.24), grey(0.19)])
     expect(stepFailures(flat, steps)).toEqual([
       {
-        kind: 'flat',
+        problem: 'flat',
         scheme: 'light',
         from: '--ground',
         to: '--ink',
@@ -92,7 +92,7 @@ describe('surfaces', () => {
 
     expect(failures).toEqual([
       {
-        kind: 'diverged',
+        problem: 'diverged',
         from: '--ground',
         to: '--ink',
         light: deltaL(...light),
@@ -105,6 +105,6 @@ describe('surfaces', () => {
 
   test('a step that vanishes in one scheme is both flat and diverged', () => {
     const gone = theme([grey(1), grey(1)], [grey(0.25), grey(0.19)])
-    expect(stepFailures(gone, steps).map((f) => f.kind)).toEqual(['flat', 'diverged'])
+    expect(stepFailures(gone, steps).map((f) => f.problem)).toEqual(['flat', 'diverged'])
   })
 })

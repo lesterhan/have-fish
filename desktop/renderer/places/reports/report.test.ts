@@ -42,9 +42,9 @@ describe('spentOf', () => {
 
 describe('lineLabel', () => {
   test('a category by its last name; unsorted, and a level’s own, in words', () => {
-    expect(lineLabel({ kind: 'category', label: 'coffee' })).toBe('coffee')
-    expect(lineLabel({ kind: 'unsorted', label: '' })).toBe('Unsorted')
-    expect(lineLabel({ kind: 'own', label: 'food' })).toBe('Just food')
+    expect(lineLabel({ holds: 'category', label: 'coffee' })).toBe('coffee')
+    expect(lineLabel({ holds: 'unsorted', label: '' })).toBe('Unsorted')
+    expect(lineLabel({ holds: 'own', label: 'food' })).toBe('Just food')
   })
 })
 
@@ -227,11 +227,11 @@ describe('spendsBehind', () => {
   })
 
   test('a row picked: what’s behind it', () => {
-    const coffee = { kind: 'category', category: 'food:coffee' } as const
+    const coffee = { holds: 'category', category: 'food:coffee' } as const
     expect(ids(spendsBehind(listed, week, coffee))).toEqual(['coffee'])
-    const food = { kind: 'own', category: 'food' } as const
+    const food = { holds: 'own', category: 'food' } as const
     expect(ids(spendsBehind(listed, week, food))).toEqual(['lunch'])
-    const unsorted = { kind: 'unsorted', category: '' } as const
+    const unsorted = { holds: 'unsorted', category: '' } as const
     expect(ids(spendsBehind(listed, week, unsorted))).toEqual(['bus'])
   })
 })

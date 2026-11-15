@@ -44,4 +44,4 @@ export interface AccountValues {
 }
 
 /** What an undo step of an account is called. */
-export type AccountStep = { kind: 'addAccount'; name: string } | { kind: 'start'; name: string }
+export type AccountStep = { action: 'addAccount'; name: string } | { action: 'start'; name: string }

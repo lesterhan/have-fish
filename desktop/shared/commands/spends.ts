@@ -145,6 +145,6 @@ export interface SpendValues {
 
 /** What an undo step of a spend is called. */
 export type SpendStep =
-  | { kind: 'write'; description: string }
-  | { kind: 'edit'; description: string }
-  | { kind: 'remove'; description: string }
+  | { action: 'write'; description: string }
+  | { action: 'edit'; description: string }
+  | { action: 'remove'; description: string }
