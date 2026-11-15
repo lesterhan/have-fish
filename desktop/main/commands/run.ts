@@ -49,7 +49,10 @@ function run(
     if (!parsed.success) return failure('INPUT_MALFORMED', firstIssue(parsed.error))
     // tsc can't tie `parsed.data` to `command`'s own handler; the schema just did.
     const handler = handlers[command] as (ctx: Context, input: unknown) => Outcome<unknown>
-    return handler(traits[command].writes ? ctx : readOnly(ctx, command), parsed.data)
+    return handler(
+      traits[command].writes ? applyingOnce(ctx, command) : readOnly(ctx, command),
+      parsed.data,
+    )
   } catch (e) {
     log.error(`${command} threw`, e)
     return failure('UNEXPECTED')
@@ -62,6 +65,19 @@ function readOnly(ctx: Context, command: CommandName): Context {
     ...ctx,
     apply() {
       throw new Error(`${command} says it writes nothing`)
+    },
+  }
+}
+
+/** `ctx` for a command that writes: it applies once, so a crash can't leave it half done. */
+function applyingOnce(ctx: Context, command: CommandName): Context {
+  let applied = false
+  return {
+    ...ctx,
+    apply(docs, now) {
+      if (applied) throw new Error(`${command} applied twice`)
+      applied = true
+      return ctx.apply(docs, now)
     },
   }
 }
