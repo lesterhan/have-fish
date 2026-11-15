@@ -2,7 +2,7 @@
 // The rules are in controls.ts; this only draws them.
 
 import type { Theme } from '../shared/theme/theme'
-import { benchOf, CONTROLS, framesOf, rootStyleOf, searchOf } from './controls'
+import { benchOf, CONTROLS, framesOf, noteOf, rootStyleOf, searchOf } from './controls'
 
 const bar = byId('controls')
 const shelf = byId('frames')
@@ -35,6 +35,10 @@ for (const control of CONTROLS) {
   bar.append(label)
 }
 
+const note = document.createElement('p')
+note.id = 'note'
+bar.append(note)
+
 show()
 
 function byId(id: string): HTMLElement {
@@ -63,6 +67,9 @@ function show() {
     paint(iframe)
   })
   while (shelf.children.length > frames.length) shelf.lastElementChild?.remove()
+  const said = noteOf(bench)
+  note.textContent = said
+  note.hidden = said === null
 }
 
 /** The shelf's frame at `i`, made if it isn't there yet, and painted on every load. */
