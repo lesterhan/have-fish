@@ -154,7 +154,7 @@ describe('foreign keys', () => {
 
 describe('the backup', () => {
   const copies = () => (existsSync(backups) ? readdirSync(backups).sort() : [])
-  const broken: Migration = { tag: '0001_broken', statements: ['ALTER TABLE missing ADD y TEXT'] }
+  const failing: Migration = { tag: '0001_broken', statements: ['ALTER TABLE missing ADD y TEXT'] }
   /** The names in a copy's `item`, in the order they went in. */
   const namesIn = (copy: string) => {
     const file = new Database(join(backups, copy), { readonly: true })
@@ -228,7 +228,7 @@ describe('the backup', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
     for (const at of [NOW, NOW + 1000, NOW + 2000]) {
-      expect(() => migrate(db, [first, broken], at, backups)).toThrow()
+      expect(() => migrate(db, [first, failing], at, backups)).toThrow()
     }
     expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'])
   })
@@ -236,10 +236,10 @@ describe('the backup', () => {
   test('a file changed between two failed starts is copied again, and the first copy kept', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
     addItem('since')
 
-    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW + 1000, backups)).toThrow(/no such table/)
     expect(copies()).toEqual([
       'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite',
       'ledger-2026-10-22T12-00-01-000Z-before-0001_broken.sqlite',
@@ -253,9 +253,9 @@ describe('the backup', () => {
   test('the first copy is left as it was when a later one is made', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
     addItem('since')
-    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW + 1000, backups)).toThrow(/no such table/)
 
     expect(copies()).toHaveLength(2)
     expect(namesIn('ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite')).toEqual(['kept'])
@@ -264,7 +264,7 @@ describe('the backup', () => {
   test('a copy before another migration does not stand in for this one', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
 
     expect(migrate(db, [first, second], NOW + 1000, backups)).toEqual(applied(['0001_second']))
     expect(copies()).toEqual([
@@ -280,11 +280,11 @@ describe('the backup', () => {
     db.prepare(
       "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 30000) INSERT INTO item (name) SELECT printf('%0100d', i) FROM n",
     ).run()
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
     // The same length, so the copy is the same size.
     db.prepare("UPDATE item SET name = printf('%0100d', 0) WHERE id = 30001").run()
 
-    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW + 1000, backups)).toThrow(/no such table/)
     expect(copies()).toHaveLength(2)
   })
 
@@ -314,10 +314,10 @@ describe('the backup', () => {
     const copy = 'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'
     migrate(db, [first], NOW, backups)
     addItem('kept')
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
     addItem('since')
 
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(
       `${copy} is already there, and differs`,
     )
     expect(copies()).toEqual([copy])
@@ -327,8 +327,8 @@ describe('the backup', () => {
   test('once the migration is mended, it runs with the copy it already has', () => {
     migrate(db, [first], NOW, backups)
     addItem('kept')
-    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
-    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, failing], NOW + 1000, backups)).toThrow(/no such table/)
     const mended: Migration = { tag: '0001_broken', statements: ['ALTER TABLE item ADD y TEXT'] }
 
     expect(migrate(db, [first, mended], NOW + 2000, backups)).toEqual(applied(['0001_broken']))
