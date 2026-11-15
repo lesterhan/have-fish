@@ -12,6 +12,17 @@ function rate(text: string): Rate {
 const refused = (text: string) =>
   expect(readRate(text)).toMatchObject({ ok: false, failure: { code: 'RATE_INVALID' } })
 
+/** The words of the error a function throws, so a test can read them. */
+function messageOf(fn: () => unknown): string {
+  try {
+    fn()
+  } catch (e) {
+    if (!(e instanceof RangeError)) throw e
+    return e.message
+  }
+  throw new Error('it threw nothing')
+}
+
 describe('readRate', () => {
   it('reads 0.0091 as 91/10000', () => {
     expect(readRate('0.0091')).toEqual({ ok: true, value: { num: 91n, den: 10000n } })
@@ -80,6 +91,17 @@ describe('readRate', () => {
 
   it('refuses sixteen significant digits past the bound', () => {
     refused('3.000000000000001')
+  })
+
+  it('reads an exponent past the bound when the places bring it inside', () => {
+    expect(readRate('0.00001e20')).toEqual({ ok: true, value: { num: 1000000000000000n, den: 1n } })
+  })
+
+  it('reads a rate whose places reduce inside the bound', () => {
+    expect(readRate('0.0000000000000125')).toEqual({
+      ok: true,
+      value: { num: 1n, den: 80000000000000n },
+    })
   })
 
   it('ignores zeros past the last digit', () => {
@@ -151,6 +173,17 @@ describe('convert', () => {
   it('throws when the answer is past exact integers', () => {
     expect(() => convert(999999999999, rate('100000'))).toThrow(RangeError)
   })
+
+  it('names the fault, never the amount, in a thrown message', () => {
+    const fraction = messageOf(() => convert(1.5, rate('2')))
+    const large = messageOf(() => convert(999999999999, rate('100000')))
+    expect(fraction).toBe('cents are not a whole number')
+    expect(large).toBe('the answer is past exact integers')
+    for (const message of [fraction, large]) {
+      for (const value of ['1.5', '1500000', '99999999999900000', '9999999999990000'])
+        expect(message).not.toContain(value)
+    }
+  })
 })
 
 describe('invert', () => {
@@ -163,10 +196,14 @@ describe('invert', () => {
   })
 })
 
+// The rates each round trip sweeps: one list each side of 1, so a rate is added in one place.
+const ABOVE_ONE = ['1', '1.0001', '1.37', '2', '109.89', '150000']
+const BELOW_ONE = ['0.0091', '0.5', '0.73', '0.999999']
+
 describe('the sweeps', () => {
   it('round trips every cent by a rate of 1 or more, within 1', () => {
     const lost: string[] = []
-    for (const text of ['1', '1.0001', '1.37', '2', '109.89', '150000']) {
+    for (const text of ABOVE_ONE) {
       const r = rate(text)
       for (let c = -20000; c <= 20000; c++) {
         const back = convert(convert(c, r), invert(r))
@@ -178,7 +215,7 @@ describe('the sweeps', () => {
 
   it('round trips every cent from the other side below 1, within 1', () => {
     const lost: string[] = []
-    for (const text of ['0.0091', '0.5', '0.73', '0.999999']) {
+    for (const text of BELOW_ONE) {
       const r = rate(text)
       for (let c = -20000; c <= 20000; c++) {
         const back = convert(convert(c, invert(r)), r)
@@ -190,18 +227,7 @@ describe('the sweeps', () => {
 
   it('keeps the sign of every cent at every rate, and answers +0', () => {
     const wrong: string[] = []
-    for (const text of [
-      '1',
-      '1.0001',
-      '1.37',
-      '2',
-      '109.89',
-      '150000',
-      '0.0091',
-      '0.5',
-      '0.73',
-      '0.999999',
-    ]) {
+    for (const text of [...ABOVE_ONE, ...BELOW_ONE]) {
       const r = rate(text)
       for (let c = -20000; c <= 20000; c++) {
         // `0 - x`, never `-x`, which makes -0 of a zero answer and tells the two apart.
