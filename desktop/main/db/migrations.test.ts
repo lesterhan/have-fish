@@ -8,6 +8,7 @@ import { describe, expect, onTestFinished, test } from 'vitest'
 import { ok } from '../ledger/fixtures'
 import { accountRows, transactionRows } from '../ledger/rows'
 import { getDocument } from '../ledger/store'
+import { saveClock } from './clock'
 import { openLedger } from './ledger'
 import type { Migration } from './migrate'
 import { MIGRATIONS } from './migrations'
@@ -174,6 +175,8 @@ describe('two copies of a file stopped at each migration', () => {
       )
       try {
         expect(before.meta.deviceId).not.toBe(oldDeviceId)
+        // So every column of meta differs between the copies, the clock too.
+        saveClock(before.db, { wallMs: MADE + 1, counter: 1 })
       } finally {
         before.close()
       }
