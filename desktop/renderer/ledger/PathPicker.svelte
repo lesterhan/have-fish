@@ -8,6 +8,7 @@
   import {
     childrenAt,
     createPath,
+    leftWith,
     levelOfTyped,
     offered,
     parentsOf,
@@ -161,6 +162,12 @@
     onpicked?.()
   }
 
+  /** Leaving without a pick keeps a path it offers, or nothing; else what it held goes back. */
+  function onblur() {
+    open = false
+    text = leftWith(available, text, kept)
+  }
+
   /** An entry taken: a path or a new one is chosen, and a part with nothing to pick opens. */
   function take(entry: Entry) {
     if (entry.create !== null) pick(entry.create.name)
@@ -241,7 +248,7 @@
     class:in-line={sits === 'line'}
     class:filled={text.trim() !== ''}
     {onfocus}
-    onblur={() => (open = false)}
+    {onblur}
     {oninput}
     {onkeydown}
   />

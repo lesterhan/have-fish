@@ -3,6 +3,7 @@ import type { ListedPath } from '../../shared/commands'
 import {
   childrenAt,
   createPath,
+  leftWith,
   levelOfTyped,
   needleOf,
   offered,
@@ -179,5 +180,49 @@ describe('what a pick puts in the field', () => {
     ])
     expect(childrenAt(PATHS, 'expenses:food').map(textOf)).toContain('food:coffee')
     expect(searching(PATHS, 'visa').map(textOf)).toEqual(['cibc:visa'])
+  })
+})
+
+describe('what a field keeps when the cursor leaves it', () => {
+  const TO = offered(PATHS, 'to')
+
+  test('what it held when entered, or a Create picked since, stays though no path has it', () => {
+    expect(leftWith(TO, 'gro', 'gro')).toBe('gro')
+  })
+
+  test('a name no path has goes back to what the field held, empty and filled', () => {
+    expect(leftWith(TO, 'gro', '')).toBe('')
+    expect(leftWith(TO, 'gro', 'food:coffee')).toBe('food:coffee')
+  })
+
+  test('a category I have and an account of mine are kept', () => {
+    expect(leftWith(TO, 'food:groceries', '')).toBe('food:groceries')
+    expect(leftWith(TO, 'cash', '')).toBe('cash')
+  })
+
+  test('a path named in another case, with spaces round it, is kept as the path spells it', () => {
+    expect(leftWith(TO, ' FOOD:Groceries ', '')).toBe('food:groceries')
+  })
+
+  test('a whole path is kept as its name', () => {
+    expect(leftWith(TO, 'expenses:food:groceries', 'cash')).toBe('food:groceries')
+  })
+
+  test("a level's name alone is not a path, so it goes back", () => {
+    expect(leftWith(TO, 'transport', '')).toBe('')
+  })
+
+  test('emptied, it stays empty, which means its default', () => {
+    expect(leftWith(TO, '', 'food:coffee')).toBe('')
+    expect(leftWith(TO, '   ', 'food:coffee')).toBe('')
+  })
+
+  test('before the paths have come back, nothing typed is taken', () => {
+    expect(leftWith([], 'food:groceries', 'cash')).toBe('cash')
+  })
+
+  test("From keeps an income source I have, never a category's name", () => {
+    expect(leftWith(offered(PATHS, 'from'), 'food:groceries', 'cash')).toBe('cash')
+    expect(leftWith(offered(PATHS, 'from'), 'salary', 'cash')).toBe('salary')
   })
 })
