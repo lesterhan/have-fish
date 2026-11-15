@@ -3,16 +3,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import {
-  aHome,
-  focusedIn,
-  launch,
-  offeredPaths,
-  openComposer,
-  pickPath,
-  rows,
-  WRITE,
-} from './app'
+import { aHome, focusedIn, launch, offeredPaths, openComposer, pickPath, rows, WRITE } from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const OPTIONS = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
