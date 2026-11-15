@@ -8,7 +8,8 @@ outbox all depend on that. Each rule below names the test that fails when it bre
   and the tests call it too. No test pins this yet, so review holds it.
 - Every item is read by its schema before anything is written: `apply.test.ts`, "a malformed
   document is refused with its place in the batch, and nothing moves".
-- A batch and the clock commit in one transaction, so one refusal refuses the whole batch:
+- A local batch and the clock commit in one transaction, so one refusal refuses the whole batch
+  (`applyReceived` writes the rest and names what it refused):
   `apply.test.ts`, "a batch of three with a bad third writes nothing, and the clock does not move".
 - Versions decide, never bodies: `apply.received.test.ts`, "the same version again is counted
   same, and an older one stale".
