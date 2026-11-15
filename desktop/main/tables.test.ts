@@ -71,6 +71,24 @@ function writesIn(file: string, source: string): string[] {
   return found
 }
 
+/** Each re-export of `db/schema` outside `main/db/`, which hands a table on under another name. */
+function schemaReExportsIn(file: string, source: string): string[] {
+  if (file.startsWith('main/db/')) return []
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+  return tree.statements
+    .filter(
+      (statement) =>
+        ts.isExportDeclaration(statement) &&
+        statement.moduleSpecifier !== undefined &&
+        ts.isStringLiteral(statement.moduleSpecifier) &&
+        posix.join(posix.dirname(file), statement.moduleSpecifier.text) === 'main/db/schema',
+    )
+    .map((statement) => {
+      const line = tree.getLineAndCharacterOfPosition(statement.getStart()).line + 1
+      return `${file}:${line} ${statement.getText()}`
+    })
+}
+
 /** A string's text, with each substitution of a template as `?`. */
 function textOf(node: ts.Node): string | undefined {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
@@ -178,5 +196,16 @@ describe('a write to a ledger table', () => {
     const source =
       "import { accounts } from '../../db/schema'\nconst m = new Map()\nexport const f = (id) => { m.delete(id); if (!accounts) throw new Error('nothing to update, so it was set aside') }"
     expect(writesIn('main/features/accounts/accounts.ts', source)).toEqual([])
+  })
+})
+
+describe('a re-export of the schema', () => {
+  it('a re-export of the schema outside main/db/ is refused', () => {
+    const source = "export { accounts } from '../db/schema'"
+    expect(schemaReExportsIn('main/ledger/rows.ts', `const a = 1\n${source}`)).toEqual([
+      "main/ledger/rows.ts:2 export { accounts } from '../db/schema'",
+    ])
+    expect(schemaReExportsIn('main/db/clock.ts', "export { accounts } from './schema'")).toEqual([])
+    expect(SOURCES.flatMap((f) => schemaReExportsIn(f, read(f)))).toEqual([])
   })
 })
