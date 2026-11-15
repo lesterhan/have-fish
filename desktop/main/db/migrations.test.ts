@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { ok } from '../ledger/fixtures'
 import { accountRows, transactionRows } from '../ledger/rows'
@@ -67,6 +67,10 @@ const columnsOf = (db: Database.Database, table: string) =>
 const rowsIn = (db: Database.Database, table: string) =>
   db.prepare<[], Record<string, unknown>>(`SELECT * FROM ${table} ORDER BY rowid`).all()
 
+/** The account and the spend the file holds, as the store reads them. */
+const documentsIn = (db: Database.Database) =>
+  [getDocument(db, 'account', CASH), getDocument(db, 'transaction', SPEND_ID)] as const
+
 /** The migrations up to `tag`, and it. */
 const migrationsThrough = (tag: string, migrations: readonly Migration[]) =>
   migrations.slice(0, migrations.findIndex((m) => m.tag === tag) + 1)
@@ -75,7 +79,7 @@ const migrationsThrough = (tag: string, migrations: readonly Migration[]) =>
 function fileStoppedAt(
   tag: string,
   migrations: readonly Migration[],
-): { root: string; held: Held } {
+): { root: string; held: Held; deviceId: string } {
   const root = mkdtempSync(join(tmpdir(), 'havefish-upgrade-'))
   onTestFinished(() => rmSync(root, { recursive: true, force: true }))
   const old = ok(
@@ -106,7 +110,7 @@ function fileStoppedAt(
       mkdirSync(join(root, copy), { mode: 0o700 })
       old.db.prepare('VACUUM INTO ?').run(join(root, copy, 'ledger.sqlite'))
     }
-    return { root, held }
+    return { root, held, deviceId: old.meta.deviceId }
   } finally {
     old.close()
   }
@@ -126,13 +130,17 @@ function opensWhole(tag: string, migrations: readonly Migration[]): void {
     openLedger({ dir: join(root, 'a'), installId: 'install-a', migrations, now: OPENED_A }),
   )
   try {
-    const account = getDocument(ledger.db, 'account', CASH)
-    const spend = getDocument(ledger.db, 'transaction', SPEND_ID)
+    const [account, spend] = documentsIn(ledger.db)
     expect(account?.doc.id).toBe(CASH)
     expect(spend?.doc.id).toBe(SPEND_ID)
 
     for (const [table] of ROWS) expect(rowsIn(ledger.db, table)).toMatchObject(held[table] ?? [])
 
+    // At the newest tag the comparison must run, so it can't be skipped there.
+    if (tag === migrations.at(-1)?.tag) {
+      expect(heldWhole(held, 'accounts')).toBe(true)
+      expect(heldWhole(held, 'transactions', 'postings')).toBe(true)
+    }
     if (heldWhole(held, 'accounts')) expect(account).toEqual(ACCOUNT)
     if (heldWhole(held, 'transactions', 'postings')) expect(spend).toEqual(SPEND)
   } finally {
@@ -151,23 +159,11 @@ describe('a file stopped at each migration', () => {
   )
 })
 
-/** The device id the file at `dir` holds, read without opening it as a ledger. */
-function deviceIdIn(dir: string): string | undefined {
-  const db = new Database(join(dir, 'ledger.sqlite'))
-  try {
-    return db.prepare<[], { deviceId: string }>('SELECT deviceId FROM meta').get()?.deviceId
-  } finally {
-    db.close()
-  }
-}
-
 describe('two copies of a file stopped at each migration', () => {
   test.each(TAGS)(
     'stopped at %s, hold the same documents once two installs upgrade them at two times',
     (tag) => {
-      const { root } = fileStoppedAt(tag, MIGRATIONS)
-      const oldDeviceId = deviceIdIn(join(root, 'b'))
-      expect(oldDeviceId).toMatch(/^[0-9a-f]{16}$/)
+      const { root, deviceId: oldDeviceId } = fileStoppedAt(tag, MIGRATIONS)
       const before = ok(
         openLedger({
           dir: join(root, 'b'),
@@ -186,10 +182,6 @@ describe('two copies of a file stopped at each migration', () => {
       try {
         const b = ok(openLedger({ dir: join(root, 'b'), installId: 'install-b', now: OPENED_B }))
         try {
-          const documentsIn = (db: Database.Database) => [
-            getDocument(db, 'account', CASH),
-            getDocument(db, 'transaction', SPEND_ID),
-          ]
           const onA = documentsIn(a.db)
           expect(onA[0]).not.toBeNull()
           expect(documentsIn(b.db)).toEqual(onA)
