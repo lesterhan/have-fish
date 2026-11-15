@@ -22,7 +22,7 @@ export function readRate(text: string): Outcome<Rate> {
   // A rate is above zero, so no digits at all, zeros alone and a minus are all refused.
   if (sign === '-' || mantissa === '') return refused
 
-  // The places the point sits left of the last digit: `"0.0091"` is four, `"1e-2"` two.
+  // The power of ten the digits are scaled by: `"0.0091"` is -4, `"1e-2"` -2, `"1e3"` 3.
   const shift = Number(exponent) - fraction.length
 
   // Refused from the digits, before any BigInt: past these the parts can't come out inside the
@@ -42,8 +42,10 @@ export function readRate(text: string): Outcome<Rate> {
   return { ok: true, value: { num, den } }
 }
 
-/** Cents converted at a rate, rounded half away from zero. Throws unless the cents and the answer
- * are whole numbers. */
+/**
+ * Cents converted at a rate, rounded half away from zero. Throws unless the cents and the answer
+ * are whole numbers.
+ */
 export function convert(cents: number, rate: Rate): number {
   if (!Number.isSafeInteger(cents)) throw new RangeError('cents are not a whole number')
   const scaled = BigInt(cents) * rate.num
