@@ -391,12 +391,14 @@
   }
 
   /* The composer is open: the rest of the ledger isn't for reading, and reaching for it closes it. */
-  .scroller[data-dimmed] > ol > :global(li) {
-    opacity: 0.42;
+  .scroller[data-dimmed] > ol > :global(li),
+  .scroller[data-dimmed] > .stays,
+  .scroller[data-opened] > .stays {
+    filter: var(--step-back);
   }
 
   .details {
     position: absolute;
-    inset-inline: var(--space-2);
+    inset-inline: 0;
   }
 </style>

@@ -129,7 +129,8 @@
   /* Open: the row is the top of a tile with its details, inset and lifted (DESIGN.md, "Card"). */
   li.open {
     isolation: isolate;
-    border-block-end-color: transparent;
+    /* No rule, so the tile reaches the card: `overflow: hidden` clips at the padding box. */
+    border-block-end: none;
   }
 
   li.open,
@@ -143,19 +144,24 @@
     content: '';
     position: absolute;
     z-index: -1;
-    inset: var(--space-1) var(--space-2) 0;
+    inset: var(--space-1) 0 0;
     border-radius: var(--radius-card) var(--radius-card) 0 0;
     background: var(--color-selected);
-    box-shadow: var(--shadow-lift);
+    box-shadow: var(--ring-lift-head);
   }
 
   li.open.banded::before {
-    inset-block-start: var(--band);
+    inset-block-start: calc(var(--band) + var(--space-1));
+  }
+
+  /* The cells, centred in the tile rather than the row it starts a space below the top of. */
+  li.open > :global(*:not(.band)) {
+    translate: 0 calc(var(--space-1) / 2);
   }
 
   /* The rest of the list, while a row is open: not for reading, and reaching for it closes it. */
   :global([data-opened] > ol) > li:not(.open) {
-    opacity: 0.5;
+    filter: var(--step-back);
   }
 
   li[aria-disabled='true'] {

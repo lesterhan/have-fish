@@ -50,14 +50,21 @@
   --radius-pill: 999px;
   --border-width: 1px;
 
-  /* What floats. Pop: pickers, the date list, tooltips. Lift: a card raised with its row, a hard
-     offset in the accent. Compose: the composer's ring and a soft drop. Palette: Ctrl+K's panel. */
+  /* What floats. Pop: pickers, the date list, tooltips. Lift: a card raised with its row, an
+     accent ring and no drop. Compose: the composer's ring and a soft drop. Palette: Ctrl+K's panel. */
   --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.18);
-  --shadow-lift:
-    0 0 0 1.5px var(--color-accent),
-    6px 6px 0 0 color-mix(in oklab, var(--color-accent) 40%, transparent);
+  /* The lifted tile's accent ring, drawn inside so it never paints over a neighbour: the row is
+     its head (no bottom edge) and the card its tail (no top edge), so the seam has no line. */
+  --ring-lift-head:
+    inset 1.5px 0 0 var(--color-accent), inset -1.5px 0 0 var(--color-accent),
+    inset 0 1.5px 0 var(--color-accent);
+  --ring-lift-tail:
+    inset 1.5px 0 0 var(--color-accent), inset -1.5px 0 0 var(--color-accent),
+    inset 0 -1.5px 0 var(--color-accent);
   --shadow-compose: 0 0 0 2px var(--color-accent), 0 8px 22px rgb(0 0 0 / 0.1);
   --shadow-palette: 0 16px 40px rgb(0 0 0 / 0.25);
+  /* What steps back while the composer or a card is open: there, but not for reading. */
+  --step-back: grayscale(1) opacity(0.5);
   /* A button held down; the edge down a notice's side. */
   --shadow-pressed: inset 0 1px 2px rgb(0 0 0 / 0.22);
   --edge-error: inset 3px 0 0 var(--color-error);

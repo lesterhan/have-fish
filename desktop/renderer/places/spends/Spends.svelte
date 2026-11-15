@@ -291,19 +291,21 @@
   >
     {#snippet composer()}
       <div class="write">
-        <Composer
-          bind:this={line}
-          {actions}
-          open={composing}
-          {firstRun}
-          {accounts}
-          {assumedName}
-          loadPaths={() => ledger.paths()}
-          onclose={land}
-          onsaved={saved}
-          onfresh={freshLine}
-          {forgetTyping}
-        />
+        <div class="line">
+          <Composer
+            bind:this={line}
+            {actions}
+            open={composing}
+            {firstRun}
+            {accounts}
+            {assumedName}
+            loadPaths={() => ledger.paths()}
+            onclose={land}
+            onsaved={saved}
+            onfresh={freshLine}
+            {forgetTyping}
+          />
+        </div>
         {#if batch.lines.length > 0}<Batch {batch} today={batchToday} />{/if}
       </div>
     {/snippet}
@@ -347,6 +349,13 @@
     display: grid;
     gap: var(--space-2);
     min-height: 0;
+  }
+
+  /* The list's scrollbar takes its width at the end; the line keeps clear of it, as the headings
+     and the batch do. Its pickers are fixed to the window, so this clips none of them. */
+  .line {
+    overflow: hidden;
+    scrollbar-gutter: stable;
   }
 
   main[hidden] {

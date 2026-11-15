@@ -1,11 +1,18 @@
 <script lang="ts">
   // The headings over a list's columns, laid out as its rows are. Each row's cells say what they
   // are to a screen reader, so the headings are for the eye. One over figures aligns to its end.
+  // Dimmed with their list, when it steps back.
   type Heading = { name: string; end?: boolean }
-  let { columns, names }: { columns: string; names: readonly Heading[] } = $props()
+  type Props = { columns: string; names: readonly Heading[]; dimmed?: boolean }
+  let { columns, names, dimmed = false }: Props = $props()
 </script>
 
-<div class="headings" aria-hidden="true" style:grid-template-columns={columns}>
+<div
+  class="headings"
+  aria-hidden="true"
+  data-dimmed={dimmed || undefined}
+  style:grid-template-columns={columns}
+>
   {#each names as { name, end }, i (i)}<span class:end>{name}</span>{/each}
 </div>
 
@@ -26,6 +33,11 @@
     font-size: var(--text-small);
     font-weight: var(--weight-label);
     color: var(--color-muted);
+  }
+
+  /* As the list's rows step back (Listbox). */
+  .headings[data-dimmed] > span {
+    filter: var(--step-back);
   }
 
   .end {

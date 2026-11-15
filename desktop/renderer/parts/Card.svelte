@@ -27,11 +27,21 @@
 
 <style>
   .card {
+    position: relative;
     display: grid;
     border-radius: 0 0 var(--radius-card) var(--radius-card);
     background: var(--color-card);
-    box-shadow: var(--shadow-lift);
     animation: open var(--duration-open) var(--ease-out);
+  }
+
+  /* The ring over the body and the foot alike, since the foot's band would hide an inset shadow. */
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: var(--ring-lift-tail);
+    pointer-events: none;
   }
 
   .body {
