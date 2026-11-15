@@ -283,8 +283,8 @@ jobs:
         run: bun run check
 
   # The desktop app. Main's tests run on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so they
-  # load the better-sqlite3 binary the app ships with. Then the app is built, packaged, and driven
-  # end to end both ways.
+  # load the better-sqlite3 binary the app ships with. Then the app is packaged, and the packaged
+  # app is driven end to end.
   desktop:
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
@@ -351,20 +351,19 @@ jobs:
       - name: Install xdotool and ImageMagick
         run: ../.github/ci/debs.sh install ~/e2e-debs xdotool imagemagick
 
-      # The built app, driven as a person would use it: the stories' acceptance. The runner gives
+      - name: Package
+        run: bun run package
+
+      # The scenes' tests open the recorded scenes, which `package` doesn't build.
+      - name: Build the scenes
+        run: bun run scenes
+
+      # The packaged app, driven as a person would use it: the stories' acceptance. Only this
+      # build is driven: it runs every test out/ does, on what ships. The runner gives
       # each of its four shards a virtual display of its own, since the shortcut tests press keys
       # with xdotool and two apps on one display would take each other's. Ubuntu 24.04 blocks the
       # user namespaces Chromium's sandbox needs, so the app runs without it here (`NO_SANDBOX`);
       # its window is unchanged.
-      - name: End to end, from out/
-        env:
-          NO_SANDBOX: "1"
-        run: bun run e2e
-
-      - name: Package
-        run: bun run package
-
-      # The same shards, without the build: `package` above made what E2E_APP names.
       - name: End to end, packaged
         env:
           NO_SANDBOX: "1"
