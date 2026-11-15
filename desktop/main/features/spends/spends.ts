@@ -69,7 +69,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
 
   const docs = [...from.value.made, ...to.value.made, spend]
   const { applied, changes } = applyKeeping(ctx, docs, now, [spend])
-  record(ctx, { kind: 'write', description: spend.description }, changes)
+  record(ctx, { action: 'write', description: spend.description }, changes)
   const written = idOf(applied, spend.id)
   // Only an account that pays: the next coffee never comes out of salary.
   if (written.ok && !income) ctx.machine.usedFrom(from.value.id)
@@ -121,7 +121,7 @@ function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
  */
 export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
   const { edited, changes } = edit(ctx, input)
-  record(ctx, { kind: 'edit', description: input.description.trim() }, changes)
+  record(ctx, { action: 'edit', description: input.description.trim() }, changes)
   return edited
 }
 
@@ -256,7 +256,7 @@ export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outco
   const now = ctx.now()
   const tombstone: TransactionDoc = { ...doc, postings: [], deletedAt: now }
   const { applied, changes } = applyKeeping(ctx, [tombstone], now, [tombstone])
-  record(ctx, { kind: 'remove', description: doc.description }, changes)
+  record(ctx, { action: 'remove', description: doc.description }, changes)
   return idOf(applied, id)
 }
 

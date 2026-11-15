@@ -75,7 +75,7 @@ export function addAccount(ctx: Context, input: InputOf<'account.add'>): Outcome
 
   // The account and its starting balance are one batch, and one step.
   const { applied, changes } = applyKeeping(ctx, [account, ...docs], now, [account, ...kept])
-  record(ctx, { kind: 'addAccount', name }, changes, { spends: [], accounts: [account.id] })
+  record(ctx, { action: 'addAccount', name }, changes, { spends: [], accounts: [account.id] })
   return idOf(applied, account.id)
 }
 
@@ -104,7 +104,7 @@ export function startAccount(
 
   const { docs, kept } = start.value
   const { applied, changes } = applyKeeping(ctx, docs, now, kept)
-  record(ctx, { kind: 'start', name: nameOf(account.path) }, changes, {
+  record(ctx, { action: 'start', name: nameOf(account.path) }, changes, {
     spends: [],
     accounts: [id],
   })
