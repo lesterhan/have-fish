@@ -1,5 +1,6 @@
 // What each account holds, as a tree: a parent's balance is its own and its children's, rolled
 // up per currency, the way hledger's balance report shows it.
+// An account at a root itself is a line beside the root's children, holding its own money only.
 
 /** An account and what its own postings sum to in each currency, in cents. */
 export type Held = { id: string; path: string; totals: readonly Total[] }
@@ -37,7 +38,7 @@ export function balanceRows(accounts: readonly Held[]): BalanceRow[] {
     let node: Node | undefined
     // An account at the root itself (`assets`) is a line of its own beside the root's children.
     if (parts.length === 0) {
-      node = roots.get(root) ?? { id: null, path: root, children: new Map(), own: [] }
+      node = { id: null, path: root, children: new Map(), own: [] }
       roots.set(root, node)
     }
     for (const part of parts) {
