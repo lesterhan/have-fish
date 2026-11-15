@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
@@ -145,7 +153,18 @@ describe('foreign keys', () => {
 })
 
 describe('the backup', () => {
-  const copies = () => (existsSync(backups) ? readdirSync(backups) : [])
+  const copies = () => (existsSync(backups) ? readdirSync(backups).sort() : [])
+  const broken: Migration = { tag: '0001_broken', statements: ['ALTER TABLE missing ADD y TEXT'] }
+  /** The names in a copy's `item`, in the order they went in. */
+  const namesIn = (copy: string) => {
+    const file = new Database(join(backups, copy), { readonly: true })
+    try {
+      return file.prepare('SELECT name FROM item ORDER BY id').pluck().all()
+    } finally {
+      file.close()
+    }
+  }
+  const addItem = (name: string) => db.prepare('INSERT INTO item (name) VALUES (?)').run(name)
 
   test('a file with data is copied before a new migration, as it was', () => {
     migrate(db, [first], NOW, backups)
@@ -203,5 +222,116 @@ describe('the backup', () => {
     migrate(db, [first, later], NOW, backups)
     migrate(db, [first], NOW, backups)
     expect(copies()).toEqual([])
+  })
+
+  test('a migration that keeps failing is copied for once', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    for (const at of [NOW, NOW + 1000, NOW + 2000]) {
+      expect(() => migrate(db, [first, broken], at, backups)).toThrow()
+    }
+    expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'])
+  })
+
+  test('a file changed between two failed starts is copied again, and the first copy kept', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    addItem('since')
+
+    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(copies()).toEqual([
+      'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite',
+      'ledger-2026-10-22T12-00-01-000Z-before-0001_broken.sqlite',
+    ])
+    expect(namesIn('ledger-2026-10-22T12-00-01-000Z-before-0001_broken.sqlite')).toEqual([
+      'kept',
+      'since',
+    ])
+  })
+
+  test('the first copy is left as it was when a later one is made', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    addItem('since')
+    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+
+    expect(copies()).toHaveLength(2)
+    expect(namesIn('ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite')).toEqual(['kept'])
+  })
+
+  test('a copy before another migration does not stand in for this one', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+
+    expect(migrate(db, [first, second], NOW + 1000, backups)).toEqual(applied(['0001_second']))
+    expect(copies()).toEqual([
+      'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite',
+      'ledger-2026-10-22T12-00-01-000Z-before-0001_second.sqlite',
+    ])
+  })
+
+  test('a change near the end of a large file is copied again', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    // About 3.2 MiB, past three chunks.
+    db.prepare(
+      "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 30000) INSERT INTO item (name) SELECT printf('%0100d', i) FROM n",
+    ).run()
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    // The same length, so the copy is the same size.
+    db.prepare("UPDATE item SET name = printf('%0100d', 0) WHERE id = 30001").run()
+
+    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    expect(copies()).toHaveLength(2)
+  })
+
+  test('a partial copy left by a crash is cleared, and a whole one made', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    mkdirSync(backups)
+    writeFileSync(join(backups, 'copying.partial'), 'half')
+
+    expect(migrate(db, [first, second], NOW, backups)).toEqual(applied(['0001_second']))
+    expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_second.sqlite'])
+  })
+
+  test("a broken file under a copy's name is kept, and never stands in", () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    mkdirSync(backups)
+    const planted = 'ledger-2026-10-22T11-00-00-000Z-before-0001_second.sqlite'
+    writeFileSync(join(backups, planted), 'half')
+
+    migrate(db, [first, second], NOW, backups)
+    expect(copies()).toEqual([planted, 'ledger-2026-10-22T12-00-00-000Z-before-0001_second.sqlite'])
+    expect(readFileSync(join(backups, planted), 'utf8')).toBe('half')
+  })
+
+  test('a copy is never written over', () => {
+    const copy = 'ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    addItem('since')
+
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(
+      `${copy} is already there, and differs`,
+    )
+    expect(copies()).toEqual([copy])
+    expect(namesIn(copy)).toEqual(['kept'])
+  })
+
+  test('once the migration is mended, it runs with the copy it already has', () => {
+    migrate(db, [first], NOW, backups)
+    addItem('kept')
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(() => migrate(db, [first, broken], NOW + 1000, backups)).toThrow(/no such table/)
+    const mended: Migration = { tag: '0001_broken', statements: ['ALTER TABLE item ADD y TEXT'] }
+
+    expect(migrate(db, [first, mended], NOW + 2000, backups)).toEqual(applied(['0001_broken']))
+    expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'])
   })
 })
