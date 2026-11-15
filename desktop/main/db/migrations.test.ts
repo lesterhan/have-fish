@@ -65,7 +65,11 @@ const columnsOf = (db: Database.Database, table: string) =>
   (db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name)
 
 const rowsIn = (db: Database.Database, table: string) =>
-  db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() as Record<string, unknown>[]
+  db.prepare<[], Record<string, unknown>>(`SELECT * FROM ${table} ORDER BY rowid`).all()
+
+/** The migrations up to `tag`, and it. */
+const migrationsThrough = (tag: string, migrations: readonly Migration[]) =>
+  migrations.slice(0, migrations.findIndex((m) => m.tag === tag) + 1)
 
 /** A file stopped at `tag` holding today's rows, copied to `a/` and `b/` under `root`. */
 function fileStoppedAt(
@@ -74,12 +78,11 @@ function fileStoppedAt(
 ): { root: string; held: Held } {
   const root = mkdtempSync(join(tmpdir(), 'havefish-upgrade-'))
   onTestFinished(() => rmSync(root, { recursive: true, force: true }))
-  const through = migrations.slice(0, migrations.findIndex((m) => m.tag === tag) + 1)
   const old = ok(
     openLedger({
       dir: join(root, 'old'),
       installId: 'install-old',
-      migrations: through,
+      migrations: migrationsThrough(tag, migrations),
       now: MADE,
     }),
   )
@@ -149,10 +152,10 @@ describe('a file stopped at each migration', () => {
 })
 
 /** The device id the file at `dir` holds, read without opening it as a ledger. */
-function deviceIdIn(dir: string): string {
+function deviceIdIn(dir: string): string | undefined {
   const db = new Database(join(dir, 'ledger.sqlite'))
   try {
-    return db.prepare('SELECT deviceId FROM meta').pluck().get() as string
+    return db.prepare<[], { deviceId: string }>('SELECT deviceId FROM meta').get()?.deviceId
   } finally {
     db.close()
   }
@@ -163,13 +166,13 @@ describe('two copies of a file stopped at each migration', () => {
     'stopped at %s, hold the same documents once two installs upgrade them at two times',
     (tag) => {
       const { root } = fileStoppedAt(tag, MIGRATIONS)
-      const through = MIGRATIONS.slice(0, MIGRATIONS.findIndex((m) => m.tag === tag) + 1)
-      const oldDeviceId = deviceIdIn(join(root, 'a'))
+      const oldDeviceId = deviceIdIn(join(root, 'b'))
+      expect(oldDeviceId).toMatch(/^[0-9a-f]{16}$/)
       const before = ok(
         openLedger({
           dir: join(root, 'b'),
           installId: 'install-b',
-          migrations: through,
+          migrations: migrationsThrough(tag, MIGRATIONS),
           now: MADE + 1,
         }),
       )
@@ -198,4 +201,58 @@ describe('two copies of a file stopped at each migration', () => {
       }
     },
   )
+})
+
+const CLOCK_OR_CHANCE =
+  /\brandom(blob)?\s*\(|'now'|\bcurrent_(timestamp|date|time)\b|\b(date|time|datetime|julianday|unixepoch)\s*\(\s*\)|\bstrftime\s*\(\s*'[^']*'\s*\)/i
+
+/** True where `sql` reads SQLite's clock or its random functions. */
+const clockOrChanceIn = (sql: string) => CLOCK_OR_CHANCE.test(sql)
+
+describe('the clock or chance in a migration', () => {
+  test('no migration calls SQLite clock or random functions', () => {
+    const statements = MIGRATIONS.flatMap((m) => m.statements)
+    expect(statements.filter(clockOrChanceIn)).toEqual([])
+  })
+
+  test.each([
+    'ALTER TABLE `a` ADD `t` integer DEFAULT CURRENT_TIMESTAMP;',
+    'UPDATE `a` SET `x` = lower(hex(randomblob(8)));',
+    'UPDATE `a` SET `x` = abs(random());',
+    'UPDATE `a` SET `x` = unixepoch();',
+    "UPDATE `a` SET `x` = strftime('%s');",
+    "UPDATE `a` SET `x` = datetime('now');",
+  ])('is found in %s', (sql) => {
+    expect(clockOrChanceIn(sql)).toBe(true)
+  })
+
+  const indexOnDate = MIGRATIONS.find((m) => m.tag === '0001_ledger')?.statements.find((sql) =>
+    sql.startsWith('CREATE INDEX `transactions_date`'),
+  )
+  test.each(['UPDATE `a` SET `d` = date(`date`);', indexOnDate ?? ''])(
+    'is not found in %s',
+    (sql) => {
+      expect(sql).not.toBe('')
+      expect(clockOrChanceIn(sql)).toBe(false)
+    },
+  )
+})
+
+describe('a migration made up after today', () => {
+  test('one that adds a column is covered with no change to the test', () => {
+    const addsNote = {
+      tag: '9999_note',
+      statements: ['ALTER TABLE `transactions` ADD `note` text;'],
+    }
+    opensWhole('0001_ledger', [...MIGRATIONS, addsNote])
+    opensWhole('9999_note', [...MIGRATIONS, addsNote])
+  })
+
+  test('one that blanks a held description fails the check', () => {
+    const blanks = {
+      tag: '9999_blank',
+      statements: ["UPDATE `transactions` SET `description` = '';"],
+    }
+    expect(() => opensWhole('0001_ledger', [...MIGRATIONS, blanks])).toThrow(/to match object/)
+  })
 })
