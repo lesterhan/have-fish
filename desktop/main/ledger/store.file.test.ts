@@ -55,6 +55,7 @@ test('a new ledger file has the document tables, and refuses an amount as text',
 
 test('a transaction comes back from the file as the same JSON text', () => {
   assertInOneTransaction(transaction, (v) => {
+    expect(ledger.db.inTransaction).toBe(true)
     putDocument(ledger.db, v)
     expect(JSON.stringify(getDocument(ledger.db, 'transaction', v.doc.id))).toBe(JSON.stringify(v))
   })
@@ -62,6 +63,7 @@ test('a transaction comes back from the file as the same JSON text', () => {
 
 test('an account comes back from the file as the same JSON text', () => {
   assertInOneTransaction(account, (v) => {
+    expect(ledger.db.inTransaction).toBe(true)
     putDocument(ledger.db, v)
     expect(JSON.stringify(getDocument(ledger.db, 'account', v.doc.id))).toBe(JSON.stringify(v))
   })
@@ -72,6 +74,7 @@ test("SQL sums a transaction's postings to zero in each currency", () => {
     'SELECT currency, sum(amountCents) AS total FROM postings WHERE transactionId = ? GROUP BY currency',
   )
   assertInOneTransaction(transaction, (v) => {
+    expect(ledger.db.inTransaction).toBe(true)
     putDocument(ledger.db, v)
     for (const { total } of sums.all(v.doc.id) as { total: number }[]) expect(total).toBe(0)
   })
