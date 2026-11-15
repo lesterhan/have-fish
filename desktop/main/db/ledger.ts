@@ -45,7 +45,9 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
       db.close()
       return failure('LEDGER_UNREADABLE', { path })
     }
-    db.pragma('journal_mode = WAL')
+    // Where the disk can't do WAL, SQLite keeps the old mode and says so only in its answer.
+    const mode = db.pragma('journal_mode = WAL', { simple: true })
+    if (mode !== 'wal') throw new Error(`the ledger's journal mode stayed ${String(mode)}, not wal`)
     db.pragma('synchronous = FULL')
     db.pragma('foreign_keys = ON')
     db.pragma('busy_timeout = 5000')

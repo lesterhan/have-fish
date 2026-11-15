@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
 import type { Migration } from './migrate'
 import { MIGRATIONS } from './migrations'
@@ -73,6 +73,23 @@ test('pragmas are set properly', () => {
   expect(ledger.db.pragma('synchronous', { simple: true })).toBe(2)
   expect(ledger.db.pragma('foreign_keys', { simple: true })).toBe(1)
   expect(ledger.db.pragma('busy_timeout', { simple: true })).toBe(5000)
+})
+
+test('a file whose journal mode stays out of WAL is refused', () => {
+  const { pragma } = Database.prototype
+  // As SQLite answers where the disk can't do WAL: the old mode, and no error.
+  const spy = vi.spyOn(Database.prototype, 'pragma').mockImplementation(function (
+    this: Database.Database,
+    source,
+    options,
+  ) {
+    if (source !== 'journal_mode = WAL') return pragma.call(this, source, options)
+    return options?.simple ? 'delete' : [{ journal_mode: 'delete' }]
+  })
+  onTestFinished(() => spy.mockRestore())
+  expect(() => openLedger({ dir: join(root, 'ledger'), installId: INSTALL, now: NOW })).toThrow(
+    "the ledger's journal mode stayed delete, not wal",
+  )
 })
 
 test('a reopened file is still synchronous FULL', () => {
