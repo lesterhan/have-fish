@@ -31,21 +31,34 @@ const WRITE_SQL =
 
 const WRITE_BUILDERS = ['insert', 'update', 'delete']
 
-/** Each write `source` makes to a ledger table, as `file:line what`. */
-function writesIn(file: string, source: string): string[] {
-  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+/** True where `specifier`, imported in `file`, names `main/db/schema`. */
+const isSchema = (file: string, specifier: string) =>
+  posix.join(posix.dirname(file), specifier) === 'main/db/schema'
+
+/** The 1-based line `node` starts on. */
+const lineOf = (tree: ts.SourceFile, node: ts.Node) =>
+  tree.getLineAndCharacterOfPosition(node.getStart()).line + 1
+
+/** The names `tree` imports from `db/schema`: each table, and each namespace holding them. */
+function schemaNamesIn(file: string, tree: ts.SourceFile) {
   const tables = new Set<string>()
   const schemas = new Set<string>()
   for (const statement of tree.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
       continue
     }
-    const from = posix.join(posix.dirname(file), statement.moduleSpecifier.text)
     const bindings = statement.importClause?.namedBindings
-    if (from !== 'main/db/schema' || bindings === undefined) continue
+    if (!isSchema(file, statement.moduleSpecifier.text) || bindings === undefined) continue
     if (ts.isNamespaceImport(bindings)) schemas.add(bindings.name.text)
     else for (const e of bindings.elements) tables.add(e.name.text)
   }
+  return { tables, schemas }
+}
+
+/** Each write `source` makes to a ledger table, as `file:line what`. */
+function writesIn(file: string, source: string): string[] {
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+  const { tables, schemas } = schemaNamesIn(file, tree)
 
   const isTable = (node: ts.Node) =>
     (ts.isIdentifier(node) && tables.has(node.text)) ||
@@ -54,39 +67,60 @@ function writesIn(file: string, source: string): string[] {
       schemas.has(node.expression.text))
 
   const found: string[] = []
-  const at = (node: ts.Node) => tree.getLineAndCharacterOfPosition(node.getStart()).line + 1
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
       const { name } = node.expression
       const [table] = node.arguments
       if (WRITE_BUILDERS.includes(name.text) && table !== undefined && isTable(table)) {
-        found.push(`${file}:${at(node)} ${name.text}(${table.getText()})`)
+        found.push(`${file}:${lineOf(tree, node)} ${name.text}(${table.getText()})`)
       }
     }
     const text = textOf(node)
-    if (text !== undefined && WRITE_SQL.test(text)) found.push(`${file}:${at(node)} ${text.trim()}`)
+    if (text !== undefined && WRITE_SQL.test(text)) {
+      found.push(`${file}:${lineOf(tree, node)} ${text.trim()}`)
+    }
     ts.forEachChild(node, visit)
   }
   visit(tree)
   return found
 }
 
-/** Each re-export of `db/schema` outside `main/db/`, which hands a table on under another name. */
+/**
+ * Each export outside `main/db/` that hands a table on under another module's name: a re-export
+ * from `db/schema`, or an export of a name imported from it (`export { t }`, `export const x = t`,
+ * `export default t`).
+ */
 function schemaReExportsIn(file: string, source: string): string[] {
   if (file.startsWith('main/db/')) return []
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
-  return tree.statements
-    .filter(
-      (statement) =>
-        ts.isExportDeclaration(statement) &&
-        statement.moduleSpecifier !== undefined &&
-        ts.isStringLiteral(statement.moduleSpecifier) &&
-        posix.join(posix.dirname(file), statement.moduleSpecifier.text) === 'main/db/schema',
+  const { tables, schemas } = schemaNamesIn(file, tree)
+  const imported = (node: ts.Node | undefined) =>
+    node !== undefined && ts.isIdentifier(node) && (tables.has(node.text) || schemas.has(node.text))
+  const exported = (statement: ts.Statement) =>
+    ts.canHaveModifiers(statement) &&
+    (ts.getModifiers(statement) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+
+  const handsOn = (statement: ts.Statement) => {
+    if (ts.isExportDeclaration(statement)) {
+      const from = statement.moduleSpecifier
+      if (from !== undefined) return ts.isStringLiteral(from) && isSchema(file, from.text)
+      const clause = statement.exportClause
+      return (
+        clause !== undefined &&
+        ts.isNamedExports(clause) &&
+        clause.elements.some((e) => imported(e.propertyName ?? e.name))
+      )
+    }
+    if (ts.isExportAssignment(statement)) return imported(statement.expression)
+    return (
+      ts.isVariableStatement(statement) &&
+      exported(statement) &&
+      statement.declarationList.declarations.some((d) => imported(d.initializer))
     )
-    .map((statement) => {
-      const line = tree.getLineAndCharacterOfPosition(statement.getStart()).line + 1
-      return `${file}:${line} ${statement.getText()}`
-    })
+  }
+  return tree.statements
+    .filter(handsOn)
+    .map((statement) => `${file}:${lineOf(tree, statement)} ${statement.getText()}`)
 }
 
 /** A string's text, with each substitution of a template as `?`. */
@@ -205,7 +239,35 @@ describe('a re-export of the schema', () => {
     expect(schemaReExportsIn('main/ledger/rows.ts', `const a = 1\n${source}`)).toEqual([
       "main/ledger/rows.ts:2 export { accounts } from '../db/schema'",
     ])
+  })
+
+  it('a table imported from the schema and exported again outside main/db/ is refused', () => {
+    const imports =
+      "import { accounts } from '../db/schema'\nimport * as schema from '../db/schema'"
+    for (const line of [
+      'export { accounts }',
+      'export { accounts as a }',
+      'export const t = accounts',
+      'export default accounts',
+      'export { schema }',
+    ]) {
+      expect(schemaReExportsIn('main/ledger/store.ts', `${imports}\n${line}`)).toEqual([
+        `main/ledger/store.ts:3 ${line}`,
+      ])
+    }
+  })
+
+  it('using a table, or exporting something else, is not a re-export', () => {
+    const source =
+      "import { accounts } from '../db/schema'\nexport const f = (orm) => orm.select().from(accounts)\nconst t = accounts\nexport { f as g }"
+    expect(schemaReExportsIn('main/ledger/store.ts', source)).toEqual([])
+  })
+
+  it('main/db/ may re-export its own schema', () => {
     expect(schemaReExportsIn('main/db/clock.ts', "export { accounts } from './schema'")).toEqual([])
+  })
+
+  it('no source in main re-exports the schema outside main/db/', () => {
     expect(SOURCES.flatMap((f) => schemaReExportsIn(f, read(f)))).toEqual([])
   })
 })
