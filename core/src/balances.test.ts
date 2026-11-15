@@ -94,4 +94,62 @@ describe('balanceRows', () => {
     const [row] = balanceRows([held('a', 'assets:cash', { USD: 1, CAD: 2, EUR: 3 })])
     expect(row?.totals.map((t) => t.currency)).toEqual(['CAD', 'EUR', 'USD'])
   })
+
+  test('an account at a root is a line of its own beside the root’s children', () => {
+    const rows = balanceRows([
+      held('a', 'assets', { CAD: 5000 }),
+      held('c', 'assets:cash', { CAD: 1200 }),
+    ])
+
+    expect(rows.map(line)).toEqual(['assets a 5000 CAD', 'cash c 1200 CAD'])
+  })
+
+  test('an account at a root has the root as its root and its path, at depth 0', () => {
+    const rows = balanceRows([
+      held('a', 'assets', { CAD: 5000 }),
+      held('l', 'liabilities', { CAD: -900 }),
+    ])
+
+    expect(rows.map(line)).toEqual(['assets a 5000 CAD', 'liabilities l -900 CAD'])
+    expect(rows.map((r) => r.root)).toEqual(['assets', 'liabilities'])
+    expect(rows.map((r) => r.path)).toEqual(['assets', 'liabilities'])
+    expect(rows.map((r) => r.depth)).toEqual([0, 0])
+  })
+
+  test('an account at a root sorts by its name among the top level', () => {
+    const rows = balanceRows([
+      held('m', 'assets:amex'),
+      held('a', 'assets'),
+      held('c', 'assets:cash'),
+    ])
+
+    expect(rows.map(line)).toEqual(['amex m', 'assets a', 'cash c'])
+  })
+
+  test('an account at a root and a child of the same name are two lines, the root’s first', () => {
+    const rows = balanceRows([
+      held('x', 'assets:assets', { CAD: 1 }),
+      held('a', 'assets', { CAD: 2 }),
+    ])
+
+    expect(rows.map(line)).toEqual(['assets a 2 CAD', 'assets x 1 CAD'])
+    expect(rows.map((r) => r.path)).toEqual(['assets', 'assets:assets'])
+  })
+
+  test('an account at a root at zero still has its row', () => {
+    expect(balanceRows([held('a', 'assets', { CAD: 0 })]).map(line)).toEqual(['assets a'])
+  })
+
+  test('the top-level lines of a root count each cent once, an account at the root included', () => {
+    const rows = balanceRows([
+      held('a', 'assets', { CAD: 5000 }),
+      held('c', 'assets:cash', { CAD: 1200 }),
+      held('w', 'assets:wise:cad', { CAD: 300 }),
+    ])
+
+    const topLevel = rows.filter((r) => r.depth === 0 && r.root === 'assets')
+    expect(topLevel.map((r) => r.path)).toEqual(['assets', 'assets:cash', 'assets:wise'])
+    const cad = topLevel.flatMap((r) => r.totals).filter((t) => t.currency === 'CAD')
+    expect(cad.reduce((sum, t) => sum + t.cents, 0)).toBe(6500)
+  })
 })
