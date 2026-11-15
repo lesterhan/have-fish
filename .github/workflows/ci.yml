@@ -4,6 +4,11 @@ on:
   pull_request:
     branches: [main]
 
+# A new push to a pull request stops the run for the push before it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # What the pull request touches, so each suite below runs only for its own half of the repo.
   # The jobs are gated with `if` rather than the workflow with `paths`: a skipped job counts as
@@ -19,20 +24,21 @@ jobs:
     steps:
       # A pull request checks out its merge commit; depth 2 brings its first parent, the base
       # branch it merges into, so the diff between them is exactly what the PR changes.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
       # backend/ and frontend/ are one unit: the frontend imports the backend's codes, the
       # backend's error test reads the frontend's copy, and the local binary builds both.
       # A change to this file runs everything, so an edit to a job is tested by its own PR.
+      # So does `.bun-version`, the Bun every job runs on.
       - name: List what changed
         id: diff
         run: |
           changed=$(git diff --name-only HEAD^1 HEAD)
           echo "$changed"
           touches() { grep -qE "$1" <<<"$changed"; }
-          all=false; touches '^\.github/workflows/ci\.yml$' && all=true
+          all=false; touches '^(\.github/workflows/ci\.yml|\.bun-version)$' && all=true
           app=$all; touches '^(backend|frontend)/' && app=true
           # The root package.json and bun.lock are the rewrite's workspace, so they run both of
           # its suites. desktop/ imports core/, so a change to the core runs the desktop's too.
@@ -52,11 +58,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install Biome
         run: bun install
@@ -99,11 +105,11 @@ jobs:
       REQUIRE_HLEDGER: '1'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       # The journal export's acceptance test (#283, src/export/hledger.test.ts) hands the
       # export to a real hledger and checks it reports the app's balances to the cent.
@@ -158,11 +164,11 @@ jobs:
       REQUIRE_HLEDGER: '1'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install hledger
         run: |
@@ -191,11 +197,11 @@ jobs:
       PUBLIC_VERSION: ${{ github.sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -227,11 +233,11 @@ jobs:
       PUBLIC_VERSION: ${{ github.sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -267,11 +273,11 @@ jobs:
         working-directory: core
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install core dependencies
         run: bun install --frozen-lockfile
@@ -283,8 +289,8 @@ jobs:
         run: bun run check
 
   # The desktop app. Main's tests run on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so they
-  # load the better-sqlite3 binary the app ships with. Then the app is built, packaged, and driven
-  # end to end both ways.
+  # load the better-sqlite3 binary the app ships with. Then the app is packaged, and the packaged
+  # app is driven end to end.
   desktop:
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
@@ -295,11 +301,11 @@ jobs:
         working-directory: desktop
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Install desktop dependencies
         run: bun install --frozen-lockfile
@@ -322,16 +328,16 @@ jobs:
         run: bun run check
 
       # The shortcut tests press real keys, since Electron's menu never sees the ones Playwright
-      # sends over DevTools. The scenes' shots need ImageMagick's compare to say what moved.
-      # Their .debs are cached per runner image, so a mirror that's down fails only a run with
-      # nothing cached, and that one retries first.
+      # sends over DevTools. ImageMagick is for the shots job, which shares this cache. The .debs
+      # are cached per runner image, so a mirror that's down fails only a run with nothing
+      # cached, and that one retries first.
       - name: Name the runner image
         id: image
         run: echo "name=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Restore xdotool and ImageMagick
         id: debs
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/e2e-debs
           key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
@@ -343,7 +349,7 @@ jobs:
       # Saved now, not at the job's end, so a red e2e run still keeps them.
       - name: Keep xdotool and ImageMagick
         if: steps.debs.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/e2e-debs
           key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
@@ -351,30 +357,92 @@ jobs:
       - name: Install xdotool and ImageMagick
         run: ../.github/ci/debs.sh install ~/e2e-debs xdotool imagemagick
 
-      # The built app, driven as a person would use it: the stories' acceptance. The runner gives
-      # each of its four shards a virtual display of its own, since the shortcut tests press keys
-      # with xdotool and two apps on one display would take each other's. Ubuntu 24.04 blocks the
-      # user namespaces Chromium's sandbox needs, so the app runs without it here (`NO_SANDBOX`);
-      # its window is unchanged.
-      - name: End to end, from out/
-        env:
-          NO_SANDBOX: "1"
-        run: bun run e2e
-
       - name: Package
         run: bun run package
 
-      # The same shards, without the build: `package` above made what E2E_APP names.
+      # The scenes' tests open the recorded scenes, which `package` doesn't build.
+      - name: Build the scenes
+        run: bun run scenes
+
+      # The packaged app, driven as a person would use it: the stories' acceptance. Only this
+      # build is driven: it runs every test out/ does, on what ships. The runner gives
+      # each of its four shards a virtual display of its own, since the shortcut tests press keys
+      # with xdotool and two apps on one display would take each other's. Ubuntu 24.04 blocks the
+      # user namespaces Chromium's sandbox needs, so the app runs without it here (`NO_SANDBOX`);
+      # its window is unchanged. The shots are left to their own job, below.
       - name: End to end, packaged
         env:
           NO_SANDBOX: "1"
           E2E_APP: dist/linux-unpacked/have-fish
-        run: bun tools/e2e-shards.ts
+        run: bun tools/e2e-shards.ts --exclude=e2e/shots.e2e.ts
 
       # The AppImage, to try a pull request without building it.
       - name: Upload the AppImage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: have-fish-appimage
           path: desktop/dist/*.AppImage
           retention-days: 7
+
+  # The scenes' shots, gallery and diff, run as a person runs them. They test the scenes' tools,
+  # never the app, and alone take longer than the rest of the suite does in its four shards, so
+  # they run beside the desktop job instead of setting its pace.
+  shots:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install desktop dependencies
+        run: bun install --frozen-lockfile
+
+      # The scenes are recorded on Electron's Node.
+      - name: Download Electron
+        run: ./node_modules/.bin/install-electron
+
+      # The diff needs ImageMagick's compare to say what moved, and the runner asks for xdotool
+      # before it starts. The same two as the desktop job, so both share one cache.
+      - name: Name the runner image
+        id: image
+        run: echo "name=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xdotool and ImageMagick
+        id: debs
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/e2e-debs
+          key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
+
+      - name: Fetch xdotool and ImageMagick
+        if: steps.debs.outputs.cache-hit != 'true'
+        run: ../.github/ci/debs.sh fetch ~/e2e-debs xdotool imagemagick
+
+      # Saved now, not at the job's end, so a red e2e run still keeps them.
+      - name: Keep xdotool and ImageMagick
+        if: steps.debs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/e2e-debs
+          key: e2e-debs-${{ steps.image.outputs.name }}-xdotool-imagemagick
+
+      - name: Install xdotool and ImageMagick
+        run: ../.github/ci/debs.sh install ~/e2e-debs xdotool imagemagick
+
+      - name: Build the scenes
+        run: bun run scenes
+
+      # One shard: the file's tests share the shots they take, in order.
+      - name: The shots
+        env:
+          NO_SANDBOX: "1"
+        run: bun tools/e2e-shards.ts --shards=1 shots

@@ -21,6 +21,8 @@ let nextDisplay = 91
  * as vitest does: `bun run e2e scenes`. None: the whole suite. */
 const vitest = join('node_modules', '.bin', 'vitest')
 const filter = process.argv.slice(2).filter((word) => !word.startsWith('--'))
+/** `--exclude=<glob>` leaves files out, as vitest's own does: CI runs the shots in their own job. */
+const exclude = process.argv.slice(2).filter((word) => word.startsWith('--exclude='))
 // passWithNoTests: a filter can leave a shard nothing, and that's not a failure.
 const args = [
   'run',
@@ -28,6 +30,7 @@ const args = [
   'vitest.e2e.config.ts',
   '--reporter=dot',
   '--passWithNoTests',
+  ...exclude,
   ...filter,
 ]
 
