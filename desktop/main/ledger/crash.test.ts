@@ -1,4 +1,5 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,7 +13,28 @@ const BATCH = 40
 const INSTALL = 'crash'
 const DESKTOP = join(import.meta.dirname, '..', '..')
 
-type Killed = { signal: NodeJS.Signals | null; told: number[]; walBytes: number; ledger: Ledger }
+type Killed = {
+  signal: NodeJS.Signals | null
+  told: number[]
+  walBytes: number
+  /** `saved` was longer just before the kill than at its first line: the writer was writing. */
+  grew: boolean
+  ledger: Ledger
+}
+
+/** Every writer started, so `afterAll` can stop any a failure left running. */
+const children = new Set<ChildProcess>()
+
+const running = (child: ChildProcess) => child.exitCode === null && child.signalCode === null
+
+/** Kills a writer's process group; one already gone is no failure. */
+function killGroup(pid: number): void {
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch (e) {
+    if (!(e instanceof Error && 'code' in e && e.code === 'ESRCH')) throw e
+  }
+}
 
 /** Runs a writer into `dir`, kills its process group at a random moment, and opens what it left. */
 async function killOne(writer: string, dir: string): Promise<Killed> {
@@ -21,6 +43,7 @@ async function killOne(writer: string, dir: string): Promise<Killed> {
     stdio: ['ignore', 'ignore', 'inherit'],
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   })
+  children.add(child)
   const { pid } = child
   if (pid === undefined) throw new Error('the writer did not start')
   const exited = new Promise<NodeJS.Signals | null>((resolve) =>
@@ -33,16 +56,18 @@ async function killOne(writer: string, dir: string): Promise<Killed> {
       if (Date.now() - started > 20_000) throw new Error('the writer told no batch')
       await setTimeout(5)
     }
-    await setTimeout(Math.random() * 400)
-    process.kill(-pid, 'SIGKILL')
+    const first = statSync(saved).size
+    await setTimeout(100 + Math.random() * 400)
+    const grew = statSync(saved).size > first
+    killGroup(pid)
     const signal = await exited
     const text = readFileSync(saved, 'utf8')
     const told = text.slice(0, text.lastIndexOf('\n')).split('\n').map(Number)
     const walBytes = statSync(join(dir, 'ledger.sqlite-wal')).size
     const ledger = ok(openLedger({ dir, installId: INSTALL, now: Date.now() }))
-    return { signal, told, walBytes, ledger }
+    return { signal, told, walBytes, grew, ledger }
   } finally {
-    if (child.exitCode === null && child.signalCode === null) process.kill(-pid, 'SIGKILL')
+    if (running(child)) killGroup(pid)
   }
 }
 
@@ -67,12 +92,22 @@ beforeAll(async () => {
   if (built.status !== 0) throw new Error(built.stderr)
   // The bundle finds better-sqlite3 beside it.
   symlinkSync(join(DESKTOP, 'node_modules'), join(root, 'node_modules'))
-  killed = await Promise.all(
+  // Every kill settles first, so the ledgers that did open are kept for `afterAll` to close.
+  const settled = await Promise.allSettled(
     Array.from({ length: KILLS }, (_, i) => killOne(writer, join(root, `ledger-${i}`))),
   )
+  killed = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []))
+  const failed = settled.find((s) => s.status === 'rejected')
+  if (failed !== undefined) throw failed.reason
 }, 60_000)
 
-afterAll(() => {
+afterAll(async () => {
+  for (const child of children) {
+    if (!running(child) || child.pid === undefined) continue
+    const exit = once(child, 'exit')
+    killGroup(child.pid)
+    await exit
+  }
   for (const { ledger } of killed) ledger.close()
   rmSync(root, { recursive: true, force: true })
 })
@@ -80,10 +115,11 @@ afterAll(() => {
 describe('a ledger whose writer is killed mid-write', () => {
   it('each writer was killed by SIGKILL while writing, with a batch told and frames in the WAL', () => {
     expect(killed).toHaveLength(KILLS)
-    for (const { signal, told, walBytes } of killed) {
+    for (const { signal, told, walBytes, grew } of killed) {
       expect(signal).toBe('SIGKILL')
       expect(told).not.toEqual([])
       expect(walBytes).toBeGreaterThan(0)
+      expect(grew).toBe(true)
     }
   })
 
