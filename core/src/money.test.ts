@@ -71,24 +71,23 @@ describe('parseExact', () => {
   })
 
   it('refuses a digit past the cent that parse rounds away', () => {
-    expect([parse('10.004'), parse('-10.004'), parse('12.345'), parse('12.3449999')]).toEqual([
-      1000, -1000, 1235, 1234,
-    ])
-    expect(parseExact('10.004')).toBeNull()
-    expect(parseExact('-10.004')).toBeNull()
-    expect(parseExact('12.345')).toBeNull()
-    expect(parseExact('12.3449999')).toBeNull()
+    const pastTheCent = [
+      '10.004',
+      '-10.004',
+      '12.345',
+      '12.3449999',
+      '10.0004',
+      '-10.0001',
+      '12.30001',
+    ]
+    expect(pastTheCent.map(parse)).toEqual([1000, -1000, 1235, 1234, 1000, -1000, 1230])
+    expect(pastTheCent.map(parseExact)).toEqual(pastTheCent.map(() => null))
   })
 
   it('refuses an amount under a cent rather than reading it as 0', () => {
     const underACent = ['0.005', '-0.001', '1e-7', '1e-999999', '0.00010', '10e-5']
     expect(underACent.map(parse)).toEqual([1, 0, 0, 0, 0, 0])
-    expect(parseExact('0.005')).toBeNull()
-    expect(parseExact('-0.001')).toBeNull()
-    expect(parseExact('1e-7')).toBeNull()
-    expect(parseExact('1e-999999')).toBeNull()
-    expect(parseExact('0.00010')).toBeNull()
-    expect(parseExact('10e-5')).toBeNull()
+    expect(underACent.map(parseExact)).toEqual(underACent.map(() => null))
   })
 
   it('counts places on the value after the exponent, not in the text', () => {
@@ -104,7 +103,7 @@ describe('parseExact', () => {
     expect(parseExact('9999999999.994')).toBeNull()
   })
 
-  it('never answers negative zero', () => {
+  it('reads a zero with either sign as 0, never -0', () => {
     expect(Object.is(parseExact('-0.000'), 0)).toBe(true)
     expect(parseExact('0')).toBe(0)
   })

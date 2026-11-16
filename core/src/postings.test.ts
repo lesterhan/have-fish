@@ -147,6 +147,14 @@ describe('validatePostings', () => {
     })
   })
 
+  it('refuses a digit four places in', () => {
+    const postings = [leg('10.0004', CAD, A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '10.0004' } },
+    })
+  })
+
   it('names the posting past the cent when it is the second', () => {
     const postings = [leg('1.00', CAD, A), leg('-0.999', CAD, B)]
     expect(validatePostings(postings)).toEqual({
