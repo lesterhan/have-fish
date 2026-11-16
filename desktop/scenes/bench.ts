@@ -1,5 +1,5 @@
-// The design bench: a bar of controls over the scene they name, framed once per theme shown.
-// The rules are in controls.ts; this only draws them.
+// The design bench: a bar of controls over the scene they name, framed once per theme shown,
+// and the theme lab's panel under it. The rules are in controls.ts and lab.ts; this draws them.
 
 import { SCHEMES } from '../shared/theme/contract'
 import type { Theme } from '../shared/theme/theme'
