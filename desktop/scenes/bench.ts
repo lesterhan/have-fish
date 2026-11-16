@@ -25,22 +25,37 @@ import {
   SCHEME_LABELS,
   SLIDERS,
 } from './lab'
+import {
+  matchedOf,
+  namesRead,
+  partOf,
+  partRun,
+  readoutOf,
+  SVELTE_META,
+  SWALLOWED,
+  tokenNamesOf,
+} from './pick'
 import { GRID_STYLE, groupsOf, pasteOf, styleOf, type Typed } from './tokens'
 
 const bar = byId('controls')
 const shelf = byId('frames')
 const labBody = byId('lab-body')
 const spacingBody = byId('spacing-body')
+const pickBody = byId('pick-body')
 
 let bench = benchOf(location.search)
 let lab: Lab = BUILT_IN_LAB
 let typed: Typed = {}
 let grid = false
+let picking = false
 history.replaceState(null, '', searchOf(bench))
 
 /** The space and type tokens tokens.css declares, by fieldset, and all of them in its order. */
 const groups = groupsOf(tokensCss)
 const fields = groups.flatMap((group) => group.tokens)
+
+/** The tokens a part's rules can read, the colours last. */
+const tokenNames = tokenNamesOf(tokensCss)
 
 const GRID_ID = 'bench-grid'
 
@@ -167,6 +182,16 @@ paste.cols = 48
 pasteFigure.append(pasteCaption, paste)
 spacingBody.append(pasteFigure)
 
+const pickLabel = document.createElement('label')
+const pickBox = document.createElement('input')
+pickBox.type = 'checkbox'
+pickBox.addEventListener('change', () => {
+  picking = pickBox.checked
+})
+pickLabel.append(pickBox, 'Pick: a click in a frame names what it hits, and the app never sees it')
+const readout = document.createElement('ul')
+pickBody.append(pickLabel, readout)
+
 showLab()
 showPaste()
 show()
@@ -208,7 +233,10 @@ function frameAt(i: number): HTMLIFrameElement {
   const found = shelf.children[i]
   if (found instanceof HTMLIFrameElement) return found
   const made = document.createElement('iframe')
-  made.addEventListener('load', () => paint(made))
+  made.addEventListener('load', () => {
+    paint(made)
+    listen(made)
+  })
   shelf.append(made)
   return made
 }
@@ -249,4 +277,80 @@ function showLab() {
 /** Says every token changed in the panel or the lab, as one block to paste. */
 function showPaste() {
   paste.value = pasteOf(fields, typed, lab)
+}
+
+/** While picking, keeps a frame's presses from the app, and names what a click hits. */
+function listen(iframe: HTMLIFrameElement) {
+  const view = iframe.contentWindow
+  if (view === null) return
+  for (const type of SWALLOWED) {
+    view.addEventListener(
+      type,
+      (event) => {
+        if (picking) swallow(event)
+      },
+      true,
+    )
+  }
+  view.addEventListener(
+    'click',
+    (event) => {
+      if (!picking) return
+      swallow(event)
+      pickAt(iframe, event.clientX, event.clientY)
+    },
+    true,
+  )
+}
+
+/** Keeps a press from the app: its default and every other listener. */
+function swallow(event: Event) {
+  event.preventDefault()
+  event.stopImmediatePropagation()
+}
+
+/** Says which part drew what's at (x, y) in a frame, the tokens its rules read, and its box. */
+function pickAt(iframe: HTMLIFrameElement, x: number, y: number) {
+  const view = iframe.contentWindow
+  if (view === null) return
+  const element = view.document.elementFromPoint(x, y)
+  if (element === null) return
+  const chain: Element[] = []
+  for (let at: Element | null = element; at !== null; at = at.parentElement) chain.push(at)
+  const drawn = chain.slice(0, partRun(chain.map((at) => Reflect.get(at, SVELTE_META))))
+  const blocks = drawn.flatMap((at) => [
+    at.getAttribute('style') ?? '',
+    ...[...view.document.styleSheets].flatMap((sheet) =>
+      matchedOf(
+        sheet.cssRules,
+        (selector) => at.matches(selector),
+        (condition) => view.matchMedia(condition).matches,
+      ),
+    ),
+  ])
+  const computed = view.getComputedStyle(element)
+  const rect = element.getBoundingClientRect()
+  const sides = (property: string) =>
+    ['top', 'right', 'bottom', 'left']
+      .map((side) => computed.getPropertyValue(`${property}-${side}`))
+      .join(' ')
+  readout.replaceChildren(
+    ...readoutOf({
+      frame: iframe.title,
+      tag: element.localName,
+      part: partOf(Reflect.get(element, SVELTE_META)),
+      tokens: namesRead(blocks, tokenNames).map((name) => ({
+        name,
+        value: computed.getPropertyValue(name).trim(),
+      })),
+      width: rect.width,
+      height: rect.height,
+      padding: sides('padding'),
+      margin: sides('margin'),
+    }).map((line) => {
+      const item = document.createElement('li')
+      item.textContent = line
+      return item
+    }),
+  )
 }
