@@ -26,23 +26,23 @@ type VersionRow = { id: string; version: string }
 
 export function checkLedger(db: Database.Database): LedgerCheck {
   return db.transaction((): LedgerCheck => {
-    const damaged = db.prepare<[], string>('PRAGMA integrity_check').pluck().all()
+    const integrity = db.prepare<[], string>('PRAGMA integrity_check').pluck().all()
     // A damaged file stops here: the queries below would read what it says is broken.
-    if (damaged.length !== 1 || damaged[0] !== 'ok') {
+    if (integrity.length !== 1 || integrity[0] !== 'ok') {
       return {
-        faults: damaged.map((message) => ({ code: 'FILE_DAMAGED', message })),
+        faults: integrity.map((message) => ({ code: 'FILE_DAMAGED', message })),
         pending: 0,
       }
     }
     const faults: Fault[] = []
 
-    const sums = db
+    const unbalanced = db
       .prepare<[], { transactionId: string; currency: string; cents: number }>(
         `SELECT transactionId, currency, sum(amountCents) AS cents FROM postings
          GROUP BY transactionId, currency HAVING cents <> 0 ORDER BY transactionId, currency`,
       )
       .all()
-    for (const sum of sums) faults.push({ code: 'POSTINGS_DO_NOT_BALANCE', ...sum })
+    for (const sum of unbalanced) faults.push({ code: 'POSTINGS_DO_NOT_BALANCE', ...sum })
 
     const versioned = [
       ...Object.values(STORED_TYPES).map(({ table }) => ({

@@ -17,14 +17,15 @@ import {
 } from './fixtures'
 import { queued } from './outbox'
 
-/** A ledger holding cash, food and one spend of 42.10 between them, and what applying it wrote. */
+/** A ledger with cash, food and a spend of 42.10 between them, and its newest version's text. */
 function withSpend() {
   const ledger = tempLedger()
   const cash = anAccount()
   const food = anAccount({ path: 'expenses:food', kind: 'category' })
   const spend = aSpend(cash.id, food.id, '42.10')
-  const applied = ok(applyLocal(ledger, [cash, food, spend], NOW))
-  return { ledger, cash, food, spend, applied }
+  const newest = ok(applyLocal(ledger, [cash, food, spend], NOW)).written.at(-1)
+  if (newest === undefined) throw new Error('applyLocal wrote nothing')
+  return { ledger, cash, food, spend, newest: formatVersion(newest.version) }
 }
 
 /** Changes the file by hand, around the ledger's own code. */
@@ -55,11 +56,17 @@ describe('checkLedger', () => {
     expect(checkLedger(ledger.db)).toEqual({ faults: [], pending: 0 })
   })
 
-  test('finds each line integrity_check says', () => {
-    const { ledger } = withSpend()
+  test('finds each line integrity_check says, in its order', () => {
+    const { ledger, spend } = withSpend()
     damageUnchecked(ledger, "UPDATE meta SET deviceId = 'not-hex'")
+    damageUnchecked(
+      ledger,
+      "UPDATE postings SET amountCents = '12.50' WHERE transactionId = ? AND position = 0",
+      spend.id,
+    )
     expect(checkLedger(ledger.db).faults).toEqual([
       { code: 'FILE_DAMAGED', message: 'CHECK constraint failed in meta' },
+      { code: 'FILE_DAMAGED', message: 'CHECK constraint failed in postings' },
     ])
   })
 
@@ -130,23 +137,15 @@ describe('checkLedger', () => {
   })
 
   test('finds the clock a count behind the newest version at the same time', () => {
-    const { ledger, applied } = withSpend()
+    const { ledger, newest } = withSpend()
     damage(ledger, 'UPDATE meta SET clockCounter = clockCounter - 1')
-    const newest = applied.written.at(-1)
-    if (newest === undefined) throw new Error('withSpend wrote nothing')
-    expect(checkLedger(ledger.db).faults).toEqual([
-      { code: 'CLOCK_BEHIND', newest: formatVersion(newest.version) },
-    ])
+    expect(checkLedger(ledger.db).faults).toEqual([{ code: 'CLOCK_BEHIND', newest }])
   })
 
   test('finds the clock at an earlier time behind the newest version, whatever its count', () => {
-    const { ledger, applied } = withSpend()
+    const { ledger, newest } = withSpend()
     damage(ledger, 'UPDATE meta SET clockWallMs = ?, clockCounter = 99', NOW - 1)
-    const newest = applied.written.at(-1)
-    if (newest === undefined) throw new Error('withSpend wrote nothing')
-    expect(checkLedger(ledger.db).faults).toEqual([
-      { code: 'CLOCK_BEHIND', newest: formatVersion(newest.version) },
-    ])
+    expect(checkLedger(ledger.db).faults).toEqual([{ code: 'CLOCK_BEHIND', newest }])
   })
 
   test('finds a deleted transaction that holds a posting', () => {
