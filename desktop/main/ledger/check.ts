@@ -55,11 +55,14 @@ export function checkLedger(db: Database.Database): LedgerCheck {
       },
     ]
     let newest: { version: Version; text: string } | null = null
+    const unreadable = new Set<string>()
     for (const { table, rows } of versioned) {
       for (const row of rows()) {
         const read = parseVersion(row.version)
-        if (!read.ok) faults.push({ code: 'VERSION_MALFORMED', table, id: row.id })
-        else if (newest === null || compareVersions(read.value, newest.version) > 0) {
+        if (!read.ok) {
+          faults.push({ code: 'VERSION_MALFORMED', table, id: row.id })
+          unreadable.add(`${table} ${row.id}`)
+        } else if (newest === null || compareVersions(read.value, newest.version) > 0) {
           newest = { version: read.value, text: row.version }
         }
       }
@@ -94,14 +97,18 @@ export function checkLedger(db: Database.Database): LedgerCheck {
 
     for (const [type, { table }] of Object.entries(STORED_TYPES)) {
       const rows = db
-        .prepare<[string], { rowId: string; missing: number }>(
-          `SELECT o.rowId, d.id IS NULL AS missing FROM outbox o
+        .prepare<[string], { rowId: string; docId: string; missing: number }>(
+          `SELECT o.rowId, o.docId, d.id IS NULL AS missing FROM outbox o
            LEFT JOIN ${table} d ON d.id = o.docId
            WHERE o.docType = ? AND (d.id IS NULL OR o.version > d.version) ORDER BY o.rowId`,
         )
         .all(type)
-      for (const { rowId, missing } of rows) {
-        faults.push({ code: missing ? 'OUTBOX_NAMES_NOTHING' : 'OUTBOX_AHEAD', rowId })
+      for (const { rowId, docId, missing } of rows) {
+        if (missing) faults.push({ code: 'OUTBOX_NAMES_NOTHING', rowId })
+        // Version text sorts in version order only when it reads, so ahead is said of those alone.
+        else if (!unreadable.has(`outbox ${rowId}`) && !unreadable.has(`${table} ${docId}`)) {
+          faults.push({ code: 'OUTBOX_AHEAD', rowId })
+        }
       }
     }
     const types = Object.keys(STORED_TYPES)

@@ -123,6 +123,18 @@ describe('checkLedger', () => {
     ])
   })
 
+  test('says a row is ahead only when both versions read, whichever way the text sorts', () => {
+    const low = withSpend()
+    damage(low.ledger, "UPDATE transactions SET version = '1999' WHERE id = ?", low.spend.id)
+    const high = withSpend()
+    const rowId = rowOf(high.ledger, high.spend.id)
+    damage(high.ledger, "UPDATE outbox SET version = 'zzz' WHERE rowId = ?", rowId)
+    expect([checkLedger(low.ledger.db).faults, checkLedger(high.ledger.db).faults]).toEqual([
+      [{ code: 'VERSION_MALFORMED', table: 'transactions', id: low.spend.id }],
+      [{ code: 'VERSION_MALFORMED', table: 'outbox', id: rowId }],
+    ])
+  })
+
   test('names an outbox row whose version has the right form and a day that is not', () => {
     const { ledger, spend } = withSpend()
     const rowId = rowOf(ledger, spend.id)
@@ -226,15 +238,13 @@ describe('checkLedger', () => {
       }),
     )
     ok(applyLocal(ledger, imported, NOW))
-    const [first, second, third] = imported.map((t) => t.id)
+    const ids = imported.map((t) => t.id)
+    const [first, second, third] = ids
     damage(ledger, 'UPDATE transactions SET originFile = NULL WHERE id = ?', first)
     damage(ledger, 'UPDATE transactions SET originLine = NULL WHERE id = ?', second)
     damage(ledger, 'UPDATE transactions SET originText = NULL WHERE id = ?', third)
     expect(checkLedger(ledger.db).faults).toEqual(
-      imported
-        .map((t) => t.id)
-        .sort()
-        .map((transactionId) => ({ code: 'IMPORT_ORIGIN_MISSING', transactionId })),
+      ids.toSorted().map((transactionId) => ({ code: 'IMPORT_ORIGIN_MISSING', transactionId })),
     )
   })
 
