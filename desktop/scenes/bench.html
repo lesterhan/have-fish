@@ -29,19 +29,23 @@
       #note {
         margin: 0;
       }
-      #lab {
+      #lab,
+      #spacing {
         max-height: 40vh;
         overflow: auto;
         padding: 0 8px;
       }
-      #lab-body {
+      #lab-body,
+      #spacing-body {
         display: flex;
         flex-wrap: wrap;
         gap: 16px;
         align-items: flex-start;
         padding-bottom: 8px;
       }
-      #lab-body textarea {
+      #lab-body textarea,
+      #spacing-body textarea,
+      #spacing-body input[type='text'] {
         font-family: ui-monospace, monospace;
       }
       main {
@@ -61,6 +65,7 @@
   <body>
     <header id="controls"></header>
     <details id="lab"><summary>Theme lab</summary><div id="lab-body"></div></details>
+    <details id="spacing"><summary>Space and type</summary><div id="spacing-body"></div></details>
     <main id="frames"></main>
     <script type="module" src="./bench.ts"></script>
   </body>

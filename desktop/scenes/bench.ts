@@ -1,6 +1,8 @@
 // The design bench: a bar of controls over the scene they name, framed once per theme shown,
-// and the theme lab's panel under it. The rules are in controls.ts and lab.ts; this draws them.
+// and the theme lab's and the tokens' panels under it. The rules are in controls.ts, lab.ts and
+// tokens.ts; this draws them.
 
+import tokensCss from '../renderer/tokens.css?raw'
 import { SCHEMES } from '../shared/theme/contract'
 import type { Theme } from '../shared/theme/theme'
 import {
@@ -23,14 +25,24 @@ import {
   SCHEME_LABELS,
   SLIDERS,
 } from './lab'
+import { GRID_STYLE, groupsOf, pasteOf, styleOf, type Typed } from './tokens'
 
 const bar = byId('controls')
 const shelf = byId('frames')
 const labBody = byId('lab-body')
+const spacingBody = byId('spacing-body')
 
 let bench = benchOf(location.search)
 let lab: Lab = BUILT_IN_LAB
+let typed: Typed = {}
+let grid = false
 history.replaceState(null, '', searchOf(bench))
+
+/** The space and type tokens tokens.css declares, by fieldset, and all of them in its order. */
+const groups = groupsOf(tokensCss)
+const fields = groups.flatMap((group) => group.tokens)
+
+const GRID_ID = 'bench-grid'
 
 /** The theme each frame holds now, read on every load so a reload keeps it. */
 const themes = new WeakMap<HTMLIFrameElement, Theme>()
@@ -85,6 +97,7 @@ for (const scheme of SCHEMES) {
       output.textContent = String(lab[scheme][slider.key])
       show()
       showLab()
+      showPaste()
     })
     label.append(input, output)
     fieldset.append(label)
@@ -110,7 +123,52 @@ const textareas = exportsOf(lab).map(({ file }) => {
   return textarea
 })
 
+const gridLabel = document.createElement('label')
+const gridBox = document.createElement('input')
+gridBox.type = 'checkbox'
+gridBox.addEventListener('change', () => {
+  grid = gridBox.checked
+  show()
+})
+gridLabel.append(gridBox, 'Grid, a line every --space-1')
+spacingBody.append(gridLabel)
+
+for (const group of groups) {
+  const fieldset = document.createElement('fieldset')
+  const legend = document.createElement('legend')
+  legend.textContent = group.title
+  fieldset.append(legend)
+  for (const token of group.tokens) {
+    const label = document.createElement('label')
+    label.textContent = token.name
+    const input = document.createElement('input')
+    input.type = 'text'
+    input.value = token.value
+    input.spellcheck = false
+    input.size = token.value.length
+    input.addEventListener('input', () => {
+      typed = { ...typed, [token.name]: input.value }
+      show()
+      showPaste()
+    })
+    label.append(input)
+    fieldset.append(label)
+  }
+  spacingBody.append(fieldset)
+}
+
+const pasteFigure = document.createElement('figure')
+const pasteCaption = document.createElement('figcaption')
+pasteCaption.textContent = 'Changed in the lab or here, to paste'
+const paste = document.createElement('textarea')
+paste.readOnly = true
+paste.rows = 8
+paste.cols = 48
+pasteFigure.append(pasteCaption, paste)
+spacingBody.append(pasteFigure)
+
 showLab()
+showPaste()
 show()
 
 function byId(id: string): HTMLElement {
@@ -155,13 +213,22 @@ function frameAt(i: number): HTMLIFrameElement {
   return made
 }
 
-/** Sets every colour of the frame's theme, and its scheme, on the frame's root. */
+/** Sets the frame's theme and the panel's tokens on the frame's root, and the grid over it. */
 function paint(iframe: HTMLIFrameElement) {
-  const root = iframe.contentDocument?.documentElement
+  const page = iframe.contentDocument
   const theme = themes.get(iframe)
-  if (root === undefined || theme === undefined) return
-  for (const [name, value] of Object.entries(rootStyleOf(theme)))
-    root.style.setProperty(name, value)
+  if (page === null || theme === undefined) return
+  const root = page.documentElement
+  const style = { ...rootStyleOf(theme), ...styleOf(fields, typed) }
+  for (const [name, value] of Object.entries(style)) root.style.setProperty(name, value)
+  const drawn = page.getElementById(GRID_ID)
+  if (!grid) drawn?.remove()
+  else if (drawn === null) {
+    const lines = page.createElement('div')
+    lines.id = GRID_ID
+    for (const [name, value] of Object.entries(GRID_STYLE)) lines.style.setProperty(name, value)
+    root.append(lines)
+  }
 }
 
 /** Says what the contract finds in the lab, and the JSON it exports as. */
@@ -177,4 +244,9 @@ function showLab() {
     const textarea = textareas[i]
     if (textarea !== undefined) textarea.value = text
   })
+}
+
+/** Says every token changed in the panel or the lab, as one block to paste. */
+function showPaste() {
+  paste.value = pasteOf(fields, typed, lab)
 }
