@@ -1,7 +1,11 @@
 // The bench's pick. Some read tokens.css, so this runs on Node; `tsconfig.json` checks it.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { matchedOf, partOf, partRun } from './pick'
+import { matchedOf, namesRead, partOf, partRun, tokenNamesOf } from './pick'
+
+const tokensCss = readFileSync(join(import.meta.dirname, '..', 'renderer', 'tokens.css'), 'utf8')
 
 describe('partOf', () => {
   test("names the file and line of Svelte's mark, without the column", () => {
@@ -157,5 +161,63 @@ describe('matchedOf', () => {
       return true
     }
     expect(matchedOf(rules, matches, () => true)).toEqual(['gap: var(--space-1);'])
+  })
+})
+
+describe('tokenNamesOf', () => {
+  test("names tokens.css's first :root, then the colours, density's tokens among them", () => {
+    const names = tokenNamesOf(tokensCss)
+    expect(names).toHaveLength(72)
+    expect([names[0], names[47], names[48], names[71]]).toEqual([
+      '--font',
+      '--duration-land',
+      '--color-sidebar',
+      '--color-income-tint',
+    ])
+    expect(names).toContain('--text-base')
+    expect(names).toContain('--row')
+  })
+})
+
+describe('namesRead', () => {
+  test('names only what the blocks read', () => {
+    expect(namesRead(['gap: var(--space-2);'], ['--space-1', '--space-2', '--space-3'])).toEqual([
+      '--space-2',
+    ])
+  })
+
+  test("names them in the order the blocks read them, not the names' order", () => {
+    const blocks = ['font-family: var(--font-figures);', 'color: var(--color-in);']
+    expect(namesRead(blocks, ['--color-in', '--font-figures'])).toEqual([
+      '--font-figures',
+      '--color-in',
+    ])
+  })
+
+  test('names a token once, however often it is read', () => {
+    const blocks = ['padding: var(--space-2) var(--space-2);', 'margin: var(--space-2);']
+    expect(namesRead(blocks, ['--space-2'])).toEqual(['--space-2'])
+  })
+
+  test("reads a fallback's var() too", () => {
+    const blocks = ['color: var(--color-accent, var(--color-text));']
+    expect(namesRead(blocks, ['--color-text', '--color-accent'])).toEqual([
+      '--color-accent',
+      '--color-text',
+    ])
+  })
+
+  test("names no custom property a part sets itself, as Listbox's --above", () => {
+    expect(namesRead(['top: var(--above); gap: var(--space-1);'], ['--space-1'])).toEqual([
+      '--space-1',
+    ])
+  })
+
+  test('matches a name whole, never by how it starts', () => {
+    expect(namesRead(['gap: var(--space-10);'], ['--space-1'])).toEqual([])
+  })
+
+  test('takes a declaration of a token for no read of it', () => {
+    expect(namesRead(['--space-2: 10px;'], ['--space-2'])).toEqual([])
   })
 })

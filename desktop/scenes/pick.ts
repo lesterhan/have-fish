@@ -1,6 +1,10 @@
 // The bench's pick: which part drew an element, the tokens its part's rules name, and the lines
 // the bench says of it. No DOM; `bench.ts` reads the frame and draws.
 
+import { deriveTokens } from '../shared/theme/derive'
+import { BUILT_IN_LAB } from './lab'
+import { tokensIn } from './tokens'
+
 /** The property Svelte marks each element a part draws with, in dev only. */
 export const SVELTE_META = '__svelte_meta'
 
@@ -52,4 +56,20 @@ export function matchedOf(
     if (rule.conditionText !== undefined && !holds(rule.conditionText)) return []
     return matchedOf(rule.cssRules, matches, holds)
   })
+}
+
+/** Every token tokens.css declares, the colours' last: the names a part's rules can read. */
+export function tokenNamesOf(css: string): string[] {
+  return [
+    ...tokensIn(css).map((token) => token.name),
+    ...Object.keys(deriveTokens(BUILT_IN_LAB.light)),
+  ]
+}
+
+/** Each of `names` the blocks read through var(), once, in the order they first read it. */
+export function namesRead(blocks: readonly string[], names: readonly string[]): string[] {
+  const read = blocks.flatMap((block) =>
+    [...block.matchAll(/var\(\s*(--[\w-]+)/g)].map((match) => match[1] ?? ''),
+  )
+  return [...new Set(read)].filter((name) => names.includes(name))
 }
