@@ -15,20 +15,12 @@ import { BUILTINS, FOR_SCHEME, Theme } from '../shared/theme/theme'
 /** The lab's two themes, light and dark: the built-ins until a slider moves. */
 export type Lab = Readonly<Record<Scheme, Theme>>
 
-export type Failure = InkFailure | StepFailure
-
-export type Exported = { file: string; text: string }
-
-export const SCHEME_LABELS: Record<Scheme, string> = { light: 'Light', dark: 'Dark' }
-
-export const ALL_KEPT = 'Every pair keeps the contract.'
-
 export const BUILT_IN_LAB: Lab = {
   light: BUILTINS[FOR_SCHEME.light],
   dark: BUILTINS[FOR_SCHEME.dark],
 }
 
-/** Every number a theme holds: a new one is a key here with no edit, and one not a number fails. */
+/** Every number a theme holds: a new one joins with no edit, and a non-number fails to compile. */
 export type SliderKey = Exclude<keyof Theme, 'name' | 'scheme'>
 
 export type Slider = { key: SliderKey; label: string; min: number; max: number; step: number }
@@ -52,10 +44,17 @@ export function moved(lab: Lab, scheme: Scheme, key: SliderKey, value: string): 
   return theme.success ? { ...lab, [scheme]: theme.data } : lab
 }
 
+export type Failure = InkFailure | StepFailure
+
+/** The contract's own failures for the lab's two themes, ink first. */
 export function failuresOf(lab: Lab): Failure[] {
   const schemes = schemesOf(lab.light, lab.dark)
   return [...inkFailures(schemes), ...stepFailures(schemes)]
 }
+
+export const SCHEME_LABELS: Record<Scheme, string> = { light: 'Light', dark: 'Dark' }
+
+export const ALL_KEPT = 'Every pair keeps the contract.'
 
 /** Each failure in words, ink first; a failing figure is cut, never rounded up to its need. */
 export function linesOf(failures: readonly Failure[]): string[] {
@@ -75,14 +74,6 @@ export function linesOf(failures: readonly Failure[]): string[] {
   })
 }
 
-/** The two built-ins' JSON, as their files hold it, to paste over them. */
-export function exportsOf(lab: Lab): Exported[] {
-  return SCHEMES.map((scheme) => ({
-    file: `shared/theme/builtins/${FOR_SCHEME[scheme]}.json`,
-    text: `${JSON.stringify(lab[scheme], null, 2)}\n`,
-  }))
-}
-
 /** `value` with exactly `places` decimals, rounded down in decimal rather than in binary. */
 function cut(value: number, places: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -91,4 +82,14 @@ function cut(value: number, places: number): string {
     roundingMode: 'floor',
     useGrouping: false,
   }).format(value)
+}
+
+export type Exported = { file: string; text: string }
+
+/** The two built-ins' JSON, as their files hold it, to paste over them. */
+export function exportsOf(lab: Lab): Exported[] {
+  return SCHEMES.map((scheme) => ({
+    file: `shared/theme/builtins/${FOR_SCHEME[scheme]}.json`,
+    text: `${JSON.stringify(lab[scheme], null, 2)}\n`,
+  }))
 }

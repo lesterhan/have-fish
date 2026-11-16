@@ -4,7 +4,8 @@
 import { NARROW } from '../renderer/narrow'
 import { DENSITIES, type Density } from '../shared/density'
 import { deriveTokens } from '../shared/theme/derive'
-import { BUILTINS, FOR_SCHEME, type Theme } from '../shared/theme/theme'
+import type { Theme } from '../shared/theme/theme'
+import type { Lab } from './lab'
 import { SCENES, type Scene, sceneNamed } from './scenes'
 
 export const WIDTHS = ['full', 'narrow', 'minimum'] as const
@@ -128,13 +129,13 @@ export function remOf(query: string): number {
   return Number.parseFloat(rem)
 }
 
-/** The frames the bench shows: one for light or dark, light then dark for both. */
-export function framesOf(bench: Bench): Frame[] {
+/** The frames the bench shows, in the lab's themes: light then dark for both. */
+export function framesOf(bench: Bench, lab: Lab): Frame[] {
   const { scene, density } = bench
   const schemes = bench.shown === 'both' ? (['light', 'dark'] as const) : [bench.shown]
   return schemes.map((scheme) => ({
     src: `./?${new URLSearchParams({ scene, density })}`,
-    theme: BUILTINS[FOR_SCHEME[scheme]],
+    theme: lab[scheme],
     width: widthOf(bench.width),
   }))
 }

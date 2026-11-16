@@ -1,6 +1,7 @@
 // The design bench: a bar of controls over the scene they name, framed once per theme shown.
 // The rules are in controls.ts; this only draws them.
 
+import { SCHEMES } from '../shared/theme/contract'
 import type { Theme } from '../shared/theme/theme'
 import {
   type Bench,
@@ -12,11 +13,23 @@ import {
   rootStyleOf,
   searchOf,
 } from './controls'
+import {
+  BUILT_IN_LAB,
+  exportsOf,
+  failuresOf,
+  type Lab,
+  linesOf,
+  moved,
+  SCHEME_LABELS,
+  SLIDERS,
+} from './lab'
 
 const bar = byId('controls')
 const shelf = byId('frames')
+const labBody = byId('lab-body')
 
 let bench = benchOf(location.search)
+let lab: Lab = BUILT_IN_LAB
 history.replaceState(null, '', searchOf(bench))
 
 /** The theme each frame holds now, read on every load so a reload keeps it. */
@@ -50,6 +63,54 @@ const note = document.createElement('p')
 note.id = 'note'
 bar.append(note)
 
+for (const scheme of SCHEMES) {
+  const fieldset = document.createElement('fieldset')
+  const legend = document.createElement('legend')
+  legend.textContent = SCHEME_LABELS[scheme]
+  fieldset.append(legend)
+  for (const slider of SLIDERS) {
+    const label = document.createElement('label')
+    label.textContent = slider.label
+    const input = document.createElement('input')
+    input.type = 'range'
+    // Bounds and step first: a range input clamps a value to those it has when the value is set.
+    input.min = String(slider.min)
+    input.max = String(slider.max)
+    input.step = String(slider.step)
+    input.value = String(lab[scheme][slider.key])
+    const output = document.createElement('output')
+    output.textContent = input.value
+    input.addEventListener('input', () => {
+      lab = moved(lab, scheme, slider.key, input.value)
+      output.textContent = String(lab[scheme][slider.key])
+      show()
+      showLab()
+    })
+    label.append(input, output)
+    fieldset.append(label)
+  }
+  labBody.append(fieldset)
+}
+
+const contract = document.createElement('ul')
+contract.id = 'contract'
+labBody.append(contract)
+
+/** The export's text boxes, in exportsOf's order. */
+const textareas = exportsOf(lab).map(({ file }) => {
+  const figure = document.createElement('figure')
+  const caption = document.createElement('figcaption')
+  caption.textContent = file
+  const textarea = document.createElement('textarea')
+  textarea.readOnly = true
+  textarea.rows = 7
+  textarea.cols = 40
+  figure.append(caption, textarea)
+  labBody.append(figure)
+  return textarea
+})
+
+showLab()
 show()
 
 function byId(id: string): HTMLElement {
@@ -61,7 +122,7 @@ function byId(id: string): HTMLElement {
 /** Frames the bench's scene, reloading a frame only when its page changes. */
 function show() {
   for (const [key, select] of selects) select.value = bench[key]
-  const frames = framesOf(bench)
+  const frames = framesOf(bench, lab)
   frames.forEach((frame, i) => {
     const iframe = frameAt(i)
     if (iframe.getAttribute('src') !== frame.src) iframe.setAttribute('src', frame.src)
@@ -101,4 +162,19 @@ function paint(iframe: HTMLIFrameElement) {
   if (root === undefined || theme === undefined) return
   for (const [name, value] of Object.entries(rootStyleOf(theme)))
     root.style.setProperty(name, value)
+}
+
+/** Says what the contract finds in the lab, and the JSON it exports as. */
+function showLab() {
+  contract.replaceChildren(
+    ...linesOf(failuresOf(lab)).map((line) => {
+      const item = document.createElement('li')
+      item.textContent = line
+      return item
+    }),
+  )
+  exportsOf(lab).forEach(({ text }, i) => {
+    const textarea = textareas[i]
+    if (textarea !== undefined) textarea.value = text
+  })
 }
