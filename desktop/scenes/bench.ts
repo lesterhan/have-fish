@@ -41,6 +41,7 @@ const bar = byId('controls')
 const shelf = byId('frames')
 const labBody = byId('lab-body')
 const spacingBody = byId('spacing-body')
+const pickPanel = byId('pick')
 const pickBody = byId('pick-body')
 
 let bench = benchOf(location.search)
@@ -187,6 +188,12 @@ const pickBox = document.createElement('input')
 pickBox.type = 'checkbox'
 pickBox.addEventListener('change', () => {
   picking = pickBox.checked
+})
+// A closed panel turns Pick off, so the frames never swallow presses with no readout in sight.
+pickPanel.addEventListener('toggle', () => {
+  if (pickPanel.hasAttribute('open')) return
+  pickBox.checked = false
+  picking = false
 })
 pickLabel.append(pickBox, 'Pick: a click in a frame names what it hits, and the app never sees it')
 const readout = document.createElement('ul')

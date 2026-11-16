@@ -104,18 +104,18 @@ export type Picked = {
 /** The pick's lines: the element and its part, each token and its value there, then its box. */
 export function readoutOf(picked: Picked): string[] {
   const { frame, tag, part, tokens, width, height, padding, margin } = picked
-  const element =
+  const said =
     part === null
       ? `<${tag}> in ${frame}: no part's mark, so the bench can't tell which drew it`
       : `<${tag}> in ${frame}, drawn by ${part.file}:${part.line}`
-  const read =
+  const tokenLines =
     tokens.length === 0
       ? ['No token in its rules']
       : tokens.map((token) => `${token.name}: ${token.value}`)
   const rounded = (n: number) => String(Math.round(n * 10) / 10)
   return [
-    element,
-    ...read,
+    said,
+    ...tokenLines,
     `${rounded(width)} × ${rounded(height)}, padding ${padding}, margin ${margin}`,
   ]
 }
