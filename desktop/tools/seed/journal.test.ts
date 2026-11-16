@@ -175,6 +175,49 @@ describe('documentsOf', () => {
     )
   })
 
+  test('takes a name declared twice from its first directive, its line and type', () => {
+    const docs = documentsOfText(
+      journal('account assets:cash  ; type:C', 'account assets:cash  ; type:A'),
+    )
+    expect(docs.accounts.map((a) => [a.line, a.doc.path, a.doc.kind])).toEqual([
+      [1, 'assets:cash', 'cash'],
+    ])
+  })
+
+  test('places an undeclared name at the first entry naming it', () => {
+    const docs = documentsOfText(
+      journal(
+        '2026-01-05 a',
+        '    assets:bank  -1.00 CAD',
+        '    expenses:rent  1.00 CAD',
+        '',
+        '2026-01-06 b',
+        '    assets:bank  -2.00 CAD',
+        '    expenses:rent  2.00 CAD',
+      ),
+    )
+    expect(docs.accounts.map((a) => a.line)).toEqual([1, 1])
+  })
+
+  test("makes undeclared names in the journal's order, each entry's postings in theirs", () => {
+    const docs = documentsOfText(
+      journal(
+        '2026-01-05 a',
+        '    expenses:rent  1.00 CAD',
+        '    assets:bank  -1.00 CAD',
+        '',
+        '2026-01-06 b',
+        '    expenses:food  2.00 CAD',
+        '    assets:bank  -2.00 CAD',
+      ),
+    )
+    expect(docs.accounts.map((a) => [a.doc.path, a.doc.id])).toEqual([
+      ['expenses:rent', id(1)],
+      ['assets:bank', id(2)],
+      ['expenses:food', id(3)],
+    ])
+  })
+
   test('makes a spend with its amounts as written, at noon on its date', () => {
     expect(documentsOfText(FOUR).transactions[1]).toEqual({
       line: 18,
@@ -359,6 +402,30 @@ describe('seedJournal', () => {
     expect(report).toEqual({ entries: EMPTY, accounts: EMPTY, stray: [1] })
   })
 
+  test('reports an account left out, and the entries posting to it, in its counts', () => {
+    const text = journal(
+      'account 储蓄:x',
+      'account expenses:food',
+      '',
+      '2026-01-05 x',
+      '    储蓄:x  -1.00 CAD',
+      '    expenses:food  1.00 CAD',
+    )
+    const report = seedJournal(aSandbox(), text, { nowMs: NOW })
+    expect(report.accounts).toEqual({
+      read: 2,
+      written: 1,
+      leftOut: [{ line: 1, why: 'root' }],
+      refused: [],
+    })
+    expect(report.entries).toEqual({
+      read: 1,
+      written: 0,
+      leftOut: [{ line: 4, why: 'account' }],
+      refused: [],
+    })
+  })
+
   test('throws the last ledger away and makes it again', () => {
     const where = aSandbox()
     seedJournal(where, FOUR, { nowMs: NOW })
@@ -401,12 +468,17 @@ describe('seedJournal', () => {
     expect(readdirSync(home)).toEqual([])
   })
 
-  test('refuses a ledger the app has open', () => {
+  test('refuses a ledger the app has open, and leaves it as it was', () => {
     const where = aSandbox()
+    seedJournal(where, FOUR, { nowMs: NOW })
     const config = join(where.env.XDG_CONFIG_HOME, 'have-fish')
     mkdirSync(config, { recursive: true })
     symlinkSync(`somehost-${process.pid}`, join(config, 'SingletonLock'))
-    expect(() => seedJournal(where, FOUR, { nowMs: NOW })).toThrow(/has this ledger open/)
+    const other = journal('account assets:bank  ; type:A', 'account expenses:food')
+
+    expect(() => seedJournal(where, other, { nowMs: NOW })).toThrow(/has this ledger open/)
+    expect(liveTransactions(where)).toBe(4)
+    expect(query(where, 'SELECT id FROM accounts')).toHaveLength(6)
   })
 })
 

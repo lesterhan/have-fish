@@ -151,14 +151,14 @@ export function seedJournal(
   const ledger = open(where, nowMs)
   try {
     const made = documentsOf(journal, { deviceId: ledger.meta.deviceId, nowMs, newId: randomUUID })
-    const tally = (placed: unknown[], leftOut: LeftOut[]): Tally => ({
-      read: placed.length + leftOut.length,
+    const tally = (placed: number, leftOut: LeftOut[]): Tally => ({
+      read: placed + leftOut.length,
       written: 0,
       leftOut,
       refused: [],
     })
-    const accounts = tally(made.accounts, made.accountsLeftOut)
-    const entries = tally(made.transactions, made.entriesLeftOut)
+    const accounts = tally(made.accounts.length, made.accountsLeftOut)
+    const entries = tally(made.transactions.length, made.entriesLeftOut)
 
     let done = 0
     const apply = (placed: Placed<AccountDoc | TransactionDoc>[], into: Tally) => {

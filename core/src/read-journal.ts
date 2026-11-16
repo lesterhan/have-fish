@@ -26,7 +26,7 @@ const POSTING = /^[ \t]+(\S.*?) {2,}(-?\d+(?:\.\d+)?) ([A-Z]{3})$/
 const PRICED = /^[ \t]+\S.*? {2,}-?\d+(?:\.\d+)? [A-Z]{3} @@? \S/
 
 /** Never throws: what it can't read is in `skipped`, an entry's at its date line. */
-export function readJournal(text: string): Journal {
+export function readJournal(source: string): Journal {
   const journal: Journal = { accounts: [], entries: [], skipped: [] }
   // The entry being read, and why it is left out, decided by its first line it can't read.
   let entry: JournalEntry | null = null
@@ -40,8 +40,7 @@ export function readJournal(text: string): Journal {
     leftOut = null
   }
 
-  const lines = text.split(/\r?\n/)
-  for (const [i, text] of lines.entries()) {
+  for (const [i, text] of source.split(/\r?\n/).entries()) {
     const n = i + 1
     if (text.trim() === '') {
       end()
