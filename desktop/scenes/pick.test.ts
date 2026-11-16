@@ -51,6 +51,10 @@ describe('partRun', () => {
     expect(partRun([money29, money24])).toBe(2)
   })
 
+  test('stops at the first element no part marked, though one further up is the same part', () => {
+    expect(partRun([money29, null, money24])).toBe(1)
+  })
+
   test('is 1 for an element no part marked, though its parent is marked', () => {
     expect(partRun([null, money24])).toBe(1)
   })
