@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, cents, format, neg, parse, parseTyped, sub, sum } from './money'
+import { add, cents, format, neg, parse, parseExact, parseTyped, sub, sum } from './money'
 
 describe('parse', () => {
   it('reads canonical amounts', () => {
@@ -55,6 +55,68 @@ describe('parse', () => {
     expect(parse('1e10')).toBeNull()
     expect(parse('1e999999')).toBeNull()
     expect(parse('1e-999999')).toBe(0)
+  })
+})
+
+describe('parseExact', () => {
+  it('reads an amount at the cent, either sign', () => {
+    expect(parseExact('12.34')).toBe(1234)
+    expect(parseExact('-12.34')).toBe(-1234)
+  })
+
+  it('reads zeros past the cent as nothing', () => {
+    expect(parseExact('10.000')).toBe(1000)
+    expect(parseExact('-10.000')).toBe(-1000)
+    expect(parseExact('0.10000')).toBe(10)
+  })
+
+  it('refuses a digit past the cent that parse rounds away', () => {
+    expect([parse('10.004'), parse('-10.004'), parse('12.345'), parse('12.3449999')]).toEqual([
+      1000, -1000, 1235, 1234,
+    ])
+    expect(parseExact('10.004')).toBeNull()
+    expect(parseExact('-10.004')).toBeNull()
+    expect(parseExact('12.345')).toBeNull()
+    expect(parseExact('12.3449999')).toBeNull()
+  })
+
+  it('refuses an amount under a cent rather than reading it as 0', () => {
+    expect([parse('0.005'), parse('-0.001'), parse('1e-7'), parse('1e-999999')]).toEqual([
+      1, 0, 0, 0,
+    ])
+    expect(parseExact('0.005')).toBeNull()
+    expect(parseExact('-0.001')).toBeNull()
+    expect(parseExact('1e-7')).toBeNull()
+    expect(parseExact('1e-999999')).toBeNull()
+  })
+
+  it('counts places on the value after the exponent, not in the text', () => {
+    expect(parseExact('1.234e1')).toBe(1234)
+    expect(parseExact('1234e-2')).toBe(1234)
+    expect(parseExact('1.2345e1')).toBeNull()
+    expect(parseExact('12345e-3')).toBeNull()
+  })
+
+  it('reads the limit with zeros past it, and refuses it with a digit', () => {
+    expect(parse('9999999999.994')).toBe(999999999999)
+    expect(parseExact('9999999999.990')).toBe(999999999999)
+    expect(parseExact('9999999999.994')).toBeNull()
+  })
+
+  it('never answers negative zero', () => {
+    expect(Object.is(parseExact('-0.000'), 0)).toBe(true)
+    expect(parseExact('0')).toBe(0)
+  })
+
+  it('refuses what parse refuses: not a number, or past the limit', () => {
+    for (const s of ['', '.', 'abc', 'NaN', 'Infinity', '1,000.00', '5.00.1']) {
+      expect(parse(s)).toBeNull()
+      expect(parseExact(s)).toBeNull()
+    }
+    for (const s of ['10000000000', '9999999999.995', '1e999999']) {
+      expect(parse(s)).toBeNull()
+      expect(parseExact(s)).toBeNull()
+    }
   })
 })
 
