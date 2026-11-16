@@ -3,7 +3,16 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { matchedOf, namesRead, partOf, partRun, tokenNamesOf } from './pick'
+import {
+  matchedOf,
+  namesRead,
+  type Picked,
+  partOf,
+  partRun,
+  readoutOf,
+  SWALLOWED,
+  tokenNamesOf,
+} from './pick'
 
 const tokensCss = readFileSync(join(import.meta.dirname, '..', 'renderer', 'tokens.css'), 'utf8')
 
@@ -219,5 +228,64 @@ describe('namesRead', () => {
 
   test('takes a declaration of a token for no read of it', () => {
     expect(namesRead(['--space-2: 10px;'], ['--space-2'])).toEqual([])
+  })
+})
+
+describe('readoutOf', () => {
+  const picked: Picked = {
+    frame: 'ledger/year · light',
+    tag: 'span',
+    part: { file: 'renderer/parts/Money.svelte', line: 29 },
+    tokens: [
+      {
+        name: '--font-figures',
+        value: "'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace",
+      },
+      { name: '--color-in', value: '#146d34' },
+    ],
+    width: 52,
+    height: 20,
+    padding: '0px 0px 0px 0px',
+    margin: '0px 4px 0px 0px',
+  }
+
+  test('says the element and its part, each token and its value, then its box', () => {
+    expect(readoutOf(picked)).toEqual([
+      '<span> in ledger/year · light, drawn by renderer/parts/Money.svelte:29',
+      "--font-figures: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace",
+      '--color-in: #146d34',
+      '52 × 20, padding 0px 0px 0px 0px, margin 0px 4px 0px 0px',
+    ])
+  })
+
+  test("says the bench can't tell for an element no part marked", () => {
+    expect(readoutOf({ ...picked, tag: 'html', part: null })[0]).toBe(
+      "<html> in ledger/year · light: no part's mark, so the bench can't tell which drew it",
+    )
+  })
+
+  test('says there is no token in its rules when there is none', () => {
+    const lines = readoutOf({ ...picked, tokens: [] })
+    expect(lines).toHaveLength(3)
+    expect(lines[1]).toBe('No token in its rules')
+  })
+
+  test('gives the size to one decimal place at most, with no trailing zero', () => {
+    const lines = readoutOf({ ...picked, width: 52.4567, height: 19.96 })
+    expect(lines.at(-1)).toMatch(/^52\.5 × 20, /)
+  })
+})
+
+describe('SWALLOWED', () => {
+  test('holds every press but the click, mousedown among them', () => {
+    expect(SWALLOWED).toEqual([
+      'pointerdown',
+      'mousedown',
+      'pointerup',
+      'mouseup',
+      'dblclick',
+      'auxclick',
+      'contextmenu',
+    ])
   })
 })

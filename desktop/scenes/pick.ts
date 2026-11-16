@@ -8,6 +8,17 @@ import { tokensIn } from './tokens'
 /** The property Svelte marks each element a part draws with, in dev only. */
 export const SVELTE_META = '__svelte_meta'
 
+/** Each press but the click, which picks: kept from the app, since a list picks on mousedown. */
+export const SWALLOWED: readonly string[] = [
+  'pointerdown',
+  'mousedown',
+  'pointerup',
+  'mouseup',
+  'dblclick',
+  'auxclick',
+  'contextmenu',
+]
+
 /** Where a part drew an element: its file from desktop/, and the line in it. */
 export type Part = { file: string; line: number }
 
@@ -72,4 +83,38 @@ export function namesRead(blocks: readonly string[], names: readonly string[]): 
     [...block.matchAll(/var\(\s*(--[\w-]+)/g)].map((match) => match[1] ?? ''),
   )
   return [...new Set(read)].filter((name) => names.includes(name))
+}
+
+/** What the bench says of a picked element: where it is, the tokens it reads, its box. */
+export type Picked = {
+  frame: string
+  tag: string
+  part: Part | null
+  /** Each token its part's rules read, and its value on the element. */
+  tokens: readonly { name: string; value: string }[]
+  width: number
+  height: number
+  /** Each side's, top, right, bottom then left, as the frame computes it. */
+  padding: string
+  /** Each side's, top, right, bottom then left, as the frame computes it. */
+  margin: string
+}
+
+/** The pick's lines: the element and its part, each token and its value there, then its box. */
+export function readoutOf(picked: Picked): string[] {
+  const { frame, tag, part, tokens, width, height, padding, margin } = picked
+  const element =
+    part === null
+      ? `<${tag}> in ${frame}: no part's mark, so the bench can't tell which drew it`
+      : `<${tag}> in ${frame}, drawn by ${part.file}:${part.line}`
+  const read =
+    tokens.length === 0
+      ? ['No token in its rules']
+      : tokens.map((token) => `${token.name}: ${token.value}`)
+  const rounded = (n: number) => String(Math.round(n * 10) / 10)
+  return [
+    element,
+    ...read,
+    `${rounded(width)} × ${rounded(height)}, padding ${padding}, margin ${margin}`,
+  ]
 }
