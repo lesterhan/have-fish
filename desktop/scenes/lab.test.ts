@@ -2,8 +2,10 @@
 // checks it.
 
 import { describe, expect, test } from 'vitest'
+import { inkFailures, stepFailures } from '../shared/theme/contract'
+import { schemesOf } from '../shared/theme/derive'
 import { BUILTINS, Theme } from '../shared/theme/theme'
-import { BUILT_IN_LAB, moved, SLIDERS } from './lab'
+import { BUILT_IN_LAB, failuresOf, type Lab, moved, SLIDERS } from './lab'
 
 describe('SLIDERS', () => {
   test("are Theme's numbers, in its order", () => {
@@ -59,5 +61,18 @@ describe('moved', () => {
       expect(moved(BUILT_IN_LAB, 'light', 'neutralHue', value), value).toBe(BUILT_IN_LAB)
     }
     expect(moved(BUILT_IN_LAB, 'light', 'neutralChroma', '0.101')).toBe(BUILT_IN_LAB)
+  })
+})
+
+describe('failuresOf', () => {
+  test("is the contract's own failures for the lab's two themes, ink first", () => {
+    const lab: Lab = {
+      light: { ...BUILT_IN_LAB.light, neutralHue: 350, neutralChroma: 0.1, accentHue: 355 },
+      dark: BUILT_IN_LAB.dark,
+    }
+    const s = schemesOf(lab.light, lab.dark)
+    const contract = [...inkFailures(s), ...stepFailures(s)]
+    expect(contract).toHaveLength(1)
+    expect(failuresOf(lab)).toEqual(contract)
   })
 })
