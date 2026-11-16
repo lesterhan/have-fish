@@ -3,7 +3,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { changedOf, groupsOf, styleOf, tokensIn } from './tokens'
+import { deriveTokens } from '../shared/theme/derive'
+import { BUILT_IN_LAB, moved } from './lab'
+import { changedOf, exportOf, GRID_STYLE, groupsOf, styleOf, tokensIn } from './tokens'
 
 const tokensCss = readFileSync(join(import.meta.dirname, '..', 'renderer', 'tokens.css'), 'utf8')
 const fields = groupsOf(tokensCss).flatMap((group) => group.tokens)
@@ -167,5 +169,59 @@ describe('styleOf', () => {
     expect(Object.entries(style).filter(([, value]) => value !== '')).toEqual([
       ['--space-2', '10px'],
     ])
+  })
+})
+
+describe('exportOf', () => {
+  test('is empty when nothing changed', () => {
+    expect(exportOf(fields, {}, BUILT_IN_LAB)).toBe('')
+  })
+
+  test("writes each token changed in the panel as a line, in tokens.css's order", () => {
+    const typed = { '--space-2': '10px', '--text-title': 'calc(var(--text-base) + 8px)' }
+    expect(exportOf(fields, typed, BUILT_IN_LAB)).toBe(
+      '--text-title: calc(var(--text-base) + 8px);\n--space-2: 10px;',
+    )
+  })
+
+  test('writes the light colours a moved hue changes, marked light', () => {
+    const lab = moved(BUILT_IN_LAB, 'light', 'accentHue', '200')
+    const painted = deriveTokens(lab.light)
+    expect(exportOf(fields, {}, lab)).toBe(
+      ['--color-selected', '--color-accent', '--color-accent-hover', '--color-card']
+        .map((name) => `${name}: ${painted[name]}; /* light */`)
+        .join('\n'),
+    )
+  })
+
+  test('marks the dark colours dark', () => {
+    const lab = moved(BUILT_IN_LAB, 'dark', 'neutralHue', '200')
+    const lines = exportOf(fields, {}, lab).split('\n')
+    expect(lines).toHaveLength(15)
+    expect(lines.filter((line) => !line.endsWith(' /* dark */'))).toEqual([])
+    expect(lines[0]).toBe(
+      `--color-sidebar: ${deriveTokens(lab.dark)['--color-sidebar']}; /* dark */`,
+    )
+  })
+
+  test("writes the panel's tokens, then light's colours, then dark's", () => {
+    const lab = moved(moved(BUILT_IN_LAB, 'dark', 'neutralHue', '200'), 'light', 'accentHue', '200')
+    const lines = exportOf(fields, { '--space-2': '10px' }, lab).split('\n')
+    expect(lines).toHaveLength(20)
+    expect(lines[0]).toBe('--space-2: 10px;')
+    expect(lines.slice(1, 5).filter((line) => !line.endsWith(' /* light */'))).toEqual([])
+    expect(lines.slice(5).filter((line) => !line.endsWith(' /* dark */'))).toEqual([])
+  })
+
+  test("is empty for a lab moved and moved back to the built-in's value", () => {
+    const lab = moved(moved(BUILT_IN_LAB, 'light', 'accentHue', '200'), 'light', 'accentHue', '90')
+    expect(lab).not.toBe(BUILT_IN_LAB)
+    expect(exportOf(fields, {}, lab)).toBe('')
+  })
+})
+
+describe('GRID_STYLE', () => {
+  test("spaces its lines by the frame's own --space-1", () => {
+    expect(GRID_STYLE['background-size']).toBe('var(--space-1) var(--space-1)')
   })
 })

@@ -1,6 +1,10 @@
 // The bench's tokens: what tokens.css declares, the panel's fields over its space and type, what
 // was changed there or in the theme lab, and the block they export as. No DOM; `bench.ts` draws.
 
+import { SCHEMES } from '../shared/theme/contract'
+import { deriveTokens } from '../shared/theme/derive'
+import { BUILT_IN_LAB, type Lab } from './lab'
+
 /** A custom property tokens.css declares, and its value there. */
 export type Token = { name: string; value: string }
 
@@ -67,4 +71,28 @@ export function changedOf(fields: readonly Token[], typed: Typed): Token[] {
 export function styleOf(fields: readonly Token[], typed: Typed): Record<string, string> {
   const changed = new Map(changedOf(fields, typed).map((token) => [token.name, token.value]))
   return Object.fromEntries(fields.map(({ name }) => [name, changed.get(name) ?? '']))
+}
+
+/** A line every `--space-1` across and down a frame, which never takes a click. */
+export const GRID_STYLE: Readonly<Record<string, string>> = {
+  position: 'fixed',
+  inset: '0',
+  'pointer-events': 'none',
+  'z-index': '2147483647',
+  opacity: '0.3',
+  'background-image':
+    'linear-gradient(to right, GrayText 1px, transparent 1px), linear-gradient(to bottom, GrayText 1px, transparent 1px)',
+  'background-size': 'var(--space-1) var(--space-1)',
+}
+
+/** Each token changed in the panel, then each colour the lab changed, light then dark. */
+export function exportOf(fields: readonly Token[], typed: Typed, lab: Lab): string {
+  const panel = changedOf(fields, typed).map(({ name, value }) => `${name}: ${value};`)
+  const colours = SCHEMES.flatMap((scheme) => {
+    const builtIn = deriveTokens(BUILT_IN_LAB[scheme])
+    return Object.entries(deriveTokens(lab[scheme]))
+      .filter(([name, value]) => value !== builtIn[name])
+      .map(([name, value]) => `${name}: ${value}; /* ${scheme} */`)
+  })
+  return [...panel, ...colours].join('\n')
 }
