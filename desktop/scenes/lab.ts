@@ -4,6 +4,7 @@
 import {
   type InkFailure,
   inkFailures,
+  SCHEMES,
   type Scheme,
   type StepFailure,
   stepFailures,
@@ -15,6 +16,8 @@ import { BUILTINS, FOR_SCHEME, Theme } from '../shared/theme/theme'
 export type Lab = Readonly<Record<Scheme, Theme>>
 
 export type Failure = InkFailure | StepFailure
+
+export type Exported = { file: string; text: string }
 
 export const SCHEME_LABELS: Record<Scheme, string> = { light: 'Light', dark: 'Dark' }
 
@@ -70,6 +73,14 @@ export function linesOf(failures: readonly Failure[]): string[] {
     const steps = `light steps ${light.toFixed(3)}, dark ${dark.toFixed(3)}`
     return `${to} on ${from}: ${steps}, more than ${allows}× apart`
   })
+}
+
+/** The two built-ins' JSON, as their files hold it, to paste over them. */
+export function exportsOf(lab: Lab): Exported[] {
+  return SCHEMES.map((scheme) => ({
+    file: `shared/theme/builtins/${FOR_SCHEME[scheme]}.json`,
+    text: `${JSON.stringify(lab[scheme], null, 2)}\n`,
+  }))
 }
 
 /** `value` with exactly `places` decimals, rounded down in decimal rather than in binary. */

@@ -1,6 +1,8 @@
 // The theme lab's rules. Some read the built-ins' files, so this runs on Node; `tsconfig.json`
 // checks it.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { inkFailures, stepFailures } from '../shared/theme/contract'
 import { schemesOf } from '../shared/theme/derive'
@@ -8,6 +10,7 @@ import { BUILTINS, Theme } from '../shared/theme/theme'
 import {
   ALL_KEPT,
   BUILT_IN_LAB,
+  exportsOf,
   type Failure,
   failuresOf,
   type Lab,
@@ -179,5 +182,30 @@ describe('linesOf', () => {
         { scheme: 'light', ink: '--color-in', on: '--color-card', ratio: 4.35, needs: 4.5 },
       ]),
     ).toEqual(['Light: --color-in on --color-card is 4.35:1, needs 4.5:1'])
+  })
+})
+
+describe('exportsOf', () => {
+  test("names the built-ins' two files, light then dark", () => {
+    expect(exportsOf(BUILT_IN_LAB).map(({ file }) => file)).toEqual([
+      'shared/theme/builtins/graphite-light.json',
+      'shared/theme/builtins/graphite-dark.json',
+    ])
+  })
+
+  test('writes an unmoved lab as the files hold it, byte for byte', () => {
+    for (const { file, text } of exportsOf(BUILT_IN_LAB)) {
+      expect(text, file).toBe(readFileSync(join(import.meta.dirname, '..', file), 'utf8'))
+    }
+  })
+
+  test('reads back as the themes the lab paints', () => {
+    const lab: Lab = {
+      light: { ...BUILT_IN_LAB.light, neutralHue: 200, neutralChroma: 0.03, accentHue: 300 },
+      dark: { ...BUILT_IN_LAB.dark, accentHue: 120 },
+    }
+    const exported = exportsOf(lab)
+    expect(Theme.parse(JSON.parse(exported[0]?.text ?? ''))).toEqual(lab.light)
+    expect(Theme.parse(JSON.parse(exported[1]?.text ?? ''))).toEqual(lab.dark)
   })
 })
