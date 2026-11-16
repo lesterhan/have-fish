@@ -208,7 +208,7 @@ export function journalLines({ entries, accounts, stray }: JournalReport): strin
   const group = (words: string, numbers: number[]) => {
     if (numbers.length > 0) lines.push(`  ${words}: ${numbers.length} (${linesOf(numbers)})`)
   }
-  const linesWhy = (leftOut: LeftOut[], why: LeftOut['why']) =>
+  const linesLeftOutAs = (leftOut: LeftOut[], why: LeftOut['why']) =>
     leftOut.filter((l) => l.why === why).map((l) => l.line)
   const refusedBy = (refused: Refused[], words: string) => {
     for (const code of [...new Set(refused.map((r) => r.code))].sort())
@@ -219,10 +219,10 @@ export function journalLines({ entries, accounts, stray }: JournalReport): strin
   }
 
   for (const [why, words] of ENTRY_WORDS)
-    group(`left out, ${words}`, linesWhy(entries.leftOut, why))
+    group(`left out, ${words}`, linesLeftOutAs(entries.leftOut, why))
   group(
     'account left out, not under assets, liabilities, expenses, income or equity',
-    linesWhy(accounts.leftOut, 'root'),
+    linesLeftOutAs(accounts.leftOut, 'root'),
   )
   refusedBy(entries.refused, 'refused by the ledger')
   refusedBy(accounts.refused, 'account refused by the ledger')

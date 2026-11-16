@@ -148,16 +148,16 @@ describe('documentsOf', () => {
   })
 
   test('leaves out an account under no root the ledger knows', () => {
-    const made = documentsOfText(journal('account 储蓄:中国银行', 'account Assets:bank'))
-    expect(made.accounts).toEqual([])
-    expect(made.accountsLeftOut).toEqual([
+    const docs = documentsOfText(journal('account 储蓄:中国银行', 'account Assets:bank'))
+    expect(docs.accounts).toEqual([])
+    expect(docs.accountsLeftOut).toEqual([
       { line: 1, why: 'root' },
       { line: 2, why: 'root' },
     ])
   })
 
   test('makes an account a posting names with no directive, at its first entry', () => {
-    const made = documentsOfText(
+    const docs = documentsOfText(
       journal(
         'account assets:bank  ; type:A',
         '',
@@ -166,12 +166,12 @@ describe('documentsOf', () => {
         '    expenses:rent  900.00 CAD',
       ),
     )
-    expect(made.accounts.map((a) => [a.line, a.doc.path, a.doc.kind])).toEqual([
+    expect(docs.accounts.map((a) => [a.line, a.doc.path, a.doc.kind])).toEqual([
       [1, 'assets:bank', 'bank'],
       [3, 'expenses:rent', 'category'],
     ])
-    expect(made.transactions[0]?.doc.postings.map((p) => p.accountId)).toEqual(
-      made.accounts.map((a) => a.doc.id),
+    expect(docs.transactions[0]?.doc.postings.map((p) => p.accountId)).toEqual(
+      docs.accounts.map((a) => a.doc.id),
     )
   })
 
@@ -194,9 +194,9 @@ describe('documentsOf', () => {
   })
 
   test('makes a starting balance, a spend, a transfer and pay the shapes try year writes', () => {
-    const made = documentsOfText(FOUR)
-    const kinds = new Map<string, AccountKind>(made.accounts.map((a) => [a.doc.id, a.doc.kind]))
-    const shapes = made.transactions
+    const docs = documentsOfText(FOUR)
+    const kinds = new Map<string, AccountKind>(docs.accounts.map((a) => [a.doc.id, a.doc.kind]))
+    const shapes = docs.transactions
       .filter((t) => [14, 18, 22, 26].includes(t.line))
       .map((t) => {
         const legs = t.doc.postings.map((p) => ({ ...p, cents: cents(p.amount) }))
@@ -206,9 +206,9 @@ describe('documentsOf', () => {
   })
 
   test("keeps a day's entries in the journal's order, a second apart", () => {
-    const made = documentsOfText(FOUR)
+    const docs = documentsOfText(FOUR)
     const createdAt = (line: number) =>
-      made.transactions.find((t) => t.line === line)?.doc.origin.createdAt
+      docs.transactions.find((t) => t.line === line)?.doc.origin.createdAt
     expect([createdAt(18), createdAt(22)]).toEqual([
       Date.UTC(2026, 0, 5, 12),
       Date.UTC(2026, 0, 5, 12, 0, 1),
@@ -216,15 +216,15 @@ describe('documentsOf', () => {
   })
 
   test('makes an entry dated today, whose noon is still to come, now', () => {
-    const made = documentsOfText(journal(...anEntry('2026-11-09', ...SPEND)))
-    expect(made.transactions[0]?.doc.origin.createdAt).toBe(NOW)
+    const docs = documentsOfText(journal(...anEntry('2026-11-09', ...SPEND)))
+    expect(docs.transactions[0]?.doc.origin.createdAt).toBe(NOW)
   })
 
   test('makes an entry on a day with no time now, for the ledger to judge the date', () => {
-    const made = documentsOfText(
+    const docs = documentsOfText(
       journal(...anEntry('2026-13-01', ...SPEND), ...anEntry('1969-12-31', ...SPEND)),
     )
-    expect(made.transactions.map((t) => t.doc.origin.createdAt)).toEqual([NOW, NOW])
+    expect(docs.transactions.map((t) => t.doc.origin.createdAt)).toEqual([NOW, NOW])
   })
 
   test('leaves out an entry with any posting in another currency, whole', () => {
@@ -239,7 +239,7 @@ describe('documentsOf', () => {
   })
 
   test('leaves out an entry posting to an account left out', () => {
-    const made = documentsOfText(
+    const docs = documentsOfText(
       journal(
         'account 储蓄:中国银行',
         '',
@@ -248,19 +248,19 @@ describe('documentsOf', () => {
         '    expenses:rent  900.00 CAD',
       ),
     )
-    expect(made.transactions).toEqual([])
-    expect(made.entriesLeftOut).toEqual([{ line: 3, why: 'account' }])
+    expect(docs.transactions).toEqual([])
+    expect(docs.entriesLeftOut).toEqual([{ line: 3, why: 'account' }])
   })
 
   test('asks about the currency before the accounts', () => {
-    const made = documentsOfText(
+    const docs = documentsOfText(
       journal('2026-02-01 x', '    储蓄:中国银行  -10.00 EUR', '    expenses:food  10.00 EUR'),
     )
-    expect(made.entriesLeftOut).toEqual([{ line: 1, why: 'currency' }])
+    expect(docs.entriesLeftOut).toEqual([{ line: 1, why: 'currency' }])
   })
 
   test("lists the reader's entries left out with its own, by line", () => {
-    const made = documentsOfText(
+    const docs = documentsOfText(
       journal(
         ...anEntry(
           '2026-02-01',
@@ -271,7 +271,7 @@ describe('documentsOf', () => {
         ...anEntry('2026-02-03', '    expenses:food', '    assets:bank  -1.00 CAD'),
       ),
     )
-    expect(made.entriesLeftOut).toEqual([
+    expect(docs.entriesLeftOut).toEqual([
       { line: 1, why: 'price' },
       { line: 5, why: 'currency' },
       { line: 9, why: 'unread' },
