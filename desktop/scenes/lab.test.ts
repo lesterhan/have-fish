@@ -160,8 +160,10 @@ describe('linesOf', () => {
       factor: 2.011056,
       allows: 2,
     }
-    expect(linesOf([diverged])).toEqual([
+    const mirrored: Failure = { ...diverged, light: 0.08549, dark: 0.04251 }
+    expect(linesOf([diverged, mirrored])).toEqual([
       '--color-band on --color-background: light steps 0.042, dark 0.086, more than 2× apart',
+      '--color-band on --color-background: light steps 0.086, dark 0.042, more than 2× apart',
     ])
   })
 
