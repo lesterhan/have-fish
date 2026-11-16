@@ -51,3 +51,20 @@ export function groupsOf(css: string): Group[] {
     ),
   }))
 }
+
+/** What was typed in each field, by its token's name. */
+export type Typed = Readonly<Record<string, string>>
+
+/** Each field whose text, trimmed and not empty, isn't its token's value in tokens.css. */
+export function changedOf(fields: readonly Token[], typed: Typed): Token[] {
+  return fields.flatMap(({ name, value }) => {
+    const text = typed[name]?.trim()
+    return text === undefined || text === '' || text === value ? [] : [{ name, value: text }]
+  })
+}
+
+/** Every field's token on a frame's root: its changed value, or '' to leave tokens.css's. */
+export function styleOf(fields: readonly Token[], typed: Typed): Record<string, string> {
+  const changed = new Map(changedOf(fields, typed).map((token) => [token.name, token.value]))
+  return Object.fromEntries(fields.map(({ name }) => [name, changed.get(name) ?? '']))
+}

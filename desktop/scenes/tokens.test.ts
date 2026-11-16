@@ -3,9 +3,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { groupsOf, tokensIn } from './tokens'
+import { changedOf, groupsOf, styleOf, tokensIn } from './tokens'
 
 const tokensCss = readFileSync(join(import.meta.dirname, '..', 'renderer', 'tokens.css'), 'utf8')
+const fields = groupsOf(tokensCss).flatMap((group) => group.tokens)
 
 describe('tokensIn', () => {
   test("keeps the block's order, never sorted", () => {
@@ -114,6 +115,57 @@ describe('groupsOf', () => {
     expect(groupsOf(css).find((group) => group.title === 'Space')?.tokens).toEqual([
       { name: '--space-1', value: '4px' },
       { name: '--space-9', value: '36px' },
+    ])
+  })
+})
+
+describe('changedOf', () => {
+  test('finds nothing when nothing was typed', () => {
+    expect(changedOf(fields, {})).toEqual([])
+  })
+
+  test('gives a field typed with a new value', () => {
+    expect(changedOf(fields, { '--space-2': '10px' })).toEqual([
+      { name: '--space-2', value: '10px' },
+    ])
+  })
+
+  test('trims what was typed', () => {
+    expect(changedOf(fields, { '--space-2': ' 10px ' })).toEqual([
+      { name: '--space-2', value: '10px' },
+    ])
+  })
+
+  test('finds no change in a field typed back to its own value, spaces aside', () => {
+    expect(changedOf(fields, { '--space-2': ' 8px ' })).toEqual([])
+  })
+
+  test("reads an emptied field as the token's own value", () => {
+    expect(changedOf(fields, { '--space-2': '' })).toEqual([])
+  })
+
+  test("keeps tokens.css's order, not the order typed", () => {
+    const typed = { '--space-2': '10px', '--text-title': 'calc(var(--text-base) + 8px)' }
+    expect(changedOf(fields, typed)).toEqual([
+      { name: '--text-title', value: 'calc(var(--text-base) + 8px)' },
+      { name: '--space-2', value: '10px' },
+    ])
+  })
+
+  test("changes only a field's token", () => {
+    expect(changedOf(fields, { '--text-base': '15px', '--row': '40px', '--nope': '1px' })).toEqual(
+      [],
+    )
+  })
+})
+
+describe('styleOf', () => {
+  test("sets a changed field's value and clears every other field", () => {
+    const style = styleOf(fields, { '--space-2': '10px' })
+    expect(Object.keys(style)).toEqual(fields.map((token) => token.name))
+    expect(Object.keys(style)).toHaveLength(21)
+    expect(Object.entries(style).filter(([, value]) => value !== '')).toEqual([
+      ['--space-2', '10px'],
     ])
   })
 })
