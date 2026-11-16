@@ -22,6 +22,7 @@
     "scenes/controls.test.ts",
     "scenes/lab.test.ts",
     "scenes/lab.contract.test.ts",
-    "scenes/tokens.test.ts"
+    "scenes/tokens.test.ts",
+    "scenes/pick.test.ts"
   ]
 }
