@@ -5,7 +5,16 @@ import { describe, expect, test } from 'vitest'
 import { inkFailures, stepFailures } from '../shared/theme/contract'
 import { schemesOf } from '../shared/theme/derive'
 import { BUILTINS, Theme } from '../shared/theme/theme'
-import { BUILT_IN_LAB, failuresOf, type Lab, moved, SLIDERS } from './lab'
+import {
+  ALL_KEPT,
+  BUILT_IN_LAB,
+  type Failure,
+  failuresOf,
+  type Lab,
+  linesOf,
+  moved,
+  SLIDERS,
+} from './lab'
 
 describe('SLIDERS', () => {
   test("are Theme's numbers, in its order", () => {
@@ -74,5 +83,101 @@ describe('failuresOf', () => {
     const contract = [...inkFailures(s), ...stepFailures(s)]
     expect(contract).toHaveLength(1)
     expect(failuresOf(lab)).toEqual(contract)
+  })
+})
+
+describe('linesOf', () => {
+  const flat: Failure = {
+    problem: 'flat',
+    scheme: 'dark',
+    from: '--color-background',
+    to: '--color-band',
+    step: 0.031,
+    needs: 0.04,
+  }
+  const border: Failure = {
+    scheme: 'dark',
+    ink: '--color-border',
+    on: '--color-card',
+    ratio: 2.5,
+    needs: 3,
+  }
+
+  test('says every pair keeps the contract when nothing fails', () => {
+    expect(linesOf([])).toEqual([ALL_KEPT])
+    expect(ALL_KEPT).toBe('Every pair keeps the contract.')
+  })
+
+  test("names an ink failure's scheme, pair, ratio and need", () => {
+    expect(
+      linesOf([
+        {
+          scheme: 'light',
+          ink: '--color-income',
+          on: '--color-sidebar',
+          ratio: 4.450078147348687,
+          needs: 4.5,
+        },
+        border,
+      ]),
+    ).toEqual([
+      'Light: --color-income on --color-sidebar is 4.45:1, needs 4.5:1',
+      'Dark: --color-border on --color-card is 2.50:1, needs 3:1',
+    ])
+  })
+
+  test("names a flat step's scheme, pair, step and need", () => {
+    expect(linesOf([flat])).toEqual([
+      'Dark: --color-band on --color-background steps 0.031, needs 0.04',
+    ])
+  })
+
+  test("names a diverged step's pair and both its steps", () => {
+    const diverged: Failure = {
+      problem: 'diverged',
+      from: '--color-background',
+      to: '--color-band',
+      light: 0.042,
+      dark: 0.1,
+      factor: 2.380952,
+      allows: 2,
+    }
+    expect(linesOf([diverged])).toEqual([
+      '--color-band on --color-background: light steps 0.042, dark 0.100, more than 2× apart',
+    ])
+  })
+
+  test('keeps the order it is given', () => {
+    expect(linesOf([flat, border])).toEqual([
+      'Dark: --color-band on --color-background steps 0.031, needs 0.04',
+      'Dark: --color-border on --color-card is 2.50:1, needs 3:1',
+    ])
+  })
+
+  test('cuts a failing figure, never rounding it up to its need', () => {
+    expect(
+      linesOf([
+        { scheme: 'light', ink: '--color-muted', on: '--color-band', ratio: 4.4999, needs: 4.5 },
+        {
+          problem: 'flat',
+          scheme: 'light',
+          from: '--color-background',
+          to: '--color-band',
+          step: 0.0399,
+          needs: 0.04,
+        },
+      ]),
+    ).toEqual([
+      'Light: --color-muted on --color-band is 4.49:1, needs 4.5:1',
+      'Light: --color-band on --color-background steps 0.039, needs 0.04',
+    ])
+  })
+
+  test('cuts in decimal, so an exact figure keeps its last place', () => {
+    expect(
+      linesOf([
+        { scheme: 'light', ink: '--color-in', on: '--color-card', ratio: 4.35, needs: 4.5 },
+      ]),
+    ).toEqual(['Light: --color-in on --color-card is 4.35:1, needs 4.5:1'])
   })
 })

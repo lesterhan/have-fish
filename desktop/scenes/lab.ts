@@ -16,6 +16,10 @@ export type Lab = Readonly<Record<Scheme, Theme>>
 
 export type Failure = InkFailure | StepFailure
 
+export const SCHEME_LABELS: Record<Scheme, string> = { light: 'Light', dark: 'Dark' }
+
+export const ALL_KEPT = 'Every pair keeps the contract.'
+
 export const BUILT_IN_LAB: Lab = {
   light: BUILTINS[FOR_SCHEME.light],
   dark: BUILTINS[FOR_SCHEME.dark],
@@ -48,4 +52,32 @@ export function moved(lab: Lab, scheme: Scheme, key: SliderKey, value: string): 
 export function failuresOf(lab: Lab): Failure[] {
   const schemes = schemesOf(lab.light, lab.dark)
   return [...inkFailures(schemes), ...stepFailures(schemes)]
+}
+
+/** Each failure in words, ink first; a failing figure is cut, never rounded up to its need. */
+export function linesOf(failures: readonly Failure[]): string[] {
+  if (failures.length === 0) return [ALL_KEPT]
+  return failures.map((failure) => {
+    if (!('problem' in failure)) {
+      const { scheme, ink, on, ratio, needs } = failure
+      return `${SCHEME_LABELS[scheme]}: ${ink} on ${on} is ${cut(ratio, 2)}:1, needs ${needs}:1`
+    }
+    if (failure.problem === 'flat') {
+      const { scheme, from, to, step, needs } = failure
+      return `${SCHEME_LABELS[scheme]}: ${to} on ${from} steps ${cut(step, 3)}, needs ${needs}`
+    }
+    const { from, to, light, dark, allows } = failure
+    const steps = `light steps ${light.toFixed(3)}, dark ${dark.toFixed(3)}`
+    return `${to} on ${from}: ${steps}, more than ${allows}× apart`
+  })
+}
+
+/** `value` with exactly `places` decimals, rounded down in decimal rather than in binary. */
+function cut(value: number, places: number): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: places,
+    maximumFractionDigits: places,
+    roundingMode: 'floor',
+    useGrouping: false,
+  }).format(value)
 }
