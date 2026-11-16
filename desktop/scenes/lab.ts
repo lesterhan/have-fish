@@ -56,7 +56,7 @@ export const SCHEME_LABELS: Record<Scheme, string> = { light: 'Light', dark: 'Da
 
 export const ALL_KEPT = 'Every pair keeps the contract.'
 
-/** Each failure in words, ink first; a failing figure is cut, never rounded up to its need. */
+/** Each failure in words, in its order; a failing figure is cut, never rounded up to its need. */
 export function linesOf(failures: readonly Failure[]): string[] {
   if (failures.length === 0) return [ALL_KEPT]
   return failures.map((failure) => {
@@ -69,17 +69,29 @@ export function linesOf(failures: readonly Failure[]): string[] {
       return `${SCHEME_LABELS[scheme]}: ${to} on ${from} steps ${cut(step, 3)}, needs ${needs}`
     }
     const { from, to, light, dark, allows } = failure
-    const steps = `light steps ${light.toFixed(3)}, dark ${dark.toFixed(3)}`
+    // The smaller cut and the larger rounded up, so the two never read closer than they are.
+    const figure = (step: number) =>
+      step < Math.max(light, dark) ? cut(step, 3) : roundedUp(step, 3)
+    const steps = `light steps ${figure(light)}, dark ${figure(dark)}`
     return `${to} on ${from}: ${steps}, more than ${allows}× apart`
   })
 }
 
 /** `value` with exactly `places` decimals, rounded down in decimal rather than in binary. */
 function cut(value: number, places: number): string {
+  return written(value, places, 'floor')
+}
+
+/** `value` with exactly `places` decimals, rounded up in decimal. */
+function roundedUp(value: number, places: number): string {
+  return written(value, places, 'ceil')
+}
+
+function written(value: number, places: number, roundingMode: 'floor' | 'ceil'): string {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: places,
     maximumFractionDigits: places,
-    roundingMode: 'floor',
+    roundingMode,
     useGrouping: false,
   }).format(value)
 }

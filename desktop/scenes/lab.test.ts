@@ -150,6 +150,21 @@ describe('linesOf', () => {
     ])
   })
 
+  test('cuts the smaller diverged step and rounds the larger up', () => {
+    const diverged: Failure = {
+      problem: 'diverged',
+      from: '--color-background',
+      to: '--color-band',
+      light: 0.04251,
+      dark: 0.08549,
+      factor: 2.011056,
+      allows: 2,
+    }
+    expect(linesOf([diverged])).toEqual([
+      '--color-band on --color-background: light steps 0.042, dark 0.086, more than 2× apart',
+    ])
+  })
+
   test('keeps the order it is given', () => {
     expect(linesOf([flat, border])).toEqual([
       'Dark: --color-band on --color-background steps 0.031, needs 0.04',
