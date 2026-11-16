@@ -7,7 +7,8 @@ import '../renderer/tokens.css'
 import './index-page.css'
 import { type Scene, scenesByPlace } from './scenes'
 
-const BENCH = import.meta.env.DEV
+// Only the dev server sets `hot`; `env.DEV` is true in a build too when NODE_ENV is `test`.
+const BENCH = import.meta.hot !== undefined
 
 /** Draws the index into `app`. */
 export function drawIndex(app: HTMLElement) {
