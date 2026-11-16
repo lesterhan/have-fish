@@ -150,20 +150,20 @@ export function seedJournal(
   const batch = options.batch ?? 5_000
   const ledger = open(where, nowMs)
   try {
-    const made = documentsOf(journal, { deviceId: ledger.meta.deviceId, nowMs, newId: randomUUID })
+    const docs = documentsOf(journal, { deviceId: ledger.meta.deviceId, nowMs, newId: randomUUID })
     const tally = (placed: number, leftOut: LeftOut[]): Tally => ({
       read: placed + leftOut.length,
       written: 0,
       leftOut,
       refused: [],
     })
-    const accounts = tally(made.accounts.length, made.accountsLeftOut)
-    const entries = tally(made.transactions.length, made.entriesLeftOut)
+    const accounts = tally(docs.accounts.length, docs.accountsLeftOut)
+    const entries = tally(docs.transactions.length, docs.entriesLeftOut)
 
     let done = 0
-    const apply = (placed: Placed<AccountDoc | TransactionDoc>[], into: Tally) => {
-      for (let i = 0; i < placed.length; i += batch) {
-        const rest = placed.slice(i, i + batch)
+    const apply = (documents: Placed<AccountDoc | TransactionDoc>[], into: Tally) => {
+      for (let i = 0; i < documents.length; i += batch) {
+        const rest = documents.slice(i, i + batch)
         while (rest.length > 0) {
           const applied = applyLocal(
             ledger,
@@ -183,8 +183,8 @@ export function seedJournal(
         options.progress?.(done)
       }
     }
-    apply(made.accounts, accounts)
-    apply(made.transactions, entries)
+    apply(docs.accounts, accounts)
+    apply(docs.transactions, entries)
     const stray = journal.skipped.filter((s) => s.why === 'stray').map((s) => s.line)
     return { entries, accounts, stray }
   } finally {

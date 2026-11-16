@@ -586,6 +586,19 @@ describe('journalLines', () => {
     ])
   })
 
+  test('writes a count and a line number past a thousand plainly, with no separator', () => {
+    const report = entriesOnly({
+      read: 12345,
+      written: 12344,
+      leftOut: [{ line: 1234, why: 'currency' }],
+    })
+    expect(journalLines(report).slice(0, 3)).toEqual([
+      'Read the journal: 12345 entries and 0 accounts.',
+      '  written: 12344 entries and 0 accounts',
+      '  left out, in a currency other than CAD: 1 (line 1234)',
+    ])
+  })
+
   test('prints the first ten lines of a group, and how many more', () => {
     const report = entriesOnly({
       leftOut: Array.from({ length: 12 }, (_, i): LeftOut => ({ line: i + 1, why: 'currency' })),
