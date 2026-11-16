@@ -33,6 +33,7 @@ describe('partOf', () => {
   test('names nothing from a mark without a string file and a number line', () => {
     expect(partOf({ loc: { file: 'renderer/parts/Money.svelte' } })).toBeNull()
     expect(partOf({ loc: { file: 7, line: 29 } })).toBeNull()
+    expect(partOf({ loc: { file: 'renderer/parts/Money.svelte', line: '29' } })).toBeNull()
   })
 })
 
@@ -44,6 +45,10 @@ describe('partRun', () => {
 
   test('counts the leading run of marks in one file, not the same part further up', () => {
     expect(partRun([money29, money24, list, row, money24])).toBe(2)
+  })
+
+  test('counts every mark when the run reaches the end of them', () => {
+    expect(partRun([money29, money24])).toBe(2)
   })
 
   test('is 1 for an element no part marked, though its parent is marked', () => {
@@ -84,6 +89,7 @@ describe('matchedOf', () => {
     {
       cssText: '',
       conditionText: '(max-width: 44rem)',
+      media: { mediaText: '(max-width: 44rem)' },
       cssRules: [
         { cssText: '', selectorText: '.pane', style: { cssText: 'padding: var(--space-4);' } },
       ],
@@ -108,6 +114,23 @@ describe('matchedOf', () => {
         () => false,
       ),
     ).toEqual([])
+  })
+
+  test('reads through a rule with a condition but no media, as @supports, without asking holds', () => {
+    const rules = [
+      {
+        cssText: '',
+        conditionText: '(display: grid)',
+        cssRules: [{ cssText: '', selectorText: '.a', style: { cssText: 'gap: var(--space-1);' } }],
+      },
+    ]
+    expect(
+      matchedOf(
+        rules,
+        () => true,
+        () => false,
+      ),
+    ).toEqual(['gap: var(--space-1);'])
   })
 
   test('reads through a grouping rule with no condition without asking holds', () => {
@@ -201,6 +224,10 @@ describe('namesRead', () => {
       '--font-figures',
       '--color-in',
     ])
+  })
+
+  test('reads a var( with a space before the name', () => {
+    expect(namesRead(['color: var( --color-text );'], ['--color-text'])).toEqual(['--color-text'])
   })
 
   test('names a token once, however often it is read', () => {

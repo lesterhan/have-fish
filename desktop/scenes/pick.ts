@@ -44,7 +44,7 @@ export type Rule = {
   readonly cssText: string
   readonly selectorText?: string
   readonly style?: { readonly cssText: string }
-  readonly conditionText?: string
+  readonly media?: { readonly mediaText: string }
   readonly cssRules?: Iterable<Rule>
 }
 
@@ -64,7 +64,8 @@ export function matchedOf(
       }
     }
     if (rule.cssRules === undefined) return []
-    if (rule.conditionText !== undefined && !holds(rule.conditionText)) return []
+    // Only @media is judged: @supports and @container are read through, listed either way.
+    if (rule.media !== undefined && !holds(rule.media.mediaText)) return []
     return matchedOf(rule.cssRules, matches, holds)
   })
 }
