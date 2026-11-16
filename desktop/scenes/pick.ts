@@ -23,3 +23,33 @@ export function partRun(metas: readonly unknown[]): number {
   const differs = metas.findIndex((meta) => partOf(meta)?.file !== file)
   return differs === -1 ? metas.length : differs
 }
+
+/** A CSS rule, as far as the pick reads one. Its cssText, never read, makes a CSSRule one. */
+export type Rule = {
+  readonly cssText: string
+  readonly selectorText?: string
+  readonly style?: { readonly cssText: string }
+  readonly conditionText?: string
+  readonly cssRules?: Iterable<Rule>
+}
+
+/** Each matching style rule's declarations, in order, read through a grouping rule that holds. */
+export function matchedOf(
+  rules: Iterable<Rule>,
+  matches: (selector: string) => boolean,
+  holds: (condition: string) => boolean,
+): string[] {
+  return [...rules].flatMap((rule) => {
+    if (rule.selectorText !== undefined) {
+      try {
+        return matches(rule.selectorText) ? [rule.style?.cssText ?? ''] : []
+      } catch {
+        // A selector `matches` refuses, as `@page`'s empty one, matches nothing.
+        return []
+      }
+    }
+    if (rule.cssRules === undefined) return []
+    if (rule.conditionText !== undefined && !holds(rule.conditionText)) return []
+    return matchedOf(rule.cssRules, matches, holds)
+  })
+}
