@@ -2,7 +2,7 @@
 // checks it.
 
 import { describe, expect, test } from 'vitest'
-import { Theme } from '../shared/theme/theme'
+import { BUILTINS, Theme } from '../shared/theme/theme'
 import { SLIDERS } from './lab'
 
 describe('SLIDERS', () => {
@@ -12,5 +12,30 @@ describe('SLIDERS', () => {
       .map(([key]) => key)
     expect(numbers).toEqual(['neutralHue', 'neutralChroma', 'accentHue'])
     expect(SLIDERS.map((slider) => slider.key)).toEqual(numbers)
+  })
+
+  test("run over each number's bounds in the schema, in their own steps", () => {
+    expect(SLIDERS.map(({ key, min, max, step }) => ({ key, min, max, step }))).toEqual([
+      { key: 'neutralHue', min: 0, max: 360, step: 1 },
+      { key: 'neutralChroma', min: 0, max: 0.1, step: 0.001 },
+      { key: 'accentHue', min: 0, max: 360, step: 1 },
+    ])
+  })
+
+  test('say what each one moves', () => {
+    expect(SLIDERS.map((slider) => slider.label)).toEqual([
+      'Neutral hue',
+      'Neutral chroma',
+      'Accent hue',
+    ])
+  })
+
+  test("stand on each built-in's value", () => {
+    for (const theme of Object.values(BUILTINS)) {
+      for (const { key, min, step } of SLIDERS) {
+        const steps = (theme[key] - min) / step
+        expect(Math.abs(steps - Math.round(steps)), `${theme.name} ${key}`).toBeLessThan(1e-9)
+      }
+    }
   })
 })
