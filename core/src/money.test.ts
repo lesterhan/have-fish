@@ -81,13 +81,14 @@ describe('parseExact', () => {
   })
 
   it('refuses an amount under a cent rather than reading it as 0', () => {
-    expect([parse('0.005'), parse('-0.001'), parse('1e-7'), parse('1e-999999')]).toEqual([
-      1, 0, 0, 0,
-    ])
+    const underACent = ['0.005', '-0.001', '1e-7', '1e-999999', '0.00010', '10e-5']
+    expect(underACent.map(parse)).toEqual([1, 0, 0, 0, 0, 0])
     expect(parseExact('0.005')).toBeNull()
     expect(parseExact('-0.001')).toBeNull()
     expect(parseExact('1e-7')).toBeNull()
     expect(parseExact('1e-999999')).toBeNull()
+    expect(parseExact('0.00010')).toBeNull()
+    expect(parseExact('10e-5')).toBeNull()
   })
 
   it('counts places on the value after the exponent, not in the text', () => {
