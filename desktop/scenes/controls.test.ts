@@ -27,6 +27,7 @@ import {
   WIDTHS,
   widthOf,
 } from './controls'
+import { BUILT_IN_LAB, type Lab } from './lab'
 import { SCENES, type Scene, sceneNamed } from './scenes'
 
 const DESKTOP = join(import.meta.dirname, '..')
@@ -90,7 +91,10 @@ describe('searchOf writes the bench into an address', () => {
 describe('framesOf frames the scene once per theme shown', () => {
   test('dark at the narrow width is one dark frame 704px wide', () => {
     expect(
-      framesOf({ scene: 'ledger/year', density: 'compact', width: 'narrow', shown: 'dark' }),
+      framesOf(
+        { scene: 'ledger/year', density: 'compact', width: 'narrow', shown: 'dark' },
+        BUILT_IN_LAB,
+      ),
     ).toEqual([
       {
         src: './?scene=ledger%2Fyear&density=compact',
@@ -101,12 +105,10 @@ describe('framesOf frames the scene once per theme shown', () => {
   })
 
   test('both is the scene light, then dark, sharing the width', () => {
-    const frames = framesOf({
-      scene: 'ledger/year',
-      density: 'regular',
-      width: 'full',
-      shown: 'both',
-    })
+    const frames = framesOf(
+      { scene: 'ledger/year', density: 'regular', width: 'full', shown: 'both' },
+      BUILT_IN_LAB,
+    )
     expect(frames).toHaveLength(2)
     for (const frame of frames) {
       expect(frame.src).toBe('./?scene=ledger%2Fyear&density=regular')
@@ -118,7 +120,10 @@ describe('framesOf frames the scene once per theme shown', () => {
 
   test('light at the minimum width is one light frame 360px wide', () => {
     expect(
-      framesOf({ scene: 'accounts/year', density: 'large', width: 'minimum', shown: 'light' }),
+      framesOf(
+        { scene: 'accounts/year', density: 'large', width: 'minimum', shown: 'light' },
+        BUILT_IN_LAB,
+      ),
     ).toEqual([
       {
         src: './?scene=accounts%2Fyear&density=large',
@@ -126,6 +131,21 @@ describe('framesOf frames the scene once per theme shown', () => {
         width: 360,
       },
     ])
+  })
+
+  test("each frame holds the lab's theme for its scheme", () => {
+    const lab: Lab = {
+      light: { ...BUILT_IN_LAB.light, neutralHue: 200, neutralChroma: 0.03, accentHue: 300 },
+      dark: { ...BUILT_IN_LAB.dark, accentHue: 120 },
+    }
+    const both: Bench = { scene: 'ledger/year', density: 'regular', width: 'full', shown: 'both' }
+    const frames = framesOf(both, lab)
+    expect(frames).toHaveLength(2)
+    expect(frames[0]?.theme).toEqual(lab.light)
+    expect(frames[1]?.theme).toEqual(lab.dark)
+    const dark = framesOf({ ...both, shown: 'dark' }, lab)
+    expect(dark).toHaveLength(1)
+    expect(dark[0]?.theme).toEqual(lab.dark)
   })
 })
 

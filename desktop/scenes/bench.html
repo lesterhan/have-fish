@@ -29,6 +29,21 @@
       #note {
         margin: 0;
       }
+      #lab {
+        max-height: 40vh;
+        overflow: auto;
+        padding: 0 8px;
+      }
+      #lab-body {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+        padding-bottom: 8px;
+      }
+      #lab-body textarea {
+        font-family: ui-monospace, monospace;
+      }
       main {
         flex: 1;
         min-height: 0;
@@ -45,6 +60,7 @@
   </head>
   <body>
     <header id="controls"></header>
+    <details id="lab"><summary>Theme lab</summary><div id="lab-body"></div></details>
     <main id="frames"></main>
     <script type="module" src="./bench.ts"></script>
   </body>

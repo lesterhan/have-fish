@@ -19,6 +19,8 @@
     "scenes/scenes.test.ts",
     "scenes/steps.test.ts",
     "scenes/door.test.ts",
-    "scenes/controls.test.ts"
+    "scenes/controls.test.ts",
+    "scenes/lab.test.ts",
+    "scenes/lab.contract.test.ts"
   ]
 }
