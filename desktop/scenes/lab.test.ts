@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from 'vitest'
 import { BUILTINS, Theme } from '../shared/theme/theme'
-import { SLIDERS } from './lab'
+import { BUILT_IN_LAB, moved, SLIDERS } from './lab'
 
 describe('SLIDERS', () => {
   test("are Theme's numbers, in its order", () => {
@@ -37,5 +37,27 @@ describe('SLIDERS', () => {
         expect(Math.abs(steps - Math.round(steps)), `${theme.name} ${key}`).toBeLessThan(1e-9)
       }
     }
+  })
+})
+
+describe('moved', () => {
+  test('sets one input of one scheme', () => {
+    expect(moved(BUILT_IN_LAB, 'dark', 'accentHue', '200')).toEqual({
+      light: BUILT_IN_LAB.light,
+      dark: { ...BUILT_IN_LAB.dark, accentHue: 200 },
+    })
+  })
+
+  test('takes each end of a slider', () => {
+    expect(moved(BUILT_IN_LAB, 'light', 'neutralHue', '0').light.neutralHue).toBe(0)
+    expect(moved(BUILT_IN_LAB, 'light', 'neutralHue', '360').light.neutralHue).toBe(360)
+    expect(moved(BUILT_IN_LAB, 'light', 'neutralChroma', '0.1').light.neutralChroma).toBe(0.1)
+  })
+
+  test('leaves the lab as it was past either end or for no number', () => {
+    for (const value of ['-1', '361', 'abc']) {
+      expect(moved(BUILT_IN_LAB, 'light', 'neutralHue', value), value).toBe(BUILT_IN_LAB)
+    }
+    expect(moved(BUILT_IN_LAB, 'light', 'neutralChroma', '0.101')).toBe(BUILT_IN_LAB)
   })
 })
