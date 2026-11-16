@@ -38,13 +38,13 @@ let typed: Typed = {}
 let grid = false
 history.replaceState(null, '', searchOf(bench))
 
-/** The theme each frame holds now, read on every load so a reload keeps it. */
 /** The space and type tokens tokens.css declares, by fieldset, and all of them in its order. */
 const groups = groupsOf(tokensCss)
 const fields = groups.flatMap((group) => group.tokens)
 
 const GRID_ID = 'bench-grid'
 
+/** The theme each frame holds now, read on every load so a reload keeps it. */
 const themes = new WeakMap<HTMLIFrameElement, Theme>()
 
 /** Each control's select, so a choice that moves another control shows it there too. */

@@ -97,15 +97,14 @@ describe('groupsOf', () => {
   })
 
   test("gives each field tokens.css's value", () => {
-    const fields = groupsOf(tokensCss).flatMap((group) => group.tokens)
     const names = fields.map((token) => token.name)
     expect(fields).not.toEqual([])
     expect(fields).toEqual(tokensIn(tokensCss).filter((token) => names.includes(token.name)))
   })
 
-  test('gives no field to a token a density block declares', () => {
+  test('gives no field to a token any density block declares', () => {
     const css =
-      ":root {\n  --space-1: 4px;\n  --space-2: 8px;\n}\n[data-density='large'] {\n  --space-2: 10px;\n}"
+      ":root {\n  --space-1: 4px;\n  --space-2: 8px;\n  --space-3: 12px;\n}\n[data-density='large'] {\n  --space-2: 10px;\n}\n[data-density='compact'] {\n  --space-3: 10px;\n}"
     expect(groupsOf(css)).toEqual([
       { title: 'Type', tokens: [] },
       { title: 'Space', tokens: [{ name: '--space-1', value: '4px' }] },
@@ -223,5 +222,10 @@ describe('exportOf', () => {
 describe('GRID_STYLE', () => {
   test("spaces its lines by the frame's own --space-1", () => {
     expect(GRID_STYLE['background-size']).toBe('var(--space-1) var(--space-1)')
+  })
+
+  test('takes no click and stays over the frame as it scrolls', () => {
+    expect(GRID_STYLE['pointer-events']).toBe('none')
+    expect(GRID_STYLE.position).toBe('fixed')
   })
 })
