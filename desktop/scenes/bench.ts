@@ -25,7 +25,7 @@ import {
   SCHEME_LABELS,
   SLIDERS,
 } from './lab'
-import { exportOf, GRID_STYLE, groupsOf, styleOf, type Typed } from './tokens'
+import { GRID_STYLE, groupsOf, pasteOf, styleOf, type Typed } from './tokens'
 
 const bar = byId('controls')
 const shelf = byId('frames')
@@ -97,7 +97,7 @@ for (const scheme of SCHEMES) {
       output.textContent = String(lab[scheme][slider.key])
       show()
       showLab()
-      showExport()
+      showPaste()
     })
     label.append(input, output)
     fieldset.append(label)
@@ -149,7 +149,7 @@ for (const group of groups) {
     input.addEventListener('input', () => {
       typed = { ...typed, [token.name]: input.value }
       show()
-      showExport()
+      showPaste()
     })
     label.append(input)
     fieldset.append(label)
@@ -157,18 +157,18 @@ for (const group of groups) {
   spacingBody.append(fieldset)
 }
 
-const exportFigure = document.createElement('figure')
-const exportCaption = document.createElement('figcaption')
-exportCaption.textContent = 'Changed in the lab or here, to paste'
-const exported = document.createElement('textarea')
-exported.readOnly = true
-exported.rows = 8
-exported.cols = 48
-exportFigure.append(exportCaption, exported)
-spacingBody.append(exportFigure)
+const pasteFigure = document.createElement('figure')
+const pasteCaption = document.createElement('figcaption')
+pasteCaption.textContent = 'Changed in the lab or here, to paste'
+const paste = document.createElement('textarea')
+paste.readOnly = true
+paste.rows = 8
+paste.cols = 48
+pasteFigure.append(pasteCaption, paste)
+spacingBody.append(pasteFigure)
 
 showLab()
-showExport()
+showPaste()
 show()
 
 function byId(id: string): HTMLElement {
@@ -247,6 +247,6 @@ function showLab() {
 }
 
 /** Says every token changed in the panel or the lab, as one block to paste. */
-function showExport() {
-  exported.value = exportOf(fields, typed, lab)
+function showPaste() {
+  paste.value = pasteOf(fields, typed, lab)
 }

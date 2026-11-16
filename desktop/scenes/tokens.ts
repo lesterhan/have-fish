@@ -1,5 +1,5 @@
 // The bench's tokens: what tokens.css declares, the panel's fields over its space and type, what
-// was changed there or in the theme lab, and the block they export as. No DOM; `bench.ts` draws.
+// was changed there or in the theme lab, and the block to paste. No DOM; `bench.ts` draws.
 
 import { SCHEMES } from '../shared/theme/contract'
 import { deriveTokens } from '../shared/theme/derive'
@@ -86,7 +86,7 @@ export const GRID_STYLE: Readonly<Record<string, string>> = {
 }
 
 /** Each token changed in the panel, then each colour the lab changed, light then dark. */
-export function exportOf(fields: readonly Token[], typed: Typed, lab: Lab): string {
+export function pasteOf(fields: readonly Token[], typed: Typed, lab: Lab): string {
   const panel = changedOf(fields, typed).map(({ name, value }) => `${name}: ${value};`)
   const colours = SCHEMES.flatMap((scheme) => {
     const builtIn = deriveTokens(BUILT_IN_LAB[scheme])
