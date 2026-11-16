@@ -1,33 +1,25 @@
 // The window in a browser tab: with ?scene=<name>, sets the clock and the stand-in bridge, then
 // runs the window's own main. A density= sets the density over the scene's own, for the design
-// bench. With no scene named, a link to each.
+// bench. With no scene named, the index: a card for each.
 
 import { replayBridge } from './bridge'
 import { densityFor } from './controls'
 import { EMPTY, type Fixture, noonOf } from './fixture'
-import { SCENES, type Scene, sceneNamed } from './scenes'
+import { type Scene, sceneNamed } from './scenes'
 import { play } from './steps'
 
 const asked = new URLSearchParams(location.search)
 const scene = sceneNamed(asked.get('scene'))
 
-if (scene === null) index()
+if (scene === null) await index()
 else await show(scene, asked.get('density'))
 
-/** The list of scenes, each a link to itself. */
-function index() {
+/** The index, loaded only here so a scene's page carries none of it. */
+async function index() {
   const app = document.getElementById('app')
   if (app === null) throw new Error('index.html has no #app')
-  const list = document.createElement('ul')
-  for (const scene of SCENES) {
-    const link = document.createElement('a')
-    link.href = `?scene=${scene.name}`
-    link.textContent = scene.name
-    const item = document.createElement('li')
-    item.append(link)
-    list.append(item)
-  }
-  app.replaceChildren(list)
+  const { drawIndex } = await import('./index-page')
+  drawIndex(app)
 }
 
 /** The window over `scene`'s fixture, as if main had answered it; the window can't tell. */
