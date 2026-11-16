@@ -202,6 +202,13 @@ function byId(id: string): HTMLElement {
   return found
 }
 
+/** A line of a list, set as text. */
+function listItem(line: string): HTMLLIElement {
+  const item = document.createElement('li')
+  item.textContent = line
+  return item
+}
+
 /** Frames the bench's scene, reloading a frame only when its page changes. */
 function show() {
   for (const [key, select] of selects) select.value = bench[key]
@@ -261,13 +268,7 @@ function paint(iframe: HTMLIFrameElement) {
 
 /** Says what the contract finds in the lab, and the JSON it exports as. */
 function showLab() {
-  contract.replaceChildren(
-    ...linesOf(failuresOf(lab)).map((line) => {
-      const item = document.createElement('li')
-      item.textContent = line
-      return item
-    }),
-  )
+  contract.replaceChildren(...linesOf(failuresOf(lab)).map(listItem))
   exportsOf(lab).forEach(({ text }, i) => {
     const textarea = textareas[i]
     if (textarea !== undefined) textarea.value = text
@@ -347,10 +348,6 @@ function pickAt(iframe: HTMLIFrameElement, x: number, y: number) {
       height: rect.height,
       padding: sides('padding'),
       margin: sides('margin'),
-    }).map((line) => {
-      const item = document.createElement('li')
-      item.textContent = line
-      return item
-    }),
+    }).map(listItem),
   )
 }
