@@ -147,6 +147,7 @@ describe('write', () => {
     })
     expect(await actions.write({ ...values, to })).toMatchObject({ ok: false, part: 'to' })
   })
+
   test('a code after the amount is sent as its currency', async () => {
     const { actions, sent } = fakeBridge({ 'spend.write': { ok: true, value: { id: 'b' } } })
     await actions.write({ ...values, amount: '1500 jpy' })
