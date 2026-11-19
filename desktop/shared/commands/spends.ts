@@ -25,11 +25,12 @@ const from = z.union([z.uuid(), z.strictObject({ income: typed(200) })]).nullabl
 
 export type From = z.infer<typeof from>
 
-/** `to` or `date` left out: unchanged. */
+/** `currency`, `to` or `date` left out: unchanged. */
 const edit = z.strictObject({
   id: z.uuid(),
   amount: typed(64),
   description: typed(500),
+  currency: typed(64).optional(),
   to: to.optional(),
   date: date.optional(),
 })
@@ -38,6 +39,8 @@ export const spendInputs = {
   /** Money in, out, or between my accounts: which, `from` and `to` say. */
   'spend.write': z.strictObject({
     amount: typed(64),
+    /** Left out: the account paying's, else the one it goes to's, else the home currency. */
+    currency: typed(64).optional(),
     description: typed(500),
     from: from.default(null),
     /** Left out: unsorted. */

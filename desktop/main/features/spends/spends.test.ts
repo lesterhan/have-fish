@@ -557,6 +557,114 @@ describe('editSpend', () => {
       },
     })
   })
+  test('a currency typed goes on both legs with the new amount', () => {
+    const { ledger, ctx, id, before } = written()
+
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' }))
+
+    expect(spendOf(ledger, id)).toEqual({
+      ...before.doc,
+      postings: [
+        { ...before.doc.postings[0], amount: '1500.00', currency: 'JPY' },
+        { ...before.doc.postings[1], amount: '-1500.00', currency: 'JPY' },
+      ],
+    })
+  })
+
+  test('no currency sent keeps the one the spend is in', () => {
+    const { ledger, ctx, id } = written()
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' }))
+
+    ok(editSpend(ctx, { id, amount: '2000', description: 'Coffee' }))
+
+    expect(
+      spendOf(ledger, id).postings.map(({ amount, currency }) => ({ amount, currency })),
+    ).toEqual([
+      { amount: '2000.00', currency: 'JPY' },
+      { amount: '-2000.00', currency: 'JPY' },
+    ])
+  })
+
+  test('the currency alone is a change', () => {
+    const { ledger, ctx, id } = written()
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee' }))
+    const cad = getDocument(ledger.db, 'transaction', id)
+
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' }))
+
+    const after = getDocument(ledger.db, 'transaction', id)
+    expect(after?.version).not.toEqual(cad?.version)
+    expect(after?.doc.postings.map((p) => p.currency)).toEqual(['JPY', 'JPY'])
+  })
+
+  test('the same currency sent again writes nothing', () => {
+    const { ledger, ctx, id } = written()
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' }))
+    const yen = getDocument(ledger.db, 'transaction', id)
+    const step = ctx.history.nextUndo()
+
+    expect(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' })).toEqual({
+      ok: true,
+      value: { id },
+    })
+
+    expect(getDocument(ledger.db, 'transaction', id)?.version).toEqual(yen?.version)
+    expect(ctx.history.nextUndo()).toBe(step)
+  })
+
+  test('an amount is checked in the currency it is going to', () => {
+    const { ctx, id } = written()
+
+    expect(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', currency: 'JPY' })).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_TOO_PRECISE', details: { amount: '4.50', currency: 'JPY' } },
+    })
+  })
+
+  test('a code the ledger does not know is refused, and the spend stays as it was', () => {
+    const { ledger, ctx, id, before } = written()
+
+    expect(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'YEN' })).toEqual({
+      ok: false,
+      failure: { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'YEN' } },
+    })
+    expect(spendOf(ledger, id)).toEqual(before.doc)
+  })
+
+  test('a spend from an account kept to CAD cannot go to yen', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', from: visa.id }))
+    const before = spendOf(ledger, id)
+
+    expect(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' })).toEqual({
+      ok: false,
+      failure: {
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId: visa.id, currency: 'JPY', locked: 'CAD' },
+      },
+    })
+    expect(spendOf(ledger, id)).toEqual(before)
+  })
+
+  test('a currency changed is one undo step, and redo puts it back', () => {
+    const { ledger, ctx, id } = written()
+    ok(editSpend(ctx, { id, amount: '1500', description: 'Coffee', currency: 'JPY' }))
+    const legs = () =>
+      spendOf(ledger, id).postings.map(({ amount, currency }) => ({ amount, currency }))
+
+    ok(undoLast(ctx))
+    expect(legs()).toEqual([
+      { amount: '4.50', currency: 'CAD' },
+      { amount: '-4.50', currency: 'CAD' },
+    ])
+
+    ok(redoLast(ctx))
+    expect(legs()).toEqual([
+      { amount: '1500.00', currency: 'JPY' },
+      { amount: '-1500.00', currency: 'JPY' },
+    ])
+  })
 })
 
 describe('a spend from another day', () => {
@@ -1397,5 +1505,101 @@ describe('an amount finer than its currency', () => {
   test('cents are fine in a currency that has them', () => {
     const { ctx } = setup()
     expect(writeSpend(ctx, { amount: '1500.50', description: 'Dinner' }).ok).toBe(true)
+  })
+})
+
+describe('a spend in the currency typed', () => {
+  test('is written in that currency on both legs', () => {
+    const { ledger, ctx } = setup()
+
+    const { id } = ok(writeSpend(ctx, { amount: '1500', currency: 'JPY', description: 'Ramen' }))
+
+    const wallet = accountAt(ledger, 'assets:cash')
+    const unsorted = accountAt(ledger, 'expenses:unsorted')
+    expect(spendOf(ledger, id).postings).toEqual([
+      { accountId: unsorted.id, amount: '1500.00', currency: 'JPY' },
+      { accountId: wallet.id, amount: '-1500.00', currency: 'JPY' },
+    ])
+  })
+
+  test('the wallet holds dollars and yen side by side', () => {
+    const { ledger, ctx } = setup()
+
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch' }))
+    ok(writeSpend(ctx, { amount: '1500', currency: 'JPY', description: 'Ramen' }))
+
+    const wallet = listAccounts(ledger.db).find((a) => a.name === 'cash')
+    expect(wallet?.balance).toEqual([
+      { amount: '-12.00', currency: 'CAD' },
+      { amount: '-1500.00', currency: 'JPY' },
+    ])
+  })
+
+  test('a code typed wins over the one an account would pay in', () => {
+    const { ledger, ctx } = setup()
+    const wise = ok(addAccount(ctx, { name: 'wise', kind: 'bank', currency: null }))
+
+    const cad = ok(writeSpend(ctx, { amount: '35', description: 'Museum', from: wise.id }))
+    const eur = ok(
+      writeSpend(ctx, { amount: '35', currency: 'EUR', description: 'Museum', from: wise.id }),
+    )
+
+    expect(spendOf(ledger, cad.id).postings.map((p) => p.currency)).toEqual(['CAD', 'CAD'])
+    expect(spendOf(ledger, eur.id).postings.map((p) => p.currency)).toEqual(['EUR', 'EUR'])
+  })
+
+  test('a code the ledger does not know is refused, and makes no account', () => {
+    const { ledger, ctx } = setup()
+
+    expect(writeSpend(ctx, { amount: '1500', currency: 'YEN', description: 'Ramen' })).toEqual({
+      ok: false,
+      failure: { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'YEN' } },
+    })
+    expect(count(ledger, 'accounts')).toBe(0)
+  })
+
+  test('a code is taken as sent, never put in capitals', () => {
+    const { ctx } = setup()
+
+    expect(writeSpend(ctx, { amount: '1500', currency: 'jpy', description: 'Ramen' })).toEqual({
+      ok: false,
+      failure: { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'jpy' } },
+    })
+  })
+
+  test('an amount that is not one is said before the code', () => {
+    const { ctx } = setup()
+
+    expect(writeSpend(ctx, { amount: 'abc', currency: 'YEN', description: '' })).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: 'abc' } },
+    })
+  })
+
+  test('yen with cents are refused', () => {
+    const { ctx } = setup()
+
+    expect(writeSpend(ctx, { amount: '1500.50', currency: 'JPY', description: 'Ramen' })).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_TOO_PRECISE', details: { amount: '1500.50', currency: 'JPY' } },
+    })
+  })
+
+  test('an account kept to CAD refuses yen, and nothing is saved or remembered', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    const last = ctx.machine.lastFrom()
+
+    expect(
+      writeSpend(ctx, { amount: '1500', currency: 'JPY', description: 'Ramen', from: visa.id }),
+    ).toEqual({
+      ok: false,
+      failure: {
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId: visa.id, currency: 'JPY', locked: 'CAD' },
+      },
+    })
+    expect(listTransactions(ledger.db)).toEqual([])
+    expect(ctx.machine.lastFrom()).toBe(last)
   })
 })
