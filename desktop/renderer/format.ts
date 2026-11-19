@@ -47,6 +47,12 @@ export function moneyParts(
 export const amountsText = (amounts: readonly Money[], { code = false } = {}) =>
   amounts.map(({ amount, currency }) => money(amount, currency, { code })).join(' · ')
 
+/** An amount as a field holds it to type again: `1500 JPY`, `35.00 EUR`; home's goes bare. */
+export function asTyped(amount: string, currency: string): string {
+  const figure = minorUnits(currency) === 0 ? amount.replace(/\.00$/, '') : amount
+  return currency === HOME_CURRENCY ? figure : `${figure} ${currency}`
+}
+
 /** Today's date, `YYYY-MM-DD`, where this machine is: what a new spend's date starts at. */
 export const todayIn = (
   now = Date.now(),

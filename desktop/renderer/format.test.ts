@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   amountsText,
+  asTyped,
   bandDay,
   day,
   dayOf,
@@ -37,6 +38,24 @@ describe('money', () => {
 
   test('the largest amount a posting can carry keeps every digit', () => {
     expect(money('9999999999.99', 'CAD')).toBe('9,999,999,999.99')
+  })
+})
+
+describe('an amount to type again', () => {
+  test('the home currency goes bare and ungrouped, as the chip holds it', () => {
+    expect(asTyped('1234.50', 'CAD')).toBe('1234.50')
+  })
+
+  test('a whole currency drops its zero cents and says its code', () => {
+    expect(asTyped('1500.00', 'JPY')).toBe('1500 JPY')
+  })
+
+  test('another currency keeps its cents and says its code', () => {
+    expect(asTyped('35.00', 'EUR')).toBe('35.00 EUR')
+  })
+
+  test('cents a whole currency held before stay shown', () => {
+    expect(asTyped('1500.50', 'JPY')).toBe('1500.50 JPY')
   })
 })
 
