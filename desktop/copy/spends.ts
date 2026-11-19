@@ -17,6 +17,7 @@ export const spends = {
       from: 'from',
       date: 'date',
       amount: 'amount',
+      charged: 'charged',
       description: 'description',
       to: 'to',
     },
@@ -25,9 +26,12 @@ export const spends = {
       from: 'assets:wallet',
       date: 'today',
       amount: '4.50',
+      charged: '36.20',
       description: 'coffee',
       to: 'expenses:food:coffee',
     },
+    /** The charged part, read out: what the account paying was charged, in the one it holds. */
+    chargedLabel: (code: string) => `charged, in ${code}`,
     /** What the date list is called, read out. */
     dateList: 'Days it can read',
     /** Two words of why a part was refused; the input is underlined red beside them. */
@@ -104,6 +108,7 @@ export const spends = {
       into: 'into',
       with: 'with',
       and: 'and',
+      convertedAt: 'converted at',
     },
     /** What each chip is called, read out. */
     chip: {
@@ -112,6 +117,8 @@ export const spends = {
       from: 'From',
       date: 'Date',
       to: 'To',
+      charged: 'Charged',
+      rate: 'Rate',
     },
     close: 'Close',
     /** Close's keycap. */
