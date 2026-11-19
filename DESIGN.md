@@ -57,15 +57,19 @@ for amounts and dates, the code mono for account paths and a bank's own text.
 
 - Weights are 400, 500 for labels and a path's last part, 600 for titles and totals.
 - Every amount, date, count and total is in the figures mono with `tabular-nums`, right-aligned in
-  its column, so a column of amounts lines up on the decimal point.
+  its column, so a column of amounts lines up on the decimal point. In a column, every amount keeps
+  a slot for its code, empty where it goes unsaid, and a whole currency keeps its cents' width
+  blank (`1,500    JPY`), so points and units line up. `desktop/e2e/currency.e2e.ts` holds it.
 - A size in a component is a type token, never a number.
 
 ### Money and days
 
 - **An amount** is grouped by thousands with a comma, with as many decimals as its currency has
   (`1,234.50`, `¥1,500` as `1,500`), and a true minus (−).
-- **The home currency goes unsaid** in lists and totals; any other says its code after the amount,
-  small and quiet (`35.00 EUR`). A transaction's details always say the code.
+- **The home currency goes unsaid where it repeats down a list** (the Ledger, a report): any other
+  says its code after the amount, small and quiet (`35.00 EUR`). **A balance says its code, home
+  included** (`1,250.00 CAD`), on Accounts' rows and their totals. A transaction's details always
+  say the code.
 - **A row's sign reads without colour**: a spend has none, money in has `+` and the money-in
   colour, a transfer has ⇄ before it.
 - **A day** reads `Thu 5 Nov`, with the year when it isn't this one (`Thu 5 Nov 2025`). A day band
