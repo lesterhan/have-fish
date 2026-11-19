@@ -32,6 +32,18 @@ const VISA_LISTED: ListedAccount = {
   balance: [],
 }
 
+/** Cash, which holds any currency. */
+const CASH_LISTED: ListedAccount = {
+  id: 'c',
+  name: 'cash',
+  kind: 'cash',
+  currency: null,
+  start: null,
+  balance: [],
+}
+
+const FOOD = { category: 'food' }
+
 describe('the parts', () => {
   test('read From, Date, Amount, Charged, Description, To', () => {
     expect(PARTS).toEqual(['from', 'date', 'amount', 'charged', 'description', 'to'])
@@ -100,25 +112,29 @@ describe('the Tab key, with the charged part', () => {
 
 describe('what the account paying was charged', () => {
   test('is asked, in CAD, when a card kept to CAD pays yen', () => {
-    expect(chargedIn([VISA_LISTED], 'v', '4000 jpy')).toBe('CAD')
+    expect(chargedIn([VISA_LISTED], 'v', FOOD, '4000 jpy')).toBe('CAD')
   })
 
   test('is not asked when the amount is in the card’s currency, or says none', () => {
-    expect(chargedIn([VISA_LISTED], 'v', '4000 cad')).toBeNull()
-    expect(chargedIn([VISA_LISTED], 'v', '4000')).toBeNull()
+    expect(chargedIn([VISA_LISTED], 'v', FOOD, '4000 cad')).toBeNull()
+    expect(chargedIn([VISA_LISTED], 'v', FOOD, '4000')).toBeNull()
   })
 
   test('is not asked of an account that holds any currency', () => {
-    expect(chargedIn([{ ...VISA_LISTED, currency: null }], 'v', '4000 jpy')).toBeNull()
+    expect(chargedIn([{ ...VISA_LISTED, currency: null }], 'v', FOOD, '4000 jpy')).toBeNull()
   })
 
   test('is not asked of income, or with no From', () => {
-    expect(chargedIn([VISA_LISTED], { income: 'salary' }, '4000 jpy')).toBeNull()
-    expect(chargedIn([VISA_LISTED], null, '4000 jpy')).toBeNull()
+    expect(chargedIn([VISA_LISTED], { income: 'salary' }, FOOD, '4000 jpy')).toBeNull()
+    expect(chargedIn([VISA_LISTED], null, FOOD, '4000 jpy')).toBeNull()
   })
 
   test('is not asked of an account not in the list', () => {
-    expect(chargedIn([VISA_LISTED], 'w', '4000 jpy')).toBeNull()
+    expect(chargedIn([VISA_LISTED], 'w', FOOD, '4000 jpy')).toBeNull()
+  })
+
+  test('is not asked when the money goes to an account of mine: that is locked', () => {
+    expect(chargedIn([VISA_LISTED, CASH_LISTED], 'v', { account: 'c' }, '4000 jpy')).toBeNull()
   })
 })
 

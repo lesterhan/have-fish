@@ -29,13 +29,13 @@ const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-/** Adds an account kept to one currency on the Accounts place, then comes back to the ledger. */
-async function addAccount(page: Page, name: string, kind: string, currency: string) {
+/** Adds an account on the Accounts place, kept to `currency` if given, then back to the ledger. */
+async function addAccount(page: Page, name: string, kind: string, currency?: string) {
   await goTo(page, 'Accounts')
   await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
-  await page.selectOption(`${ADDING} select[name=currency]`, currency)
+  if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
   await page.waitForSelector(`ol[aria-label=Accounts] li[data-id]:has-text("${name}")`)
   await goTo(page, 'Ledger')
@@ -155,6 +155,46 @@ describe('a yen spend my CAD card paid', () => {
     await openSelected(page)
     await expect.poll(() => page.locator(chip('amount')).innerText()).toBe('4,000.00 CAD')
     expect(await page.locator(CONVERTED).count()).toBe(0)
+  })
+
+  test('to an account of mine, no charge is asked, and the yen are refused as locked', async () => {
+    const page = await withVisa()
+    await addAccount(page, 'cash', 'cash')
+    await fromVisa(page, '4000 jpy')
+    await expect.poll(() => page.locator(CHARGED).isVisible()).toBe(true)
+
+    await pickPath(page, `${WRITE} input[name=to]`, 'cash')
+    await expect.poll(() => page.locator(CHARGED).count()).toBe(0)
+    await page.press(AMOUNT, 'Enter')
+
+    await expect
+      .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
+      .toBe('currency locked')
+    expect(await rows(page)).toEqual([])
+  })
+
+  test('with From left empty, the line asks as for visa, the account it assumes', async () => {
+    const page = await aDinner()
+    await openComposer(page)
+    await page.fill(`${WRITE} input[name=from]`, '')
+    await page.locator(AMOUNT).focus()
+    await expect.poll(() => page.inputValue(`${WRITE} input[name=from]`)).toBe('')
+
+    await page.keyboard.type('4000 jpy')
+
+    await expect.poll(() => page.locator(CHARGED).isVisible()).toBe(true)
+    await expect
+      .poll(() => page.locator(CHARGED).evaluate((input) => input.nextSibling?.textContent))
+      .toBe('CAD')
+  })
+
+  test('the next line asks for its own charge: the last one saved is not carried', async () => {
+    const page = await aDinner()
+
+    await fromVisa(page, '4000 jpy')
+
+    await expect.poll(() => page.locator(CHARGED).isVisible()).toBe(true)
+    expect(await page.inputValue(CHARGED)).toBe('')
   })
 
   test('Enter with the charge empty: nothing is saved, and the part says not an amount', async () => {

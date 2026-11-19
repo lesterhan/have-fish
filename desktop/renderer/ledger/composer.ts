@@ -4,7 +4,7 @@
 import { addDays } from '@have-fish/core/calendar-date'
 import { splitCode } from '@have-fish/core/money'
 import { dateFrom } from '@have-fish/core/typed-date'
-import type { From, ListedAccount } from '../../shared/commands'
+import type { From, ListedAccount, To } from '../../shared/commands'
 
 /** The parts, in the order you think of them. */
 export const PARTS = ['from', 'date', 'amount', 'charged', 'description', 'to'] as const
@@ -50,14 +50,17 @@ export function tabMark(
 }
 
 /**
- * The currency the account paying is kept to, when the amount is typed in another: what the line
- * asks it was charged in. Null for income, an account holding any currency, or no code typed.
+ * The currency the account paying is kept to, when the amount is typed in another and goes to a
+ * category: what the line asks it was charged in. Null for income, an account holding any
+ * currency, no code typed, or To an account of mine, which main refuses as currency locked.
  */
 export function chargedIn(
   accounts: readonly ListedAccount[],
   from: From,
+  to: To,
   amount: string,
 ): string | null {
+  if ('account' in to) return null
   const account = typeof from === 'string' ? accounts.find((a) => a.id === from) : undefined
   const typed = splitCode(amount).currency
   const keptTo = account?.currency ?? null

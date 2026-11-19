@@ -88,8 +88,15 @@
   let dateInput: HTMLInputElement | undefined = $state()
   let dateListbox: ReturnType<typeof Listbox<DayChoice>> | undefined = $state()
 
-  /** The currency the account paying holds, when the amount is in another: the line asks. */
-  const chargedCode = $derived(chargedIn(accounts, fromOf(accounts, fromText), amount))
+  /** The currency the line asks the charge in; an empty From is the account main will assume. */
+  const chargedCode = $derived(
+    chargedIn(
+      accounts,
+      fromOf(accounts, fromText.trim() === '' ? (assumedName ?? '') : fromText),
+      toOf(accounts, toText),
+      amount,
+    ),
+  )
   const shown = $derived(partsShown(chargedCode !== null))
 
   const values = $derived<Record<Part, string>>({
