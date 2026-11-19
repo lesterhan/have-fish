@@ -72,7 +72,7 @@
   /** Ctrl+K: the palette, with Undo and Redo named as the menu names them. Again, it closes. */
   async function togglePalette() {
     if (palette !== null) {
-      closePalette()
+      void closePalette()
       return
     }
     before = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -87,17 +87,17 @@
     palette = paletteItems({ undo: named('undo'), redo: named('redo') })
   }
 
-  /** Esc: the cursor goes back where it was. */
-  function closePalette() {
+  /** Esc: the cursor goes back where it was, once the palette is gone and the window not inert. */
+  async function closePalette() {
     palette = null
+    await tick()
     before?.focus()
     before = null
   }
 
   /** Runs `id` from where the cursor was, as the menu would have. */
   async function runFromPalette(id: WindowActionId) {
-    closePalette()
-    await tick()
+    await closePalette()
     handlers[id]()
   }
 

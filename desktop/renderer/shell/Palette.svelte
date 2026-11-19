@@ -1,7 +1,8 @@
 <script lang="ts">
   // Ctrl+K: every action the window carries out, under its heading, each with its keys, found by
   // the letters typed in order. Opaque over the window, which it blurs and dims. Enter runs the
-  // one highlighted; Esc, or a click outside, closes it. The rules are in `palette.ts`.
+  // one highlighted; Esc, or a click outside, closes it. The rules are in `palette.ts`. A modal
+  // `<dialog>`: the browser keeps the cursor inside and the window behind inert.
   import { onMount } from 'svelte'
   import { copy } from '../../copy'
   import type { KeyedActionId, WindowActionId } from '../../shared/actions'
@@ -20,6 +21,7 @@
 
   const words = copy.palette
   let input = $state<HTMLInputElement>()
+  let dialog = $state<HTMLDialogElement>()
   let listbox: ReturnType<typeof Listbox<Shown>> | undefined = $state()
   let typed = $state('')
   let active = $state<string | null>(null)
@@ -41,7 +43,10 @@
     if (active === null || !ids.includes(active)) active = ids[0] ?? null
   })
 
-  onMount(() => input?.focus())
+  onMount(() => {
+    dialog?.showModal()
+    input?.focus()
+  })
 
   function run() {
     const chosen = shown.find((s) => s.item.id === active)
@@ -61,90 +66,102 @@
     }
   }
 
+  /** A press on the backdrop: on the dialog itself, outside its box. */
+  function outside(event: MouseEvent) {
+    if (event.target !== dialog || dialog === undefined) return false
+    const box = dialog.getBoundingClientRect()
+    const { clientX: x, clientY: y } = event
+    return x < box.left || x > box.right || y < box.top || y > box.bottom
+  }
+
   /** Its letters, each typed one marked. */
   const lettersOf = (label: string, marked: readonly number[]) =>
     [...label].map((letter, i) => ({ letter, marked: marked.includes(i) }))
 </script>
 
-<!-- A click outside the panel closes it; the keys are the input's. -->
-<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-<div class="scrim" onmousedown={(e) => e.target === e.currentTarget && onclose()}>
-  <div class="panel" role="dialog" aria-modal="true" aria-label={words.label}>
-    <div class="field">
-      <span class="prompt" aria-hidden="true">›</span>
-      <input
-        bind:this={input}
-        bind:value={typed}
-        name="palette"
-        role="combobox"
-        aria-label={words.label}
-        aria-autocomplete="list"
-        aria-expanded={shown.length > 0}
-        aria-controls="palette-option-list"
-        autocomplete="off"
-        spellcheck="false"
-        maxlength="100"
-        {onkeydown}
-        onblur={(e) => {
-          // Clicked away to something else in the window: it closes, as a menu does.
-          if (!(e.relatedTarget instanceof Node && e.currentTarget.closest('.panel')?.contains(e.relatedTarget)))
-            onclose()
-        }}
-      />
-      <span class="esc"><Keys key={words.esc} /> {words.close}</span>
-    </div>
-    <div class="options" hidden={shown.length === 0}>
-      <Listbox
-        bind:this={listbox}
-        items={shown}
-        idOf={(s) => s.item.id}
-        {active}
-        label={words.list}
-        idPrefix="palette-option"
-        columns="minmax(0, 1fr) auto"
-        groups={headings.map((h) => h.count)}
-        owner={input}
-        wrap
-        onactive={(id) => (active = id)}
-        onpick={(id) => {
-          active = id
-          run()
-        }}
-      >
-        {#snippet band(g)}
-          {@const group = headings[g]}
-          {#if group}<Band>{words.headings[group.heading]}</Band>{/if}
-        {/snippet}
-        {#snippet row(s)}
-          <span
-            >{#each lettersOf(s.item.label, s.marked) as { letter, marked }, i (i)}{#if marked}<mark
-                  >{letter}</mark
-                >{:else}{letter}{/if}{/each}</span
-          >
-          <span>{#if s.item.keyed}<Keys action={s.item.id as KeyedActionId} />{/if}</span>
-        {/snippet}
-      </Listbox>
-    </div>
-    {#if shown.length === 0}<div class="none"><Empty>{words.none}</Empty></div>{/if}
+<!-- A click on the backdrop lands on the dialog itself, and closes it; the keys are the input's. -->
+<dialog
+  bind:this={dialog}
+  class="panel"
+  aria-label={words.label}
+  onmousedown={(e) => {
+    if (!outside(e)) return
+    // Not the press's own focus change: the cursor goes back where it was.
+    e.preventDefault()
+    onclose()
+  }}
+  oncancel={(e) => {
+    // Esc the browser saw before the input did: the window closes it, so the cursor goes back.
+    e.preventDefault()
+    onclose()
+  }}
+>
+  <div class="field">
+    <span class="prompt" aria-hidden="true">›</span>
+    <input
+      bind:this={input}
+      bind:value={typed}
+      name="palette"
+      role="combobox"
+      aria-label={words.label}
+      aria-autocomplete="list"
+      aria-expanded={shown.length > 0}
+      aria-controls="palette-option-list"
+      autocomplete="off"
+      spellcheck="false"
+      maxlength="100"
+      {onkeydown}
+      onblur={(e) => {
+        // Clicked away to something else in the window: it closes, as a menu does.
+        if (!(e.relatedTarget instanceof Node && e.currentTarget.closest('.panel')?.contains(e.relatedTarget)))
+          onclose()
+      }}
+    />
+    <span class="esc"><Keys key={words.esc} /> {words.close}</span>
   </div>
-</div>
+  <div class="options" hidden={shown.length === 0}>
+    <Listbox
+      bind:this={listbox}
+      items={shown}
+      idOf={(s) => s.item.id}
+      {active}
+      label={words.list}
+      idPrefix="palette-option"
+      columns="minmax(0, 1fr) auto"
+      groups={headings.map((h) => h.count)}
+      owner={input}
+      wrap
+      onactive={(id) => (active = id)}
+      onpick={(id) => {
+        active = id
+        run()
+      }}
+    >
+      {#snippet band(g)}
+        {@const group = headings[g]}
+        {#if group}<Band>{words.headings[group.heading]}</Band>{/if}
+      {/snippet}
+      {#snippet row(s)}
+        <span
+          >{#each lettersOf(s.item.label, s.marked) as { letter, marked }, i (i)}{#if marked}<mark
+                >{letter}</mark
+              >{:else}{letter}{/if}{/each}</span
+        >
+        <span>{#if s.item.keyed}<Keys action={s.item.id as KeyedActionId} />{/if}</span>
+      {/snippet}
+    </Listbox>
+  </div>
+  {#if shown.length === 0}<div class="none"><Empty>{words.none}</Empty></div>{/if}
+</dialog>
 
 <style>
-  .scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    display: grid;
-    justify-items: center;
-    align-items: start;
-    padding-block-start: 12vh;
-    padding-inline: var(--space-4);
+  .panel::backdrop {
     background: var(--scrim);
     backdrop-filter: blur(6px);
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .scrim {
+    .panel::backdrop {
       backdrop-filter: none;
     }
   }
@@ -152,8 +169,12 @@
   .panel {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    inline-size: min(100%, 35rem);
+    inline-size: min(100% - 2 * var(--space-4), 35rem);
+    max-inline-size: none;
     max-block-size: 70vh;
+    margin: 12vh auto 0;
+    padding: 0;
+    color: inherit;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-card);
     background: var(--color-background);

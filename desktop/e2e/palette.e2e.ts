@@ -53,7 +53,7 @@ describe('do anything from Ctrl+K', () => {
     // The window behind is blurred and dimmed.
     const behind = await page
       .locator(PALETTE)
-      .evaluate((panel) => getComputedStyle(panel.parentElement as Element).backdropFilter)
+      .evaluate((panel) => getComputedStyle(panel, '::backdrop').backdropFilter)
     expect(behind).toMatch(/blur/)
   })
 
@@ -94,6 +94,17 @@ describe('do anything from Ctrl+K', () => {
     await open(page, press)
     await page.keyboard.type('led')
     await page.keyboard.press('Escape')
+
+    await page.waitForSelector(PALETTE, { state: 'detached' })
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
+  })
+
+  test('a click outside closes it, and the cursor goes back where it was', async () => {
+    const { page, press } = await launch(aHome())
+    await page.locator(`${WRITE} input[name=description]`).focus()
+
+    await open(page, press)
+    await page.mouse.click(5, 5)
 
     await page.waitForSelector(PALETTE, { state: 'detached' })
     await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')

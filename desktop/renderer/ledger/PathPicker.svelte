@@ -374,7 +374,8 @@
     inline-size: max-content;
     min-inline-size: 100%;
     max-inline-size: min(24rem, 90vw);
-    max-height: 14rem;
+    /* Shorter where the window has less room, on whichever side it opens. */
+    max-height: min(14rem, var(--room, 14rem));
     /* A row clips and keeps its text on one line; the list reads normally inside it. */
     white-space: normal;
   }

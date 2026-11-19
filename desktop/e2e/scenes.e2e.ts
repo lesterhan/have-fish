@@ -14,7 +14,7 @@ import { PANE, WRITE } from './app'
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const TREE = 'ol[aria-label="Spending by category"]'
-const PALETTE = '[role=dialog][aria-label="Do anything"]'
+const PALETTE = 'role=dialog[name="Do anything"]'
 const FROM_OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 
@@ -118,7 +118,7 @@ test('with no scene named, a link to each', async () => {
 
 test('each new scene opens on what it names', { timeout: 120_000 }, async () => {
   const palette = await openScene('ledger/palette')
-  await palette.locator(`${PALETTE} [role=listbox]`).waitFor()
+  await palette.locator(`${PALETTE} >> [role=listbox]`).waitFor()
 
   const picker = await openScene('ledger/path-picker')
   await picker.locator(`${FROM_OPTIONS} [role=option]`).first().waitFor()
@@ -144,6 +144,6 @@ test('a scene says it is ready once its steps have run and its fonts loaded', as
   const page = await openScene('ledger/palette')
   await page.waitForSelector('body[data-scene=ready]')
   // Look once, at the moment it says ready: a wait here would poll past a broken order.
-  expect(await page.locator(`${PALETTE} [role=listbox]`).count()).toBe(1)
+  expect(await page.locator(`${PALETTE} >> [role=listbox]`).count()).toBe(1)
   expect(await page.evaluate(() => document.fonts.status)).toBe('loaded')
 })
