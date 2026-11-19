@@ -631,6 +631,16 @@ describe('editSpend', () => {
     expect(spendOf(ledger, id)).toEqual(before.doc)
   })
 
+  test('an edit to a code that is no currency is said before a day that is no day', () => {
+    const { ctx, id } = written()
+    const input = { id, amount: '1500', description: 'Coffee', currency: 'YEN', date: 'soon' }
+
+    expect(editSpend(ctx, input)).toEqual({
+      ok: false,
+      failure: { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'YEN' } },
+    })
+  })
+
   test('a spend from an account kept to CAD cannot go to yen', () => {
     const { ledger, ctx } = setup()
     const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
@@ -1573,6 +1583,17 @@ describe('a spend in the currency typed', () => {
     expect(writeSpend(ctx, { amount: 'abc', currency: 'YEN', description: '' })).toEqual({
       ok: false,
       failure: { code: 'AMOUNT_INVALID', details: { amount: 'abc' } },
+    })
+  })
+
+  test('a code that is no currency is said before a day that is no day', () => {
+    const { ctx } = setup()
+
+    expect(
+      writeSpend(ctx, { amount: '1500', currency: 'YEN', description: 'Ramen', date: 'soon' }),
+    ).toEqual({
+      ok: false,
+      failure: { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'YEN' } },
     })
   })
 
