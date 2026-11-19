@@ -597,10 +597,12 @@
     /* Above the band that stays over the list, which shares the picker's old z-index. */
     z-index: 2;
     display: grid;
+    grid-template-rows: minmax(0, 1fr);
     inline-size: max-content;
     min-inline-size: 100%;
     max-inline-size: min(24rem, 90vw);
-    max-height: 14rem;
+    /* Shorter where the window has less room, on whichever side it opens. */
+    max-height: min(14rem, var(--room, 14rem));
   }
 
   .shorthand {

@@ -1,46 +1,84 @@
 // Puts a floating layer under its field, fixed to the window: the field's row or card clips what
-// is inside it, and a picker must be able to spill over both. `update` follows the field as the
-// list scrolls, the window resizes, or the field itself changes size. `below` is where the layer
-// starts when that isn't the field's own bottom: the composer's whole line, so it clears the ring.
+// is inside it, and a picker must be able to spill over both. Floating UI places it and follows
+// the field as the list scrolls, the window resizes, or the field itself changes size; with no
+// room below, it flips above. `below` is where the layer starts when that isn't the field's own
+// bottom: the composer's whole line, so it clears the ring. `--room` is the height it has.
+
+import {
+  autoUpdate,
+  computePosition,
+  flip,
+  offset,
+  size,
+  type VirtualElement,
+} from '@floating-ui/dom'
 
 /** An element bound with `bind:this`: undefined until drawn, and null once it's gone. */
 type Bound = HTMLElement | null | undefined
 
 export type Anchor = Bound | { field: Bound; below: Bound }
 
-export function floating(node: HTMLElement, anchor: Anchor) {
-  const parts = (from: Anchor) =>
-    from instanceof HTMLElement
-      ? { field: from, below: from }
-      : from === undefined || from === null
-        ? { field: undefined, below: undefined }
-        : from
-  let { field, below } = parts(anchor)
-  const place = () => {
-    if (!(field instanceof HTMLElement)) return
-    const fieldRect = field.getBoundingClientRect()
-    const under = (below ?? field).getBoundingClientRect()
-    node.style.position = 'fixed'
-    node.style.insetInlineStart = `${fieldRect.left}px`
-    node.style.top = `${under.bottom + 4}px`
-    node.style.minInlineSize = `${fieldRect.width}px`
-  }
-  place()
-  window.addEventListener('scroll', place, true)
-  window.addEventListener('resize', place)
-  const observer = new ResizeObserver(place)
-  for (const el of [field, below]) if (el instanceof HTMLElement) observer.observe(el)
+/** The gap between the field and its layer, and the least it keeps from the window's edge. */
+const GAP = 4
+const EDGE = 8
+
+/** What the layer hangs from: the field, or a box as wide as the field and as tall as `below`. */
+function referenceOf(anchor: Anchor): HTMLElement | VirtualElement | null {
+  if (anchor instanceof HTMLElement) return anchor
+  if (anchor === undefined || anchor === null) return null
+  const { field, below } = anchor
+  if (!(field instanceof HTMLElement)) return null
+  if (!(below instanceof HTMLElement)) return field
   return {
-    update(next: Anchor) {
-      for (const el of [field, below]) if (el instanceof HTMLElement) observer.unobserve(el)
-      ;({ field, below } = parts(next))
-      for (const el of [field, below]) if (el instanceof HTMLElement) observer.observe(el)
-      place()
+    contextElement: field,
+    getBoundingClientRect() {
+      const at = field.getBoundingClientRect()
+      const line = below.getBoundingClientRect()
+      return new DOMRect(at.left, line.top, at.width, line.height)
     },
-    destroy() {
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
-      observer.disconnect()
-    },
+  }
+}
+
+export function floating(node: HTMLElement, anchor: Anchor) {
+  node.style.position = 'fixed'
+  let stop = () => {}
+
+  function follow(next: Anchor) {
+    stop()
+    const reference = referenceOf(next)
+    if (reference === null) {
+      stop = () => {}
+      return
+    }
+    const place = async () => {
+      // Measured whole, without last time's cap: capped to the room on one side, it would fit
+      // there and never flip. The cap is back before a frame is drawn, so a list keeps its scroll.
+      node.style.removeProperty('--room')
+      if (node.getClientRects().length === 0) return
+      const { x, y } = await computePosition(reference, node, {
+        strategy: 'fixed',
+        placement: 'bottom-start',
+        middleware: [
+          offset(GAP),
+          flip({ padding: EDGE }),
+          size({
+            padding: EDGE,
+            apply({ availableHeight, rects }) {
+              node.style.minInlineSize = `${rects.reference.width}px`
+              node.style.setProperty('--room', `${Math.max(0, availableHeight)}px`)
+            },
+          }),
+        ],
+      })
+      node.style.insetInlineStart = `${x}px`
+      node.style.top = `${y}px`
+    }
+    stop = autoUpdate(reference, node, () => void place())
+  }
+
+  follow(anchor)
+  return {
+    update: follow,
+    destroy: () => stop(),
   }
 }

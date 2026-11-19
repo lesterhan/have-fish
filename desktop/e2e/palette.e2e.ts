@@ -53,7 +53,7 @@ describe('do anything from Ctrl+K', () => {
     // The window behind is blurred and dimmed.
     const behind = await page
       .locator(PALETTE)
-      .evaluate((panel) => getComputedStyle(panel.parentElement as Element).backdropFilter)
+      .evaluate((panel) => getComputedStyle(panel, '::backdrop').backdropFilter)
     expect(behind).toMatch(/blur/)
   })
 
@@ -97,6 +97,44 @@ describe('do anything from Ctrl+K', () => {
 
     await page.waitForSelector(PALETTE, { state: 'detached' })
     await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
+  })
+
+  test('a click outside closes it, and the cursor goes back where it was', async () => {
+    const { page, press } = await launch(aHome())
+    await page.locator(`${WRITE} input[name=description]`).focus()
+
+    await open(page, press)
+    await page.mouse.click(5, 5)
+
+    await page.waitForSelector(PALETTE, { state: 'detached' })
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
+  })
+
+  test('a press inside it, off the input, leaves the cursor in the input', async () => {
+    const { page, press } = await launch(aHome())
+    await open(page, press)
+
+    await page.locator(`${PALETTE} >> text=${copy.palette.close}`).click()
+    await page.keyboard.type('acc')
+
+    await expect.poll(() => focusedIn(page)).toBe('Do anything palette')
+    await expect.poll(() => listed(page)).toHaveLength(2)
+  })
+
+  test('Esc with the cursor on the panel itself closes it, and the cursor goes back', async () => {
+    const { page, press } = await launch(aHome())
+    await page.locator(`${WRITE} input[name=description]`).focus()
+    await open(page, press)
+
+    await page.locator(PALETTE).evaluate((panel) => (panel as HTMLElement).focus())
+    // On the panel, not the input: Esc reaches the browser's own close, not the input's keys.
+    await expect.poll(() => focusedIn(page)).toBe('Do anything DIALOG')
+    await page.keyboard.press('Escape')
+
+    // Gone from the window, not only closed by the browser: Ctrl+K then opens it again.
+    await expect.poll(() => page.locator('dialog').count()).toBe(0)
+    await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
+    await open(page, press)
   })
 
   test('Show or hide postings and Refile spend act on the spend selected', async () => {

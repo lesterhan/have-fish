@@ -196,7 +196,7 @@ export const focusedLabel = (page: Page) =>
 export const focusedIn = (page: Page) =>
   page.evaluate(() => {
     const el = document.activeElement
-    const where = el?.closest('form, section, ol, nav, main, [role=dialog]')
+    const where = el?.closest('form, section, ol, nav, main, dialog, [role=dialog]')
     return `${where?.getAttribute('aria-label')} ${el?.getAttribute('name') ?? el?.tagName}`
   })
 
