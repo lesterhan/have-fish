@@ -46,23 +46,44 @@ async function threeCurrencies() {
   return page
 }
 
+/** The Ledger's rows. */
+const LEDGER_ROWS = 'ol[aria-label=Ledger] [role=option]'
+
+/** Where each named row's code starts, from the left of the first row's. */
+const codeStarts = (page: Page, names: string[]) =>
+  page.locator(LEDGER_ROWS).evaluateAll((items, names) => {
+    const at = names.map((name) => {
+      const row = items.find(
+        (li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name,
+      )
+      const code = row?.querySelector('[data-cell=amount] [data-money=code]')
+      return code?.getBoundingClientRect().left ?? Number.NaN
+    })
+    return at.map((x) => x - (at[0] ?? Number.NaN))
+  }, names)
+
 /**
- * Where a part of each named row's amount sits, from the left of the first row's: `left` or
- * `right` of the `[data-money=…]` span the row names.
+ * Where the point in each of `pointed`'s figures starts, from where `whole`'s figure ends: a
+ * Range over the `.`, since the point is a character and has no box of its own.
  */
-const offsets = (page: Page, edge: 'left' | 'right', parts: Record<string, string>) =>
-  page.locator('ol[aria-label=Ledger] [role=option]').evaluateAll(
-    (items, [edge, parts]) => {
-      const at = Object.entries(parts).map(([name, part]) => {
-        const row = items.find(
-          (li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name,
-        )
-        const span = row?.querySelector(`[data-cell=amount] [data-money=${part}]`)
-        return span?.getBoundingClientRect()[edge] ?? Number.NaN
+const pointsFrom = (page: Page, whole: string, pointed: string[]) =>
+  page.locator(LEDGER_ROWS).evaluateAll(
+    (items, [whole, pointed]) => {
+      const figure = (name: string) =>
+        items
+          .find((li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name)
+          ?.querySelector('[data-cell=amount] [data-money=figure]')
+      const end = figure(whole)?.getBoundingClientRect().right ?? Number.NaN
+      return pointed.map((name) => {
+        const text = figure(name)?.firstChild
+        if (!(text instanceof Text) || !text.data.includes('.')) return Number.NaN
+        const range = document.createRange()
+        range.setStart(text, text.data.indexOf('.'))
+        range.setEnd(text, text.data.indexOf('.') + 1)
+        return range.getBoundingClientRect().left - end
       })
-      return at.map((x) => x - (at[0] ?? Number.NaN))
     },
-    [edge, parts] as const,
+    [whole, pointed] as const,
   )
 
 /** An offset of under half a pixel: the same place, to the eye. */
@@ -73,16 +94,16 @@ describe('amounts in three currencies, down one column', () => {
     const page = await threeCurrencies()
 
     await expect
-      .poll(() => offsets(page, 'left', { Lunch: 'code', Croissant: 'code', Ramen: 'code' }))
+      .poll(() => codeStarts(page, ['Lunch', 'Croissant', 'Ramen']))
       .toEqual([0, lined(), lined()])
   })
 
-  test('the points line up, and the yen’s units end where they would', async () => {
+  test('the yen’s units end where the others’ points start', async () => {
     const page = await threeCurrencies()
 
     await expect
-      .poll(() => offsets(page, 'right', { Lunch: 'figure', Croissant: 'figure', Ramen: 'blank' }))
-      .toEqual([0, lined(), lined()])
+      .poll(() => pointsFrom(page, 'Ramen', ['Lunch', 'Croissant']))
+      .toEqual([lined(), lined()])
   })
 
   test('the home currency’s empty slot adds no text to its row', async () => {
