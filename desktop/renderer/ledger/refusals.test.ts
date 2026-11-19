@@ -15,6 +15,10 @@ describe('fieldOf', () => {
     expect(fieldOf(refused('AMOUNT_TOO_PRECISE', yen))).toBe('amount')
   })
 
+  test('a code that is no currency is the amount field’s', () => {
+    expect(fieldOf(refused('UNSUPPORTED_CURRENCY', { currency: 'YEN' }))).toBe('amount')
+  })
+
   test('a malformed input belongs to the field it names', () => {
     expect(fieldOf(refused('INPUT_MALFORMED', { path: 'amount', issue: 'too_big' }))).toBe('amount')
     expect(fieldOf(refused('INPUT_MALFORMED', { path: 'description', issue: 'too_big' }))).toBe(
@@ -100,6 +104,17 @@ describe('the composer’s two words', () => {
     expect(composerWordsFor(refused('TRANSFER_TO_ITSELF', { accountId: 'a' }))).toBe('same account')
     expect(composerWordsFor(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toBe('not an account')
     expect(composerWordsFor(refused('UNEXPECTED', undefined))).toBe('not saved')
+  })
+
+  test('a code that is no currency says so', () => {
+    expect(composerWordsFor(refused('UNSUPPORTED_CURRENCY', { currency: 'YEN' }))).toBe(
+      'not a currency',
+    )
+  })
+
+  test('a currency the account is locked out of says so', () => {
+    const locked = { accountId: 'a', currency: 'JPY', locked: 'CAD' }
+    expect(composerWordsFor(refused('ACCOUNT_CURRENCY_LOCKED', locked))).toBe('currency locked')
   })
 })
 
