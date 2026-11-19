@@ -17,7 +17,7 @@
     saved as savedChip,
     sending,
   } from './chips'
-  import { moment, understood } from '../format'
+  import { moment, rateText, understood } from '../format'
   import { chipKey } from '../parts/chip'
   import Button from '../parts/Button.svelte'
   import Card from '../parts/Card.svelte'
@@ -171,6 +171,7 @@
         id={chipId('amount')}
         label={words.chip.amount}
         figures
+        locked={transaction.charged !== undefined}
         changing={chip.part === 'amount'}
         saved={chip.justSaved === 'amount'}
         error={refused('amount')}
@@ -290,6 +291,18 @@
         </Chip>
       {/if}
     </p>
+    {#if transaction.charged && transaction.simple}
+      <p class="sentence sub">
+        <span class="lead">{words.sentence.with}</span>
+        <Chip label={words.chip.charged} figures locked>
+          <Money of={transaction.charged} code />
+        </Chip>
+        <span class="lead">{words.sentence.convertedAt}</span>
+        <Chip label={words.chip.rate} figures locked>
+          {rateText(transaction.charged, transaction.simple)}
+        </Chip>
+      </p>
+    {/if}
   {:else}
     <p class="sentence">
       <span class="lead">{words.sentence.paid}</span>

@@ -1,17 +1,20 @@
 <script lang="ts">
   // The line that writes a spend, in the ledger: From, Date, Amount, Description, To, in the order
-  // you think of them. Every part shows its word until filled, the next one carries its Tab key,
-  // and a part it can't read is underlined red with two words of why. Enter writes it, the line
-  // stays open for the next one, and Esc or Done closes it. While it's open, the ledger steps back.
+  // you think of them, with Charged after the amount when From can't hold the amount's currency.
+  // Every part shows its word until filled, the next one carries its Tab key, and a part it can't
+  // read is underlined red with two words of why. Enter writes it, the line stays open for the
+  // next one, and Esc or Done closes it. While it's open, the ledger steps back.
   import { type Snippet, tick, untrack } from 'svelte'
   import { copy } from '../../copy'
   import type { ListedAccount, ListedPath } from '../../shared/commands'
   import {
     after,
     before,
+    chargedIn,
     type DayChoice,
     dateSuggestions,
     type Part,
+    partsShown,
     startPart,
     tabMark,
   } from './composer'
@@ -64,6 +67,7 @@
   let fromText = $state('')
   let dateText = $state('')
   let amount = $state('')
+  let charged = $state('')
   let description = $state('')
   let toText = $state('')
   /** The part the cursor is in, and the one Tab would mark. */
@@ -84,14 +88,26 @@
   let dateInput: HTMLInputElement | undefined = $state()
   let dateListbox: ReturnType<typeof Listbox<DayChoice>> | undefined = $state()
 
+  /** The currency the line asks the charge in; an empty From is the account main will assume. */
+  const chargedCode = $derived(
+    chargedIn(
+      accounts,
+      fromOf(accounts, fromText.trim() === '' ? (assumedName ?? '') : fromText),
+      toOf(accounts, toText),
+      amount,
+    ),
+  )
+  const shown = $derived(partsShown(chargedCode !== null))
+
   const values = $derived<Record<Part, string>>({
     from: fromText,
     date: dateText,
     amount,
+    charged,
     description,
     to: toText,
   })
-  const marked = $derived(tabMark(active, values))
+  const marked = $derived(tabMark(active, values, shown))
   const suggestions = $derived(dateOpen ? dateSuggestions(dateText, todayIn()) : [])
 
   // The first suggestion is the one Enter takes, until the arrows move it.
@@ -124,13 +140,16 @@
       dateOpen = false
       fresh = false
       // Read the parts afresh: what carried over may not have reached `values` yet.
-      active = startPart({ from: fromText, date: dateText, amount, description, to: toText })
+      active = startPart(
+        { from: fromText, date: dateText, amount, charged, description, to: toText },
+        shown,
+      )
     })
   })
 
   export function focus() {
     if (!open) return
-    focusPart(startPart(values))
+    focusPart(startPart(values, shown))
   }
 
   /** A close asked for, by Esc, Done, a picker's Esc or the list: now, or once the row is in. */
@@ -164,7 +183,7 @@
     if (event.key === 'Tab') {
       event.preventDefault()
       dateOpen = false
-      focusPart(event.shiftKey ? before(active) : after(active))
+      focusPart(event.shiftKey ? before(active, shown) : after(active, shown))
       return
     }
     if (event.key === 'Enter') {
@@ -186,6 +205,7 @@
     const income = typeof from === 'object' && from !== null
     const written = await actions.write({
       amount,
+      ...(chargedCode === null ? {} : { charged }),
       description,
       from,
       to: toOf(accounts, toText),
@@ -203,6 +223,7 @@
     // the cursor goes back to the fresh line — in that order, so it lands on Amount.
     await onsaved(written.id)
     amount = ''
+    charged = ''
     description = ''
     toText = ''
     error = null
@@ -367,6 +388,28 @@
       />
     {/snippet}
     {@render part('amount', amountField)}
+
+    {#if chargedCode !== null}
+      {#snippet chargedField()}
+        <input
+          bind:this={fields.charged}
+          id="composer-charged"
+          bind:value={charged}
+          name="charged"
+          aria-label={copy.spends.composer.chargedLabel(chargedCode)}
+          placeholder={word('charged')}
+          aria-invalid={error?.part === 'charged'}
+          inputmode="decimal"
+          autocomplete="off"
+          maxlength="64"
+          size={width('charged')}
+          class="figures"
+          onfocus={(event) => event.currentTarget.select()}
+          oninput={() => clearError('charged')}
+        />{chargedCode}
+      {/snippet}
+      {@render part('charged', chargedField)}
+    {/if}
 
     {#snippet descriptionField()}
       <input

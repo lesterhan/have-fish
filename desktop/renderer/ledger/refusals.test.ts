@@ -90,6 +90,22 @@ describe('fieldOf', () => {
   })
 })
 
+describe('a charge refused', () => {
+  test('is the charged part’s', () => {
+    expect(fieldOf(refused('CHARGED_INVALID', { charged: '' }))).toBe('charged')
+  })
+
+  test('too long for its field is the charged part’s', () => {
+    expect(fieldOf(refused('INPUT_MALFORMED', { path: 'charged', issue: 'too_big' }))).toBe(
+      'charged',
+    )
+  })
+
+  test('says it is not an amount', () => {
+    expect(composerWordsFor(refused('CHARGED_INVALID', { charged: '' }))).toBe('not an amount')
+  })
+})
+
 describe('the composer’s two words', () => {
   test('say which part, in the words the line has room for', () => {
     expect(composerWordsFor(refused('AMOUNT_INVALID', { amount: 'abc' }))).toBe('not an amount')

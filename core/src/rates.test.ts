@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { failure } from './outcome'
-import { convert, invert, type Rate, readRate } from './rates'
+import { convert, invert, type Rate, ratio, readRate, significant } from './rates'
 
 /** The value of a rate that reads, as `rate('0.0091')` below says. */
 function rate(text: string): Rate {
@@ -193,6 +193,42 @@ describe('invert', () => {
 
   it('is its own inverse', () => {
     expect(invert(invert(rate('0.0091')))).toEqual(rate('0.0091'))
+  })
+})
+
+describe('ratio', () => {
+  it('turns 36.20 paid for 4,000 into 20000/181, in lowest terms', () => {
+    expect(ratio(3620, 400000)).toEqual({ num: 20000n, den: 181n })
+  })
+})
+
+describe('significant', () => {
+  it('says 20000/181 to four figures as 110.5', () => {
+    expect(significant(ratio(3620, 400000), 4)).toBe('110.5')
+  })
+
+  it('says two thirds as 0.6667', () => {
+    expect(significant(ratio(3000, 2000), 4)).toBe('0.6667')
+  })
+
+  it('says one as 1, with no point', () => {
+    expect(significant(ratio(100, 100), 4)).toBe('1')
+  })
+
+  it('carries 9.9996 into a new digit: 10', () => {
+    expect(significant(ratio(10000, 99996), 4)).toBe('10')
+  })
+
+  it('rounds 12.345 half up to 12.35, never to even', () => {
+    expect(significant(ratio(1000, 12345), 4)).toBe('12.35')
+  })
+
+  it('says a rate past its figures with zeros: 1235000', () => {
+    expect(significant(ratio(100, 123456700), 4)).toBe('1235000')
+  })
+
+  it('says a tiny rate with the zeros after the point: 0.00000081', () => {
+    expect(significant(ratio(123456700, 100), 4)).toBe('0.00000081')
   })
 })
 

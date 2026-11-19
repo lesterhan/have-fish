@@ -10,6 +10,7 @@ import {
   moment,
   money,
   moneyParts,
+  rateText,
   todayIn,
   understood,
 } from './format'
@@ -56,6 +57,18 @@ describe('an amount to type again', () => {
 
   test('cents a whole currency held before stay shown', () => {
     expect(asTyped('1500.50', 'JPY')).toBe('1500.50 JPY')
+  })
+})
+
+describe('a rate, from what was paid and what it bought', () => {
+  test('36.20 CAD for 4,000 JPY reads 1 CAD = 110.5 JPY', () => {
+    const paid = { amount: '36.20', currency: 'CAD' }
+    expect(rateText(paid, { amount: '4000.00', currency: 'JPY' })).toBe('1 CAD = 110.5 JPY')
+  })
+
+  test('30 CAD for 20 EUR reads below one: 1 CAD = 0.6667 EUR', () => {
+    const paid = { amount: '30.00', currency: 'CAD' }
+    expect(rateText(paid, { amount: '20.00', currency: 'EUR' })).toBe('1 CAD = 0.6667 EUR')
   })
 })
 

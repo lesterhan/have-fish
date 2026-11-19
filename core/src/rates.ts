@@ -63,6 +63,34 @@ export function invert(rate: Rate): Rate {
   return { num: rate.den, den: rate.num }
 }
 
+/** The rate that turns `paid` into `got`, both whole cents above zero: 3620 into 400000. */
+export function ratio(paid: number, got: number): Rate {
+  const [num, den] = [BigInt(got), BigInt(paid)]
+  const divisor = gcd(num, den)
+  return { num: num / divisor, den: den / divisor }
+}
+
+/** A rate to `digits` significant figures, half up: `110.5`, `0.6667`, `1235000`. */
+export function significant(rate: Rate, digits: number): string {
+  const { num, den } = rate
+  // The power of ten the rate's first digit stands at: 2 for 110.5, -1 for 0.6667.
+  let power = String(num).length - String(den).length
+  if (num * ten(-power) < den * ten(power)) power -= 1
+  const scale = digits - 1 - power
+  const [top, bottom] = [num * ten(scale), den * ten(-scale)]
+  let figures = top / bottom
+  if ((top % bottom) * 2n >= bottom) figures += 1n
+  // The point is placed by the scale, so 9.9996 rounding up to 10.000 carries on its own.
+  if (scale <= 0) return String(figures * ten(-scale))
+  const text = String(figures).padStart(scale + 1, '0')
+  const fraction = text.slice(-scale).replace(/0+$/, '')
+  const whole = text.slice(0, -scale)
+  return fraction === '' ? whole : `${whole}.${fraction}`
+}
+
+/** Ten to a power at or above zero, else one: the half of a scale that multiplies. */
+const ten = (power: number): bigint => (power > 0 ? 10n ** BigInt(power) : 1n)
+
 /** The largest whole number that divides both, for a ratio in lowest terms. */
 function gcd(a: bigint, b: bigint): bigint {
   while (b > 0n) [a, b] = [b, a % b]

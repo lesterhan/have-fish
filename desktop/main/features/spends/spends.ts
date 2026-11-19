@@ -8,8 +8,8 @@ import { fitsCurrency, isValidCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
-import { INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
-import { amountOf, legsOf, shapeOf } from '@have-fish/core/shapes'
+import { CONVERSION, INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
+import { amountOf, legsOf, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { InputOf, To } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
@@ -22,7 +22,9 @@ import { applyKeeping, type Change, record } from '../../undo/steps'
  * A spend from the account that paid to its category, a transfer to another account of mine, or
  * income from a source into an account of mine, on the day given or else today, in one batch
  * with any account it needs. It's in the currency typed, else the one the account paying is kept
- * to, else the one the account it goes to is kept to, else the home currency.
+ * to, else the one the account it goes to is kept to, else the home currency. Paid from an
+ * account kept to another currency into a category, it goes through the conversion account, from
+ * what the account was charged.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
@@ -57,10 +59,24 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   if (!fitsCurrency(cents, currency)) {
     return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
   }
-  const legs = legsOf({
-    from: { accountId: from.value.id, cents: -cents, currency },
-    to: { accountId: to.value.id, cents, currency },
-  })
+  const keptTo = income ? null : from.value.currency
+  const converting = keptTo !== null && keptTo !== currency && 'category' in goesTo
+  if (!converting && input.charged !== undefined) {
+    return failure('CHARGED_INVALID', { charged: input.charged })
+  }
+  const into = { accountId: to.value.id, cents, currency }
+  let legs: ShapeLeg[]
+  let conversion: AccountDoc[] = []
+  if (converting) {
+    const charged = chargedOf(input.charged, keptTo)
+    if (!charged.ok) return charged
+    const via = accountFor(ctx.ledger.db, CONVERSION, made)
+    const paid = { accountId: from.value.id, cents: -charged.value, currency: keptTo }
+    legs = legsOf({ from: paid, to: into, via: via.id })
+    conversion = via.made
+  } else {
+    legs = legsOf({ from: { accountId: from.value.id, cents: -cents, currency }, to: into })
+  }
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
@@ -71,7 +87,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     origin: { source: 'manual', ...made },
   }
 
-  const docs = [...from.value.made, ...to.value.made, spend]
+  const docs = [...from.value.made, ...to.value.made, ...conversion, spend]
   const { applied, changes } = applyKeeping(ctx, docs, now, [spend])
   record(ctx, { action: 'write', description: spend.description }, changes)
   const written = idOf(applied, spend.id)
@@ -158,6 +174,17 @@ function edit(
   )
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  const converted = shape.shape === 'converted'
+  // A converted spend keeps its amounts until a later story: a new amount or currency would need a
+  // new charge, and onto an account of mine it would be a transfer that converts.
+  if (
+    converted &&
+    (cents !== simple.cents ||
+      (input.currency !== undefined && input.currency !== simple.currency) ||
+      (input.to !== undefined && 'account' in input.to))
+  ) {
+    return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  }
   const currency = input.currency ?? simple.currency
   if (!fitsCurrency(cents, currency)) {
     return refused(failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency }))
@@ -197,6 +224,8 @@ function edit(
     date,
     description,
     postings: doc.postings.map((p) => {
+      // A converted spend moves only its category's leg; the conversion's and the card's stay.
+      if (converted) return p.accountId === into ? { ...p, accountId: moved.value.id ?? into } : p
       const positive = toCents(p.amount) > 0
       return {
         ...p,
@@ -267,6 +296,16 @@ export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outco
   const { applied, changes } = applyKeeping(ctx, [tombstone], now, [tombstone])
   record(ctx, { action: 'remove', description: doc.description }, changes)
   return idOf(applied, id)
+}
+
+/** What the account paying was charged, as typed, in cents of the one currency it holds. */
+function chargedOf(typed: string | undefined, currency: string): Outcome<number> {
+  if (typed === undefined) return failure('CHARGED_INVALID', { charged: '' })
+  const cents = spendAmount(typed)
+  if (!cents.ok || !fitsCurrency(cents.value, currency)) {
+    return failure('CHARGED_INVALID', { charged: typed })
+  }
+  return cents
 }
 
 /** A spend's amount as typed, in cents: a number, and more than zero. */
