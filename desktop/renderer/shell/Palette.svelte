@@ -79,19 +79,20 @@
     [...label].map((letter, i) => ({ letter, marked: marked.includes(i) }))
 </script>
 
-<!-- A click on the backdrop lands on the dialog itself, and closes it; the keys are the input's. -->
+<!-- The keys are the input's. A press on the backdrop lands on the dialog itself, and closes it;
+     one anywhere else but the input leaves the cursor where it is. -->
 <dialog
   bind:this={dialog}
   class="panel"
   aria-label={words.label}
   onmousedown={(e) => {
-    if (!outside(e)) return
-    // Not the press's own focus change: the cursor goes back where it was.
+    if (e.target === input) return
+    // Not the press's own focus change: the cursor stays in the input, or goes back where it was.
     e.preventDefault()
-    onclose()
+    if (outside(e)) onclose()
   }}
   oncancel={(e) => {
-    // Esc the browser saw before the input did: the window closes it, so the cursor goes back.
+    // A close the browser asks for (Esc with the cursor off the input): the window closes it.
     e.preventDefault()
     onclose()
   }}
@@ -166,8 +167,11 @@
     }
   }
 
-  .panel {
+  .panel[open] {
     display: grid;
+  }
+
+  .panel {
     grid-template-rows: auto minmax(0, 1fr);
     inline-size: min(100% - 2 * var(--space-4), 35rem);
     max-inline-size: none;

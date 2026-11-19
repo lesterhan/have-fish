@@ -154,6 +154,38 @@ describe('a pick from a level is the path picked', () => {
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:tea')
   })
 
+  test("near the window's bottom, a refile's list opens whole above its field", async () => {
+    const { page } = await launch(aHome())
+    for (const [amount, what, category] of [
+      ['2', 'Tea', 'food:tea'],
+      ['4', 'Coffee', 'food:coffee'],
+      ['12', 'Lunch', 'food:restaurants'],
+      ['3', 'Muffin', 'food:snacks'],
+      ['30', 'Groceries', 'food:groceries'],
+    ])
+      await writeIn(page, amount, what, category)
+    // The oldest spend, last in the list, with 60px of window under it.
+    await row(page, 'Tea').click()
+    const at = await row(page, 'Tea').boundingBox()
+    const width = await page.evaluate(() => innerWidth)
+    if (at === null) throw new Error('Tea has no row')
+    await page.setViewportSize({ width, height: Math.ceil(at.y + at.height + 60) })
+
+    await page.keyboard.press('r')
+    const refile = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
+    await expect.poll(() => offered(page, refile)).toHaveLength(5)
+    const box = (selector: string) =>
+      page.locator(selector).evaluate((el) => {
+        const { top, bottom } = el.getBoundingClientRect()
+        return { top, bottom }
+      })
+    const field = await box(`${LIST} input[name=to]`)
+    const list = await box(refile)
+    expect(list.bottom).toBeLessThanOrEqual(field.top)
+    // Whole: every option drawn, not squeezed to the room below.
+    expect(list.bottom - list.top).toBeGreaterThan(5 * 20)
+  })
+
   test("in the line's To", async () => {
     const { page } = await launch(aHome())
     await writeIn(page, '4', 'Coffee', 'food:coffee')
