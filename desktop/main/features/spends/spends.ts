@@ -9,7 +9,7 @@ import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { CONVERSION, INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
-import { amountOf, legsOf, type Shape, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
+import { amountOf, legsOf, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import type { InputOf, To } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
@@ -173,8 +173,18 @@ function edit(
     (accountId) => getDocument(db, 'account', accountId)?.doc.kind,
   )
   const simple = amountOf(shape)
-  if (shape.shape === 'converted') return refile(ctx, input, doc, shape, cents)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  const converted = shape.shape === 'converted'
+  // A converted spend keeps its amounts until a later story: a new amount or currency would need a
+  // new charge, and onto an account of mine it would be a transfer that converts.
+  if (
+    converted &&
+    (cents !== simple.cents ||
+      (input.currency !== undefined && input.currency !== simple.currency) ||
+      (input.to !== undefined && 'account' in input.to))
+  ) {
+    return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  }
   const currency = input.currency ?? simple.currency
   if (!fitsCurrency(cents, currency)) {
     return refused(failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency }))
@@ -214,6 +224,8 @@ function edit(
     date,
     description,
     postings: doc.postings.map((p) => {
+      // A converted spend moves only its category's leg; the conversion's and the card's stay.
+      if (converted) return p.accountId === into ? { ...p, accountId: moved.value.id ?? into } : p
       const positive = toCents(p.amount) > 0
       return {
         ...p,
@@ -222,51 +234,6 @@ function edit(
         currency,
       }
     }),
-  }
-  const { applied, changes } = applyKeeping(ctx, [...moved.value.made, edited], now, [edited])
-  return { edited: idOf(applied, id), changes }
-}
-
-/** A converted spend's day, words and category; its amounts change in a later story. */
-function refile(
-  ctx: Context,
-  input: InputOf<'spend.edit'>,
-  doc: TransactionDoc,
-  shape: Extract<Shape, { shape: 'converted' }>,
-  cents: number,
-): { edited: Outcome<{ id: string }>; changes: Change[] } {
-  const { id } = input
-  const { from, to } = shape
-  const reshaped =
-    cents !== to.cents ||
-    (input.currency !== undefined && input.currency !== to.currency) ||
-    (input.to !== undefined && 'account' in input.to)
-  // Onto an account of mine, it would be a transfer that converts: not this shape.
-  if (reshaped) return { edited: failure('TRANSACTION_NOT_SIMPLE', { id }), changes: [] }
-  const now = ctx.now()
-  const moved =
-    input.to === undefined
-      ? { ok: true as const, value: { id: to.accountId, made: [] } }
-      : destination(ctx.ledger.db, input.to, from.accountId, {
-          createdAt: now,
-          deviceId: ctx.ledger.meta.deviceId,
-        })
-  if (!moved.ok) return { edited: moved, changes: [] }
-
-  const description = input.description.trim()
-  const date = input.date ?? doc.date
-  if (description === doc.description && date === doc.date && moved.value.id === to.accountId) {
-    return { edited: { ok: true, value: { id } }, changes: [] }
-  }
-
-  const edited: TransactionDoc = {
-    ...doc,
-    date,
-    description,
-    postings: doc.postings.map((p) => ({
-      ...p,
-      accountId: p.accountId === to.accountId ? moved.value.id : p.accountId,
-    })),
   }
   const { applied, changes } = applyKeeping(ctx, [...moved.value.made, edited], now, [edited])
   return { edited: idOf(applied, id), changes }

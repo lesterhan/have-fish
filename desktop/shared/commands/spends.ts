@@ -97,11 +97,11 @@ export type ListedTransaction = {
   id: string
   date: string
   description: string
-  /** What it is: a spend, a transfer, income, a starting balance, or other. */
+  /** What it is: a spend, a converted spend, a transfer, income, a starting balance, or other. */
   shape: ShapeName
   /** What it moved: the sum of its positive postings in each currency, by currency code. */
   amounts: Money[]
-  /** Its one amount, when it moves one between two accounts in one currency: what an edit sets. */
+  /** The one amount it was written in, the yen of a converted spend too; null when it has none. */
   simple: Money | null
   /** What paid for it, when it was paid in another currency: the card's CAD for a yen dinner. */
   charged?: Money
