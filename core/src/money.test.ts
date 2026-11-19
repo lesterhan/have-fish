@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { add, cents, format, neg, parse, parseExact, parseTyped, sub, sum } from './money'
+import {
+  add,
+  cents,
+  format,
+  neg,
+  parse,
+  parseExact,
+  parseTyped,
+  splitCode,
+  sub,
+  sum,
+} from './money'
 
 describe('parse', () => {
   it('reads canonical amounts', () => {
@@ -138,6 +149,48 @@ describe('parseTyped', () => {
       expect(parseTyped(typed)).toBeNull()
     },
   )
+})
+
+describe('splitCode', () => {
+  it('splits the code after the amount and puts it in capitals', () => {
+    expect(splitCode('1500 jpy')).toEqual({ amount: '1500', currency: 'JPY' })
+  })
+
+  it('splits a code typed with no space', () => {
+    expect(splitCode('1500jpy')).toEqual({ amount: '1500', currency: 'JPY' })
+  })
+
+  it('keeps the grouping in the amount', () => {
+    expect(splitCode('1,500 JPY')).toEqual({ amount: '1,500', currency: 'JPY' })
+  })
+
+  it('takes the spaces around the amount and the code off', () => {
+    expect(splitCode('  1500  jpy  ')).toEqual({ amount: '1500', currency: 'JPY' })
+  })
+
+  it('gives no currency and the text untrimmed when no code is typed', () => {
+    expect(splitCode(' 4.50')).toStrictEqual({ amount: ' 4.50' })
+  })
+
+  it('takes any run of letters as the code', () => {
+    expect(splitCode('12 euro')).toEqual({ amount: '12', currency: 'EURO' })
+  })
+
+  it('takes letters alone as a code with no amount', () => {
+    expect(splitCode('jpy')).toEqual({ amount: '', currency: 'JPY' })
+  })
+
+  it('takes no code typed before the amount', () => {
+    expect(splitCode('jpy 1500')).toStrictEqual({ amount: 'jpy 1500' })
+  })
+
+  it('takes no letter inside the number as a code', () => {
+    expect(splitCode('1e3')).toStrictEqual({ amount: '1e3' })
+  })
+
+  it('takes no symbol as a code', () => {
+    expect(splitCode('¥1500')).toStrictEqual({ amount: '¥1500' })
+  })
 })
 
 describe('format', () => {
