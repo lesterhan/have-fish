@@ -36,6 +36,62 @@ async function aYenSpend() {
   return page
 }
 
+/** A fresh app with 12, 35 eur and 1500 jpy written down, all three rows shown. */
+async function threeCurrencies() {
+  const { page } = await launch(aHome())
+  await writeDown(page, '12', 'Lunch')
+  await writeDown(page, '35 eur', 'Croissant')
+  await writeDown(page, '1500 jpy', 'Ramen')
+  await expect.poll(async () => (await rows(page)).length).toBe(3)
+  return page
+}
+
+/**
+ * Where a part of each named row's amount sits, from the left of the first row's: `left` or
+ * `right` of the `[data-money=…]` span the row names.
+ */
+const offsets = (page: Page, edge: 'left' | 'right', parts: Record<string, string>) =>
+  page.locator('ol[aria-label=Ledger] [role=option]').evaluateAll(
+    (items, [edge, parts]) => {
+      const at = Object.entries(parts).map(([name, part]) => {
+        const row = items.find(
+          (li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name,
+        )
+        const span = row?.querySelector(`[data-cell=amount] [data-money=${part}]`)
+        return span?.getBoundingClientRect()[edge] ?? Number.NaN
+      })
+      return at.map((x) => x - (at[0] ?? Number.NaN))
+    },
+    [edge, parts] as const,
+  )
+
+/** An offset of under half a pixel: the same place, to the eye. */
+const lined = () => expect.closeTo(0, 0)
+
+describe('amounts in three currencies, down one column', () => {
+  test('every code starts at one edge, the home currency’s empty slot too', async () => {
+    const page = await threeCurrencies()
+
+    await expect
+      .poll(() => offsets(page, 'left', { Lunch: 'code', Croissant: 'code', Ramen: 'code' }))
+      .toEqual([0, lined(), lined()])
+  })
+
+  test('the points line up, and the yen’s units end where they would', async () => {
+    const page = await threeCurrencies()
+
+    await expect
+      .poll(() => offsets(page, 'right', { Lunch: 'figure', Croissant: 'figure', Ramen: 'blank' }))
+      .toEqual([0, lined(), lined()])
+  })
+
+  test('the home currency’s empty slot adds no text to its row', async () => {
+    const page = await threeCurrencies()
+
+    await expect.poll(() => rows(page)).toContain(`${shownDay(today())} | Lunch | 12.00`)
+  })
+})
+
 describe('write down a spend in another currency', () => {
   test('1500 jpy as the amount: the row reads 1,500 JPY', async () => {
     const { page } = await launch(aHome())
@@ -57,13 +113,13 @@ describe('write down a spend in another currency', () => {
     const { page } = await launch(aHome())
     await writeDown(page, '12', 'Lunch')
     await goTo(page, 'Accounts')
-    await expect.poll(() => cashLine(page)).toBe('cash | −12.00')
+    await expect.poll(() => cashLine(page)).toBe('cash | −12.00 CAD')
 
     await goTo(page, 'Ledger')
     await writeDown(page, '1500 jpy', 'Ramen')
     await goTo(page, 'Accounts')
 
-    await expect.poll(() => cashLine(page)).toBe('cash | −12.00 · −1,500 JPY')
+    await expect.poll(() => cashLine(page)).toBe('cash | −12.00 CAD · −1,500 JPY')
   })
 
   test('the amount chip holds the code; deleting it makes the spend dollars', async () => {

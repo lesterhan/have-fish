@@ -73,7 +73,7 @@ describe('the places', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
 
     await page.click(`${NAV} button:has-text("Accounts")`)
-    await expect.poll(() => accounts(page)).toEqual(['cash | −4.50'])
+    await expect.poll(() => accounts(page)).toEqual(['cash | −4.50 CAD'])
   })
 
   test('a change saved in the Ledger is what Accounts shows', async () => {
@@ -88,7 +88,7 @@ describe('the places', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    expect(await accounts(page)).toEqual(['cash | −6.00'])
+    expect(await accounts(page)).toEqual(['cash | −6.00 CAD'])
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
     expect((await rows(page))[0]).toContain('6.00')
@@ -102,7 +102,7 @@ describe('adding an account', () => {
 
     await add(page, 'visa', 'card')
 
-    await expect.poll(() => accounts(page)).toEqual(['visa | 0.00'])
+    await expect.poll(() => accounts(page)).toEqual(['visa | 0.00 CAD'])
     expect(await selected(page)).toEqual(['visa'])
     expect(await page.isVisible(ADDING)).toBe(false)
     expect(await page.locator(ACCOUNT).innerText()).toContain(
@@ -124,7 +124,7 @@ describe('adding an account', () => {
     await page.locator(NAME).focus()
     await page.keyboard.type('car')
     await page.keyboard.press('Enter')
-    await expect.poll(() => accounts(page)).toEqual(['car | 0.00'])
+    await expect.poll(() => accounts(page)).toEqual(['car | 0.00 CAD'])
   })
 
   test('a bank account, a card or a loan holds the one currency I pick, unless I say any', async () => {
@@ -147,7 +147,7 @@ describe('adding an account', () => {
     await page.keyboard.press('Escape')
 
     await add(page, 'wise', 'bank', '')
-    await expect.poll(() => accounts(page)).toEqual(['wise | 0.00'])
+    await expect.poll(() => accounts(page)).toEqual(['wise | 0.00 CAD'])
     await add(page, 'chequing', 'bank', 'USD')
     await expect.poll(() => accounts(page)).toHaveLength(2)
     expect(await accounts(page)).toContain('chequing | 0.00 USD')
@@ -164,7 +164,7 @@ describe('adding an account', () => {
     await page.locator(NAME).focus()
     await page.keyboard.type('envelope')
     await page.keyboard.press('Enter')
-    await expect.poll(() => accounts(page)).toEqual(['envelope | 0.00'])
+    await expect.poll(() => accounts(page)).toEqual(['envelope | 0.00 CAD'])
   })
 
   test('a currency I picked stays picked when I change the kind', async () => {
@@ -194,7 +194,7 @@ describe('adding an account', () => {
       await expect.poll(() => focusedIn(page)).toBe('Add an account name')
       await page.keyboard.press('Escape')
     }
-    expect(await accounts(page)).toEqual(['cash | −4.50', 'Visa | 0.00'])
+    expect(await accounts(page)).toEqual(['cash | −4.50 CAD', 'Visa | 0.00 CAD'])
   })
 
   test('with no name, it asks for one', async () => {
@@ -265,7 +265,7 @@ describe('undoing an account added', () => {
     await expect.poll(() => accounts(page)).toEqual([])
 
     press('ctrl+shift+z')
-    await expect.poll(() => accounts(page)).toEqual(['visa | 0.00'])
+    await expect.poll(() => accounts(page)).toEqual(['visa | 0.00 CAD'])
     await expect.poll(() => selected(page)).toEqual(['visa'])
   })
 
