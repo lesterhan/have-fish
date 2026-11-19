@@ -9,7 +9,11 @@
 <div class="popover">{@render children()}</div>
 
 <style>
+  /* A column whose list shrinks to the room its layer has, and scrolls. */
   .popover {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-control);
     background: var(--color-background);

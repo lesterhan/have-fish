@@ -154,38 +154,6 @@ describe('a pick from a level is the path picked', () => {
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:tea')
   })
 
-  test("near the window's bottom, a refile's list opens whole above its field", async () => {
-    const { page } = await launch(aHome())
-    for (const [amount, what, category] of [
-      ['2', 'Tea', 'food:tea'],
-      ['4', 'Coffee', 'food:coffee'],
-      ['12', 'Lunch', 'food:restaurants'],
-      ['3', 'Muffin', 'food:snacks'],
-      ['30', 'Groceries', 'food:groceries'],
-    ])
-      await writeIn(page, amount, what, category)
-    // The oldest spend, last in the list, with 60px of window under it.
-    await row(page, 'Tea').click()
-    const at = await row(page, 'Tea').boundingBox()
-    const width = await page.evaluate(() => innerWidth)
-    if (at === null) throw new Error('Tea has no row')
-    await page.setViewportSize({ width, height: Math.ceil(at.y + at.height + 60) })
-
-    await page.keyboard.press('r')
-    const refile = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
-    await expect.poll(() => offered(page, refile)).toHaveLength(5)
-    const box = (selector: string) =>
-      page.locator(selector).evaluate((el) => {
-        const { top, bottom } = el.getBoundingClientRect()
-        return { top, bottom }
-      })
-    const field = await box(`${LIST} input[name=to]`)
-    const list = await box(refile)
-    expect(list.bottom).toBeLessThanOrEqual(field.top)
-    // Whole: every option drawn, not squeezed to the room below.
-    expect(list.bottom - list.top).toBeGreaterThan(5 * 20)
-  })
-
   test("in the line's To", async () => {
     const { page } = await launch(aHome())
     await writeIn(page, '4', 'Coffee', 'food:coffee')
@@ -237,5 +205,90 @@ describe('a pick from a level is the path picked', () => {
     await page.waitForSelector(WRITE, { state: 'detached' })
     await openSpend(row(page, 'Rent'))
     expect(await fromLine(page).innerText()).toMatch(/tangerine\W+savings/)
+  })
+})
+
+describe("a refile's list in the room the window has", () => {
+  const SPENDS = [
+    ['2', 'Tea', 'food:tea'],
+    ['4', 'Coffee', 'food:coffee'],
+    ['12', 'Lunch', 'food:restaurants'],
+    ['3', 'Muffin', 'food:snacks'],
+    ['30', 'Groceries', 'food:groceries'],
+    ['6', 'Juice', 'food:juice'],
+    ['9', 'Bagels', 'food:bakery'],
+    ['15', 'Sushi', 'food:takeout'],
+  ] as const
+  const REFILE = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
+
+  /** Eight spends, each in its own category: a list longer than a layer's 14rem. */
+  async function eightSpends() {
+    const { page } = await launch(aHome())
+    for (const [amount, what, category] of SPENDS) await writeIn(page, amount, what, category)
+    return page
+  }
+
+  /** Selects the first or last spend with the keys (a click would open it), puts 60px of window
+   * under its row, and refiles it. */
+  async function refileNearTheBottom(page: Page, key: 'Home' | 'End') {
+    await page.focus(LIST)
+    await page.keyboard.press(key)
+    const selected = page.locator(`${LIST} li[aria-selected=true]`)
+    const at = await selected.boundingBox()
+    if (at === null) throw new Error('no spend is selected')
+    const width = await page.evaluate(() => innerWidth)
+    await page.setViewportSize({ width, height: Math.ceil(at.y + at.height + 60) })
+    await page.keyboard.press('r')
+    // Only the options in its room are drawn, so it waits for the list, not all eight.
+    await page.locator(REFILE).waitFor()
+  }
+
+  /** Where the field and the list's scroller are drawn, and whether the list scrolls. */
+  const where = (page: Page) =>
+    page.locator(REFILE).evaluate((list) => {
+      const scroller = list.parentElement as HTMLElement
+      const field = document.querySelector('ol[aria-label=Ledger] input[name=to]') as HTMLElement
+      const drawn = scroller.getBoundingClientRect()
+      return {
+        top: drawn.top,
+        bottom: drawn.bottom,
+        fieldTop: field.getBoundingClientRect().top,
+        scrolls: scroller.scrollHeight > scroller.clientHeight,
+      }
+    })
+
+  test('near the bottom, it opens above its field, clear of it', async () => {
+    const page = await eightSpends()
+    await refileNearTheBottom(page, 'End')
+
+    await expect
+      .poll(async () => (await where(page)).bottom <= (await where(page)).fieldTop)
+      .toBe(true)
+    const drawn = await where(page)
+    expect(drawn.top).toBeGreaterThanOrEqual(0)
+    expect(drawn.scrolls).toBe(true)
+  })
+
+  test('with room for it on neither side, it takes the larger, clear of its field, and scrolls', async () => {
+    const page = await eightSpends()
+    await refileNearTheBottom(page, 'Home')
+
+    await expect
+      .poll(async () => (await where(page)).bottom <= (await where(page)).fieldTop)
+      .toBe(true)
+    const drawn = await where(page)
+    expect(drawn.top).toBeGreaterThanOrEqual(0)
+    expect(drawn.scrolls).toBe(true)
+
+    // Placed again (the window says it resized), it stays scrolled to its end, deeper than the
+    // list could scroll uncapped.
+    const end = await page.locator(REFILE).evaluate((list) => {
+      const scroller = list.parentElement as HTMLElement
+      scroller.scrollTop = scroller.scrollHeight
+      return scroller.scrollTop
+    })
+    await page.evaluate(() => dispatchEvent(new Event('resize')))
+    await page.waitForTimeout(200)
+    expect(await page.locator(REFILE).evaluate((list) => list.parentElement?.scrollTop)).toBe(end)
   })
 })

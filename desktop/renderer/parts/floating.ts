@@ -51,9 +51,10 @@ export function floating(node: HTMLElement, anchor: Anchor) {
       return
     }
     const place = async () => {
-      // Measured whole, not at the room it had last time: else a list that opened hidden, or on
-      // the side it is leaving, is already as short as that side and never flips.
+      // Measured whole, without last time's cap: capped to the room on one side, it would fit
+      // there and never flip. The cap is back before a frame is drawn, so a list keeps its scroll.
       node.style.removeProperty('--room')
+      if (node.getClientRects().length === 0) return
       const { x, y } = await computePosition(reference, node, {
         strategy: 'fixed',
         placement: 'bottom-start',
@@ -72,15 +73,7 @@ export function floating(node: HTMLElement, anchor: Anchor) {
       node.style.insetInlineStart = `${x}px`
       node.style.top = `${y}px`
     }
-    const stopFollowing = autoUpdate(reference, node, () => void place())
-    // Floating UI watches the field; the composer's line can change height on its own.
-    const line = next instanceof HTMLElement || !next ? null : next.below
-    const lineResized = new ResizeObserver(() => void place())
-    if (line instanceof HTMLElement) lineResized.observe(line)
-    stop = () => {
-      stopFollowing()
-      lineResized.disconnect()
-    }
+    stop = autoUpdate(reference, node, () => void place())
   }
 
   follow(anchor)

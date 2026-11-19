@@ -370,6 +370,7 @@
     /* Above the band that stays over the list, which shares a z-index with the picker. */
     z-index: 2;
     display: grid;
+    grid-template-rows: minmax(0, 1fr);
     /* Wider than a chip's field, so a whole path reads; never wider than the window. */
     inline-size: max-content;
     min-inline-size: 100%;

@@ -131,8 +131,10 @@ describe('do anything from Ctrl+K', () => {
     await expect.poll(() => focusedIn(page)).toBe('Do anything DIALOG')
     await page.keyboard.press('Escape')
 
-    await page.waitForSelector(PALETTE, { state: 'detached' })
+    // Gone from the window, not only closed by the browser: Ctrl+K then opens it again.
+    await expect.poll(() => page.locator('dialog').count()).toBe(0)
     await expect.poll(() => focusedIn(page)).toBe('Write down a spend description')
+    await open(page, press)
   })
 
   test('Show or hide postings and Refile spend act on the spend selected', async () => {
