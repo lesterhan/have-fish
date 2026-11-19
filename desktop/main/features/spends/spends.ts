@@ -237,9 +237,12 @@ function refile(
 ): { edited: Outcome<{ id: string }>; changes: Change[] } {
   const { id } = input
   const { from, to } = shape
-  if (cents !== to.cents || (input.currency !== undefined && input.currency !== to.currency)) {
-    return { edited: failure('TRANSACTION_NOT_SIMPLE', { id }), changes: [] }
-  }
+  const reshaped =
+    cents !== to.cents ||
+    (input.currency !== undefined && input.currency !== to.currency) ||
+    (input.to !== undefined && 'account' in input.to)
+  // Onto an account of mine, it would be a transfer that converts: not this shape.
+  if (reshaped) return { edited: failure('TRANSACTION_NOT_SIMPLE', { id }), changes: [] }
   const now = ctx.now()
   const moved =
     input.to === undefined

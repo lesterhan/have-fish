@@ -1608,7 +1608,7 @@ describe('a spend in the currency typed', () => {
     })
   })
 
-  test('an account kept to CAD refuses yen, and nothing is saved or remembered', () => {
+  test('an account kept to CAD takes yen only with what it was charged, and nothing is saved or remembered without it', () => {
     const { ledger, ctx } = setup()
     const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
     const last = ctx.machine.lastFrom()
@@ -1617,10 +1617,7 @@ describe('a spend in the currency typed', () => {
       writeSpend(ctx, { amount: '1500', currency: 'JPY', description: 'Ramen', from: visa.id }),
     ).toEqual({
       ok: false,
-      failure: {
-        code: 'ACCOUNT_CURRENCY_LOCKED',
-        details: { accountId: visa.id, currency: 'JPY', locked: 'CAD' },
-      },
+      failure: { code: 'CHARGED_INVALID', details: { charged: '' } },
     })
     expect(listTransactions(ledger.db)).toEqual([])
     expect(ctx.machine.lastFrom()).toBe(last)
@@ -1890,5 +1887,17 @@ describe('a yen spend a card kept to CAD paid', () => {
 
     expect(getDocument(ledger.db, 'transaction', id)?.version).toEqual(before.version)
     expect(ctx.history.nextUndo()).toBe(step)
+  })
+
+  test('refiled onto an account of mine, it is refused and stays as it was', () => {
+    const { ledger, ctx, id, before } = dinner()
+    const cash = ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: null }))
+    const input = { id, amount: '4000', description: 'Dinner', to: { account: cash.id } }
+
+    expect(editSpend(ctx, input)).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
+    })
+    expect(spendOf(ledger, id)).toEqual(before.doc)
   })
 })
