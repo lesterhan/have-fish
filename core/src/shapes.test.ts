@@ -131,6 +131,83 @@ describe('shapeOf', () => {
     expect(shapeOf([leg('f', 0), leg('c', -0)], kindOf)).toEqual({ shape: 'other', amount: null })
   })
 
+  it('a yen spend a CAD card paid, through the conversion account, is converted', () => {
+    const legs = [
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+      leg('x', 3620),
+      leg('v', -3620),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'converted',
+      from: leg('v', -3620),
+      to: leg('f', 400000, 'JPY'),
+      via: 'x',
+    })
+  })
+
+  it('a converted spend reads the same whatever order its four legs are in', () => {
+    const legs = [
+      leg('v', -3620),
+      leg('x', 3620),
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'converted',
+      from: leg('v', -3620),
+      to: leg('f', 400000, 'JPY'),
+      via: 'x',
+    })
+  })
+
+  it('cash that holds any currency pays a converted spend too: read from the postings', () => {
+    const legs = [
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+      leg('x', 3620),
+      leg('c', -3620),
+    ]
+    expect(shapeOf(legs, kindOf)).toMatchObject({ shape: 'converted', from: leg('c', -3620) })
+  })
+
+  it('a conversion that does not balance in yen is other, with no one amount', () => {
+    const legs = [
+      leg('f', 400000, 'JPY'),
+      leg('x', -390000, 'JPY'),
+      leg('x', 3620),
+      leg('v', -3620),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
+  it('four legs through the conversion account in one currency are other', () => {
+    const legs = [leg('f', 3620), leg('x', -3620), leg('x', 3620), leg('v', -3620)]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
+  it('a category paying through the conversion account is other: a category cannot pay', () => {
+    const legs = [
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+      leg('x', 3620),
+      leg('g', -3620),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
+  it('a converted spend with two more legs is other', () => {
+    const legs = [
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+      leg('x', 3620),
+      leg('v', -3620),
+      leg('v', -100),
+      leg('g', 100),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
   it('the legs in either order give the same shape', () => {
     expect(shapeOf([leg('c', -450), leg('f', 450)], kindOf)).toEqual({
       shape: 'spend',
@@ -157,6 +234,15 @@ describe('legsOf', () => {
     ] as const
     for (const shape of shapes) expect(shapeOf(legsOf(shape), kindOf)).toEqual(shape)
   })
+
+  it('a converted spend is written to, the conversion each way, then from', () => {
+    expect(legsOf({ from: leg('v', -3620), to: leg('f', 400000, 'JPY'), via: 'x' })).toEqual([
+      leg('f', 400000, 'JPY'),
+      leg('x', -400000, 'JPY'),
+      leg('x', 3620),
+      leg('v', -3620),
+    ])
+  })
 })
 
 describe('amountOf', () => {
@@ -177,5 +263,15 @@ describe('amountOf', () => {
       cents: 100,
       currency: 'CAD',
     })
+  })
+
+  it('a converted spend’s amount is what it cost in its own currency, the yen', () => {
+    const converted: Shape = {
+      shape: 'converted',
+      from: leg('v', -3620),
+      to: leg('f', 400000, 'JPY'),
+      via: 'x',
+    }
+    expect(amountOf(converted)).toEqual({ cents: 400000, currency: 'JPY' })
   })
 })
