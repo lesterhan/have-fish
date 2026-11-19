@@ -1,8 +1,10 @@
 // A spend's details as the sentence they read as: its parts, the values a chip changes, and what
 // changing one sends. No DOM.
 
+import { splitCode } from '@have-fish/core/money'
 import type { InputOf, ListedLeg, ListedTransaction, Money, To } from '../../shared/commands'
-import { dayOf, todayIn } from '../format'
+import { HOME_CURRENCY } from '../../shared/currency'
+import { asTyped, dayOf, todayIn } from '../format'
 
 /**
  * The parts of the sentence, in the order they read. From is shown but, until a later note, can't
@@ -20,13 +22,19 @@ export type Values = { description: string; amount: string; to: string | null; d
 export function savedValues(t: ListedTransaction): Values | null {
   return t.simple === null
     ? null
-    : { description: t.description, amount: t.simple.amount, to: t.to, date: t.date }
+    : {
+        description: t.description,
+        amount: asTyped(t.simple.amount, t.simple.currency),
+        to: t.to,
+        date: t.date,
+      }
 }
 
 /**
  * What saving `part` as `value` sends, or null when it holds what's saved. Amount and description
  * go as they are, To and the day only when they changed, so a spend left alone keeps them: a name
- * both a category and an account have mustn't move a spend that was left alone.
+ * both a category and an account have mustn't move a spend that was left alone. The amount goes
+ * without its code, and the code only when it differs: none typed is the home currency.
  */
 export function changeOf(
   t: ListedTransaction,
@@ -38,11 +46,14 @@ export function changeOf(
 ): InputOf<'spend.edit'> | null {
   if (unchanged(t, saved, part, value, today)) return null
   const next = { ...saved, [part]: value }
+  const typed = splitCode(next.amount)
+  const currency = typed.currency ?? HOME_CURRENCY
   const date = dayOf(next.date, today)
   return {
     id: t.id,
-    amount: next.amount,
+    amount: typed.amount,
     description: next.description,
+    ...(currency === t.simple?.currency ? {} : { currency }),
     ...(next.to === null || next.to === t.to ? {} : { to: toOf(next.to) }),
     ...(date === t.date ? {} : { date }),
   }

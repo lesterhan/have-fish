@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { isAddable } from '@have-fish/core/account-kind'
 import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
-import { fitsCurrency } from '@have-fish/core/currencies'
+import { fitsCurrency, isValidCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
@@ -21,13 +21,17 @@ import { applyKeeping, type Change, record } from '../../undo/steps'
 /**
  * A spend from the account that paid to its category, a transfer to another account of mine, or
  * income from a source into an account of mine, on the day given or else today, in one batch
- * with any account it needs. It's in the currency the account paying is kept to, else the one the
- * account it goes to is kept to, else the home currency.
+ * with any account it needs. It's in the currency typed, else the one the account paying is kept
+ * to, else the one the account it goes to is kept to, else the home currency.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
   if (!amount.ok) return amount
   const cents = amount.value
+  const code = input.currency
+  if (code !== undefined && !isValidCurrency(code)) {
+    return failure('UNSUPPORTED_CURRENCY', { currency: code })
+  }
 
   const now = ctx.now()
   const typedDate = input.date ?? ''
@@ -49,7 +53,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   }
   const to = destination(ctx.ledger.db, goesTo, from.value.id, made)
   if (!to.ok) return to
-  const currency = from.value.currency ?? to.value.currency ?? HOME_CURRENCY
+  const currency = code ?? from.value.currency ?? to.value.currency ?? HOME_CURRENCY
   if (!fitsCurrency(cents, currency)) {
     return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
   }
@@ -116,8 +120,9 @@ function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
 }
 
 /**
- * A new version of a spend with a new amount, description, and maybe category or date. The
- * positive leg gets the amount and the other its negative; the id, account paying and origin stay.
+ * A new version of a spend with a new amount, description, and maybe currency, category or date.
+ * The positive leg gets the amount and the other its negative; the id, account paying and origin
+ * stay.
  */
 export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
   const { edited, changes } = edit(ctx, input)
@@ -133,6 +138,9 @@ function edit(
   const amount = spendAmount(input.amount)
   if (!amount.ok) return { edited: amount, changes: [] }
   const cents = amount.value
+  if (input.currency !== undefined && !isValidCurrency(input.currency)) {
+    return { edited: failure('UNSUPPORTED_CURRENCY', { currency: input.currency }), changes: [] }
+  }
   if (input.date !== undefined && !isCalendarDate(input.date)) {
     return { edited: failure('DATE_INVALID', { date: input.date }), changes: [] }
   }
@@ -150,10 +158,9 @@ function edit(
   )
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
-  if (!fitsCurrency(cents, simple.currency)) {
-    return refused(
-      failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency: simple.currency }),
-    )
+  const currency = input.currency ?? simple.currency
+  if (!fitsCurrency(cents, currency)) {
+    return refused(failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency }))
   }
 
   const now = ctx.now()
@@ -176,6 +183,7 @@ function edit(
   const date = input.date ?? doc.date
   // An unchanged save writes no version, so sync has nothing to send, and undo nothing to take back.
   if (
+    currency === simple.currency &&
     cents === simple.cents &&
     description === doc.description &&
     moved.value.id === into &&
@@ -194,6 +202,7 @@ function edit(
         ...p,
         accountId: positive && moved.value.id !== undefined ? moved.value.id : p.accountId,
         amount: format(positive ? cents : -cents),
+        currency,
       }
     }),
   }

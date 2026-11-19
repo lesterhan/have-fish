@@ -2,6 +2,7 @@
 // command and says saved, or why not in the words its place shows. No place or part sends a spend
 // command itself.
 
+import { splitCode } from '@have-fish/core/money'
 import type { Bridge, InputOf, ListedTransaction, To } from '../../shared/commands'
 import { composerWordsFor, type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
 import { changeOf, savedValues } from './sentence'
@@ -19,13 +20,17 @@ export function spendActions(bridge: Pick<Bridge, 'invoke'>) {
   }
 
   return {
-    /** The line's spend, written. Refused, it says which part to underline. */
+    /**
+     * The line's spend, written. Refused, it says which part to underline. The amount as typed: a
+     * code after it is sent as its currency.
+     */
     async write(
       values: InputOf<'spend.write'>,
     ): Promise<{ ok: true; id: string } | (Refused & { part: Field })> {
-      const written = await bridge.invoke('spend.write', values)
+      const sent = { ...values, ...splitCode(values.amount) }
+      const written = await bridge.invoke('spend.write', sent)
       if (written.ok) return { ok: true, id: written.value.id }
-      return { ok: false, part: fieldOf(written, values.to), words: composerWordsFor(written) }
+      return { ok: false, part: fieldOf(written, sent.to), words: composerWordsFor(written) }
     },
 
     edit,

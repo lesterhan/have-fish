@@ -13,6 +13,7 @@ export function fieldOf(failure: WireFailure, to?: To): Field {
     case 'AMOUNT_INVALID':
     case 'AMOUNT_NOT_POSITIVE':
     case 'AMOUNT_TOO_PRECISE':
+    case 'UNSUPPORTED_CURRENCY':
       return 'amount'
     case 'DATE_INVALID':
       return 'date'
@@ -63,6 +64,8 @@ export function composerWordsFor(failure: WireFailure): string {
       return refused.positive
     case 'AMOUNT_TOO_PRECISE':
       return refused.precise
+    case 'UNSUPPORTED_CURRENCY':
+      return refused.currency
     case 'DATE_INVALID':
       return refused.date
     case 'PATH_INVALID':
@@ -71,9 +74,10 @@ export function composerWordsFor(failure: WireFailure): string {
       return refused.same
     case 'ACCOUNT_NOT_FOUND':
     case 'ACCOUNT_DELETED':
-    case 'ACCOUNT_CURRENCY_LOCKED':
     case 'INCOME_NOT_TO_ACCOUNT':
       return refused.account
+    case 'ACCOUNT_CURRENCY_LOCKED':
+      return refused.locked
     default:
       return refused.form
   }

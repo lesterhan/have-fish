@@ -21,6 +21,12 @@ const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => (
 const toOf = (typed: string) => ({ category: typed })
 const values = (t = listed()) => savedValues(t)!
 
+const YEN_SPEND = listed({
+  amounts: [{ amount: '1500.00', currency: 'JPY' }],
+  simple: { amount: '1500.00', currency: 'JPY' },
+  description: 'Ramen',
+})
+
 describe('a spend as a sentence', () => {
   test('a simple spend starts from what it holds; one that moves more than one amount has none', () => {
     expect(values()).toEqual({
@@ -70,6 +76,44 @@ describe('a spend as a sentence', () => {
     expect(changeOf(listed(), values(), 'date', '2026-10-29', toOf)).toBeNull()
     // Yesterday, typed short, is the day it already is.
     expect(changeOf(listed(), values(), 'date', 'y', toOf, '2026-10-30')).toBeNull()
+  })
+})
+
+describe('a spend in another currency', () => {
+  test('its amount starts as typed, with its code', () => {
+    expect(values(YEN_SPEND).amount).toBe('1500 JPY')
+  })
+
+  test('a code typed after the amount is sent apart from it', () => {
+    expect(changeOf(listed(), values(), 'amount', '1500 jpy', toOf)).toStrictEqual({
+      id: 'a',
+      amount: '1500',
+      description: 'Coffee',
+      currency: 'JPY',
+    })
+  })
+
+  test('an amount with its code deleted is in the home currency', () => {
+    expect(changeOf(YEN_SPEND, values(YEN_SPEND), 'amount', '1500', toOf)).toMatchObject({
+      amount: '1500',
+      currency: 'CAD',
+    })
+  })
+
+  test('the code it is already in is not sent', () => {
+    const change = changeOf(YEN_SPEND, values(YEN_SPEND), 'amount', '2000 JPY', toOf)
+    expect(change).toMatchObject({ amount: '2000' })
+    expect(change).not.toHaveProperty('currency')
+  })
+
+  test('another part sends the amount without its code, and the currency stays', () => {
+    expect(
+      changeOf(YEN_SPEND, values(YEN_SPEND), 'description', 'Ramen, large', toOf),
+    ).toStrictEqual({ id: 'a', amount: '1500', description: 'Ramen, large' })
+  })
+
+  test('its amount left as it was, code and all, sends nothing', () => {
+    expect(changeOf(YEN_SPEND, values(YEN_SPEND), 'amount', '1500 JPY', toOf)).toBeNull()
   })
 })
 

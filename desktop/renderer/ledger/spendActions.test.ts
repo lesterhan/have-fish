@@ -17,6 +17,12 @@ const spend: ListedTransaction = {
   legs: [],
   origin: { source: 'manual', at: 0, here: true, file: null, line: null },
 }
+const YEN_SPEND: ListedTransaction = {
+  ...spend,
+  amounts: [{ amount: '1500.00', currency: 'JPY' }],
+  simple: { amount: '1500.00', currency: 'JPY' },
+  description: 'Ramen',
+}
 const toOf = (typed: string) => ({ category: typed })
 
 /** A bridge that answers each command as told, `null` saved by default, and keeps what it sent. */
@@ -67,6 +73,14 @@ describe('refile', () => {
     const { actions, sent } = fakeBridge()
     expect(await actions.refile(spend, ' food ', toOf)).toEqual({ ok: true })
     expect(sent).toEqual([])
+  })
+
+  test('a spend in yen keeps its currency, and sends its amount without the code', async () => {
+    const { actions, sent } = fakeBridge()
+    await actions.refile(YEN_SPEND, 'drinks', toOf)
+    expect(sent).toEqual([
+      ['spend.edit', { id: 'a', amount: '1500', description: 'Ramen', to: { category: 'drinks' } }],
+    ])
   })
 
   test('a spend of more than one amount: nothing to send', async () => {
@@ -132,5 +146,36 @@ describe('write', () => {
       'spend.write': refusal({ error: 'ACCOUNT_DELETED', detail: { accountId: to.account } }),
     })
     expect(await actions.write({ ...values, to })).toMatchObject({ ok: false, part: 'to' })
+  })
+
+  test('a code after the amount is sent as its currency', async () => {
+    const { actions, sent } = fakeBridge({ 'spend.write': { ok: true, value: { id: 'b' } } })
+    await actions.write({ ...values, amount: '1500 jpy' })
+    expect(sent).toEqual([['spend.write', { ...values, amount: '1500', currency: 'JPY' }]])
+  })
+
+  test('refused for a code that is no currency: the amount is the part', async () => {
+    const { actions } = fakeBridge({
+      'spend.write': refusal({ error: 'UNSUPPORTED_CURRENCY', detail: { currency: 'YEN' } }),
+    })
+    expect(await actions.write({ ...values, amount: '1500 yen' })).toEqual({
+      ok: false,
+      part: 'amount',
+      words: copy.spends.composer.refused.currency,
+    })
+  })
+
+  test('refused for a currency the account is locked out of: From is the part', async () => {
+    const { actions } = fakeBridge({
+      'spend.write': refusal({
+        error: 'ACCOUNT_CURRENCY_LOCKED',
+        detail: { accountId: 'x', currency: 'JPY', locked: 'CAD' },
+      }),
+    })
+    expect(await actions.write({ ...values, amount: '1500 jpy' })).toEqual({
+      ok: false,
+      part: 'from',
+      words: copy.spends.composer.refused.locked,
+    })
   })
 })

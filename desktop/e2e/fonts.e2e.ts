@@ -85,7 +85,6 @@ describe('fonts', () => {
     expect(await familyOf(page, `${PANE} input[name=date]`)).toBe(FIGURES)
     await openChip(page, 'amount')
     expect(await familyOf(page, `${PANE} input[name=amount]`)).toBe(FIGURES)
-    expect(await familyOf(page, `${PANE} >> text="CAD"`)).toBe(FIGURES)
     await openChip(page, 'description')
     expect(await familyOf(page, `${PANE} input[name=description]`)).toBe(SANS)
   })

@@ -65,6 +65,17 @@ export function parseTyped(typed: string): number | null {
   return parse(GROUPED.test(typed) ? typed.replaceAll(',', '') : typed)
 }
 
+/** Letters at the end of what's typed for an amount: its currency's code. */
+const CODE_AFTER = /^\s*(.*?)\s*([A-Za-z]+)\s*$/
+
+/** `1500 jpy` as typed: the amount, and the code after it in capitals; no code, no currency. */
+export function splitCode(typed: string): { amount: string; currency?: string } {
+  const match = CODE_AFTER.exec(typed)
+  if (match === null) return { amount: typed }
+  const [, amount = '', code = ''] = match
+  return { amount, currency: code.toUpperCase() }
+}
+
 /** Cents as the canonical two-place string: `-1235` is `'-12.35'`, `0` is `'0.00'`. */
 export function format(cents: number): string {
   if (!Number.isSafeInteger(cents)) throw new RangeError(`not a whole number of cents: ${cents}`)
