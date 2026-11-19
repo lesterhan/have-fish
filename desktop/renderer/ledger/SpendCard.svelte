@@ -188,10 +188,15 @@
               maxlength="64"
               aria-invalid={refused('amount') !== null}
             />
-            <span>{transaction.simple?.currency}</span>
           </span>
         {/snippet}
-        <Money of={{ amount: values.amount, currency: transaction.simple?.currency ?? '' }} code />
+        <Money
+          of={{
+            amount: transaction.simple?.amount ?? '',
+            currency: transaction.simple?.currency ?? '',
+          }}
+          code
+        />
       </Chip>
 
       <span class="lead">{words.sentence.at}</span>
@@ -373,7 +378,7 @@
   }
 
   .money > :global(input) {
-    inline-size: 8ch;
+    inline-size: 12ch;
   }
 
   .day > :global(input) {

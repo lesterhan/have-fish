@@ -4,24 +4,37 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openChip, openSelected, PANE, rows, shownDay, writeDown } from './app'
+import {
+  accountLines,
+  aHome,
+  chip,
+  goTo,
+  launch,
+  openChip,
+  openSelected,
+  PANE,
+  rows,
+  shownDay,
+  writeDown,
+} from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
-const NAV = 'nav[aria-label=Places]'
 const AMOUNT = `${PANE} input[name=amount]`
+/** The amount chip while it's open: the editor around its field. */
+const OPEN_AMOUNT = `${PANE} span:has(> span > input[name=amount])`
 
-/** The wallet's line on Accounts: its name and balance, as the cells read. */
-const cashLine = (page: Page) =>
-  page
-    .locator('ol[aria-label=Accounts] li', { hasText: 'cash' })
-    .evaluateAll((items) =>
-      items.map((li) =>
-        [...li.querySelectorAll('[data-cell]')].map((c) => c.textContent?.trim() ?? '').join(' | '),
-      ),
-    )
+/** The wallet's line on Accounts. */
+const cashLine = async (page: Page) =>
+  (await accountLines(page)).find((line) => line.startsWith('cash'))
 
-const toPlace = (page: Page, place: string) => page.click(`${NAV} button:has-text("${place}")`)
+/** A fresh app with one spend of 1500 jpy, its row shown. */
+async function aYenSpend() {
+  const { page } = await launch(aHome())
+  await writeDown(page, '1500 jpy', 'Ramen')
+  await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Ramen | 1,500 JPY`])
+  return page
+}
 
 describe('write down a spend in another currency', () => {
   test('1500 jpy as the amount: the row reads 1,500 JPY', async () => {
@@ -32,23 +45,29 @@ describe('write down a spend in another currency', () => {
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Ramen | 1,500 JPY`])
   })
 
+  test('its card says the amount in yen, as the row does', async () => {
+    const page = await aYenSpend()
+
+    await openSelected(page)
+
+    await expect.poll(() => page.locator(chip('amount')).innerText()).toBe('1,500 JPY')
+  })
+
   test('the wallet goes down in yen, and its dollars stay', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '12', 'Lunch')
-    await toPlace(page, 'Accounts')
-    await expect.poll(() => cashLine(page)).toEqual(['cash | −12.00'])
+    await goTo(page, 'Accounts')
+    await expect.poll(() => cashLine(page)).toBe('cash | −12.00')
 
-    await toPlace(page, 'Ledger')
+    await goTo(page, 'Ledger')
     await writeDown(page, '1500 jpy', 'Ramen')
-    await toPlace(page, 'Accounts')
+    await goTo(page, 'Accounts')
 
-    await expect.poll(() => cashLine(page)).toEqual(['cash | −12.00 · −1,500 JPY'])
+    await expect.poll(() => cashLine(page)).toBe('cash | −12.00 · −1,500 JPY')
   })
 
   test('the amount chip holds the code; deleting it makes the spend dollars', async () => {
-    const { page } = await launch(aHome())
-    await writeDown(page, '1500 jpy', 'Ramen')
-    await expect.poll(() => rows(page)).toHaveLength(1)
+    const page = await aYenSpend()
 
     await openSelected(page)
     await openChip(page, 'amount')
@@ -57,5 +76,15 @@ describe('write down a spend in another currency', () => {
     await page.press(AMOUNT, 'Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Ramen | 1,500.00`])
+  })
+
+  test('the open amount chip says the code once, in its field', async () => {
+    const page = await aYenSpend()
+
+    await openSelected(page)
+    await openChip(page, 'amount')
+
+    await expect.poll(() => page.inputValue(AMOUNT)).toBe('1500 JPY')
+    expect(await page.locator(OPEN_AMOUNT).innerText()).not.toContain('JPY')
   })
 })

@@ -301,3 +301,17 @@ export const rows = (page: Page) =>
   spendCells(page.locator('ol[aria-label=Ledger] [role=option]')).then((all) =>
     all.map((cells) => cells.join(' | ')),
   )
+
+/** The Accounts list as text, one line per account: its cells joined. */
+export const accountLines = (page: Page) =>
+  page
+    .locator('ol[aria-label=Accounts] li')
+    .evaluateAll((items) =>
+      items.map((li) =>
+        [...li.querySelectorAll('[data-cell]')].map((c) => c.textContent?.trim() ?? '').join(' | '),
+      ),
+    )
+
+/** Go to a place by the Places nav, as a person clicks it. */
+export const goTo = (page: Page, place: string) =>
+  page.click(`nav[aria-label=Places] button:has-text("${place}")`)
