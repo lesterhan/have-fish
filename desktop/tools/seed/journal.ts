@@ -8,6 +8,7 @@ import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { FailureCode } from '@have-fish/core/outcome'
 import { type Journal, readJournal } from '@have-fish/core/read-journal'
 import { applyLocal } from '../../main/ledger/apply'
+import { checkLedger, type LedgerCheck } from '../../main/ledger/check'
 import { HOME_CURRENCY } from '../../shared/currency'
 import { dayMs } from './book'
 import { refuseIfOpen } from './commands'
@@ -227,6 +228,26 @@ export function journalLines({ entries, accounts, stray }: JournalReport): strin
   refusedBy(entries.refused, 'refused by the ledger')
   refusedBy(accounts.refused, 'account refused by the ledger')
   group('not read, outside any entry', stray)
+  return lines
+}
+
+/** The ledger check, on the ledger `where` holds. */
+export function checkSandbox(where: Where): LedgerCheck {
+  const ledger = open(where)
+  try {
+    return checkLedger(ledger.db)
+  } finally {
+    ledger.close()
+  }
+}
+
+/** The check as counts and codes: never an id, an amount or what SQLite said. */
+export function checkLines(check: LedgerCheck): string[] {
+  const { faults, pending } = check
+  const lines = [`The ledger check: ${faults.length === 0 ? 'sound' : 'not sound'}.`]
+  for (const code of [...new Set(faults.map((f) => f.code))].sort())
+    lines.push(`  ${code}: ${faults.filter((f) => f.code === code).length}`)
+  if (pending > 0) lines.push(`  waiting for an account the ledger doesn't hold yet: ${pending}`)
   return lines
 }
 

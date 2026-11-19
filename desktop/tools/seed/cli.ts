@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { profileNamed, refuseIfOpen, seedInto, topUp } from './commands'
-import { journalLines, seedJournal } from './journal'
+import { checkLines, checkSandbox, journalLines, seedJournal } from './journal'
 import { PROFILES } from './profiles'
 import { record } from './record'
 import {
@@ -141,6 +141,7 @@ function tryJournal(args: Args, file: string | undefined) {
   console.log('Reading the journal…')
   const report = seedJournal(at, text, { progress })
   console.log(`\r\x1b[K${journalLines(report).join('\n')}`)
+  console.log(checkLines(checkSandbox(at)).join('\n'))
   launch(args, at, 'the journal')
 }
 

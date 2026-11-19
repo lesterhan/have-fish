@@ -11,7 +11,7 @@ import type {
 import type { Failure } from '@have-fish/core/outcome'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { countDistinct, eq, sql } from 'drizzle-orm'
+import { countDistinct, eq, getTableName, sql } from 'drizzle-orm'
 import type { Moved } from '../../shared/commands'
 import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
@@ -32,6 +32,8 @@ export type StoredType<D extends LedgerDocument> = {
   checkBatch(db: Database.Database, written: WrittenItem<D>[]): Refusal | null
   /** The list an undo or redo of it moves. */
   shows: keyof Moved
+  /** Its table in the file, whose versions the ledger check reads. */
+  table: string
 }
 
 const statements = perConnection((orm) => ({
@@ -85,6 +87,7 @@ export const STORED_TYPES: { [T in DocumentTypeName]: StoredType<DocumentOf<T>> 
     checkEach: () => null,
     checkBatch: checkAccounts,
     shows: 'accounts',
+    table: getTableName(accounts),
   },
   transaction: {
     put: putTransaction,
@@ -92,6 +95,7 @@ export const STORED_TYPES: { [T in DocumentTypeName]: StoredType<DocumentOf<T>> 
     checkEach: checkPostedAccounts,
     checkBatch: () => null,
     shows: 'spends',
+    table: getTableName(transactions),
   },
 }
 

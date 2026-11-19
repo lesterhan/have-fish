@@ -6,7 +6,15 @@ import { cents } from '@have-fish/core/money'
 import { readJournal } from '@have-fish/core/read-journal'
 import { shapeOf } from '@have-fish/core/shapes'
 import { describe, expect, onTestFinished, test, vi } from 'vitest'
-import { documentsOf, type JournalReport, journalLines, type LeftOut, seedJournal } from './journal'
+import {
+  checkLines,
+  checkSandbox,
+  documentsOf,
+  type JournalReport,
+  journalLines,
+  type LeftOut,
+  seedJournal,
+} from './journal'
 import { open, realFolders, sandbox, type Where } from './sandbox'
 
 const NOW = Date.UTC(2026, 10, 9, 3)
@@ -606,5 +614,69 @@ describe('journalLines', () => {
     expect(journalLines(report)).toContain(
       '  left out, in a currency other than CAD: 12 (lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 and 2 more)',
     )
+  })
+})
+
+describe('checkSandbox', () => {
+  test('finds nothing in the ledger a journal is read into', () => {
+    const where = aSandbox()
+    seedJournal(where, FOUR, { nowMs: NOW })
+    expect(checkSandbox(where)).toEqual({ faults: [], pending: 0 })
+  })
+
+  test("checks the sandbox's own file, damaged by hand", () => {
+    const where = aSandbox()
+    seedJournal(where, FOUR, { nowMs: NOW })
+    const ledger = open(where, NOW)
+    ledger.db.prepare('UPDATE postings SET amountCents = amountCents + 1 WHERE rowid = 1').run()
+    ledger.close()
+    expect(checkSandbox(where).faults.map((f) => f.code)).toEqual(['POSTINGS_DO_NOT_BALANCE'])
+  })
+})
+
+describe('checkLines', () => {
+  test('prints sound when nothing is found', () => {
+    expect(checkLines({ faults: [], pending: 0 })).toEqual(['The ledger check: sound.'])
+  })
+
+  test('prints how many faults each code has', () => {
+    const lines = checkLines({
+      faults: [
+        { code: 'TOO_FEW_POSTINGS', transactionId: id(1) },
+        { code: 'TOO_FEW_POSTINGS', transactionId: id(2) },
+      ],
+      pending: 0,
+    })
+    expect(lines).toEqual(['The ledger check: not sound.', '  TOO_FEW_POSTINGS: 2'])
+  })
+
+  test('prints the codes in alphabetical order', () => {
+    const lines = checkLines({
+      faults: [
+        { code: 'VERSION_MALFORMED', table: 'accounts', id: id(1) },
+        { code: 'CLOCK_BEHIND', newest: '2026-10-29T12:00:00.000Z-0000-0123456789abcdef' },
+      ],
+      pending: 0,
+    })
+    expect(lines.slice(1)).toEqual(['  CLOCK_BEHIND: 1', '  VERSION_MALFORMED: 1'])
+  })
+
+  test('prints how many postings wait for their account', () => {
+    expect(checkLines({ faults: [], pending: 3 })).toEqual([
+      'The ledger check: sound.',
+      "  waiting for an account the ledger doesn't hold yet: 3",
+    ])
+  })
+
+  test('prints no id, amount or what SQLite said', () => {
+    const text = checkLines({
+      faults: [
+        { code: 'FILE_DAMAGED', message: 'row 5 missing from index transactions_date' },
+        { code: 'POSTINGS_DO_NOT_BALANCE', transactionId: id(1), currency: 'CAD', cents: 100 },
+      ],
+      pending: 0,
+    }).join('\n')
+    for (const detail of ['row 5', 'transactions_date', id(1), '100', '1.00'])
+      expect(text).not.toContain(detail)
   })
 })
