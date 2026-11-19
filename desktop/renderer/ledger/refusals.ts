@@ -3,9 +3,9 @@
 import { copy } from '../../copy'
 import type { To, WireFailure } from '../../shared/commands'
 
-export type Field = 'amount' | 'description' | 'date' | 'to' | 'from' | 'form'
+export type Field = 'amount' | 'charged' | 'description' | 'date' | 'to' | 'from' | 'form'
 
-const FIELDS: readonly string[] = ['amount', 'description', 'date', 'to', 'from']
+const FIELDS: readonly string[] = ['amount', 'charged', 'description', 'date', 'to', 'from']
 
 /** `to`, what the refused command sent, says when an account refused is the one To named. */
 export function fieldOf(failure: WireFailure, to?: To): Field {
@@ -15,6 +15,8 @@ export function fieldOf(failure: WireFailure, to?: To): Field {
     case 'AMOUNT_TOO_PRECISE':
     case 'UNSUPPORTED_CURRENCY':
       return 'amount'
+    case 'CHARGED_INVALID':
+      return 'charged'
     case 'DATE_INVALID':
       return 'date'
     // The paths a spend's form names: an income source's in From, else a category's in To.
@@ -59,6 +61,7 @@ export function composerWordsFor(failure: WireFailure): string {
   const refused = copy.spends.composer.refused
   switch (failure.error) {
     case 'AMOUNT_INVALID':
+    case 'CHARGED_INVALID':
       return refused.amount
     case 'AMOUNT_NOT_POSITIVE':
       return refused.positive

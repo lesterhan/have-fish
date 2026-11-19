@@ -30,7 +30,7 @@ export const closed: Editing = {
 /** Clicking a chip, or Enter on it: its editor, holding what's saved. */
 export function opened(editing: Editing, t: ListedTransaction, part: Changable): Editing {
   const values = savedValues(t)
-  if (values === null) return editing
+  if (values === null || (part === 'amount' && t.charged !== undefined)) return editing
   return { ...editing, part, value: values[part] ?? '', error: null }
 }
 

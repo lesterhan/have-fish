@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'vitest'
+import type { ListedAccount } from '../../shared/commands'
 import {
   after as afterPart,
   before as beforePart,
+  chargedIn,
   dateSuggestions,
   PARTS,
   type Part,
+  partsShown,
   startPart,
   tabMark,
 } from './composer'
@@ -13,14 +16,30 @@ const values = (over: Partial<Record<Part, string>> = {}): Record<Part, string> 
   from: '',
   date: '',
   amount: '',
+  charged: '',
   description: '',
   to: '',
   ...over,
 })
 
+/** A card kept to CAD. */
+const VISA_LISTED: ListedAccount = {
+  id: 'v',
+  name: 'visa',
+  kind: 'card',
+  currency: 'CAD',
+  start: null,
+  balance: [],
+}
+
 describe('the parts', () => {
-  test('read From, Date, Amount, Description, To', () => {
-    expect(PARTS).toEqual(['from', 'date', 'amount', 'description', 'to'])
+  test('read From, Date, Amount, Charged, Description, To', () => {
+    expect(PARTS).toEqual(['from', 'date', 'amount', 'charged', 'description', 'to'])
+  })
+
+  test('show Charged only while the line asks what was charged', () => {
+    expect(partsShown(false)).toEqual(['from', 'date', 'amount', 'description', 'to'])
+    expect(partsShown(true)).toBe(PARTS)
   })
 
   test('Tab goes to the next part, and round from To to From', () => {
@@ -43,6 +62,63 @@ describe('the parts', () => {
         values({ from: 'visa', date: 'today', amount: '4.50', description: 'Coffee', to: 'food' }),
       ),
     ).toBe('amount')
+  })
+})
+
+describe('the Tab key, with the charged part', () => {
+  test('goes from the amount to the charge, then to the description, and back', () => {
+    expect(afterPart('amount', partsShown(true))).toBe('charged')
+    expect(afterPart('charged', partsShown(true))).toBe('description')
+    expect(beforePart('description', partsShown(true))).toBe('charged')
+  })
+
+  test('passes over the charged part when no parts are given', () => {
+    expect(afterPart('amount')).toBe('description')
+  })
+
+  test('from a charged part that has just gone, goes on from where it was', () => {
+    expect(afterPart('charged', partsShown(false))).toBe('description')
+    expect(beforePart('charged', partsShown(false))).toBe('amount')
+  })
+
+  test('marks the empty charge after a yen amount', () => {
+    const typed = values({ from: 'visa', date: 'today', amount: '4000 jpy' })
+    expect(tabMark('amount', typed, partsShown(true))).toBe('charged')
+  })
+
+  test('marks the description after an amount in the card’s own currency', () => {
+    expect(tabMark('amount', values({ from: 'visa', date: 'today', amount: '4000' }))).toBe(
+      'description',
+    )
+  })
+
+  test('starts the line at the amount, never at a hidden empty charge', () => {
+    const typed = { from: 'visa', date: 'today', amount: '4000', description: 'x', to: 'food' }
+    expect(startPart(values(typed))).toBe('amount')
+  })
+})
+
+describe('what the account paying was charged', () => {
+  test('is asked, in CAD, when a card kept to CAD pays yen', () => {
+    expect(chargedIn([VISA_LISTED], 'v', '4000 jpy')).toBe('CAD')
+  })
+
+  test('is not asked when the amount is in the card’s currency, or says none', () => {
+    expect(chargedIn([VISA_LISTED], 'v', '4000 cad')).toBeNull()
+    expect(chargedIn([VISA_LISTED], 'v', '4000')).toBeNull()
+  })
+
+  test('is not asked of an account that holds any currency', () => {
+    expect(chargedIn([{ ...VISA_LISTED, currency: null }], 'v', '4000 jpy')).toBeNull()
+  })
+
+  test('is not asked of income, or with no From', () => {
+    expect(chargedIn([VISA_LISTED], { income: 'salary' }, '4000 jpy')).toBeNull()
+    expect(chargedIn([VISA_LISTED], null, '4000 jpy')).toBeNull()
+  })
+
+  test('is not asked of an account not in the list', () => {
+    expect(chargedIn([VISA_LISTED], 'w', '4000 jpy')).toBeNull()
   })
 })
 

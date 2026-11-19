@@ -1,37 +1,67 @@
-// The composer's rules, without a DOM: the parts in the order you think of them, where Tab goes,
-// and the days its date list offers for what's typed. `Composer.svelte` draws them.
+// The composer's rules, without a DOM: the parts in the order you think of them, which it shows,
+// where Tab goes, and the days its date list offers for what's typed. `Composer.svelte` draws them.
 
 import { addDays } from '@have-fish/core/calendar-date'
+import { splitCode } from '@have-fish/core/money'
 import { dateFrom } from '@have-fish/core/typed-date'
+import type { From, ListedAccount } from '../../shared/commands'
 
 /** The parts, in the order you think of them. */
-export const PARTS = ['from', 'date', 'amount', 'description', 'to'] as const
+export const PARTS = ['from', 'date', 'amount', 'charged', 'description', 'to'] as const
 
 export type Part = (typeof PARTS)[number]
 
-/** The part Tab goes to next, wrapping round at the end. */
-export const after = (part: Part): Part => PARTS[(PARTS.indexOf(part) + 1) % PARTS.length] as Part
+/** The parts the line shows: Charged only while it asks what the account paying was charged. */
+export const partsShown = (charging: boolean): readonly Part[] =>
+  charging ? PARTS : PARTS.filter((p) => p !== 'charged')
+
+const placeOf = (part: Part) => PARTS.indexOf(part)
+
+/**
+ * The part Tab goes to next, wrapping round at the end. From a part that has just gone, the next
+ * shown after where it was.
+ */
+export const after = (part: Part, shown: readonly Part[] = partsShown(false)): Part =>
+  shown.find((p) => placeOf(p) > placeOf(part)) ?? shown[0] ?? part
 
 /** The part Shift+Tab goes to, wrapping round at the start. */
-export const before = (part: Part): Part =>
-  PARTS[(PARTS.indexOf(part) + PARTS.length - 1) % PARTS.length] as Part
+export const before = (part: Part, shown: readonly Part[] = partsShown(false)): Part =>
+  shown.findLast((p) => placeOf(p) < placeOf(part)) ?? shown.at(-1) ?? part
 
 /** The part the line starts in: the first one with nothing in it, else the amount. */
-export function startPart(values: Readonly<Record<Part, string>>): Part {
-  return PARTS.find((part) => values[part].trim() === '') ?? 'amount'
+export function startPart(
+  values: Readonly<Record<Part, string>>,
+  shown: readonly Part[] = partsShown(false),
+): Part {
+  return shown.find((part) => values[part].trim() === '') ?? 'amount'
 }
 
 /**
  * The part carrying the Tab key. An empty part being typed in says where Tab would bring you;
  * a filled one passes the mark to the next still-empty part after it. None once they're all full.
  */
-export function tabMark(active: Part, values: Readonly<Record<Part, string>>): Part | null {
+export function tabMark(
+  active: Part,
+  values: Readonly<Record<Part, string>>,
+  shown: readonly Part[] = partsShown(false),
+): Part | null {
   if (values[active].trim() === '') return active
-  for (let i = PARTS.indexOf(active) + 1; i < PARTS.length; i++) {
-    const part = PARTS[i] as Part
-    if (values[part].trim() === '') return part
-  }
-  return null
+  return shown.find((part) => placeOf(part) > placeOf(active) && values[part].trim() === '') ?? null
+}
+
+/**
+ * The currency the account paying is kept to, when the amount is typed in another: what the line
+ * asks it was charged in. Null for income, an account holding any currency, or no code typed.
+ */
+export function chargedIn(
+  accounts: readonly ListedAccount[],
+  from: From,
+  amount: string,
+): string | null {
+  const account = typeof from === 'string' ? accounts.find((a) => a.id === from) : undefined
+  const typed = splitCode(amount).currency
+  const keptTo = account?.currency ?? null
+  return keptTo !== null && typed !== undefined && typed !== keptTo ? keptTo : null
 }
 
 /** A day the date list offers: the shorthand, and the day it means. */

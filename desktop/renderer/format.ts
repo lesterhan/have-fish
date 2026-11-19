@@ -3,6 +3,8 @@
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { minorUnits } from '@have-fish/core/currencies'
+import { cents } from '@have-fish/core/money'
+import { ratio, significant } from '@have-fish/core/rates'
 import { dateFrom } from '@have-fish/core/typed-date'
 import { HOME_CURRENCY, type Money } from '../shared/currency'
 
@@ -52,6 +54,10 @@ export function asTyped(amount: string, currency: string): string {
   const figure = minorUnits(currency) === 0 ? amount.replace(/\.00$/, '') : amount
   return currency === HOME_CURRENCY ? figure : `${figure} ${currency}`
 }
+
+/** What one of `paid` bought of `got`, to four figures: `1 CAD = 110.5 JPY`. */
+export const rateText = (paid: Money, got: Money): string =>
+  `1 ${paid.currency} = ${significant(ratio(cents(paid.amount), cents(got.amount)), 4)} ${got.currency}`
 
 /** Today's date, `YYYY-MM-DD`, where this machine is: what a new spend's date starts at. */
 export const todayIn = (

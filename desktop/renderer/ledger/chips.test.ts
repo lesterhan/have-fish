@@ -16,6 +16,13 @@ const spend: ListedTransaction = {
   legs: [],
   origin: { source: 'manual', at: 0, here: true, file: null, line: null },
 }
+/** ¥4,000 for dinner, which a card kept to CAD was charged 36.20 for. */
+const DINNER: ListedTransaction = {
+  ...spend,
+  description: 'Dinner',
+  simple: { amount: '4000.00', currency: 'JPY' },
+  charged: { amount: '36.20', currency: 'CAD' },
+}
 const toOf = (typed: string) => ({ category: typed })
 const TODAY = '2026-10-30'
 
@@ -71,5 +78,15 @@ describe('the chip editor', () => {
   test('Esc: what was typed goes, and the chip closes', () => {
     const editing = refused({ ...opened(closed, spend, 'amount'), value: 'x' }, 'Not an amount')
     expect(putBack(editing)).toEqual(closed)
+  })
+})
+
+describe('a spend paid in another currency', () => {
+  test('keeps its amount chip shut', () => {
+    expect(opened(closed, DINNER, 'amount')).toBe(closed)
+  })
+
+  test('opens its other chips: To holds its category', () => {
+    expect(opened(closed, DINNER, 'to')).toMatchObject({ part: 'to', value: 'food' })
   })
 })
