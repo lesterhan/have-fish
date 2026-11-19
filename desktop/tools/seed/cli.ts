@@ -2,9 +2,11 @@
 // Node, so it loads the better-sqlite3 build the app ships.
 
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { profileNamed, refuseIfOpen, seedInto, topUp } from './commands'
+import { journalLines, seedJournal } from './journal'
 import { PROFILES } from './profiles'
 import { record } from './record'
 import {
@@ -28,6 +30,7 @@ const HELP = `Seeded ledgers for trying the app by hand. Each lives in desktop/.
   bun run seed restore <profile> <name>  put a kept ledger back
   bun run seed list                      the profiles, and what's seeded
   bun run try <profile>                  open the packaged app on it, seeding it first if need be
+  bun run try journal <file>             open the packaged app on a journal, read afresh
   bun run scenes:record                  the scenes' fixtures, from fresh seeds (starter, year)
 
 Options:
@@ -128,6 +131,20 @@ function tryApp(args: Args, profile: string) {
   const at = sandbox(profile)
   profileNamed(profile)
   if (args.flags.has('--fresh') || readSeeded(at) === null) seed(args, profile)
+  launch(args, at, profile)
+}
+
+function tryJournal(args: Args, file: string | undefined) {
+  if (!file) throw new Error('try journal which file?')
+  const text = readFileSync(file, 'utf8')
+  const at = sandbox('journal')
+  console.log('Reading the journal…')
+  const report = seedJournal(at, text, { progress })
+  console.log(`\r\x1b[K${journalLines(report).join('\n')}`)
+  launch(args, at, 'the journal')
+}
+
+function launch(args: Args, at: Where, label: string) {
   refuseIfOpen(at)
   const dev = args.flags.has('--dev')
   let exe: string
@@ -147,7 +164,7 @@ function tryApp(args: Args, profile: string) {
   }
   if (args.flags.has('--no-sandbox')) argv.push('--no-sandbox')
   console.log(
-    `Opening ${dev ? 'the dev app' : 'the packaged app'} on ${profile}. Quit it to come back here.`,
+    `Opening ${dev ? 'the dev app' : 'the packaged app'} on ${label}. Quit it to come back here.`,
   )
   const child = spawn(exe, argv, { cwd: DESKTOP, env: appEnv(at), stdio: 'inherit' })
   child.on('exit', (code) => process.exit(code ?? 0))
@@ -159,6 +176,7 @@ function main(argv: string[]) {
   const [first, second, third] = args.words
   if (tool === 'try') {
     if (!first) throw new Error('try which profile?')
+    if (first === 'journal') return tryJournal(args, second)
     return tryApp(args, first)
   }
   if (tool === 'record') {
