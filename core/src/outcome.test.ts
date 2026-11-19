@@ -42,6 +42,7 @@ test('every code takes the detail the table gives it', () => {
   })
   failure('ORIGIN_CHANGED', { id: '00000000-0000-4000-8000-000000000001' })
   failure('AMOUNT_NOT_POSITIVE', { amount: '-4.50' })
+  failure('CHARGED_INVALID', { charged: '' })
   failure('INPUT_MALFORMED', { path: 'amount', issue: 'invalid_type' })
   failure('COMMAND_UNKNOWN', { name: 'spend.burn' })
   failure('UNEXPECTED')
