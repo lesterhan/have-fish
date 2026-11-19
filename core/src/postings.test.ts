@@ -131,25 +131,41 @@ describe('validatePostings', () => {
     })
   })
 
-  it('each leg is rounded before summing', () => {
-    // 0.005 rounds to 1 cent, -0.004 rounds to 0 cents
-    const imbalancedPostings = [leg('0.005', CAD, A), leg('-0.004', CAD, B)]
-    expect(validatePostings(imbalancedPostings)).toEqual({
+  it('refuses an amount past the cent rather than balancing it by rounding', () => {
+    const postings = [leg('10.004', CAD, A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
       ok: false,
-      failure: {
-        code: 'POSTINGS_DO_NOT_BALANCE',
-        details: {
-          currency: CAD,
-          cents: 1,
-        },
-      },
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '10.004' } },
     })
-    // -0.999 rounds to 1.00
-    const balancedPostings = [leg('1.00', CAD, A), leg('-0.999', CAD, B)]
-    expect(validatePostings(balancedPostings)).toStrictEqual({
-      ok: true,
-      value: undefined,
+  })
+
+  it('refuses half a cent against half a cent', () => {
+    const postings = [leg('0.005', CAD, A), leg('-0.005', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '0.005' } },
     })
+  })
+
+  it('refuses a digit four places in', () => {
+    const postings = [leg('10.0004', CAD, A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '10.0004' } },
+    })
+  })
+
+  it('names the posting past the cent when it is the second', () => {
+    const postings = [leg('1.00', CAD, A), leg('-0.999', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '-0.999' } },
+    })
+  })
+
+  it('accepts zeros past the cent', () => {
+    const postings = [leg('10.000', CAD, A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toStrictEqual({ ok: true, value: undefined })
   })
 
   it('2+ legs also balance', () => {

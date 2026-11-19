@@ -372,6 +372,18 @@ describe('readDocument', () => {
       { amount: '15.50.2' },
     ],
     [
+      'an amount with more places than a cent has',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '10.004', currency: 'CAD' },
+          { accountId: B, amount: '-10.00', currency: 'CAD' },
+        ],
+      },
+      'AMOUNT_INVALID',
+      { amount: '10.004' },
+    ],
+    [
       'unbalanced postings',
       {
         ...SPEND,
@@ -444,12 +456,12 @@ describe('canonical form', () => {
       },
     ],
     [
-      '5.004',
+      '5.000',
       {
         ...SPEND,
         postings: [
-          { accountId: A, amount: '5.004', currency: 'CAD' },
-          { accountId: B, amount: '-5.004', currency: 'CAD' },
+          { accountId: A, amount: '5.000', currency: 'CAD' },
+          { accountId: B, amount: '-5.000', currency: 'CAD' },
         ],
       },
       {

@@ -13,11 +13,8 @@ const LIMIT_CENTS = 10 ** 12
 // writing a number reads; canonical form then rewrites it, so `1.25e1` reads back as `12.50`.
 export const DECIMAL = /^[ \t\n\r\f\v]*([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?[ \t\n\r\f\v]*$/
 
-/**
- * The amount in cents, rounded half away from zero: `12.345` is 1235 and `-12.345` is -1235.
- * Null for anything that is not a number, and for anything past `LIMIT_CENTS`.
- */
-export function parse(amount: string): number | null {
+/** `parse`'s reading: the cents, rounded, and whether rounding dropped a digit that wasn't 0. */
+function read(amount: string): { value: number; dropped: boolean } | null {
   const match = DECIMAL.exec(amount)
   if (!match) return null
   const [, sign = '', whole = '', fraction = '', exponent = '0'] = match
@@ -30,15 +27,33 @@ export function parse(amount: string): number | null {
   const leading = /^0*/.exec(digits)?.[0].length ?? 0
   digits = digits.slice(leading)
   point -= leading
-  if (digits === '') return 0
+  if (digits === '') return { value: 0, dropped: false }
   if (point > String(LIMIT_CENTS).length) return null
 
   const kept = point <= 0 ? '0' : digits.slice(0, point).padEnd(point, '0')
   const next = point < 0 ? '0' : (digits[point] ?? '0')
   const cents = Number(kept) + (next >= '5' ? 1 : 0)
   if (cents >= LIMIT_CENTS) return null
+  const dropped = point <= 0 || /[1-9]/.test(digits.slice(point))
   // `+ 0` turns -0 into 0, so a rounded-away amount is zero whichever sign it came with.
-  return (sign === '-' ? -cents : cents) + 0
+  return { value: (sign === '-' ? -cents : cents) + 0, dropped }
+}
+
+/**
+ * The amount in cents, rounded half away from zero: `12.345` is 1235 and `-12.345` is -1235.
+ * Null for anything that is not a number, and for anything past `LIMIT_CENTS`.
+ */
+export function parse(amount: string): number | null {
+  return read(amount)?.value ?? null
+}
+
+/**
+ * The amount in cents when nothing past the cent is lost, as a document's must be: `10.000` is
+ * 1000, and `10.004`, `0.005` and `1e-7` are null. Null wherever `parse` is null too.
+ */
+export function parseExact(amount: string): number | null {
+  const reading = read(amount)
+  return reading === null || reading.dropped ? null : reading.value
 }
 
 // Commas between groups of three, as an amount is often typed: `1,234.56`. Never `4,50`, which

@@ -55,6 +55,20 @@ describe('readVersioned', () => {
     ])
   })
 
+  it('refuses a document from another device with an amount past the cent', () => {
+    const doc = {
+      ...SPEND,
+      postings: [
+        { accountId: A, amount: '10.004', currency: 'CAD' },
+        { accountId: B, amount: '-10.00', currency: 'CAD' },
+      ],
+    }
+    expect(readVersioned({ doc, version: VERSION })).toStrictEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: '10.004' } },
+    })
+  })
+
   it.each([
     [
       'a counter past four hex digits',
