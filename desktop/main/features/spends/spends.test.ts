@@ -1641,15 +1641,6 @@ describe('a yen spend a card kept to CAD paid', () => {
     return { ...setup_, visa }
   }
 
-  /** The live accounts at the conversion account's path. */
-  const conversions = (ledger: Ledger) =>
-    ledger.db
-      .prepare(
-        "SELECT count(*) FROM accounts WHERE path = 'equity:conversion' AND deletedAt IS NULL",
-      )
-      .pluck()
-      .get()
-
   test('is written through the conversion account, balanced in each currency', () => {
     const { ledger, ctx, visa } = withVisa()
 
@@ -1711,13 +1702,14 @@ describe('a yen spend a card kept to CAD paid', () => {
   test('with no charge, nothing is saved, the conversion account included', () => {
     const { ledger, ctx, visa } = withVisa()
     const { charged: _, ...uncharged } = DINNER
+    const accounts = count(ledger, 'accounts')
 
     expect(writeSpend(ctx, { ...uncharged, from: visa.id })).toEqual({
       ok: false,
       failure: { code: 'CHARGED_INVALID', details: { charged: '' } },
     })
     expect(listTransactions(ledger.db)).toEqual([])
-    expect(conversions(ledger)).toBe(0)
+    expect(count(ledger, 'accounts')).toBe(accounts)
   })
 
   test('a charge that is not an amount is refused', () => {
