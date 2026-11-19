@@ -106,7 +106,7 @@ taller than Compact's rows in Large.
   list, their row stays in view and they run on below it. Pickers open under their field, and
   the palette opens near the top
   of the window over a scrim.
-- **The ledger's columns** read left to right as what happened: From (196px), Amount (92px), To,
+- **The ledger's columns** read left to right as what happened: From (196px), Amount (119px), To,
   Description. Day bands carry their date and the day's net. A list narrower than 520px drops
   From (the details still show it): it's the list that runs out, not the window, so this holds
   beside the pane at the size the window opens and in Reports' half too.

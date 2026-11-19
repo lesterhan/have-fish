@@ -86,6 +86,21 @@ const pointsFrom = (page: Page, whole: string, pointed: string[]) =>
     [whole, pointed] as const,
   )
 
+/**
+ * How far each row's amount runs past its grid track: the cell is justify-self: end and grows
+ * with what it holds, so only the track says where the column ends.
+ */
+const overruns = (page: Page) =>
+  page.locator(LEDGER_ROWS).evaluateAll((items) =>
+    items.map((li) => {
+      const cells = [...li.querySelectorAll('[data-cell]')]
+      const amount = cells.find((c) => c.getAttribute('data-cell') === 'amount')
+      const tracks = getComputedStyle(li).gridTemplateColumns.split(' ')
+      const track = Number.parseFloat(tracks[amount ? cells.indexOf(amount) : -1] ?? 'NaN')
+      return Math.max(0, (amount?.getBoundingClientRect().width ?? Number.NaN) - track)
+    }),
+  )
+
 /** An offset of under half a pixel: the same place, to the eye. */
 const lined = () => expect.closeTo(0, 0)
 
@@ -110,6 +125,14 @@ describe('amounts in three currencies, down one column', () => {
     const page = await threeCurrencies()
 
     await expect.poll(() => rows(page)).toContain(`${shownDay(today())} | Lunch | 12.00`)
+  })
+
+  test('the widest amounts, slot and blank included, stay inside their column', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '12345.67', 'Rent')
+    await writeDown(page, '150000 jpy', 'Hotel')
+
+    await expect.poll(() => overruns(page)).toEqual([lined(), lined()])
   })
 })
 
