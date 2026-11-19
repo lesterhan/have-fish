@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { PLACES } from '../renderer/shell/places'
-import { COMPOSER, SCENES, sceneNamed } from './scenes'
+import { COMPOSER, SCENES, sceneNamed, scenesByPlace } from './scenes'
 
 describe('SCENES', () => {
   test('the eight to start, each once', () => {
@@ -44,6 +44,21 @@ describe('SCENES', () => {
       expect(PLACES).toContain(place)
       expect(state).toBeTruthy()
       expect(rest).toEqual([])
+    }
+  })
+
+  test('every scene says what it shows', () => {
+    for (const scene of SCENES) expect(scene.about.trim()).not.toBe('')
+  })
+
+  test('by place: every place in the app’s order, every scene once, in SCENES’ order', () => {
+    const grouped = scenesByPlace()
+    expect(grouped.map((group) => group.place)).toEqual([...PLACES])
+    expect(grouped.flatMap((group) => group.scenes.map((scene) => scene.name)).sort()).toEqual(
+      SCENES.map((scene) => scene.name).sort(),
+    )
+    for (const { place, scenes } of grouped) {
+      expect(scenes).toEqual(SCENES.filter((scene) => scene.name.startsWith(`${place}/`)))
     }
   })
 

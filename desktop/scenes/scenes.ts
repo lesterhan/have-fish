@@ -4,6 +4,7 @@
 // open. Then the six design argues about: the palette, a path picker, a refused write, a chip
 // being changed, the account pane adding, and a line half written.
 
+import { PLACES, type Place } from '../renderer/shell/places'
 import type { WindowActionId } from '../shared/actions'
 import type { Density } from '../shared/density'
 
@@ -21,6 +22,8 @@ export type Step =
 export type Scene = {
   /** `<place>/<state>`. */
   name: string
+  /** What it shows, for the index. */
+  about: string
   fixture: 'empty' | 'starter' | 'year'
   density?: Density
   steps: readonly Step[]
@@ -30,14 +33,46 @@ export type Scene = {
 export const COMPOSER = 'form[aria-label="Write down a spend"]'
 
 export const SCENES: readonly Scene[] = [
-  { name: 'ledger/empty', fixture: 'empty', steps: [] },
-  { name: 'ledger/starter', fixture: 'starter', steps: [] },
-  { name: 'ledger/year', fixture: 'year', steps: [] },
-  { name: 'ledger/compact', fixture: 'year', density: 'compact', steps: [] },
-  { name: 'ledger/spend-open', fixture: 'year', steps: [{ key: 'Enter' }] },
-  { name: 'ledger/palette', fixture: 'year', steps: [{ action: 'palette' }] },
+  {
+    name: 'ledger/empty',
+    about: 'First run: the composer line open on nothing',
+    fixture: 'empty',
+    steps: [],
+  },
+  {
+    name: 'ledger/starter',
+    about: "The starter accounts' opening balances",
+    fixture: 'starter',
+    steps: [],
+  },
+  {
+    name: 'ledger/year',
+    about: 'A year of spends, the window as it mostly looks',
+    fixture: 'year',
+    steps: [],
+  },
+  {
+    name: 'ledger/compact',
+    about: 'The year at Compact density',
+    fixture: 'year',
+    density: 'compact',
+    steps: [],
+  },
+  {
+    name: 'ledger/spend-open',
+    about: "A spend's details open, Enter on the first row",
+    fixture: 'year',
+    steps: [{ key: 'Enter' }],
+  },
+  {
+    name: 'ledger/palette',
+    about: 'The action palette open',
+    fixture: 'year',
+    steps: [{ action: 'palette' }],
+  },
   {
     name: 'ledger/path-picker',
+    about: "The composer's From picker open, emptied",
     fixture: 'year',
     // Emptied and a key down: the field opens the list of every account and income source.
     steps: [
@@ -48,6 +83,7 @@ export const SCENES: readonly Scene[] = [
   },
   {
     name: 'ledger/refused',
+    about: "A spend written and refused: the line says it wasn't saved",
     fixture: 'year',
     // The stand-in bridge can't write, so the line says it wasn't saved.
     steps: [
@@ -59,11 +95,13 @@ export const SCENES: readonly Scene[] = [
   },
   {
     name: 'ledger/chip-changing',
+    about: 'A spend open, its amount being changed',
     fixture: 'year',
     steps: [{ key: 'Enter' }, { click: 'button[aria-label=Amount]' }],
   },
   {
     name: 'ledger/composer-typing',
+    about: 'A line half written: 12.50, Lunch',
     fixture: 'year',
     steps: [
       { action: 'newSpend' },
@@ -71,15 +109,27 @@ export const SCENES: readonly Scene[] = [
       { fill: `${COMPOSER} input[name=description]`, text: 'Lunch' },
     ],
   },
-  { name: 'accounts/year', fixture: 'year', steps: [{ action: 'showAccounts' }] },
+  {
+    name: 'accounts/year',
+    about: 'Accounts, a year in',
+    fixture: 'year',
+    steps: [{ action: 'showAccounts' }],
+  },
   {
     name: 'accounts/adding',
+    about: 'The account pane open on a new account',
     fixture: 'year',
     steps: [{ action: 'showAccounts' }, { action: 'addAccount' }],
   },
-  { name: 'reports/year', fixture: 'year', steps: [{ action: 'showReports' }] },
+  {
+    name: 'reports/year',
+    about: "Reports on the fixture's last week",
+    fixture: 'year',
+    steps: [{ action: 'showReports' }],
+  },
   {
     name: 'reports/category-open',
+    about: 'A category open, its spends beside',
     fixture: 'year',
     // One click picks the first row that opens; the second opens it.
     steps: [
@@ -89,6 +139,14 @@ export const SCENES: readonly Scene[] = [
     ],
   },
 ]
+
+/** The scenes by place, in the app's order of places and each in SCENES' order. */
+export function scenesByPlace(): { place: Place; scenes: Scene[] }[] {
+  return PLACES.map((place) => ({
+    place,
+    scenes: SCENES.filter((scene) => scene.name.startsWith(`${place}/`)),
+  }))
+}
 
 /** The scene called `name`; null for none, or for one that isn't. */
 export function sceneNamed(name: string | null): Scene | null {

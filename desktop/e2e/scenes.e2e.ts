@@ -110,6 +110,8 @@ test('reports/category-open has a row open and a row a level under', async () =>
 test('with no scene named, a link to each', async () => {
   const page = await openScene()
   const links = page.locator('#app a')
+  // The index loads in its own chunk, so it draws after the page does.
+  await links.first().waitFor()
   expect(await links.count()).toBe(SCENES.length)
   expect(await links.allTextContents()).toEqual(SCENES.map((scene) => scene.name))
 })
