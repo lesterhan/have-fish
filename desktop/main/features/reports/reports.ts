@@ -5,6 +5,7 @@ import { isCalendarDate } from '@have-fish/core/calendar-date'
 import { format } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { UNSORTED } from '@have-fish/core/own-accounts'
+import { shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import { and, between, eq, isNull, sql } from 'drizzle-orm'
 import type { InputOf, Money, Values } from '../../../shared/commands'
@@ -13,10 +14,12 @@ import { perConnection } from '../../db/prepared'
 import { accounts, postings, transactions } from '../../db/schema'
 
 const statements = perConnection((orm) => ({
-  // Each live posting to a category in the period. A tombstone keeps no postings.
-  spent: orm
+  // Each live posting of a transaction in the period, together, so core can say its shape.
+  postingsIn: orm
     .select({
       id: transactions.id,
+      accountId: postings.accountId,
+      kind: accounts.kind,
       path: accounts.path,
       pathKey: accounts.pathKey,
       cents: postings.amountCents,
@@ -28,7 +31,6 @@ const statements = perConnection((orm) => ({
     .where(
       and(
         isNull(transactions.deletedAt),
-        eq(accounts.kind, 'category'),
         between(transactions.date, sql.placeholder('start'), sql.placeholder('end')),
       ),
     )
@@ -39,7 +41,8 @@ const statements = perConnection((orm) => ({
 /**
  * Each spend's money in a category from `start` to `end`, both days in it, in the home currency.
  * Transfers between my accounts, income and starting balances go to no category, so they are not
- * spending. What went out in other currencies is summed apart, since it can't be added in yet.
+ * spending. A spend paid in another currency counts what its account paid. What went out in other
+ * currencies is summed apart, since it can't be added in yet.
  */
 export function spendingIn(
   db: Database.Database,
@@ -52,14 +55,26 @@ export function spendingIn(
 
   const spent: Values['report.spending']['spent'] = []
   const other = new Map<string, number>()
-  for (const row of statements(db).spent.all({ start, end })) {
-    if (row.currency !== HOME_CURRENCY) {
-      other.set(row.currency, (other.get(row.currency) ?? 0) + row.cents)
-      continue
+  const byTransaction = Map.groupBy(statements(db).postingsIn.all({ start, end }), (p) => p.id)
+  for (const [id, posted] of byTransaction) {
+    const accountKinds = new Map(posted.map((p) => [p.accountId, p.kind]))
+    const shape = shapeOf(posted, (accountId) => accountKinds.get(accountId))
+    // A converted spend counts what its account paid, in the currency it paid in.
+    const counted =
+      shape.shape === 'converted'
+        ? posted
+            .filter((p) => p.accountId === shape.to.accountId)
+            .map((p) => ({ ...p, cents: -shape.from.cents, currency: shape.from.currency }))
+        : posted.filter((p) => p.kind === 'category')
+    for (const leg of counted) {
+      if (leg.currency !== HOME_CURRENCY) {
+        other.set(leg.currency, (other.get(leg.currency) ?? 0) + leg.cents)
+        continue
+      }
+      // A spend with no category reports as unsorted, `''`.
+      const category = leg.pathKey === UNSORTED.path ? '' : nameOf(leg.path)
+      spent.push({ id, category, amount: format(leg.cents) })
     }
-    // A spend with no category reports as unsorted, `''`.
-    const category = row.pathKey === UNSORTED.path ? '' : nameOf(row.path)
-    spent.push({ id: row.id, category, amount: format(row.cents) })
   }
   const elsewhere: Money[] = [...other]
     .filter(([, cents]) => cents !== 0)

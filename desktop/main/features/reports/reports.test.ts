@@ -123,6 +123,24 @@ describe('spendingIn', () => {
     ])
   })
 
+  test('four postings that are no conversion count each category', () => {
+    const { ledger, lines } = setup()
+    const wallet = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const fun = anAccount({ path: 'expenses:fun', kind: 'category' })
+    const split = aSpend(wallet.id, food.id, '4.50', {
+      postings: [
+        { accountId: food.id, amount: '2.00', currency: 'CAD' },
+        { accountId: fun.id, amount: '2.50', currency: 'CAD' },
+        { accountId: wallet.id, amount: '-2.00', currency: 'CAD' },
+        { accountId: wallet.id, amount: '-2.50', currency: 'CAD' },
+      ],
+    })
+    ok(applyLocal(ledger, [wallet, food, fun, split], NOW))
+
+    expect(lines()).toEqual(['food 2.00', 'fun 2.50'])
+  })
+
   test.each([
     ['2026-02-30', '2026-03-01', '2026-02-30'],
     ['2026-10-26', 'next week', 'next week'],
@@ -133,6 +151,89 @@ describe('spendingIn', () => {
       ok: false,
       failure: { code: 'DATE_INVALID', details: { date } },
     })
+  })
+})
+
+describe('a yen dinner my card was charged for', () => {
+  /** A ledger with a card kept to `currency`, and ¥4,000 dinners from it, charged `charged`. */
+  function withCard(name = 'visa', currency = 'CAD', charged = '36.20') {
+    const made = setup()
+    const card = ok(addAccount(made.ctx, { name, kind: 'card', currency })).id
+    const dinner = (category = '', date = '2026-10-28') =>
+      ok(
+        writeSpend(made.ctx, {
+          amount: '4000',
+          currency: 'JPY',
+          charged,
+          description: 'Dinner',
+          to: { category },
+          from: card,
+          date,
+        }),
+      ).id
+    return { ...made, dinner }
+  }
+
+  test('charged 36.20 CAD, to no category: unsorted counts the 36.20', () => {
+    const { dinner, week } = withCard()
+    const id = dinner()
+    expect(week().spent).toEqual([{ id, category: '', amount: '36.20' }])
+  })
+
+  test('charged in CAD: none of it is in other', () => {
+    const { dinner, week } = withCard()
+    dinner()
+    expect(week().other).toEqual([])
+  })
+
+  test('to food: food counts the 36.20', () => {
+    const { dinner, week } = withCard()
+    const id = dinner('food')
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '36.20' }])
+  })
+
+  test('between two CAD spends, oldest day first: it sits between them', () => {
+    const { dinner, spend, week } = withCard()
+    spend('4.50', 'food', '2026-10-27')
+    dinner('food', '2026-10-28')
+    spend('12.00', 'food', '2026-10-29')
+    expect(week().spent.map((s) => s.amount)).toEqual(['4.50', '36.20', '12.00'])
+  })
+
+  test('beside 1500 yen in cash: only the cash yen are in other', () => {
+    const { ctx, dinner, spend, week } = withCard()
+    const suica = ok(addAccount(ctx, { name: 'suica', kind: 'cash', currency: 'JPY' })).id
+    dinner('food')
+    spend('1500', 'food', '2026-10-28', suica)
+    expect(week().other).toEqual([{ amount: '1500.00', currency: 'JPY' }])
+  })
+
+  test('charged 27.00 by a card kept to USD: none of it is in spent', () => {
+    const { dinner, week } = withCard('amex', 'USD', '27.00')
+    dinner()
+    expect(week().spent).toEqual([])
+  })
+
+  test('charged 27.00 by a card kept to USD: other holds the 27.00 USD', () => {
+    const { dinner, week } = withCard('amex', 'USD', '27.00')
+    dinner()
+    expect(week().other).toEqual([{ amount: '27.00', currency: 'USD' }])
+  })
+
+  test('the week before counts it at its charge too', () => {
+    const { dinner, week } = withCard()
+    const id = dinner('', '2026-10-21')
+    expect(week('2026-10-19', '2026-10-25').spent).toEqual([{ id, category: '', amount: '36.20' }])
+  })
+
+  test('removed: it counts nowhere', () => {
+    const { ctx, dinner, week } = withCard()
+    const id = dinner()
+    expect(week().spent).toHaveLength(1)
+
+    ok(removeSpend(ctx, { id }))
+
+    expect(week()).toEqual({ currency: 'CAD', spent: [], other: [] })
   })
 })
 
