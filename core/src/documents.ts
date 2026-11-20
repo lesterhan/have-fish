@@ -8,6 +8,7 @@ import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 import { validatePostings } from './postings'
+import { readRate } from './rates'
 import { MAX_WALL_MS, VersionSchema } from './version'
 
 /** UTC ms, 1970 to the end of 9999, like a version's time. */
@@ -83,7 +84,32 @@ export const AccountSchema = z.strictObject({
 })
 export type AccountDoc = z.infer<typeof AccountSchema>
 
-export const DocumentSchema = z.discriminatedUnion('type', [TransactionSchema, AccountSchema])
+export const RateSchema = z.strictObject({
+  type: z.literal('rate'),
+  /** Derived from the source, the day and the pair, so the day's rate again is a new version. */
+  id: z.uuid(),
+  /** The day it converts on. */
+  date: z.string(),
+  /** The currency converted from: one of it is `rate` of `to`. */
+  from: z.string(),
+  /** The currency converted into. */
+  to: z.string(),
+  /** The decimal as typed or as sent, never parsed into a number: `'110.5'`. */
+  rate: z.string(),
+  /** The day a service published a fetched rate; null for a typed one. */
+  published: z.string().nullable(),
+  /** UTC ms; set means a tombstone. */
+  deletedAt: utcMs.nullable(),
+  /** Typed is `manual`, fetched is `system`. */
+  origin: AccountOriginSchema,
+})
+export type RateDoc = z.infer<typeof RateSchema>
+
+export const DocumentSchema = z.discriminatedUnion('type', [
+  TransactionSchema,
+  AccountSchema,
+  RateSchema,
+])
 export type LedgerDocument = z.infer<typeof DocumentSchema>
 
 export function readShape(input: unknown): Outcome<LedgerDocument> {
@@ -147,6 +173,39 @@ function checkAccount(doc: AccountDoc): Outcome<void> {
   return { ok: true, value: undefined }
 }
 
+/** Plain digits with an optional point: `readRate` alone takes a sign and an exponent too. */
+const PLAIN_RATE = /^\d+(\.\d+)?$/
+
+/*
+ * A rate must:
+ * - be on a valid date
+ * - be between two different supported currencies
+ * - be plain decimal text that readRate takes
+ * - if published, be published on a valid date no later than its own
+ */
+function checkRate(doc: RateDoc): Outcome<void> {
+  if (!isCalendarDate(doc.date)) {
+    return failure('DATE_INVALID', { date: doc.date })
+  }
+
+  for (const currency of [doc.from, doc.to]) {
+    if (!isValidCurrency(currency)) return failure('UNSUPPORTED_CURRENCY', { currency })
+  }
+  if (doc.from === doc.to) {
+    return failure('RATE_SAME_CURRENCY', { currency: doc.from })
+  }
+
+  if (!PLAIN_RATE.test(doc.rate) || !readRate(doc.rate).ok) {
+    return failure('RATE_INVALID', { rate: doc.rate })
+  }
+
+  const { published } = doc
+  if (published !== null && (!isCalendarDate(published) || published > doc.date)) {
+    return failure('DATE_INVALID', { date: published })
+  }
+  return { ok: true, value: undefined }
+}
+
 export function readDocument(input: unknown): Outcome<LedgerDocument> {
   const shape = readShape(input)
   if (!shape.ok) return shape
@@ -186,5 +245,14 @@ export const DOCUMENT_TYPES: { [T in DocumentTypeName]: DocumentType<DocumentOf<
     },
     rank: 1,
     tombstone: (doc, now) => ({ ...doc, postings: [], deletedAt: now }),
+  },
+  rate: {
+    // No canonical form: a rate stays the text it came as.
+    check: (doc) => {
+      const result = checkRate(doc)
+      return result.ok ? { ok: true, value: doc } : result
+    },
+    rank: 2,
+    tombstone: (doc, now) => ({ ...doc, deletedAt: now }),
   },
 }

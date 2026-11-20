@@ -16,6 +16,7 @@ const codes: { [C in FailureCode]: string } = {
   DATE_INVALID: "That isn't a day on the calendar.",
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
   RATE_INVALID: "That isn't a rate. Type a number above zero, like 0.0091.",
+  RATE_SAME_CURRENCY: 'A rate is between two different currencies.',
   UNSUPPORTED_CURRENCY: "have-fish doesn't know that currency.",
 
   // A transaction.
@@ -39,6 +40,9 @@ const codes: { [C in FailureCode]: string } = {
   ACCOUNT_NOT_FOUND: "That account isn't in your ledger any more.",
   PATH_INVALID: "That isn't a name an account can have.",
   PATH_ROOT_MISMATCH: "That account's name doesn't fit its kind.",
+
+  // A rate.
+  RATE_ID_MISMATCH: "This rate's id doesn't match its day and currencies.",
 
   // Undo and redo.
   CHANGED_SINCE: "That's been changed since, so it can't be undone.",

@@ -30,6 +30,10 @@ export interface FailureDetails {
   AMOUNT_TOO_PRECISE: { amount: string; currency: string }
   /** A rate that isn't a positive decimal, or has a part past what a rate can hold. */
   RATE_INVALID: { rate: string }
+  /** A rate from a currency to itself. */
+  RATE_SAME_CURRENCY: { currency: string }
+  /** A rate written here whose id isn't the one its source, day and pair derive. */
+  RATE_ID_MISMATCH: { id: string }
   /** A command's input doesn't fit its schema: Zod's first issue, as `DOCUMENT_MALFORMED`. */
   INPUT_MALFORMED: { path: string; issue: string }
   /** The window asked for a command main doesn't have. */
