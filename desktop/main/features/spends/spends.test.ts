@@ -2034,15 +2034,17 @@ describe('a yen spend a card kept to CAD paid', () => {
     })
   })
 
-  test('a new charge finer than the card’s cents is refused', () => {
-    const { ctx, id } = dinner()
+  test('a new charge past the cent is rounded, as a typed amount is', () => {
+    const { ledger, ctx, id } = dinner()
 
-    expect(
-      editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '36.205' }),
-    ).toEqual({
-      ok: false,
-      failure: { code: 'CHARGED_INVALID', details: { charged: '36.205' } },
-    })
+    ok(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '36.205' }))
+
+    expect(postingLines(ledger, id)).toEqual([
+      'food 4000.00 JPY',
+      'conversion -4000.00 JPY',
+      'conversion 36.21 CAD',
+      'visa -36.21 CAD',
+    ])
   })
 
   test('a new charge with its code typed after it is refused', () => {
