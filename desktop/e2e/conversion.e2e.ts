@@ -1,5 +1,6 @@
 // A yen spend a card kept to CAD paid, in the built app: the line asks what the card was charged,
-// the row reads the yen, the card says the dollars and the rate, and the card owes the dollars.
+// the row reads the yen, the card says the dollars and the rate, and the card owes the dollars,
+// and Reports counts them.
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
@@ -9,6 +10,7 @@ import {
   ADD_ACCOUNT,
   accountLines,
   aHome,
+  BEHIND,
   chip,
   focusedName,
   goTo,
@@ -18,9 +20,11 @@ import {
   openSelected,
   PANE,
   pickPath,
+  REPORT_TREE,
   reportTree,
   rows,
   shownDay,
+  spendCells,
   WRITE,
 } from './app'
 
@@ -382,5 +386,19 @@ describe('a converted spend in Reports', () => {
     await expect
       .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
       .toBe(true)
+  })
+  test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {
+    const page = await aDinner()
+    await goTo(page, 'Reports')
+
+    await page.locator(`${REPORT_TREE} li`).filter({ hasText: 'Unsorted' }).click()
+
+    await expect
+      .poll(() =>
+        spendCells(page.locator(`${BEHIND} li`)).then((all) =>
+          all.map(([, description, amount]) => [description, amount]),
+        ),
+      )
+      .toEqual([['Dinner', '4,000 JPY']])
   })
 })

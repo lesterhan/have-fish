@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  BEHIND,
   launch,
   openChip,
   openComposer,
@@ -20,7 +21,6 @@ import {
 } from './app'
 
 const NAV = 'nav[aria-label=Places]'
-const BEHIND = 'ol[aria-label="Its spends"]'
 const PICKED = 'section[aria-label="The spend picked"]'
 const WEEK = '[role=group][aria-label="The week shown"]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'

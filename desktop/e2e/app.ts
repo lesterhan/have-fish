@@ -316,6 +316,9 @@ export const accountLines = (page: Page) =>
 export const goTo = (page: Page, place: string) =>
   page.click(`nav[aria-label=Places] button:has-text("${place}")`)
 
+/** The list beside the tree: the spends behind the row picked. */
+export const BEHIND = 'ol[aria-label="Its spends"]'
+
 /** The Reports tree, its rows one per category. */
 export const REPORT_TREE = 'ol[aria-label="Spending by category"]'
 

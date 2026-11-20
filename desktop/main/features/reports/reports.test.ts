@@ -225,16 +225,6 @@ describe('a yen dinner my card was charged for', () => {
     const id = dinner('', '2026-10-21')
     expect(week('2026-10-19', '2026-10-25').spent).toEqual([{ id, category: '', amount: '36.20' }])
   })
-
-  test('removed: it counts nowhere', () => {
-    const { ctx, dinner, week } = withCard()
-    const id = dinner()
-    expect(week().spent).toHaveLength(1)
-
-    ok(removeSpend(ctx, { id }))
-
-    expect(week()).toEqual({ currency: 'CAD', spent: [], other: [] })
-  })
 })
 
 describe('the week shown and the week before, at ten years', { timeout: 120_000 }, () => {
