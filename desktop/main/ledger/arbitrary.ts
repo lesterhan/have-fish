@@ -147,7 +147,7 @@ const rateText = fc
   .map(([whole, places]) => (places === null ? `${whole}` : `${whole}.${places}`))
   .filter((r) => readRate(r).ok)
 
-/** A typed or fetched rate between two currencies, published on its day or up to a week before. */
+/** A typed rate, or a fetched one published on its day or up to a week before. */
 const rateDoc: fc.Arbitrary<RateDoc> = fc
   .record({
     date,
@@ -161,7 +161,7 @@ const rateDoc: fc.Arbitrary<RateDoc> = fc
   })
   .map(({ date, pair: [from, to], rate, publishedBefore, deletedAt, origin }): RateDoc => {
     const published =
-      publishedBefore === null
+      publishedBefore === null || origin.source === 'manual'
         ? null
         : new Date(Date.parse(date) - publishedBefore * DAY_MS).toISOString().slice(0, 10)
     const r = { date, from, to, rate, published, deletedAt, origin }

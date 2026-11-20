@@ -41,9 +41,6 @@ const codes: { [C in FailureCode]: string } = {
   PATH_INVALID: "That isn't a name an account can have.",
   PATH_ROOT_MISMATCH: "That account's name doesn't fit its kind.",
 
-  // A rate.
-  RATE_ID_MISMATCH: "This rate's id doesn't match its day and currencies.",
-
   // Undo and redo.
   CHANGED_SINCE: "That's been changed since, so it can't be undone.",
 
@@ -56,6 +53,8 @@ const codes: { [C in FailureCode]: string } = {
   COMMAND_UNKNOWN: TRY_AGAIN,
   INPUT_MALFORMED: TRY_AGAIN,
   ORIGIN_CHANGED: TRY_AGAIN,
+  RATE_ID_MISMATCH: TRY_AGAIN,
+  RATE_PUBLISHED_TYPED: TRY_AGAIN,
   TOMBSTONE_HAS_POSTINGS: TRY_AGAIN,
   UNEXPECTED: 'Something went wrong. Try again.',
   VERSION_MALFORMED: TRY_AGAIN,

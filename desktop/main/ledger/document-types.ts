@@ -53,12 +53,12 @@ const statements = perConnection((orm) => ({
     .delete(postings)
     .where(eq(postings.transactionId, sql.placeholder('transactionId')))
     .prepare(),
+  insertPosting: orm.insert(postings).values(placeholderRow(postings)).prepare(),
   putRate: orm
     .insert(rates)
     .values(placeholderRow(rates))
     .onConflictDoUpdate({ target: rates.id, set: excludedRow(rates) })
     .prepare(),
-  insertPosting: orm.insert(postings).values(placeholderRow(postings)).prepare(),
   account: orm
     .select()
     .from(accounts)

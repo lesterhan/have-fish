@@ -518,8 +518,8 @@ describe('readDocument of a rate', () => {
   })
 
   it("keeps a rate's text as written, trailing zero and all", () => {
-    const read = readDocument({ ...RATE, rate: '110.50' })
-    expect(read.ok && read.value.type === 'rate' && read.value.rate).toBe('110.50')
+    const typed = { ...RATE, rate: '110.50' }
+    expect(readDocument(typed)).toStrictEqual({ ok: true, value: typed })
   })
 
   it('refuses a rate from a currency to itself', () => {
@@ -530,6 +530,12 @@ describe('readDocument of a rate', () => {
 
   it("refuses a rate into a currency it doesn't know", () => {
     expect(readDocument({ ...RATE, to: 'YEN' })).toStrictEqual(
+      failure('UNSUPPORTED_CURRENCY', { currency: 'YEN' }),
+    )
+  })
+
+  it("refuses a rate from a currency it doesn't know", () => {
+    expect(readDocument({ ...RATE, from: 'YEN' })).toStrictEqual(
       failure('UNSUPPORTED_CURRENCY', { currency: 'YEN' }),
     )
   })
@@ -582,8 +588,15 @@ describe('readDocument of a rate', () => {
   })
 
   it('refuses an import origin: nothing imports a rate', () => {
-    const read = readDocument({ ...RATE, origin: IMPORTED })
-    expect(read.ok || read.failure.code).toBe('DOCUMENT_MALFORMED')
+    expect(readDocument({ ...RATE, origin: IMPORTED })).toStrictEqual(
+      failure('DOCUMENT_MALFORMED', { path: 'origin.source', issue: 'invalid_union' }),
+    )
+  })
+
+  it('refuses a published day on a typed rate: only a fetched rate has one', () => {
+    expect(readDocument({ ...RATE, published: '2026-11-04' })).toStrictEqual(
+      failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' }),
+    )
   })
 })
 
