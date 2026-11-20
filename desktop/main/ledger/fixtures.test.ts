@@ -1,13 +1,17 @@
 import { readDocument } from '@have-fish/core/documents'
 import { expect, test } from 'vitest'
 import { loadClock } from '../db/clock'
-import { anAccount, aSpend, ok, tempLedger, tombstoneOf } from './fixtures'
+import { anAccount, aRate, aSpend, MAKER, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 
 test('the builders make documents readDocument accepts unchanged', () => {
   const cash = anAccount()
   const food = anAccount({ path: 'expenses:food', kind: 'category' })
   const spend = aSpend(cash.id, food.id)
-  for (const doc of [cash, food, spend, tombstoneOf(spend)]) {
+  const fetched = aRate({
+    published: '2026-11-04',
+    origin: { source: 'system', createdAt: NOW, deviceId: MAKER },
+  })
+  for (const doc of [cash, food, spend, tombstoneOf(spend), aRate(), fetched]) {
     expect(ok(readDocument(doc))).toEqual(doc)
   }
 })

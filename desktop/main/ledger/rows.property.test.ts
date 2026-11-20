@@ -3,14 +3,15 @@ import type { Versioned } from '@have-fish/core/versioned'
 import { readVersioned } from '@have-fish/core/versioned'
 import fc from 'fast-check'
 import { expect, test } from 'vitest'
-import { account, transaction } from './arbitrary'
-import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
+import { account, rate, transaction } from './arbitrary'
+import { accountOf, accountRows, rateOf, rateRows, transactionOf, transactionRows } from './rows'
 
 const RUNS = { numRuns: 300 }
 
 test.each([
   ['transactions', transaction],
   ['accounts', account],
+  ['rates', rate],
 ] as const)(
   'the generated %s are valid documents, as readVersioned would return them',
   (_, arb) => {
@@ -37,6 +38,15 @@ test('an account comes back from its row as the same JSON text', () => {
   fc.assert(
     fc.property(account, (v) => {
       expect(JSON.stringify(accountOf(accountRows(v).account))).toBe(JSON.stringify(v))
+    }),
+    RUNS,
+  )
+})
+
+test('a rate comes back from its row as the same JSON text', () => {
+  fc.assert(
+    fc.property(rate, (v) => {
+      expect(JSON.stringify(rateOf(rateRows(v).rate))).toBe(JSON.stringify(v))
     }),
     RUNS,
   )

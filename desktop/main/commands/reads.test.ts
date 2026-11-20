@@ -3,9 +3,9 @@ import { WALLET } from '@have-fish/core/own-accounts'
 import { describe, expect, test } from 'vitest'
 import { type Changed, type CommandName, type InputOf, inputs } from '../../shared/commands'
 import { traits } from '../../shared/traits'
-import { contextFor } from '../context'
+import { type Context, contextFor } from '../context'
 import { applyLocal } from '../ledger/apply'
-import { anAccount, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { anAccount, aRate, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
 import { type Log, runCommand } from './run'
 
 /** An input for each command whose `reads` leaves a kind out, and for no other. */
@@ -48,6 +48,19 @@ const fromCard = (cardId: string) => ({
   to: { category: 'food' },
 })
 
+/** A new document of each kind, written as a command writes it. Says whether it was saved. */
+const CHANGE: { [K in DocumentTypeName]: (ctx: Context, cardId: string) => boolean } = {
+  transaction: (ctx, cardId) => runCommand(ctx, 'spend.write', fromCard(cardId), log).ok,
+  account: (ctx) =>
+    runCommand(ctx, 'account.add', { name: 'Savings', kind: 'bank', currency: null }, log).ok,
+  // No command writes a rate yet, so it's applied and announced as a command's write would be.
+  rate: (ctx) => {
+    const saved = ctx.apply([aRate()], NOW).ok
+    ctx.flush()
+    return saved
+  },
+}
+
 describe("a command's reads", () => {
   test.each(CASES)('%s answers the same after a new %s', (command, kind) => {
     const { ctx, card, announced } = setup()
@@ -55,11 +68,7 @@ describe("a command's reads", () => {
     const before = runCommand(ctx, command, sample, log)
     expect(before.ok).toBe(true)
 
-    const change =
-      kind === 'transaction'
-        ? runCommand(ctx, 'spend.write', fromCard(card.id), log)
-        : runCommand(ctx, 'account.add', { name: 'Savings', kind: 'bank', currency: null }, log)
-    expect(change.ok).toBe(true)
+    expect(CHANGE[kind](ctx, card.id)).toBe(true)
     expect(announced.flat().map((changed) => changed.type)).toEqual([kind])
 
     expect(runCommand(ctx, command, sample, log)).toEqual(before)

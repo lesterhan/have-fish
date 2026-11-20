@@ -6,12 +6,14 @@ import {
   DOCUMENT_TYPES,
   DocumentSchema,
   PostingSchema,
+  type RateDoc,
   readDocument,
   readShape,
   type TransactionDoc,
   TransactionOriginSchema,
   TransactionSchema,
 } from './documents'
+import { failure } from './outcome'
 import { MAX_WALL_MS } from './version'
 
 const A = '328e988b-cc8e-4a4d-98be-c0fddad78b20'
@@ -52,6 +54,18 @@ const ACCOUNT = {
   deletedAt: null,
   origin: SYSTEM,
 } as const
+
+const RATE: RateDoc = {
+  type: 'rate',
+  id: 'c0ffee00-1234-5abc-8def-0123456789ab',
+  date: '2026-11-05',
+  from: 'CAD',
+  to: 'JPY',
+  rate: '110.5',
+  published: null,
+  deletedAt: null,
+  origin: MANUAL,
+}
 
 describe('TransactionOriginSchema', () => {
   it.each([
@@ -498,6 +512,100 @@ describe('canonical form', () => {
   )
 })
 
+describe('readDocument of a rate', () => {
+  it('reads a typed rate as it came, with no canonical form', () => {
+    expect(readDocument(RATE)).toStrictEqual({ ok: true, value: RATE })
+  })
+
+  it("keeps a rate's text as written, trailing zero and all", () => {
+    const typed = { ...RATE, rate: '110.50' }
+    expect(readDocument(typed)).toStrictEqual({ ok: true, value: typed })
+  })
+
+  it('refuses a rate from a currency to itself', () => {
+    expect(readDocument({ ...RATE, to: 'CAD' })).toStrictEqual(
+      failure('RATE_SAME_CURRENCY', { currency: 'CAD' }),
+    )
+  })
+
+  it("refuses a rate into a currency it doesn't know", () => {
+    expect(readDocument({ ...RATE, to: 'YEN' })).toStrictEqual(
+      failure('UNSUPPORTED_CURRENCY', { currency: 'YEN' }),
+    )
+  })
+
+  it("refuses a rate from a currency it doesn't know", () => {
+    expect(readDocument({ ...RATE, from: 'YEN' })).toStrictEqual(
+      failure('UNSUPPORTED_CURRENCY', { currency: 'YEN' }),
+    )
+  })
+
+  it('refuses a rate on a day the calendar lacks', () => {
+    expect(readDocument({ ...RATE, date: '2026-02-30' })).toStrictEqual(
+      failure('DATE_INVALID', { date: '2026-02-30' }),
+    )
+  })
+
+  it('refuses a rate that is no number', () => {
+    expect(readDocument({ ...RATE, rate: 'abc' })).toStrictEqual(
+      failure('RATE_INVALID', { rate: 'abc' }),
+    )
+  })
+
+  it('refuses a rate of zero', () => {
+    expect(readDocument({ ...RATE, rate: '0' })).toStrictEqual(
+      failure('RATE_INVALID', { rate: '0' }),
+    )
+  })
+
+  it('refuses a rate written with a sign, which readRate alone would take', () => {
+    expect(readDocument({ ...RATE, rate: '+110.5' })).toStrictEqual(
+      failure('RATE_INVALID', { rate: '+110.5' }),
+    )
+  })
+
+  it('refuses a rate written with an exponent, which readRate alone would take', () => {
+    expect(readDocument({ ...RATE, rate: '1.105e2' })).toStrictEqual(
+      failure('RATE_INVALID', { rate: '1.105e2' }),
+    )
+  })
+
+  it('reads a fetched rate published on an earlier day', () => {
+    const fetched = { ...RATE, date: '2026-11-08', published: '2026-11-06', origin: SYSTEM }
+    expect(readDocument(fetched)).toStrictEqual({ ok: true, value: fetched })
+  })
+
+  it('refuses a rate published after its day', () => {
+    expect(
+      readDocument({ ...RATE, date: '2026-11-08', published: '2026-11-09', origin: SYSTEM }),
+    ).toStrictEqual(failure('DATE_INVALID', { date: '2026-11-09' }))
+  })
+
+  it('refuses a published day the calendar lacks, though it sorts before the rate', () => {
+    expect(readDocument({ ...RATE, published: '2026-02-30', origin: SYSTEM })).toStrictEqual(
+      failure('DATE_INVALID', { date: '2026-02-30' }),
+    )
+  })
+
+  it('refuses an import origin: nothing imports a rate', () => {
+    expect(readDocument({ ...RATE, origin: IMPORTED })).toStrictEqual(
+      failure('DOCUMENT_MALFORMED', { path: 'origin.source', issue: 'invalid_union' }),
+    )
+  })
+
+  it('refuses a published day on a typed rate: only a fetched rate has one', () => {
+    expect(readDocument({ ...RATE, published: '2026-11-04' })).toStrictEqual(
+      failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' }),
+    )
+  })
+
+  it('refuses a fetched rate with no published day: every fetched rate has one', () => {
+    expect(readDocument({ ...RATE, origin: SYSTEM })).toStrictEqual(
+      failure('RATE_PUBLISHED_MISSING', { date: '2026-11-05' }),
+    )
+  })
+})
+
 describe('JSON round trip', () => {
   it.each([
     ['transaction doc', SPEND],
@@ -513,13 +621,17 @@ describe('JSON round trip', () => {
 describe('DOCUMENT_TYPES', () => {
   it("has an entry for each of DocumentSchema's types, and no other", () => {
     const types = DocumentSchema.options.map((o) => o.shape.type.value).sort()
-    expect(Object.keys(DOCUMENT_TYPES).sort()).toEqual(['account', 'transaction'])
+    expect(Object.keys(DOCUMENT_TYPES).sort()).toEqual(['account', 'rate', 'transaction'])
     expect(Object.keys(DOCUMENT_TYPES).sort()).toEqual(types)
   })
 
   it('ranks an account before a transaction', () => {
     expect(DOCUMENT_TYPES.account.rank).toBe(0)
     expect(DOCUMENT_TYPES.transaction.rank).toBe(1)
+  })
+
+  it('ranks a rate after an account and a transaction', () => {
+    expect(DOCUMENT_TYPES.rate.rank).toBe(2)
   })
 
   it("readDocument reads a valid account and a valid transaction through its type's check", () => {
@@ -547,6 +659,14 @@ describe('DOCUMENT_TYPES', () => {
     const account: AccountDoc = { ...ACCOUNT }
     expect(DOCUMENT_TYPES.account.tombstone(account, 1700)).toStrictEqual({
       ...ACCOUNT,
+      deletedAt: 1700,
+    })
+  })
+
+  it("a rate's tombstone sets deletedAt and keeps all else", () => {
+    const fetched: RateDoc = { ...RATE, published: '2026-11-04', origin: SYSTEM }
+    expect(DOCUMENT_TYPES.rate.tombstone(fetched, 1700)).toStrictEqual({
+      ...fetched,
       deletedAt: 1700,
     })
   })

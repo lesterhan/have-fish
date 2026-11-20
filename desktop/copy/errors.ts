@@ -16,6 +16,7 @@ const codes: { [C in FailureCode]: string } = {
   DATE_INVALID: "That isn't a day on the calendar.",
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
   RATE_INVALID: "That isn't a rate. Type a number above zero, like 0.0091.",
+  RATE_SAME_CURRENCY: 'A rate is between two different currencies.',
   UNSUPPORTED_CURRENCY: "have-fish doesn't know that currency.",
 
   // A transaction.
@@ -52,6 +53,9 @@ const codes: { [C in FailureCode]: string } = {
   COMMAND_UNKNOWN: TRY_AGAIN,
   INPUT_MALFORMED: TRY_AGAIN,
   ORIGIN_CHANGED: TRY_AGAIN,
+  RATE_ID_MISMATCH: TRY_AGAIN,
+  RATE_PUBLISHED_MISSING: TRY_AGAIN,
+  RATE_PUBLISHED_TYPED: TRY_AGAIN,
   TOMBSTONE_HAS_POSTINGS: TRY_AGAIN,
   UNEXPECTED: 'Something went wrong. Try again.',
   VERSION_MALFORMED: TRY_AGAIN,

@@ -5,12 +5,13 @@ import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import type { AccountDoc, RateDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Outcome } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
 import { onTestFinished } from 'vitest'
 import { type Ledger, openLedger } from '../db/ledger'
 import { applyLocal } from './apply'
+import { rateId } from './rate-id'
 
 export const NOW = Date.UTC(2026, 9, 29, 12)
 
@@ -80,6 +81,23 @@ export function aSpend(
     origin: MANUAL,
     ...fields,
   }
+}
+
+/** A typed CAD to JPY rate for 2026-11-05, its id derived from its fields unless given. */
+export function aRate(fields: Partial<RateDoc> = {}): RateDoc {
+  const { id, ...rest } = fields
+  const r = {
+    type: 'rate',
+    date: '2026-11-05',
+    from: 'CAD',
+    to: 'JPY',
+    rate: '110.5',
+    published: null,
+    deletedAt: null,
+    origin: MANUAL,
+    ...rest,
+  } as const
+  return { ...r, id: id ?? rateId(r) }
 }
 
 /** The same transaction, deleted at `at`. */

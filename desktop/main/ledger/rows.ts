@@ -3,17 +3,19 @@
 import type {
   AccountDoc,
   AccountOrigin,
+  RateDoc,
   TransactionDoc,
   TransactionOrigin,
 } from '@have-fish/core/documents'
 import { cents, format } from '@have-fish/core/money'
 import { formatVersion, parseVersion, type Version } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
-import type { accounts, postings, transactions } from '../db/schema'
+import type { accounts, postings, rates, transactions } from '../db/schema'
 
 export type AccountRow = typeof accounts.$inferSelect
 export type TransactionRow = typeof transactions.$inferSelect
 export type PostingRow = typeof postings.$inferSelect
+export type RateRow = typeof rates.$inferSelect
 
 /** The rows a transaction is stored as. */
 export function transactionRows(v: Versioned<TransactionDoc>): {
@@ -49,6 +51,23 @@ export function accountRows(v: Versioned<AccountDoc>): { account: AccountRow } {
       currency: v.doc.currency,
       version: formatVersion(v.version),
       pathKey: v.doc.path.toLowerCase(),
+      ...originColumns(v.doc.origin),
+    },
+  }
+}
+
+/** The row a rate is stored as: its text as it came, never a number. */
+export function rateRows(v: Versioned<RateDoc>): { rate: RateRow } {
+  return {
+    rate: {
+      id: v.doc.id,
+      date: v.doc.date,
+      fromCurrency: v.doc.from,
+      toCurrency: v.doc.to,
+      rate: v.doc.rate,
+      published: v.doc.published,
+      deletedAt: v.doc.deletedAt,
+      version: formatVersion(v.version),
       ...originColumns(v.doc.origin),
     },
   }
@@ -99,6 +118,25 @@ export function accountOf(row: AccountRow): Versioned<AccountDoc> {
   }
 }
 
+/** The rate its row holds. */
+export function rateOf(row: RateRow): Versioned<RateDoc> {
+  const version = versionOf(row)
+  return {
+    doc: {
+      type: 'rate',
+      id: row.id,
+      date: row.date,
+      from: row.fromCurrency,
+      to: row.toCurrency,
+      rate: row.rate,
+      published: row.published,
+      deletedAt: row.deletedAt,
+      origin: accountOriginOf(row),
+    },
+    version,
+  }
+}
+
 function versionOf(row: { id: string; version: string }): Version {
   const version = parseVersion(row.version)
   if (!version.ok)
@@ -130,7 +168,8 @@ function originOf(row: TransactionRow): TransactionOrigin {
   return { source: 'import', ...made, file, line, text }
 }
 
-function accountOriginOf(row: AccountRow): AccountOrigin {
+/** An account's or a rate's origin: nothing imports either. */
+function accountOriginOf(row: AccountRow | RateRow): AccountOrigin {
   const source = row.originSource
   if (source === 'import') throw new Error(`Could not read origin: ${row.id} is imported`)
   return { source, createdAt: row.originCreatedAt, deviceId: row.originDeviceId }

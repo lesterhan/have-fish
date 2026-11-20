@@ -15,7 +15,7 @@ export type Traits = {
 }
 
 /** Every type of document: core's `DOCUMENT_TYPES` is a value, so this can't import it. */
-export const ALL_TYPES: readonly DocumentTypeName[] = ['transaction', 'account']
+export const ALL_TYPES: readonly DocumentTypeName[] = ['transaction', 'account', 'rate']
 
 export type TraitsTable = { [N in CommandName]: Traits }
 

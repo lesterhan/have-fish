@@ -7,13 +7,16 @@ import type {
   AccountDoc,
   AccountOrigin,
   PostingDoc,
+  RateDoc,
   TransactionDoc,
   TransactionOrigin,
 } from '@have-fish/core/documents'
 import { format } from '@have-fish/core/money'
+import { readRate } from '@have-fish/core/rates'
 import { MAX_COUNTER, MAX_WALL_MS, type Version } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import fc from 'fast-check'
+import { rateId } from './rate-id'
 
 /** Up to five of these sum to well under the largest amount a posting can carry. */
 const MAX_LEG_CENTS = 10 ** 11
@@ -135,3 +138,35 @@ export const account: fc.Arbitrary<Versioned<AccountDoc>> = fc.record({
   doc: accountDoc,
   version,
 })
+
+const DAY_MS = 86_400_000
+
+/** Plain decimal text, trailing zeros and all, that `readRate` takes: `'110.50'`, `'0.0091'`. */
+const rateText = fc
+  .tuple(fc.nat({ max: 999_999 }), fc.option(fc.stringMatching(/^\d{1,6}$/), { nil: null }))
+  .map(([whole, places]) => (places === null ? `${whole}` : `${whole}.${places}`))
+  .filter((r) => readRate(r).ok)
+
+/** A typed rate, unpublished, or a fetched one published on its day or up to a week before. */
+const rateDoc: fc.Arbitrary<RateDoc> = fc
+  .record({
+    date,
+    pair: fc
+      .tuple(fc.constantFrom(...CURRENCIES), fc.constantFrom(...CURRENCIES))
+      .filter(([from, to]) => from !== to),
+    rate: rateText,
+    publishedBefore: fc.integer({ min: 0, max: 7 }),
+    deletedAt: fc.option(deletedAt, { nil: null }),
+    origin: accountOrigin,
+  })
+  .map(({ date, pair: [from, to], rate, publishedBefore, deletedAt, origin }): RateDoc => {
+    const published =
+      origin.source === 'manual'
+        ? null
+        : new Date(Date.parse(date) - publishedBefore * DAY_MS).toISOString().slice(0, 10)
+    const r = { date, from, to, rate, published, deletedAt, origin }
+    // Keys in the schema's order, so a document compares equal as JSON text too.
+    return { type: 'rate', id: rateId(r), ...r }
+  })
+
+export const rate: fc.Arbitrary<Versioned<RateDoc>> = fc.record({ doc: rateDoc, version })

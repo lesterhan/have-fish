@@ -1,11 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DOCUMENT_TYPES } from '@have-fish/core/documents'
+import { DOCUMENT_TYPES, type RateDoc } from '@have-fish/core/documents'
 import { describe, expect, test, vi } from 'vitest'
 import { applyLocal } from './apply'
 import { currenciesPostedTo, STORED_TYPES } from './document-types'
-import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
+import { anAccount, aRate, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { getDocument, putDocument } from './store'
 
 const VERSION = { wallMs: NOW, counter: 0, deviceId: 'a1b2c3d4e5f60718' }
@@ -19,7 +19,7 @@ describe('STORED_TYPES', () => {
     const ledger = tempLedger()
     const cash = anAccount()
     const spend = aSpend(cash.id, anAccount().id)
-    for (const doc of [cash, spend]) {
+    for (const doc of [cash, spend, aRate()]) {
       const put = vi.spyOn(STORED_TYPES[doc.type], 'put')
       const get = vi.spyOn(STORED_TYPES[doc.type], 'get')
       putDocument(ledger.db, { doc, version: VERSION })
@@ -86,6 +86,41 @@ describe('STORED_TYPES', () => {
     expect(checkBatch(ledger.db, [{ at: 1, doc: deleted, previous: food }])).toBeNull()
   })
 
+  test("a rate's checkEach refuses one whose id isn't the one derived from it", () => {
+    const ledger = tempLedger()
+    const { checkEach } = STORED_TYPES.rate
+    const id = '00000000-0000-4000-8000-000000000001'
+    expect(checkEach(ledger.db, { ...aRate(), id })).toEqual({
+      code: 'RATE_ID_MISMATCH',
+      details: { id },
+    })
+    expect(checkEach(ledger.db, aRate())).toBeNull()
+  })
+
+  test("the day's rate typed again, the other way round, replaces it", () => {
+    const ledger = tempLedger()
+    const typed = aRate()
+    const again = aRate({ from: 'JPY', to: 'CAD', rate: '0.00905' })
+    ok(applyLocal(ledger, [typed], NOW))
+    ok(applyLocal(ledger, [again], NOW))
+    expect(again.id).toBe(typed.id)
+    expect(getDocument(ledger.db, 'rate', typed.id)?.doc).toEqual(again)
+    expect(ledger.db.prepare('SELECT count(*) FROM rates').pluck().get()).toBe(1)
+  })
+
+  test('a removed rate typed again is live at its new rate', () => {
+    const ledger = tempLedger()
+    const typed = aRate()
+    ok(applyLocal(ledger, [typed], NOW))
+    ok(applyLocal(ledger, [DOCUMENT_TYPES.rate.tombstone(typed, NOW)], NOW))
+    expect(getDocument(ledger.db, 'rate', typed.id)?.doc.deletedAt).toBe(NOW)
+    ok(applyLocal(ledger, [aRate({ rate: '111' })], NOW))
+    expect(getDocument(ledger.db, 'rate', typed.id)?.doc).toEqual<RateDoc>({
+      ...typed,
+      rate: '111',
+    })
+  })
+
   test("a transaction's checkBatch passes", () => {
     const ledger = tempLedger()
     const spend = aSpend(anAccount().id, anAccount().id)
@@ -122,7 +157,7 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const TABLES = ['core/src/documents.ts', 'desktop/main/ledger/document-types.ts']
 
 const DISPATCH =
-  /(?:===|!==|\s=)\s*'(?:account|transaction)'|\bcase\s+'(?:account|transaction)'\s*:/
+  /(?:===|!==|\s=)\s*'(?:account|transaction|rate)'|\bcase\s+'(?:account|transaction|rate)'\s*:/
 
 /** Each line of `text` that chooses what to do by a document's type, as `file:line: code`. */
 function dispatchIn(file: string, text: string): string[] {
@@ -148,6 +183,12 @@ describe('the guard on dispatch by type', () => {
     const text = ['const a = 1', "if (doc.type === 'account') {", '}'].join('\n')
     expect(dispatchIn('desktop/main/elsewhere.ts', text)).toEqual([
       "desktop/main/elsewhere.ts:2: if (doc.type === 'account') {",
+    ])
+  })
+
+  test('names a dispatch on a rate too', () => {
+    expect(dispatchIn('x.ts', "if (doc.type === 'rate')")).toEqual([
+      "x.ts:1: if (doc.type === 'rate')",
     ])
   })
 

@@ -49,6 +49,10 @@ test('every code takes the detail the table gives it', () => {
   failure('TRANSACTION_NOT_FOUND', { id: '00000000-0000-4000-8000-000000000001' })
   failure('TRANSACTION_DELETED', { id: '00000000-0000-4000-8000-000000000001' })
   failure('TRANSACTION_NOT_SIMPLE', { id: '00000000-0000-4000-8000-000000000001' })
+  failure('RATE_SAME_CURRENCY', { currency: 'CAD' })
+  failure('RATE_ID_MISMATCH', { id: '00000000-0000-4000-8000-000000000001' })
+  failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' })
+  failure('RATE_PUBLISHED_MISSING', { date: '2026-11-05' })
 })
 
 test('a code with detail refuses to compile without it', () => {

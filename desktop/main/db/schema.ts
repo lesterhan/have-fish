@@ -107,6 +107,40 @@ export const transactions = sqliteTable(
   ],
 )
 
+/**
+ * One row per rate document: one per day, pair and source, its id derived from them. A tombstone
+ * keeps its row, as an account's does.
+ */
+export const rates = sqliteTable(
+  'rates',
+  {
+    id: text().primaryKey(),
+    /** `YYYY-MM-DD`. */
+    date: text().notNull(),
+    /** The document's `from` and `to`, which are SQL words. */
+    fromCurrency: text().notNull(),
+    toCurrency: text().notNull(),
+    /** The decimal text as the document holds it, never a number. */
+    rate: text().notNull(),
+    /** `YYYY-MM-DD` when fetched, null when typed. */
+    published: text(),
+    /** UTC ms. */
+    deletedAt: integer(),
+    /** The version's text form, which sorts in version order. */
+    version: text().notNull(),
+    /** The document's `origin`, flattened as the other tables have it. */
+    originSource: text().$type<OriginSource>().notNull(),
+    /** UTC ms. */
+    originCreatedAt: integer().notNull(),
+    originDeviceId: text().notNull(),
+    /** Always null: nothing imports a rate. */
+    originFile: text(),
+    originLine: integer(),
+    originText: text(),
+  },
+  (t) => [index('rates_date').on(t.date)],
+)
+
 /** A transaction's postings, kept in the document's order by `position`. */
 export const postings = sqliteTable(
   'postings',

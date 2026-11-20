@@ -66,5 +66,12 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "CREATE INDEX `postings_account_transaction` ON `postings` (`accountId`,`transactionId`);"
     ]
+  },
+  {
+    "tag": "0008_rates",
+    "statements": [
+      "CREATE TABLE `rates` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`date` text NOT NULL,\n\t`fromCurrency` text NOT NULL,\n\t`toCurrency` text NOT NULL,\n\t`rate` text NOT NULL,\n\t`published` text,\n\t`deletedAt` integer,\n\t`version` text NOT NULL,\n\t`originSource` text NOT NULL,\n\t`originCreatedAt` integer NOT NULL,\n\t`originDeviceId` text NOT NULL,\n\t`originFile` text,\n\t`originLine` integer,\n\t`originText` text\n);",
+      "CREATE INDEX `rates_date` ON `rates` (`date`);"
+    ]
   }
 ]
