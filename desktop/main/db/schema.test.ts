@@ -117,6 +117,26 @@ describe('the ledger tables', () => {
     expect(indexes('transactions')).toEqual(['transactions_date', 'transactions_listed'])
   })
 
+  test('rates', () => {
+    expect(columns('rates')).toEqual([
+      'id TEXT not null',
+      'date TEXT not null',
+      'fromCurrency TEXT not null',
+      'toCurrency TEXT not null',
+      'rate TEXT not null',
+      'published TEXT',
+      'deletedAt INTEGER',
+      'version TEXT not null',
+      'originSource TEXT not null',
+      'originCreatedAt INTEGER not null',
+      'originDeviceId TEXT not null',
+      'originFile TEXT',
+      'originLine INTEGER',
+      'originText TEXT',
+    ])
+    expect(indexes('rates')).toEqual(['rates_date'])
+  })
+
   test('postings, keyed by transaction and position', () => {
     expect(columns('postings')).toEqual([
       'transactionId TEXT not null',
@@ -208,10 +228,17 @@ describe('the ledger tables', () => {
     expect(db.prepare('SELECT count(*) FROM accounts').pluck().get()).toBe(2)
   })
 
-  test.each(['accounts', 'transactions'])('%s refuse a row with no origin', (table) => {
+  test.each(['accounts', 'transactions', 'rates'])('%s refuse a row with no origin', (table) => {
+    // Every other column is given, so only the origin's can refuse it.
+    const given = (db.pragma(`table_info(${table})`) as { name: string }[])
+      .map((c) => c.name)
+      .filter((name) => !name.startsWith('origin'))
+    const placeholders = given.map(() => '?').join(', ')
     const insert = () =>
-      db.prepare(`INSERT INTO ${table} (id, version) VALUES (?, 'v')`).run(ACCOUNT)
-    expect(insert).toThrow('NOT NULL constraint failed')
+      db
+        .prepare(`INSERT INTO ${table} (${given.join(', ')}) VALUES (${placeholders})`)
+        .run(given.map(() => 'x'))
+    expect(insert).toThrow(`NOT NULL constraint failed: ${table}.originSource`)
   })
 })
 
@@ -377,7 +404,8 @@ describe('0007_account-transaction-index', () => {
 
     const backups = mkdtempSync(join(tmpdir(), 'havefish-index-'))
     onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
-    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({
+    const through = MIGRATIONS.filter((m) => m.tag <= '0007_account-transaction-index')
+    expect(migrate(old, through, NOW, backups)).toEqual({
       ok: true,
       value: ['0007_account-transaction-index'],
     })
