@@ -18,6 +18,7 @@ import {
   openSelected,
   PANE,
   pickPath,
+  reportTree,
   rows,
   shownDay,
   WRITE,
@@ -352,5 +353,34 @@ describe('fixing the amounts of a converted spend', () => {
     await openSelected(page)
 
     await expect.poll(() => page.locator(`${PANE} [aria-label="Rate"]`).isDisabled()).toBe(true)
+  })
+})
+
+describe('a converted spend in Reports', () => {
+  test('the dinner: Unsorted counts the 36.20 it cost', async () => {
+    const page = await aDinner()
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+  })
+
+  test('beside 1500 yen in cash: the line under the tree says only the 1,500 JPY', async () => {
+    const page = await aDinner()
+    await addAccount(page, 'suica', 'cash', 'JPY')
+    await openComposer(page)
+    await pickPath(page, `${WRITE} input[name=from]`, 'suica')
+    await page.fill(AMOUNT, '1500')
+    await page.press(AMOUNT, 'Enter')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => rows(page)).toHaveLength(2)
+
+    await goTo(page, 'Reports')
+
+    await expect
+      .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
+      .toBe(true)
   })
 })
