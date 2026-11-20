@@ -1,7 +1,8 @@
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import { describe, expect, test } from 'vitest'
-import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
+import { aRate } from './fixtures'
+import { accountOf, accountRows, rateOf, rateRows, transactionOf, transactionRows } from './rows'
 
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
 const ACCOUNT_ID = '00000000-0000-4000-8000-000000000002'
@@ -226,5 +227,21 @@ describe('transactionOf and accountOf', () => {
     expect(() => accountOf({ ...account, originSource: 'import' })).toThrow(
       `${ACCOUNT_ID} is imported`,
     )
+  })
+})
+
+describe('rateRows and rateOf', () => {
+  test('a rate round trip does not change a document', () => {
+    expect(rateOf(rateRows({ doc: aRate(), version: VERSION }).rate)).toEqual({
+      doc: aRate(),
+      version: VERSION,
+    })
+  })
+
+  test('a rate keeps its pair in fromCurrency and toCurrency', () => {
+    expect(rateRows({ doc: aRate(), version: VERSION }).rate).toMatchObject({
+      fromCurrency: 'CAD',
+      toCurrency: 'JPY',
+    })
   })
 })
