@@ -598,6 +598,12 @@ describe('readDocument of a rate', () => {
       failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' }),
     )
   })
+
+  it('refuses a fetched rate with no published day: every fetched rate has one', () => {
+    expect(readDocument({ ...RATE, origin: SYSTEM })).toStrictEqual(
+      failure('RATE_PUBLISHED_MISSING', { date: '2026-11-05' }),
+    )
+  })
 })
 
 describe('JSON round trip', () => {

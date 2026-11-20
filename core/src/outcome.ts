@@ -36,6 +36,8 @@ export interface FailureDetails {
   RATE_ID_MISMATCH: { id: string }
   /** A typed rate with a published day: only a fetched rate has one. */
   RATE_PUBLISHED_TYPED: { published: string }
+  /** A fetched rate with no published day: every fetched rate has one. */
+  RATE_PUBLISHED_MISSING: { date: string }
   /** A command's input doesn't fit its schema: Zod's first issue, as `DOCUMENT_MALFORMED`. */
   INPUT_MALFORMED: { path: string; issue: string }
   /** The window asked for a command main doesn't have. */

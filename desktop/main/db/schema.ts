@@ -122,7 +122,7 @@ export const rates = sqliteTable(
     toCurrency: text().notNull(),
     /** The decimal text as the document holds it, never a number. */
     rate: text().notNull(),
-    /** `YYYY-MM-DD`, or null for a typed rate. */
+    /** `YYYY-MM-DD` when fetched, null when typed. */
     published: text(),
     /** UTC ms. */
     deletedAt: integer(),

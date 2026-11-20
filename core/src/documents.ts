@@ -96,7 +96,7 @@ export const RateSchema = z.strictObject({
   to: z.string(),
   /** The decimal as typed or as sent, never parsed into a number: `'110.5'`. */
   rate: z.string(),
-  /** The day a service published a fetched rate; always null for a typed one. */
+  /** The day a service published it: a day when fetched, null when typed. */
   published: z.string().nullable(),
   /** UTC ms; set means a tombstone. */
   deletedAt: utcMs.nullable(),
@@ -181,7 +181,7 @@ const PLAIN_RATE = /^\d+(\.\d+)?$/
  * - be on a valid date
  * - be between two different supported currencies
  * - be plain decimal text that readRate takes
- * - be published only if fetched, and then on a valid date no later than its own
+ * - have a published day exactly when fetched, a valid date no later than its own
  */
 function checkRate(doc: RateDoc): Outcome<void> {
   if (!isCalendarDate(doc.date)) {
@@ -202,6 +202,9 @@ function checkRate(doc: RateDoc): Outcome<void> {
   const { published } = doc
   if (published !== null && doc.origin.source === 'manual') {
     return failure('RATE_PUBLISHED_TYPED', { published })
+  }
+  if (published === null && doc.origin.source === 'system') {
+    return failure('RATE_PUBLISHED_MISSING', { date: doc.date })
   }
   if (published !== null && (!isCalendarDate(published) || published > doc.date)) {
     return failure('DATE_INVALID', { date: published })
