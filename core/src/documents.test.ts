@@ -645,8 +645,9 @@ describe('DOCUMENT_TYPES', () => {
   })
 
   it("a rate's tombstone sets deletedAt and keeps all else", () => {
-    expect(DOCUMENT_TYPES.rate.tombstone({ ...RATE }, 1700)).toStrictEqual({
-      ...RATE,
+    const fetched: RateDoc = { ...RATE, published: '2026-11-04', origin: SYSTEM }
+    expect(DOCUMENT_TYPES.rate.tombstone(fetched, 1700)).toStrictEqual({
+      ...fetched,
       deletedAt: 1700,
     })
   })
