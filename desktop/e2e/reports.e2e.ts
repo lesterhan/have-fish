@@ -17,6 +17,7 @@ import {
   reportTree,
   rows,
   spendCells,
+  treeRow,
   WRITE,
 } from './app'
 
@@ -72,11 +73,11 @@ const total = (page: Page) =>
 
 /** The tree's headings, as they read. */
 const headings = (page: Page) =>
-  page.evaluate(() => {
-    const list = document.querySelector('ol[aria-label="Spending by category"]')
+  page.evaluate((tree) => {
+    const list = document.querySelector(tree)
     const over = list?.parentElement?.parentElement?.firstElementChild
     return [...(over?.children ?? [])].map((h) => h.textContent?.trim() ?? '')
-  })
+  }, REPORT_TREE)
 
 /** The header's quiet line: what the week came to against the week before. */
 const sums = (page: Page) => page.locator('main header p').innerText()
@@ -87,10 +88,6 @@ const selectedName = (page: Page) =>
     const name = document.querySelector(`${list} [aria-selected=true] [data-cell=name]`)
     return name?.textContent?.replace(/\s+/g, ' ').trim() ?? null
   }, REPORT_TREE)
-
-/** The tree's row whose name contains `name`, as a person reads it. */
-const treeRow = (page: Page, name: string) =>
-  page.locator(`${REPORT_TREE} li`).filter({ hasText: name }).first()
 
 /** What the list beside the tree shows: the spends' descriptions. */
 const behind = (page: Page) =>

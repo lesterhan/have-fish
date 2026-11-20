@@ -331,3 +331,7 @@ export const reportTree = (page: Page) =>
       ['name', 'shown', 'before', 'change'].map((name) => cell(li, name)).join(' | '),
     )
   }, REPORT_TREE)
+
+/** The tree's row whose name contains `name`, as a person reads it. */
+export const treeRow = (page: Page, name: string) =>
+  page.locator(`${REPORT_TREE} li`).filter({ hasText: name }).first()

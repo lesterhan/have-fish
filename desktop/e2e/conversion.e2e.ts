@@ -20,11 +20,11 @@ import {
   openSelected,
   PANE,
   pickPath,
-  REPORT_TREE,
   reportTree,
   rows,
   shownDay,
   spendCells,
+  treeRow,
   WRITE,
 } from './app'
 
@@ -387,11 +387,12 @@ describe('a converted spend in Reports', () => {
       .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
       .toBe(true)
   })
+
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {
     const page = await aDinner()
     await goTo(page, 'Reports')
 
-    await page.locator(`${REPORT_TREE} li`).filter({ hasText: 'Unsorted' }).click()
+    await treeRow(page, 'Unsorted').click()
 
     await expect
       .poll(() =>
