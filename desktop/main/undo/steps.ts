@@ -192,6 +192,9 @@ const NOTHING: Moved = { spends: [], accounts: [] }
 function movedBy(step: Step): Moved {
   if (step.shows) return step.shows
   const moved: Moved = { spends: [], accounts: [] }
-  for (const c of step.changes) moved[STORED_TYPES[c.type].shows].push(c.id)
+  for (const c of step.changes) {
+    const list = STORED_TYPES[c.type].shows
+    if (list !== null) moved[list].push(c.id)
+  }
   return moved
 }

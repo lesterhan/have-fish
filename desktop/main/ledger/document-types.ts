@@ -6,6 +6,7 @@ import type {
   DocumentOf,
   DocumentTypeName,
   LedgerDocument,
+  RateDoc,
   TransactionDoc,
 } from '@have-fish/core/documents'
 import type { Failure } from '@have-fish/core/outcome'
@@ -14,9 +15,10 @@ import type Database from 'better-sqlite3'
 import { countDistinct, eq, getTableName, sql } from 'drizzle-orm'
 import type { Moved } from '../../shared/commands'
 import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
-import { accounts, postings, transactions } from '../db/schema'
+import { accounts, postings, rates, transactions } from '../db/schema'
 import type { Refusal } from './apply'
-import { accountOf, accountRows, transactionOf, transactionRows } from './rows'
+import { rateId } from './rate-id'
+import { accountOf, accountRows, rateOf, rateRows, transactionOf, transactionRows } from './rows'
 
 /** One document a local batch wrote, where it was in the batch, and what it replaced. */
 export type WrittenItem<D extends LedgerDocument> = { at: number; doc: D; previous: D | null }
@@ -30,8 +32,8 @@ export type StoredType<D extends LedgerDocument> = {
   checkEach(db: Database.Database, doc: D): Failure | null
   /** Run once after a local batch, over the items of this type it wrote. */
   checkBatch(db: Database.Database, written: WrittenItem<D>[]): Refusal | null
-  /** The list an undo or redo of it moves. */
-  shows: keyof Moved
+  /** The list an undo or redo of it moves; null for a type no list shows. */
+  shows: keyof Moved | null
   /** Its table in the file, whose versions the ledger check reads. */
   table: string
 }
@@ -51,6 +53,11 @@ const statements = perConnection((orm) => ({
     .delete(postings)
     .where(eq(postings.transactionId, sql.placeholder('transactionId')))
     .prepare(),
+  putRate: orm
+    .insert(rates)
+    .values(placeholderRow(rates))
+    .onConflictDoUpdate({ target: rates.id, set: excludedRow(rates) })
+    .prepare(),
   insertPosting: orm.insert(postings).values(placeholderRow(postings)).prepare(),
   account: orm
     .select()
@@ -61,6 +68,11 @@ const statements = perConnection((orm) => ({
     .select()
     .from(transactions)
     .where(eq(transactions.id, sql.placeholder('id')))
+    .prepare(),
+  rate: orm
+    .select()
+    .from(rates)
+    .where(eq(rates.id, sql.placeholder('id')))
     .prepare(),
   postingsOf: orm
     .select()
@@ -97,11 +109,29 @@ export const STORED_TYPES: { [T in DocumentTypeName]: StoredType<DocumentOf<T>> 
     shows: 'spends',
     table: getTableName(transactions),
   },
+  rate: {
+    put: (db, v) => statements(db).putRate.run(rateRows(v).rate),
+    get: getRate,
+    checkEach: checkRateId,
+    checkBatch: () => null,
+    shows: null,
+    table: getTableName(rates),
+  },
 }
 
 function getAccount(db: Database.Database, id: string): Versioned<AccountDoc> | null {
   const account = statements(db).account.get({ id })
   return account === undefined ? null : accountOf(account)
+}
+
+function getRate(db: Database.Database, id: string): Versioned<RateDoc> | null {
+  const rate = statements(db).rate.get({ id })
+  return rate === undefined ? null : rateOf(rate)
+}
+
+/** A local rate's id is the one its source, day and pair derive. */
+function checkRateId(_db: Database.Database, doc: RateDoc): Failure | null {
+  return doc.id === rateId(doc) ? null : { code: 'RATE_ID_MISMATCH', details: { id: doc.id } }
 }
 
 /** Its root row and postings, inside `putDocument`'s transaction. */

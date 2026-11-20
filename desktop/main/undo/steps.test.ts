@@ -6,7 +6,7 @@ import { editSpend, removeSpend, writeSpend } from '../features/spends/spends'
 import { listTransactions } from '../features/spends/transactions'
 import { applyReceived } from '../ledger/apply'
 import { STORED_TYPES } from '../ledger/document-types'
-import { anAccount, aSpend, ok, tempLedger } from '../ledger/fixtures'
+import { anAccount, aRate, aSpend, ok, tempLedger } from '../ledger/fixtures'
 import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
 import { applyKeeping, nextSteps, record, redoLast, undoLast } from './steps'
@@ -54,6 +54,16 @@ describe('undo and redo', () => {
     expect(STORED_TYPES.account.shows).toBe('accounts')
     expect(STORED_TYPES.transaction.shows).toBe('spends')
     expect(ok(undoLast(ctx))).toEqual({ spends: [spend.id], accounts: [food.id] })
+  })
+
+  test('an undo step over a rate moves no list', () => {
+    const { ctx } = setup()
+    const rate = aRate()
+    const { changes } = applyKeeping(ctx, [rate], ctx.now(), [rate])
+    record(ctx, { action: 'write', description: 'CAD to JPY' }, changes)
+
+    expect(changes.map((c) => c.type)).toEqual(['rate'])
+    expect(ok(undoLast(ctx))).toEqual({ spends: [], accounts: [] })
   })
 
   test('undoing a write leaves a tombstone, and redo brings the spend back exactly', () => {
