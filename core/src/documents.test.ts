@@ -575,9 +575,9 @@ describe('readDocument of a rate', () => {
     ).toStrictEqual(failure('DATE_INVALID', { date: '2026-11-09' }))
   })
 
-  it('refuses a published day that is no day', () => {
-    expect(readDocument({ ...RATE, published: 'friday', origin: SYSTEM })).toStrictEqual(
-      failure('DATE_INVALID', { date: 'friday' }),
+  it('refuses a published day the calendar lacks, though it sorts before the rate', () => {
+    expect(readDocument({ ...RATE, published: '2026-02-30', origin: SYSTEM })).toStrictEqual(
+      failure('DATE_INVALID', { date: '2026-02-30' }),
     )
   })
 
