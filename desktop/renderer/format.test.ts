@@ -62,7 +62,7 @@ describe('an amount to type again', () => {
 })
 
 describe('a figure to type again, its code beside the field', () => {
-  test('a whole currency drops its zero cents', () => {
+  test('a yen figure drops its zero cents', () => {
     expect(figureAsTyped('5000.00', 'JPY')).toBe('5000')
   })
 
