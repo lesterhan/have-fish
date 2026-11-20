@@ -36,7 +36,7 @@ export const NARROW_LIST = 520
 // From, Amount, To and Description (DESIGN.md, "Layout").
 const WIDTHS: Record<Cell, string> = {
   from: 'min(196px,28%)',
-  amount: '119px',
+  amount: '134px',
   to: 'minmax(0,1.2fr)',
   description: 'minmax(0,1fr)',
 }

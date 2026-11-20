@@ -5,22 +5,28 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
+  ADD_ACCOUNT,
   accountLines,
   aHome,
+  BATCH,
   chip,
   goTo,
   launch,
   openChip,
+  openComposer,
   openSelected,
   PANE,
+  pickPath,
   rows,
   shownDay,
+  WRITE,
   writeDown,
 } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
 const AMOUNT = `${PANE} input[name=amount]`
+const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 /** The amount chip while it's open: the editor around its field. */
 const OPEN_AMOUNT = `${PANE} span:has(> span > input[name=amount])`
 
@@ -46,33 +52,52 @@ async function threeCurrencies() {
   return page
 }
 
-/** The Ledger's rows. */
-const LEDGER_ROWS = 'ol[aria-label=Ledger] [role=option]'
+/** A list down which amounts line up: its rows, the cell naming each, the cell holding its amount. */
+type Column = { rows: string; name: string; amount: string }
+
+const LEDGER: Column = {
+  rows: 'ol[aria-label=Ledger] [role=option]',
+  name: 'description',
+  amount: 'amount',
+}
+const BATCH_LINES: Column = { rows: `${BATCH} li`, name: 'description', amount: 'amount' }
+const ACCOUNTS: Column = { rows: 'ol[aria-label=Accounts] li', name: 'name', amount: 'balance' }
 
 /** Where each named row's code starts, from the left of the first row's. */
-const codeStarts = (page: Page, names: string[]) =>
-  page.locator(LEDGER_ROWS).evaluateAll((items, names) => {
-    const at = names.map((name) => {
-      const row = items.find(
-        (li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name,
-      )
-      const code = row?.querySelector('[data-cell=amount] [data-money=code]')
-      return code?.getBoundingClientRect().left ?? Number.NaN
-    })
-    return at.map((x) => x - (at[0] ?? Number.NaN))
-  }, names)
+const codeStarts = (page: Page, column: Column, names: string[]) =>
+  page.locator(column.rows).evaluateAll(
+    (items, [column, names]) => {
+      const at = names.map((name) => {
+        const row = items.find(
+          (li) =>
+            li.querySelector(`[data-cell=${column.name}]`)?.textContent?.trim().split(/\s+/)[0] ===
+            name,
+        )
+        const code = row?.querySelector(`[data-cell=${column.amount}] [data-money=code]`)
+        return code?.getBoundingClientRect().left ?? Number.NaN
+      })
+      return at.map((x) => x - (at[0] ?? Number.NaN))
+    },
+    [column, names] as const,
+  )
 
 /**
  * Where the point in each of `pointed`'s figures starts, from where `whole`'s figure ends: a
  * Range over the `.`, since the point is a character and has no box of its own.
  */
-const pointsFrom = (page: Page, whole: string, pointed: string[]) =>
-  page.locator(LEDGER_ROWS).evaluateAll(
-    (items, [whole, pointed]) => {
+const pointsFrom = (page: Page, column: Column, whole: string, pointed: string[]) =>
+  page.locator(column.rows).evaluateAll(
+    (items, [column, whole, pointed]) => {
       const figure = (name: string) =>
         items
-          .find((li) => li.querySelector('[data-cell=description]')?.textContent?.trim() === name)
-          ?.querySelector('[data-cell=amount] [data-money=figure]')
+          .find(
+            (li) =>
+              li
+                .querySelector(`[data-cell=${column.name}]`)
+                ?.textContent?.trim()
+                .split(/\s+/)[0] === name,
+          )
+          ?.querySelector(`[data-cell=${column.amount}] [data-money=figure]`)
       const end = figure(whole)?.getBoundingClientRect().right ?? Number.NaN
       return pointed.map((name) => {
         const text = figure(name)?.firstChild
@@ -83,42 +108,76 @@ const pointsFrom = (page: Page, whole: string, pointed: string[]) =>
         return range.getBoundingClientRect().left - end
       })
     },
-    [whole, pointed] as const,
+    [column, whole, pointed] as const,
   )
 
 /**
- * How far each row's amount runs past its grid track: the cell is justify-self: end and grows
- * with what it holds, so only the track says where the column ends.
+ * How far each Ledger row's amount runs past its grid track: the cell is justify-self: end and
+ * grows with what it holds, so only the track says where the column ends.
  */
 const overruns = (page: Page) =>
-  page.locator(LEDGER_ROWS).evaluateAll((items) =>
+  page.locator(LEDGER.rows).evaluateAll((items) =>
     items.map((li) => {
       const cells = [...li.querySelectorAll('[data-cell]')]
-      const amount = cells.find((c) => c.getAttribute('data-cell') === 'amount')
-      const tracks = getComputedStyle(li).gridTemplateColumns.split(' ')
-      const track = Number.parseFloat(tracks[amount ? cells.indexOf(amount) : -1] ?? 'NaN')
-      return Math.max(0, (amount?.getBoundingClientRect().width ?? Number.NaN) - track)
+      const at = cells.findIndex((c) => c.getAttribute('data-cell') === 'amount')
+      const track = Number.parseFloat(getComputedStyle(li).gridTemplateColumns.split(' ')[at] ?? '')
+      return Math.max(0, (cells[at]?.getBoundingClientRect().width ?? Number.NaN) - track)
     }),
   )
 
-/** An offset of under half a pixel: the same place, to the eye. */
-const lined = () => expect.closeTo(0, 0)
+/** Within half a pixel of zero: the same place, to the eye. */
+const withinHalfAPixel = () => expect.closeTo(0, 0)
+
+/** Adds a bank account in one currency on Accounts, with what's in it today. */
+async function addBank(page: Page, name: string, currency: string, start: string) {
+  await goTo(page, 'Accounts')
+  await page.click(ADD_ACCOUNT)
+  await page.fill(`${ADDING} input[name=name]`, name)
+  await page.selectOption(`${ADDING} select[name=kind]`, 'bank')
+  await page.selectOption(`${ADDING} select[name=currency]`, currency)
+  await page.click(`${ADDING} details summary`)
+  await page.fill(`${ADDING} input[name=start]`, start)
+  await page.locator(`${ADDING} input[name=name]`).press('Enter')
+  await page.waitForSelector(`${ACCOUNTS.rows}[data-id]:has-text("${name}")`)
+}
+
+/** Money moved into an account, from another or from an income, as the line writes it. */
+async function move(page: Page, amount: string, description: string, from: string, to: string) {
+  const before = (await rows(page)).length
+  await openComposer(page)
+  await page.fill(`${WRITE} input[name=amount]`, amount)
+  await page.fill(`${WRITE} input[name=description]`, description)
+  await pickPath(page, `${WRITE} input[name=to]`, to)
+  await pickPath(page, `${WRITE} input[name=from]`, from)
+  await page.press(`${WRITE} input[name=amount]`, 'Enter')
+  await expect.poll(async () => (await rows(page)).length).toBe(before + 1)
+}
+
+/** A line written and kept open, as a person writes a batch: its row in the batch is the write. */
+async function writeLine(page: Page, amount: string, description: string) {
+  const before = await page.locator(BATCH_LINES.rows).count()
+  await openComposer(page)
+  await page.fill(`${WRITE} input[name=amount]`, amount)
+  await page.fill(`${WRITE} input[name=description]`, description)
+  await page.press(`${WRITE} input[name=amount]`, 'Enter')
+  await expect.poll(() => page.locator(BATCH_LINES.rows).count()).toBe(before + 1)
+}
 
 describe('amounts in three currencies, down one column', () => {
   test('every code starts at one edge, the home currency’s empty slot too', async () => {
     const page = await threeCurrencies()
 
     await expect
-      .poll(() => codeStarts(page, ['Lunch', 'Croissant', 'Ramen']))
-      .toEqual([0, lined(), lined()])
+      .poll(() => codeStarts(page, LEDGER, ['Lunch', 'Croissant', 'Ramen']))
+      .toEqual([0, withinHalfAPixel(), withinHalfAPixel()])
   })
 
   test('the yen’s units end where the others’ points start', async () => {
     const page = await threeCurrencies()
 
     await expect
-      .poll(() => pointsFrom(page, 'Ramen', ['Lunch', 'Croissant']))
-      .toEqual([lined(), lined()])
+      .poll(() => pointsFrom(page, LEDGER, 'Ramen', ['Lunch', 'Croissant']))
+      .toEqual([withinHalfAPixel(), withinHalfAPixel()])
   })
 
   test('the home currency’s empty slot adds no text to its row', async () => {
@@ -131,8 +190,38 @@ describe('amounts in three currencies, down one column', () => {
     const { page } = await launch(aHome())
     await writeDown(page, '12345.67', 'Rent')
     await writeDown(page, '150000 jpy', 'Hotel')
+    await addBank(page, 'yen', 'JPY', '0')
+    await goTo(page, 'Ledger')
+    await move(page, '150000 jpy', 'Float', 'cash', 'yen')
+    await move(page, '12345.67', 'Pay', 'salary', 'cash')
 
-    await expect.poll(() => overruns(page)).toEqual([lined(), lined()])
+    await expect
+      .poll(() => overruns(page))
+      .toEqual([withinHalfAPixel(), withinHalfAPixel(), withinHalfAPixel(), withinHalfAPixel()])
+  })
+})
+
+describe('amounts in two currencies line up on Accounts and in the batch too', () => {
+  test('on Accounts, a yen account’s units end at a dollar account’s point, codes at one edge', async () => {
+    const { page } = await launch(aHome())
+    await addBank(page, 'chequing', 'CAD', '500')
+    await addBank(page, 'yen', 'JPY', '1500')
+
+    await expect
+      .poll(() => pointsFrom(page, ACCOUNTS, 'yen', ['chequing']))
+      .toEqual([withinHalfAPixel()])
+    expect(await codeStarts(page, ACCOUNTS, ['chequing', 'yen'])).toEqual([0, withinHalfAPixel()])
+  })
+
+  test('in the batch, the yen’s units end at the dollars’ point, codes at one edge', async () => {
+    const { page } = await launch(aHome())
+    await writeLine(page, '12', 'Lunch')
+    await writeLine(page, '1500 jpy', 'Ramen')
+
+    await expect
+      .poll(() => pointsFrom(page, BATCH_LINES, 'Ramen', ['Lunch']))
+      .toEqual([withinHalfAPixel()])
+    expect(await codeStarts(page, BATCH_LINES, ['Lunch', 'Ramen'])).toEqual([0, withinHalfAPixel()])
   })
 })
 

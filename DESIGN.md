@@ -106,7 +106,7 @@ taller than Compact's rows in Large.
   list, their row stays in view and they run on below it. Pickers open under their field, and
   the palette opens near the top
   of the window over a scrim.
-- **The ledger's columns** read left to right as what happened: From (196px), Amount (119px), To,
+- **The ledger's columns** read left to right as what happened: From (196px), Amount (134px), To,
   Description. Day bands carry their date and the day's net. A list narrower than 520px drops
   From (the details still show it): it's the list that runs out, not the window, so this holds
   beside the pane at the size the window opens and in Reports' half too.
@@ -169,11 +169,11 @@ screen that needs it, not copied until a third copy forces it out.
 |---|---|---|
 | `Keys` | A keycap, or several | Buttons, places, rows, the composer, the palette |
 | `Button` | Rest, hover, focus, pressed, disabled; primary, plain or quiet; danger in the error's colour; with an action's keycap or a key of its own | Everywhere; one primary per place at most |
-| `Money`, `Day` | An amount with its code when it isn't the home currency, a sign that reads without colour; a short date with the year quiet | Everywhere |
+| `Money`, `Day` | An amount with its code when it isn't the home currency, or always where a balance says it; in a column, a slot for its code and a whole currency's cents held blank; a sign that reads without colour; a short date with the year quiet | Everywhere |
 | `Path` | The root's initial in a square tinted by kind of account, standing in for its word (`l cibc:visa`), and equity's `q`, since `e` is expenses'; a screen reader hears the word; colons kept and quiet; the last part at 500. A picker's trail spells the root out | Rows, chips, pickers, the trail, Accounts, Reports |
 | `Listbox` | Windowed, keyboard, active option; a tree's rows at their levels, open or closed; empty | The ledger, Accounts, Reports, pickers, the palette |
 | `Row` | Rest; hover a lighter step; selected in a focused list (tint, accent edge, its keys); selected elsewhere (plain tint); being rewritten (●); landed where it lands (the selection tint and the accent edge, fading) | Every list |
-| `Band` | A day, or a root of accounts by its `Path`, with what its rows come to; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
+| `Band` | A day, or a root of accounts by its `Path`, with what its rows come to, saying its code on Accounts; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: the list's full width, a space below the row above, radius 9px, the accent ring; a foot band for where it came from and the actions | The ledger, Reports' spends |
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
