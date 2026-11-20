@@ -43,7 +43,8 @@ export function savedValues(t: ListedTransaction): Values | null {
  * What saving `part` as `value` sends, or null when it holds what's saved. Amount and description
  * go as they are, To and the day only when they changed, so a spend left alone keeps them: a name
  * both a category and an account have mustn't move a spend that was left alone. The amount goes
- * without its code, and the code only when it differs: none typed is the home currency.
+ * without its code, and the code only when it differs: none typed is the home currency. The charge
+ * goes only from its own chip, as typed: sent with a new amount that makes it plain, it is refused.
  */
 export function changeOf(
   t: ListedTransaction,

@@ -1828,16 +1828,14 @@ describe('a yen spend a card kept to CAD paid', () => {
     return { ...withCard, id, before }
   }
 
-  /**
-   * A converted dinner as sync or an import puts it: from visa, kept to `currency`, with `legs`
-   * in their order, each its account's name, amount and currency.
-   */
-  function putDinner(currency: string | null, legs: ['visa' | 'fx' | 'food', string, string][]) {
+  /** A converted dinner as sync or an import puts it: from visa, kept to `currency`, in order. */
+  type Leg = ['visa' | 'conversion' | 'food', string, string]
+  function putDinner(currency: string | null, legs: Leg[]) {
     const ledger = tempLedger()
     const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency })
     const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
     const food = anAccount({ path: 'expenses:food', kind: 'category' })
-    const ids = { visa: visa.id, fx: fx.id, food: food.id }
+    const ids = { visa: visa.id, conversion: fx.id, food: food.id }
     const spend = {
       ...aSpend(visa.id, food.id),
       description: 'Dinner',
@@ -1930,8 +1928,8 @@ describe('a yen spend a card kept to CAD paid', () => {
   test('from a card kept to no currency, its leg says what it paid in: 40 CAD makes it plain', () => {
     const { ledger, ctx, id } = putDinner(null, [
       ['food', '4000.00', 'JPY'],
-      ['fx', '-4000.00', 'JPY'],
-      ['fx', '36.20', 'CAD'],
+      ['conversion', '-4000.00', 'JPY'],
+      ['conversion', '36.20', 'CAD'],
       ['visa', '-36.20', 'CAD'],
     ])
 
@@ -1943,8 +1941,8 @@ describe('a yen spend a card kept to CAD paid', () => {
   test('from a card kept to USD, 40 CAD is still converted from the 27.00 it paid', () => {
     const { ledger, ctx, id } = putDinner('USD', [
       ['food', '4000.00', 'JPY'],
-      ['fx', '-4000.00', 'JPY'],
-      ['fx', '27.00', 'USD'],
+      ['conversion', '-4000.00', 'JPY'],
+      ['conversion', '27.00', 'USD'],
       ['visa', '-27.00', 'USD'],
     ])
 
@@ -2014,8 +2012,8 @@ describe('a yen spend a card kept to CAD paid', () => {
   test('postings written card first keep their places through a new amount', () => {
     const { ledger, ctx, id } = putDinner('CAD', [
       ['visa', '-36.20', 'CAD'],
-      ['fx', '36.20', 'CAD'],
-      ['fx', '-4000.00', 'JPY'],
+      ['conversion', '36.20', 'CAD'],
+      ['conversion', '-4000.00', 'JPY'],
       ['food', '4000.00', 'JPY'],
     ])
 
