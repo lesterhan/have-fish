@@ -68,7 +68,7 @@
     {#snippet band(g)}
       {@const group = groups[g]}
       {#if group}
-        <Band net={group.total.map((b) => b.money)}><Path path={group.root} /></Band>
+        <Band net={group.total.map((b) => b.money)} code><Path path={group.root} /></Band>
       {/if}
     {/snippet}
     {#snippet row(r)}
@@ -82,6 +82,8 @@
       <span data-cell="balance"
         >{#each r.balance as { money, owed }, i (money.currency)}{#if i > 0}{' · '}{/if}{#if owed}{`${copy.accounts.owed} `}{/if}<Money
             of={money}
+            code
+            column
           />{/each}</span
       >
     {/snippet}

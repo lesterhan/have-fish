@@ -64,7 +64,7 @@ describe('see how much is in each account', () => {
     await spend(page, '4.50', 'cash')
     await toAccounts(page)
 
-    await expect.poll(() => listed(page)).toEqual(['cash | 95.50', 'chequing | 850.00'])
+    await expect.poll(() => listed(page)).toEqual(['cash | 95.50 CAD', 'chequing | 850.00 CAD'])
   })
 
   test('a card shows what I owe on it, and paying it down lowers that', async () => {
@@ -74,11 +74,13 @@ describe('see how much is in each account', () => {
 
     await spend(page, '30', 'visa')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toContain('visa | owed 230.00')
+    await expect.poll(() => listed(page)).toContain('visa | owed 230.00 CAD')
 
     await spend(page, '100', 'chequing', 'visa')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toEqual(['chequing | 400.00', 'visa | owed 130.00'])
+    await expect
+      .poll(() => listed(page))
+      .toEqual(['chequing | 400.00 CAD', 'visa | owed 130.00 CAD'])
   })
 
   test('what I have under one band, what I owe under the next, each with its total', async () => {
@@ -95,8 +97,8 @@ describe('see how much is in each account', () => {
           return band ? [band.textContent?.replace(/\s+/g, ' ').trim()] : []
         }),
       )
-    await expect.poll(bands).toEqual(['assets 500.00', 'liabilities 200.00'])
-    expect(await listed(page)).toEqual(['chequing | 500.00', 'visa | owed 200.00'])
+    await expect.poll(bands).toEqual(['assets 500.00 CAD', 'liabilities 200.00 CAD'])
+    expect(await listed(page)).toEqual(['chequing | 500.00 CAD', 'visa | owed 200.00 CAD'])
   })
 
   test('an account with nothing in it shows zero', async () => {
@@ -112,7 +114,7 @@ describe('see how much is in each account', () => {
 
     await expect
       .poll(() => listed(page))
-      .toEqual(['wise | 100.00 · 50.00 EUR', ':cad | 100.00', ':eur | 50.00 EUR'])
+      .toEqual(['wise | 100.00 CAD · 50.00 EUR', ':cad | 100.00 CAD', ':eur | 50.00 EUR'])
     const selected = () =>
       page.locator(`${LIST} li[aria-selected=true] [data-cell=name]`).allInnerTexts()
     // wise is there for its children's total: a row, but not one to select.
@@ -136,7 +138,7 @@ describe('see how much is in each account', () => {
     await addAccount(page, 'chequing', 'bank', 'CAD', '100')
     await spend(page, '40', 'chequing')
     await toAccounts(page)
-    await expect.poll(() => listed(page)).toEqual(['chequing | 60.00'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | 60.00 CAD'])
 
     await page.click(`${NAV} button:has-text("Ledger")`)
     await page.locator('ol[aria-label=Ledger]').focus()
@@ -144,6 +146,6 @@ describe('see how much is in each account', () => {
     await expect.poll(() => rows(page)).toHaveLength(1)
     await toAccounts(page)
 
-    await expect.poll(() => listed(page)).toEqual(['chequing | 100.00'])
+    await expect.poll(() => listed(page)).toEqual(['chequing | 100.00 CAD'])
   })
 })

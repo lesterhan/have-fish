@@ -239,7 +239,9 @@
     {/snippet}
     {#snippet row(t)}
       {#if !narrow}<span data-cell="from">{#if t.fromPath}<Path path={t.fromPath} />{/if}</span>{/if}
-      <span data-cell="amount"><Money of={t.simple ?? t.amounts} way={wayOf(t.shape)} /></span>
+      <span data-cell="amount"
+        ><Money of={t.simple ?? t.amounts} way={wayOf(t.shape)} column /></span
+      >
       <span data-cell="to">
         {#if refiling === t.id}
           <PathPicker

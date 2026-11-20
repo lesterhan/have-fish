@@ -164,26 +164,51 @@ test('nothing typed, or nothing it can read, understands nothing', () => {
 
 describe('the parts of an amount, for Money', () => {
   test('a spend has no sign; money in has +; a transfer has ⇄', () => {
-    expect(moneyParts('16.76', 'CAD')).toEqual({ sign: null, figure: '16.76', code: null })
+    expect(moneyParts('16.76', 'CAD')).toEqual({
+      sign: null,
+      figure: '16.76',
+      code: null,
+      whole: false,
+    })
     expect(moneyParts('40.00', 'CAD', { way: 'in' })).toEqual({
       sign: '+',
       figure: '40.00',
       code: null,
+      whole: false,
     })
     expect(moneyParts('200.00', 'CAD', { way: 'between' })).toEqual({
       sign: '⇄',
       figure: '200.00',
       code: null,
+      whole: false,
     })
   })
 
   test('the code apart from the figure, so it can be small and quiet', () => {
-    expect(moneyParts('35.00', 'EUR')).toEqual({ sign: null, figure: '35.00', code: 'EUR' })
+    expect(moneyParts('35.00', 'EUR')).toEqual({
+      sign: null,
+      figure: '35.00',
+      code: 'EUR',
+      whole: false,
+    })
     expect(moneyParts('-32.69', 'CAD', { code: true })).toEqual({
       sign: null,
       figure: '−32.69',
       code: 'CAD',
+      whole: false,
     })
+  })
+
+  test('a whole currency is whole, so a column holds its cents blank', () => {
+    expect(moneyParts('1500.00', 'JPY').whole).toBe(true)
+  })
+
+  test('an amount with cents is not whole', () => {
+    expect(moneyParts('4.50', 'CAD').whole).toBe(false)
+  })
+
+  test("a whole currency's cents from before keep their point, and need no blank", () => {
+    expect(moneyParts('1500.50', 'JPY').whole).toBe(false)
   })
 })
 

@@ -80,7 +80,7 @@ describe('write down money coming in', () => {
     expect((await fromLine(page).textContent())?.replace(/\s+/g, ' ').trim()).toBe('income salary')
     await openChip(page, 'to')
     expect(await page.inputValue(`${PANE} input[name=to]`)).toBe('chequing')
-    expect(await balances(page)).toEqual(['chequing | 2,100.00'])
+    expect(await balances(page)).toEqual(['chequing | 2,100.00 CAD'])
 
     await page.click(`${NAV} button:has-text("Reports")`)
     await expect
@@ -104,7 +104,7 @@ describe('write down money coming in', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => rows(page)).toHaveLength(2)
-    expect(await balances(page)).toEqual(['chequing | 70.00'])
+    expect(await balances(page)).toEqual(['chequing | 70.00 CAD'])
   })
 
   test('the next spend still comes out of the account used last, not the income source', async () => {

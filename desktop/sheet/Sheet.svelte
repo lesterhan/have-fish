@@ -248,7 +248,7 @@
   </section>
 
   <section aria-label="Money">
-    <h2>Money: out, in, between, another currency, with its code, several</h2>
+    <h2>Money: out, in, between, another currency, with its code, several; in a column</h2>
     <div class="line">
       <Money of={cad('1234.50')} />
       <Money of={cad('40.00')} way="in" />
@@ -256,6 +256,11 @@
       <Money of={{ amount: '35.00', currency: 'EUR' }} />
       <Money of={cad('-32.69')} code />
       <Money of={[cad('10.00'), { amount: '1100', currency: 'JPY' }]} />
+    </div>
+    <div class="column">
+      <Money of={cad('12.00')} column />
+      <Money of={{ amount: '35.00', currency: 'EUR' }} column />
+      <Money of={{ amount: '1500.00', currency: 'JPY' }} column />
     </div>
   </section>
 
@@ -299,9 +304,10 @@
   </section>
 
   <section aria-label="Band">
-    <h2>Band: a day and its net; a root and what it comes to</h2>
+    <h2>Band: a day and its net; a root and what it comes to, then saying its code</h2>
     <div class="frame"><Band date={TODAY} today={TODAY} net={[cad('-32.69')]} /></div>
     <div class="frame"><Band net={[cad('12276.65')]}><Path path="assets" /></Band></div>
+    <div class="frame"><Band net={[cad('12276.65')]} code><Path path="assets" /></Band></div>
   </section>
 
   <section aria-label="Fold">
@@ -455,6 +461,13 @@
     align-items: center;
     gap: var(--space-3);
     margin-block-end: var(--space-2);
+  }
+
+  /* Amounts one under another, right-aligned, as a list's Amount column draws them. */
+  .column {
+    display: grid;
+    justify-items: end;
+    inline-size: max-content;
   }
 
   .frame {

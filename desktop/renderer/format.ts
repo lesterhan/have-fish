@@ -34,15 +34,21 @@ const SIGN = { out: null, in: '+', between: '⇄' } as const
 /**
  * An amount in the pieces `Money` sets apart: the sign that says which way it went, the figure,
  * and the code when it's said.
+ * whole: no point in the figure, so a column holds its cents' width blank.
  */
 export function moneyParts(
   amount: string,
   currency: string,
   { code = false, way = 'out' as Way } = {},
-): { sign: '+' | '⇄' | null; figure: string; code: string | null } {
+): { sign: '+' | '⇄' | null; figure: string; code: string | null; whole: boolean } {
   const format = AMOUNT.get(minorUnits(currency)) as Intl.NumberFormat
   const figure = format.format(amount as Intl.StringNumericLiteral).replace('-', '−')
-  return { sign: SIGN[way], figure, code: code || currency !== HOME_CURRENCY ? currency : null }
+  return {
+    sign: SIGN[way],
+    figure,
+    code: code || currency !== HOME_CURRENCY ? currency : null,
+    whole: !figure.includes('.'),
+  }
 }
 
 /** What a transaction moved, each currency's amount as `money` writes it. */

@@ -13,16 +13,18 @@
     today?: string | undefined
     /** Undefined until the day's net arrives; a day that nets to nothing has none. */
     net?: readonly Amount[] | undefined
+    /** Says the code of every net, the home currency's too, as Accounts does. */
+    code?: boolean
     children?: Snippet | undefined
   }
-  let { date, today, net, children }: Props = $props()
+  let { date, today, net, code = false, children }: Props = $props()
 </script>
 
 <div class="band">
   <span class="what"
     >{#if children}{@render children()}{:else if date !== undefined}<Day {date} {today} band />{/if}</span
   >
-  {#if net !== undefined && net.length > 0}<span class="net"><Money of={net} /></span>{/if}
+  {#if net !== undefined && net.length > 0}<span class="net"><Money of={net} {code} /></span>{/if}
 </div>
 
 <style>

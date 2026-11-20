@@ -135,7 +135,7 @@ describe('a yen spend my CAD card paid', () => {
 
     await goTo(page, 'Accounts')
 
-    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 36.20'])
+    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 36.20 CAD'])
   })
 
   test('a charge typed, then the code taken off the amount: the part goes, and it is not sent', async () => {
