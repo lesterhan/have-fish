@@ -315,3 +315,23 @@ export const accountLines = (page: Page) =>
 /** Go to a place by the Places nav, as a person clicks it. */
 export const goTo = (page: Page, place: string) =>
   page.click(`nav[aria-label=Places] button:has-text("${place}")`)
+
+/** The list beside the tree: the spends behind the row picked. */
+export const BEHIND = 'ol[aria-label="Its spends"]'
+
+/** The Reports tree, its rows one per category. */
+export const REPORT_TREE = 'ol[aria-label="Spending by category"]'
+
+/** The tree's rows as `name | this week | last week | the change`, in the order they show. */
+export const reportTree = (page: Page) =>
+  page.evaluate((list) => {
+    const cell = (li: Element, name: string) =>
+      li.querySelector(`[data-cell=${name}]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+    return [...(document.querySelector(list)?.querySelectorAll('li') ?? [])].map((li) =>
+      ['name', 'shown', 'before', 'change'].map((name) => cell(li, name)).join(' | '),
+    )
+  }, REPORT_TREE)
+
+/** The tree's row whose name contains `name`, as a person reads it. */
+export const treeRow = (page: Page, name: string) =>
+  page.locator(`${REPORT_TREE} li`).filter({ hasText: name }).first()

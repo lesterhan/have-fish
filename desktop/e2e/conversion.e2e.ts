@@ -1,5 +1,6 @@
 // A yen spend a card kept to CAD paid, in the built app: the line asks what the card was charged,
-// the row reads the yen, the card says the dollars and the rate, and the card owes the dollars.
+// the row reads the yen, the card says the dollars and the rate, and the card owes the dollars,
+// and Reports counts them.
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
@@ -9,6 +10,7 @@ import {
   ADD_ACCOUNT,
   accountLines,
   aHome,
+  BEHIND,
   chip,
   focusedName,
   goTo,
@@ -18,8 +20,11 @@ import {
   openSelected,
   PANE,
   pickPath,
+  reportTree,
   rows,
   shownDay,
+  spendCells,
+  treeRow,
   WRITE,
 } from './app'
 
@@ -352,5 +357,49 @@ describe('fixing the amounts of a converted spend', () => {
     await openSelected(page)
 
     await expect.poll(() => page.locator(`${PANE} [aria-label="Rate"]`).isDisabled()).toBe(true)
+  })
+})
+
+describe('a converted spend in Reports', () => {
+  test('the dinner: Unsorted counts the 36.20 it cost', async () => {
+    const page = await aDinner()
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+  })
+
+  test('beside 1500 yen in cash: the line under the tree says only the 1,500 JPY', async () => {
+    const page = await aDinner()
+    await addAccount(page, 'suica', 'cash', 'JPY')
+    await openComposer(page)
+    await pickPath(page, `${WRITE} input[name=from]`, 'suica')
+    await page.fill(AMOUNT, '1500')
+    await page.press(AMOUNT, 'Enter')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => rows(page)).toHaveLength(2)
+
+    await goTo(page, 'Reports')
+
+    await expect
+      .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
+      .toBe(true)
+  })
+
+  test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {
+    const page = await aDinner()
+    await goTo(page, 'Reports')
+
+    await treeRow(page, 'Unsorted').click()
+
+    await expect
+      .poll(() =>
+        spendCells(page.locator(`${BEHIND} li`)).then((all) =>
+          all.map(([, description, amount]) => [description, amount]),
+        ),
+      )
+      .toEqual([['Dinner', '4,000 JPY']])
   })
 })

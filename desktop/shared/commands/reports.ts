@@ -19,8 +19,9 @@ export type ReportedSpend = {
 
 export interface ReportValues {
   /**
-   * In the home currency, `currency`, oldest day first. `other` is what went to categories in
-   * each other currency, by code: none that sum to zero.
+   * In the home currency, `currency`, oldest day first; a spend paid in another currency counts
+   * what its account paid. `other` is what went out in each other currency, by code: none that
+   * sum to zero.
    */
   'report.spending': { currency: string; spent: ReportedSpend[]; other: Money[] }
 }

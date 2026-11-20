@@ -7,19 +7,21 @@ import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
+  BEHIND,
   launch,
   openChip,
   openComposer,
   openSpend,
   pickPath,
+  REPORT_TREE,
+  reportTree,
   rows,
   spendCells,
+  treeRow,
   WRITE,
 } from './app'
 
 const NAV = 'nav[aria-label=Places]'
-const TREE = 'ol[aria-label="Spending by category"]'
-const BEHIND = 'ol[aria-label="Its spends"]'
 const PICKED = 'section[aria-label="The spend picked"]'
 const WEEK = '[role=group][aria-label="The week shown"]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -60,16 +62,6 @@ async function addAccount(page: Page, name: string, kind: string) {
 
 const toReports = (page: Page) => page.click(`${NAV} button:has-text("Reports")`)
 
-/** The tree's rows as `name | this week | last week | the change`, in the order they show. */
-const tree = (page: Page) =>
-  page.evaluate((list) => {
-    const cell = (li: Element, name: string) =>
-      li.querySelector(`[data-cell=${name}]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-    return [...(document.querySelector(list)?.querySelectorAll('li') ?? [])].map((li) =>
-      ['name', 'shown', 'before', 'change'].map((name) => cell(li, name)).join(' | '),
-    )
-  }, TREE)
-
 /** The tree's foot: All spending, this week, last week, and their change. */
 const total = (page: Page) =>
   page.evaluate(() => {
@@ -81,11 +73,11 @@ const total = (page: Page) =>
 
 /** The tree's headings, as they read. */
 const headings = (page: Page) =>
-  page.evaluate(() => {
-    const list = document.querySelector('ol[aria-label="Spending by category"]')
+  page.evaluate((tree) => {
+    const list = document.querySelector(tree)
     const over = list?.parentElement?.parentElement?.firstElementChild
     return [...(over?.children ?? [])].map((h) => h.textContent?.trim() ?? '')
-  })
+  }, REPORT_TREE)
 
 /** The header's quiet line: what the week came to against the week before. */
 const sums = (page: Page) => page.locator('main header p').innerText()
@@ -95,11 +87,7 @@ const selectedName = (page: Page) =>
   page.evaluate((list) => {
     const name = document.querySelector(`${list} [aria-selected=true] [data-cell=name]`)
     return name?.textContent?.replace(/\s+/g, ' ').trim() ?? null
-  }, TREE)
-
-/** The tree's row whose name contains `name`, as a person reads it. */
-const treeRow = (page: Page, name: string) =>
-  page.locator(`${TREE} li`).filter({ hasText: name }).first()
+  }, REPORT_TREE)
 
 /** What the list beside the tree shows: the spends' descriptions. */
 const behind = (page: Page) =>
@@ -119,7 +107,7 @@ describe('see this week against last', () => {
     await toReports(page)
 
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual([
         'expenses food | 60.00 | 80.00 | 20.00 less',
         'expenses transport | 30.00 | – | 30.00 more',
@@ -139,14 +127,14 @@ describe('see this week against last', () => {
     await toReports(page)
 
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual([
         '▶ expenses food | 60.00 | – | 60.00 more',
         'expenses fun | 20.00 | – | 20.00 more',
       ])
     expect(await treeRow(page, 'expenses fun').getAttribute('aria-expanded')).toBeNull()
     // A tree, and its rows items of it, which is why the tree is the Listbox.
-    expect(await page.locator(TREE).getAttribute('role')).toBe('tree')
+    expect(await page.locator(REPORT_TREE).getAttribute('role')).toBe('tree')
     expect(await treeRow(page, 'expenses fun').getAttribute('role')).toBe('treeitem')
     expect(await treeRow(page, 'expenses fun').getAttribute('aria-level')).toBe('1')
     expect(await treeRow(page, 'expenses food').getAttribute('aria-expanded')).toBe('false')
@@ -154,11 +142,11 @@ describe('see this week against last', () => {
     // A click selects it; a second opens it.
     await treeRow(page, 'expenses food').click()
     await expect.poll(() => selectedName(page)).toBe('▶ expenses food')
-    expect(await tree(page)).toHaveLength(2)
+    expect(await reportTree(page)).toHaveLength(2)
     await treeRow(page, 'expenses food').click()
 
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual([
         '▼ expenses food | 60.00 | – | 60.00 more',
         ':groceries | 50.00 | – | 50.00 more',
@@ -166,25 +154,25 @@ describe('see this week against last', () => {
         'Just food | 5.50 | – | 5.50 more',
         'expenses fun | 20.00 | – | 20.00 more',
       ])
-    expect(await page.locator(`${TREE} li[aria-level="2"]`).count()).toBe(3)
+    expect(await page.locator(`${REPORT_TREE} li[aria-level="2"]`).count()).toBe(3)
     expect(await treeRow(page, 'expenses food').getAttribute('aria-expanded')).toBe('true')
 
     // ← on a child goes to its category, its spends beside; ← again closes it, Enter opens it.
     await treeRow(page, ':coffee').click()
-    await page.locator(TREE).focus()
+    await page.locator(REPORT_TREE).focus()
     await page.keyboard.press('ArrowLeft')
     await expect.poll(() => selectedName(page)).toBe('▼ expenses food')
     await expect.poll(() => behind(page)).toEqual(['Snack', 'Groceries', 'Coffee'])
     await page.keyboard.press('ArrowLeft')
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual([
         '▶ expenses food | 60.00 | – | 60.00 more',
         'expenses fun | 20.00 | – | 20.00 more',
       ])
     expect(await selectedName(page)).toBe('▶ expenses food')
     await page.keyboard.press('Enter')
-    await expect.poll(() => page.locator(`${TREE} li`).count()).toBe(5)
+    await expect.poll(() => page.locator(`${REPORT_TREE} li`).count()).toBe(5)
   })
 
   test('a row that has nothing this week lists no spends, and says so', async () => {
@@ -193,7 +181,7 @@ describe('see this week against last', () => {
     await spend(page, '15', 'Movie', 'fun', '', daysAgo(7))
     await toReports(page)
 
-    await expect.poll(() => tree(page)).toEqual(['expenses fun | – | 15.00 | 15.00 less'])
+    await expect.poll(() => reportTree(page)).toEqual(['expenses fun | – | 15.00 | 15.00 less'])
     await expect.poll(() => sums(page)).toBe('Spent 0.00, against 15.00 last week')
 
     await treeRow(page, 'expenses fun').click()
@@ -231,7 +219,7 @@ describe('see this week against last', () => {
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
 
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual([
         'expenses food | 12.00 | – | 12.00 more',
         'expenses transport | 3.30 | – | 3.30 more',
@@ -249,7 +237,7 @@ describe('see this week against last', () => {
     await openChip(page, 'amount', PICKED)
     await page.fill(`${PICKED} input[name=amount]`, '3.30')
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
-    await expect.poll(() => tree(page)).toEqual(['expenses transport | 3.30 | – | 3.30 more'])
+    await expect.poll(() => reportTree(page)).toEqual(['expenses transport | 3.30 | – | 3.30 more'])
 
     await page.click(`${NAV} button:has-text("Ledger")`)
     await expect.poll(() => rows(page)).toEqual([expect.stringMatching(/Bus pass \| 3\.30/)])
@@ -265,12 +253,14 @@ describe('see this week against last', () => {
     await openChip(page, 'amount', PICKED)
     await page.fill(`${PICKED} input[name=amount]`, '3.30')
     await page.press(`${PICKED} input[name=amount]`, 'Enter')
-    await expect.poll(() => tree(page)).toEqual(['expenses transport | 3.30 | – | 3.30 more'])
+    await expect.poll(() => reportTree(page)).toEqual(['expenses transport | 3.30 | – | 3.30 more'])
 
-    await page.locator(TREE).focus()
+    await page.locator(REPORT_TREE).focus()
     press('ctrl+z')
 
-    await expect.poll(() => tree(page)).toEqual(['expenses transport | 30.00 | – | 30.00 more'])
+    await expect
+      .poll(() => reportTree(page))
+      .toEqual(['expenses transport | 30.00 | – | 30.00 more'])
     expect(await page.innerText(`${NAV} [aria-current=page]`)).toMatch(/^Reports/)
     expect(await page.locator(`${PICKED} [id$="-chip-amount"]`).innerText()).toContain('30.00')
   })
@@ -282,28 +272,28 @@ describe('see this week against last', () => {
     await spend(page, '15', 'Last week', 'fun', '', daysAgo(7))
     await toReports(page)
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual(['expenses food | 8.00 | – | 8.00 more', 'expenses fun | – | 15.00 | 15.00 less'])
     await expect
       .poll(() => headings(page))
       .toEqual(['Where it went', 'This week', 'Last week', 'Change'])
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => tree(page)).toEqual(['expenses fun | 15.00 | – | 15.00 more'])
+    await expect.poll(() => reportTree(page)).toEqual(['expenses fun | 15.00 | – | 15.00 more'])
     await expect
       .poll(() => headings(page))
       .toEqual(['Where it went', 'That week', 'Week before', 'Change'])
     await expect.poll(() => sums(page)).toBe('Spent 15.00, against 0.00 the week before')
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => tree(page)).toEqual([])
+    await expect.poll(() => reportTree(page)).toEqual([])
     await expect
       .poll(() => page.innerText('role=main'))
       .toContain('No spending in this week or the week before.')
 
     await page.click(`${WEEK} button[aria-label="The week after"]`)
     await page.click(`${WEEK} button[aria-label="The week after"]`)
-    await expect.poll(() => tree(page)).toHaveLength(2)
+    await expect.poll(() => reportTree(page)).toHaveLength(2)
     await expect
       .poll(() => headings(page))
       .toEqual(['Where it went', 'This week', 'Last week', 'Change'])
@@ -319,19 +309,19 @@ describe('see this week against last', () => {
 
     await treeRow(page, 'expenses food').click()
     await treeRow(page, 'expenses food').click()
-    await expect.poll(() => page.locator(`${TREE} li`).count()).toBe(3)
+    await expect.poll(() => page.locator(`${REPORT_TREE} li`).count()).toBe(3)
     await treeRow(page, ':coffee').click()
     await expect.poll(() => selectedName(page)).toBe(':coffee')
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
     await expect
-      .poll(() => tree(page))
+      .poll(() => reportTree(page))
       .toEqual(['▼ expenses food | 9.00 | – | 9.00 more', ':coffee | 9.00 | – | 9.00 more'])
     expect(await selectedName(page)).toBe(':coffee')
 
     // A week with nothing in it: nothing open, nothing selected.
     await page.click(`${WEEK} button[aria-label="The week before"]`)
-    await expect.poll(() => tree(page)).toEqual([])
+    await expect.poll(() => reportTree(page)).toEqual([])
     await expect.poll(() => selectedName(page)).toBeNull()
   })
 })
