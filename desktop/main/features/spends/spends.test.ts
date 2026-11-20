@@ -1849,23 +1849,270 @@ describe('a yen spend a card kept to CAD paid', () => {
     expect(after.postings).toEqual(before.doc.postings)
   })
 
-  test('a new amount is refused, and it stays as it was', () => {
-    const { ledger, ctx, id, before } = dinner()
+  /** The dinner's postings, in order, as account, amount and currency. */
+  function postingLines(ledger: Ledger, id: string) {
+    const food = accountAt(ledger, 'expenses:food')
+    const fx = accountAt(ledger, 'equity:conversion')
+    const visa = accountAt(ledger, 'liabilities:visa')
+    const names = new Map([food, fx, visa].map((a) => [a.id, a.path.split(':')[1]]))
+    return spendOf(ledger, id).postings.map(
+      (p) => `${names.get(p.accountId) ?? p.accountId} ${p.amount} ${p.currency}`,
+    )
+  }
 
-    expect(editSpend(ctx, { id, amount: '4500', description: 'Dinner' })).toEqual({
-      ok: false,
-      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
-    })
-    expect(spendOf(ledger, id)).toEqual(before.doc)
+  test('a new amount: the yen change, and the card still owes what it was charged', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '4500', description: 'Dinner' }))
+
+    expect(postingLines(ledger, id)).toEqual([
+      'food 4500.00 JPY',
+      'conversion -4500.00 JPY',
+      'conversion 36.20 CAD',
+      'visa -36.20 CAD',
+    ])
   })
 
-  test('a new currency is refused', () => {
+  test('a new charge: the card owes it, and the yen stay', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '38.10' }))
+
+    expect(postingLines(ledger, id)).toEqual([
+      'food 4000.00 JPY',
+      'conversion -4000.00 JPY',
+      'conversion 38.10 CAD',
+      'visa -38.10 CAD',
+    ])
+  })
+
+  test('an amount in the card’s own currency: a plain spend from the card, the conversion gone', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+
+    expect(postingLines(ledger, id)).toEqual(['food 40.00 CAD', 'visa -40.00 CAD'])
+  })
+
+  test('made plain, it lists as a spend with no charge', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+
+    const [row] = listTransactions(ledger.db)
+    expect(row?.shape).toBe('spend')
+    expect(row).not.toHaveProperty('charged')
+  })
+
+  test('an amount in a third currency: converted from the same charge', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '30', currency: 'EUR', description: 'Dinner' }))
+
+    expect(postingLines(ledger, id)).toEqual([
+      'food 30.00 EUR',
+      'conversion -30.00 EUR',
+      'conversion 36.20 CAD',
+      'visa -36.20 CAD',
+    ])
+  })
+
+  test('a new amount and a new charge in one edit: both change', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '4500', description: 'Dinner', charged: '38.10' }))
+
+    expect(postingLines(ledger, id)).toEqual([
+      'food 4500.00 JPY',
+      'conversion -4500.00 JPY',
+      'conversion 38.10 CAD',
+      'visa -38.10 CAD',
+    ])
+  })
+
+  test('a new amount and a new category in one edit: the yen move there', () => {
+    const { ledger, ctx, id } = dinner()
+
+    ok(editSpend(ctx, { id, amount: '4500', description: 'Dinner', to: { category: 'drinks' } }))
+
+    const drinks = accountAt(ledger, 'expenses:drinks')
+    expect(spendOf(ledger, id).postings[0]).toEqual({
+      accountId: drinks.id,
+      amount: '4500.00',
+      currency: 'JPY',
+    })
+  })
+
+  test('postings written card first keep their places through a new amount', () => {
+    const ledger = tempLedger()
+    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency: 'CAD' })
+    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const spend = aSpend(visa.id, food.id, '36.20', {
+      description: 'Dinner',
+      postings: [
+        { accountId: visa.id, amount: '-36.20', currency: 'CAD' },
+        { accountId: fx.id, amount: '36.20', currency: 'CAD' },
+        { accountId: fx.id, amount: '-4000.00', currency: 'JPY' },
+        { accountId: food.id, amount: '4000.00', currency: 'JPY' },
+      ],
+    })
+    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
+    const { ctx } = setup(ledger)
+
+    ok(editSpend(ctx, { id: spend.id, amount: '4500', description: 'Dinner' }))
+
+    expect(postingLines(ledger, spend.id)).toEqual([
+      'visa -36.20 CAD',
+      'conversion 36.20 CAD',
+      'conversion -4500.00 JPY',
+      'food 4500.00 JPY',
+    ])
+  })
+
+  test.each([
+    ['a new amount', { amount: '4500' }],
+    ['a new charge', { amount: '4000', charged: '38.10' }],
+    ['made plain', { amount: '40', currency: 'CAD' }],
+    ['a third currency', { amount: '30', currency: 'EUR' }],
+  ])('%s, then undo: its postings are as they were', (_, change) => {
+    const { ledger, ctx, id, before } = dinner()
+    ok(editSpend(ctx, { id, description: 'Dinner', ...change }))
+    expect(spendOf(ledger, id).postings).not.toEqual(before.doc.postings)
+
+    ok(undoLast(ctx))
+
+    expect(spendOf(ledger, id).postings).toEqual(before.doc.postings)
+  })
+
+  test('made plain, undone, then redone: two postings again', () => {
+    const { ledger, ctx, id } = dinner()
+    ok(editSpend(ctx, { id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+    ok(undoLast(ctx))
+    expect(postingLines(ledger, id)).toHaveLength(4)
+
+    ok(redoLast(ctx))
+
+    expect(postingLines(ledger, id)).toEqual(['food 40.00 CAD', 'visa -40.00 CAD'])
+  })
+
+  test('a new charge that is not an amount is refused', () => {
     const { ctx, id } = dinner()
 
-    expect(editSpend(ctx, { id, amount: '4000', currency: 'EUR', description: 'Dinner' })).toEqual({
+    expect(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: 'abc' })).toEqual({
       ok: false,
-      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
+      failure: { code: 'CHARGED_INVALID', details: { charged: 'abc' } },
     })
+  })
+
+  test('a new charge left empty is refused', () => {
+    const { ctx, id } = dinner()
+
+    expect(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '' })).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '' } },
+    })
+  })
+
+  test('a new charge of nothing is refused', () => {
+    const { ctx, id } = dinner()
+
+    expect(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '0' })).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '0' } },
+    })
+  })
+
+  test('a new charge below nothing is refused', () => {
+    const { ctx, id } = dinner()
+
+    expect(
+      editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '-38.10' }),
+    ).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '-38.10' } },
+    })
+  })
+
+  test('a new charge finer than the card’s cents is refused', () => {
+    const { ctx, id } = dinner()
+
+    expect(
+      editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '36.205' }),
+    ).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '36.205' } },
+    })
+  })
+
+  test('a new charge with its code typed after it is refused', () => {
+    const { ctx, id } = dinner()
+
+    expect(
+      editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '38.10 cad' }),
+    ).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '38.10 cad' } },
+    })
+  })
+
+  test('a refused charge leaves its document and version as they were', () => {
+    const { ledger, ctx, id, before } = dinner()
+
+    expect(editSpend(ctx, { id, amount: '4500', description: 'Dinner', charged: 'abc' }).ok).toBe(
+      false,
+    )
+
+    expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+  })
+
+  test('a charge on a spend that converts nothing is refused', () => {
+    const { ctx, visa } = withVisa()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', from: visa.id }))
+
+    expect(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', charged: '5' })).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '5' } },
+    })
+  })
+
+  test('a charge with an amount that makes it plain is refused', () => {
+    const { ctx, id } = dinner()
+    const input = { id, amount: '40', currency: 'CAD', description: 'Dinner', charged: '38.10' }
+
+    expect(editSpend(ctx, input)).toEqual({
+      ok: false,
+      failure: { code: 'CHARGED_INVALID', details: { charged: '38.10' } },
+    })
+  })
+
+  test('an amount that is not one is said before a charge that is not one', () => {
+    const { ctx, id } = dinner()
+
+    expect(editSpend(ctx, { id, amount: 'abc', description: 'Dinner', charged: 'abc' })).toEqual({
+      ok: false,
+      failure: { code: 'AMOUNT_INVALID', details: { amount: 'abc' } },
+    })
+  })
+
+  test('a charge typed as it was saved writes no version', () => {
+    const { ledger, ctx, id, before } = dinner()
+
+    expect(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '36.2' })).toEqual({
+      ok: true,
+      value: { id },
+    })
+
+    expect(getDocument(ledger.db, 'transaction', id)?.version).toEqual(before.version)
+  })
+
+  test('a charge typed as it was saved adds no undo step', () => {
+    const { ctx, id } = dinner()
+    const step = ctx.history.nextUndo()
+
+    ok(editSpend(ctx, { id, amount: '4000', description: 'Dinner', charged: '36.2' }))
+
+    expect(ctx.history.nextUndo()).toBe(step)
   })
 
   test('saved as it was, it writes nothing and adds no undo step', () => {
