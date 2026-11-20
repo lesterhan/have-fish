@@ -4,6 +4,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
 import {
   ADD_ACCOUNT,
   accountLines,
@@ -12,6 +13,7 @@ import {
   focusedName,
   goTo,
   launch,
+  openChip,
   openComposer,
   openSelected,
   PANE,
@@ -26,6 +28,8 @@ const AMOUNT = `${WRITE} input[name=amount]`
 const CHARGED = `${WRITE} input[name=charged]`
 /** The card's second sentence: what paid for it, and at what rate. */
 const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
+/** The charged chip's field, open in the card. */
+const CHARGED_FIELD = `${PANE} input[name=charged]`
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -122,14 +126,6 @@ describe('a yen spend my CAD card paid', () => {
       .toBe('with 36.20 CAD converted at 1 CAD = 110.5 JPY')
   })
 
-  test('its card’s amount chip is locked', async () => {
-    const page = await aDinner()
-
-    await openSelected(page)
-
-    await expect.poll(() => page.locator(chip('amount')).isDisabled()).toBe(true)
-  })
-
   test('visa owes the 36.20 it was charged', async () => {
     const page = await aDinner()
 
@@ -206,5 +202,155 @@ describe('a yen spend my CAD card paid', () => {
     await expect.poll(() => page.getAttribute(CHARGED, 'aria-invalid')).toBe('true')
     await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('not an amount')
     expect(await rows(page)).toEqual([])
+  })
+})
+
+describe('fixing the amounts of a converted spend', () => {
+  /** The dinner's card open, `part`'s chip opened, `typed` in its field, and Enter. */
+  async function change(page: Page, part: string, typed: string) {
+    await openSelected(page)
+    await openChip(page, part)
+    await page.fill(`${PANE} input[name=${part}]`, typed)
+    await page.press(`${PANE} input[name=${part}]`, 'Enter')
+  }
+
+  test('the amount chip, 4500 jpy and Enter: the row reads 4,500 JPY', async () => {
+    const page = await aDinner()
+
+    await change(page, 'amount', '4500 jpy')
+
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Dinner | 4,500 JPY`])
+  })
+
+  test('after 4500 jpy, the card still says the 36.20 charged, at its new rate', async () => {
+    const page = await aDinner()
+
+    await change(page, 'amount', '4500 jpy')
+
+    await expect
+      .poll(() => convertedLine(page))
+      .toBe('with 36.20 CAD converted at 1 CAD = 124.3 JPY')
+  })
+
+  test('after 4500 jpy, visa still owes the 36.20', async () => {
+    const page = await aDinner()
+    await change(page, 'amount', '4500 jpy')
+    await expect.poll(() => rows(page)).toEqual([`${shownDay(today())} | Dinner | 4,500 JPY`])
+
+    await goTo(page, 'Accounts')
+
+    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 36.20 CAD'])
+  })
+
+  test('the charged chip opens holding 36.20', async () => {
+    const page = await aDinner()
+    await openSelected(page)
+
+    await openChip(page, 'charged')
+
+    await expect.poll(() => page.inputValue(CHARGED_FIELD)).toBe('36.20')
+  })
+
+  test('the charged chip opens with CAD after its field', async () => {
+    const page = await aDinner()
+    await openSelected(page)
+
+    await openChip(page, 'charged')
+
+    await expect
+      .poll(() => page.locator(CHARGED_FIELD).evaluate((input) => input.nextSibling?.textContent))
+      .toBe('CAD')
+  })
+
+  test('the charged chip, 38.10 and Enter: visa owes 38.10', async () => {
+    const page = await aDinner()
+    await change(page, 'charged', '38.10')
+    await expect.poll(() => page.locator(CHARGED_FIELD).count()).toBe(0)
+
+    await goTo(page, 'Accounts')
+
+    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 38.10 CAD'])
+  })
+
+  test('after 38.10, the row still reads 4,000 JPY', async () => {
+    const page = await aDinner()
+
+    await change(page, 'charged', '38.10')
+
+    await expect.poll(() => convertedLine(page)).toContain('38.10 CAD')
+    expect(await rows(page)).toEqual([`${shownDay(today())} | Dinner | 4,000 JPY`])
+  })
+
+  test('the amount chip, 40 and Enter: the card has no converted line', async () => {
+    const page = await aDinner()
+    await openSelected(page)
+    expect(await page.locator(CONVERTED).count()).toBe(1)
+
+    await openChip(page, 'amount')
+    await page.fill(`${PANE} input[name=amount]`, '40')
+    await page.press(`${PANE} input[name=amount]`, 'Enter')
+
+    await expect.poll(() => page.locator(CONVERTED).count()).toBe(0)
+  })
+
+  test('after 40, visa owes 40.00', async () => {
+    const page = await aDinner()
+    await change(page, 'amount', '40')
+    await expect.poll(() => page.locator(CONVERTED).count()).toBe(0)
+
+    await goTo(page, 'Accounts')
+
+    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 40.00 CAD'])
+  })
+
+  test('the amount chip, 30 eur and Enter: converted from the same 36.20, at a euro rate', async () => {
+    const page = await aDinner()
+
+    await change(page, 'amount', '30 eur')
+
+    await expect
+      .poll(() => convertedLine(page))
+      .toBe('with 36.20 CAD converted at 1 CAD = 0.8287 EUR')
+  })
+
+  test('after 40, Ctrl+Z on the list: the card converts the 36.20 again', async () => {
+    const page = await aDinner()
+    await change(page, 'amount', '40')
+    await expect.poll(() => page.locator(CONVERTED).count()).toBe(0)
+
+    await page.locator('ol[aria-label=Ledger]').focus()
+    await page.keyboard.press('Control+z')
+
+    await expect
+      .poll(() => convertedLine(page))
+      .toBe('with 36.20 CAD converted at 1 CAD = 110.5 JPY')
+  })
+
+  test('the charged chip, abc and Enter: the chip says why', async () => {
+    const page = await aDinner()
+
+    await change(page, 'charged', 'abc')
+
+    await expect
+      .poll(() => page.locator(`${PANE} [role=alert]`).innerText())
+      .toBe(copy.errors.codes.CHARGED_INVALID)
+  })
+
+  test('the charged chip cleared, and Enter: the chip says why', async () => {
+    const page = await aDinner()
+
+    await change(page, 'charged', '')
+
+    await expect
+      .poll(() => page.locator(`${PANE} [role=alert]`).innerText())
+      .toBe(copy.errors.codes.CHARGED_INVALID)
+  })
+
+  test('its card’s Rate chip is locked', async () => {
+    const page = await aDinner()
+
+    await openSelected(page)
+
+    await expect.poll(() => page.locator(`${PANE} [aria-label="Rate"]`).isDisabled()).toBe(true)
   })
 })

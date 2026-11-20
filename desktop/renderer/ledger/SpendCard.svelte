@@ -171,7 +171,6 @@
         id={chipId('amount')}
         label={words.chip.amount}
         figures
-        locked={transaction.charged !== undefined}
         changing={chip.part === 'amount'}
         saved={chip.justSaved === 'amount'}
         error={refused('amount')}
@@ -294,7 +293,29 @@
     {#if transaction.charged && transaction.simple}
       <p class="sentence sub">
         <span class="lead">{words.sentence.with}</span>
-        <Chip label={words.chip.charged} figures locked>
+        <Chip
+          id={chipId('charged')}
+          label={words.chip.charged}
+          figures
+          changing={chip.part === 'charged'}
+          saved={chip.justSaved === 'charged'}
+          error={refused('charged')}
+          onopen={() => open('charged')}
+          onflashed={() => (chip = flashed(chip, 'charged'))}
+        >
+          {#snippet editor()}
+            <span class="money">
+              <input
+                id={fieldId('charged')}
+                name="charged"
+                bind:value={chip.value}
+                inputmode="decimal"
+                autocomplete="off"
+                maxlength="64"
+                aria-invalid={refused('charged') !== null}
+              />{transaction.charged?.currency}
+            </span>
+          {/snippet}
           <Money of={transaction.charged} code />
         </Chip>
         <span class="lead">{words.sentence.convertedAt}</span>

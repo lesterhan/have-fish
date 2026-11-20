@@ -25,12 +25,13 @@ const from = z.union([z.uuid(), z.strictObject({ income: typed(200) })]).nullabl
 
 export type From = z.infer<typeof from>
 
-/** `currency`, `to` or `date` left out: unchanged. */
+/** `currency`, `charged`, `to` or `date` left out: unchanged. */
 const edit = z.strictObject({
   id: z.uuid(),
   amount: typed(64),
   description: typed(500),
   currency: typed(64).optional(),
+  charged: typed(64).optional(),
   to: to.optional(),
   date: date.optional(),
 })

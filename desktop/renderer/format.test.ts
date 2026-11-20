@@ -7,6 +7,7 @@ import {
   dayOf,
   dayParts,
   daysSince,
+  figureAsTyped,
   moment,
   money,
   moneyParts,
@@ -57,6 +58,16 @@ describe('an amount to type again', () => {
 
   test('cents a whole currency held before stay shown', () => {
     expect(asTyped('1500.50', 'JPY')).toBe('1500.50 JPY')
+  })
+})
+
+describe('a figure to type again, its code beside the field', () => {
+  test('a yen figure drops its zero cents', () => {
+    expect(figureAsTyped('5000.00', 'JPY')).toBe('5000')
+  })
+
+  test('a currency with cents keeps them', () => {
+    expect(figureAsTyped('27.00', 'USD')).toBe('27.00')
   })
 })
 

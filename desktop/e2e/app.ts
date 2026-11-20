@@ -243,7 +243,7 @@ export async function pickPath(page: Page, field: string, name: string): Promise
   await page.locator(`#${list} [role=option]`, { has: page.locator(named.join(', ')) }).click()
 }
 
-/** An open spend's chip for one part: `amount`, `description`, `from`, `date` or `to`. */
+/** An open spend's chip for a part: `amount`, `description`, `from`, `date`, `to` or `charged`. */
 export const chip = (part: string, card = PANE) => `${card} [id$="-chip-${part}"]`
 
 /** Opens a chip in an open spend's details: a click, as a person does it. */

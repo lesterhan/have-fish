@@ -82,8 +82,21 @@ describe('the chip editor', () => {
 })
 
 describe('a spend paid in another currency', () => {
-  test('keeps its amount chip shut', () => {
-    expect(opened(closed, DINNER, 'amount')).toBe(closed)
+  test('opens its amount chip holding the amount and its code', () => {
+    expect(opened(closed, DINNER, 'amount')).toMatchObject({ part: 'amount', value: '4000 JPY' })
+  })
+
+  test('opens its charged chip holding the figure it was charged', () => {
+    expect(opened(closed, DINNER, 'charged')).toMatchObject({ part: 'charged', value: '36.20' })
+  })
+
+  test('a spend that converts nothing has no charged chip to open', () => {
+    expect(opened(closed, spend, 'charged')).toBe(closed)
+  })
+
+  test('Enter on the charge as it was: nothing to send', () => {
+    const editing = opened(closed, DINNER, 'charged')
+    expect(committing(editing, DINNER, toOf, TODAY)).toEqual({ unchanged: 'charged' })
   })
 
   test('opens its other chips: To holds its category', () => {

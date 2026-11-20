@@ -4,19 +4,26 @@
 import { splitCode } from '@have-fish/core/money'
 import type { InputOf, ListedLeg, ListedTransaction, Money, To } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
-import { asTyped, dayOf, todayIn } from '../format'
+import { asTyped, dayOf, figureAsTyped, todayIn } from '../format'
 
 /**
  * The parts of the sentence, in the order they read. From is shown but, until a later note, can't
  * be changed here.
  */
-export type Part = 'amount' | 'description' | 'from' | 'date' | 'to'
+export type Part = 'amount' | 'description' | 'from' | 'date' | 'to' | 'charged'
 
 /** The parts a chip changes. */
 export type Changable = Exclude<Part, 'from'>
 
 /** What a simple transaction holds: the values its chips start from and edit. */
-export type Values = { description: string; amount: string; to: string | null; date: string }
+export type Values = {
+  description: string
+  amount: string
+  /** What the account paying was charged, its code left out; null when nothing converted. */
+  charged: string | null
+  to: string | null
+  date: string
+}
 
 /** The values a chip starts from; null for a transaction the card can't change here. */
 export function savedValues(t: ListedTransaction): Values | null {
@@ -25,6 +32,8 @@ export function savedValues(t: ListedTransaction): Values | null {
     : {
         description: t.description,
         amount: asTyped(t.simple.amount, t.simple.currency),
+        charged:
+          t.charged === undefined ? null : figureAsTyped(t.charged.amount, t.charged.currency),
         to: t.to,
         date: t.date,
       }
@@ -34,7 +43,8 @@ export function savedValues(t: ListedTransaction): Values | null {
  * What saving `part` as `value` sends, or null when it holds what's saved. Amount and description
  * go as they are, To and the day only when they changed, so a spend left alone keeps them: a name
  * both a category and an account have mustn't move a spend that was left alone. The amount goes
- * without its code, and the code only when it differs: none typed is the home currency.
+ * without its code, and the code only when it differs: none typed is the home currency. The charge
+ * goes only from its own chip, as typed: sent with a new amount that makes it plain, it is refused.
  */
 export function changeOf(
   t: ListedTransaction,
@@ -54,6 +64,7 @@ export function changeOf(
     amount: typed.amount,
     description: next.description,
     ...(currency === t.simple?.currency ? {} : { currency }),
+    ...(part === 'charged' ? { charged: value } : {}),
     ...(next.to === null || next.to === t.to ? {} : { to: toOf(next.to) }),
     ...(date === t.date ? {} : { date }),
   }

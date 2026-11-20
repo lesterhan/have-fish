@@ -5,7 +5,7 @@ import { isAddable } from '@have-fish/core/account-kind'
 import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { fitsCurrency, isValidCurrency } from '@have-fish/core/currencies'
-import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import type { AccountDoc, PostingDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { CONVERSION, INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
@@ -138,7 +138,8 @@ function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
 /**
  * A new version of a spend with a new amount, description, and maybe currency, category or date.
  * The positive leg gets the amount and the other its negative; the id, account paying and origin
- * stay.
+ * stay. A converted spend keeps its charge unless given a new one, and is a plain spend again in
+ * the currency its account paid in.
  */
 export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
   const { edited, changes } = edit(ctx, input)
@@ -174,20 +175,24 @@ function edit(
   )
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
-  const converted = shape.shape === 'converted'
-  // A converted spend keeps its amounts until a later story: a new amount or currency would need a
-  // new charge, and onto an account of mine it would be a transfer that converts.
-  if (
-    converted &&
-    (cents !== simple.cents ||
-      (input.currency !== undefined && input.currency !== simple.currency) ||
-      (input.to !== undefined && 'account' in input.to))
-  ) {
+  const fx = shape.shape === 'converted' ? shape : null
+  const currency = input.currency ?? simple.currency
+  const keepsCharge = fx !== null && currency !== fx.from.currency
+  if (!keepsCharge && input.charged !== undefined) {
+    return refused(failure('CHARGED_INVALID', { charged: input.charged }))
+  }
+  // Onto an account of mine, a converted spend would be a transfer that converts.
+  if (fx !== null && input.to !== undefined && 'account' in input.to) {
     return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
   }
-  const currency = input.currency ?? simple.currency
   if (!fitsCurrency(cents, currency)) {
     return refused(failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency }))
+  }
+  let chargeCents = fx === null ? 0 : -fx.from.cents
+  if (fx !== null && input.charged !== undefined) {
+    const read = chargedOf(input.charged, fx.from.currency)
+    if (!read.ok) return refused(read)
+    chargeCents = read.value
   }
 
   const now = ctx.now()
@@ -214,18 +219,15 @@ function edit(
     cents === simple.cents &&
     description === doc.description &&
     moved.value.id === into &&
-    date === doc.date
+    date === doc.date &&
+    (fx === null || chargeCents === -fx.from.cents)
   ) {
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
-  const edited: TransactionDoc = {
-    ...doc,
-    date,
-    description,
-    postings: doc.postings.map((p) => {
-      // A converted spend moves only its category's leg; the conversion's and the card's stay.
-      if (converted) return p.accountId === into ? { ...p, accountId: moved.value.id ?? into } : p
+  let postings: PostingDoc[]
+  if (fx === null) {
+    postings = doc.postings.map((p) => {
       const positive = toCents(p.amount) > 0
       return {
         ...p,
@@ -233,8 +235,26 @@ function edit(
         amount: format(positive ? cents : -cents),
         currency,
       }
-    }),
+    })
+  } else if (keepsCharge) {
+    // Found by account and currency as it was before the edit, each posting keeps its place.
+    const matches = (p: PostingDoc, accountId: string, postedIn: string) =>
+      p.accountId === accountId && p.currency === postedIn
+    postings = doc.postings.map((p) => {
+      if (matches(p, fx.to.accountId, fx.to.currency)) {
+        return { ...p, accountId: moved.value.id ?? p.accountId, amount: format(cents), currency }
+      }
+      if (matches(p, fx.via, fx.to.currency)) return { ...p, amount: format(-cents), currency }
+      if (matches(p, fx.via, fx.from.currency)) return { ...p, amount: format(chargeCents) }
+      return { ...p, amount: format(-chargeCents) }
+    })
+  } else {
+    const to = { accountId: moved.value.id ?? fx.to.accountId, cents, currency }
+    postings = postingsOf(
+      legsOf({ from: { accountId: fx.from.accountId, cents: -cents, currency }, to }),
+    )
   }
+  const edited: TransactionDoc = { ...doc, date, description, postings }
   const { applied, changes } = applyKeeping(ctx, [...moved.value.made, edited], now, [edited])
   return { edited: idOf(applied, id), changes }
 }
