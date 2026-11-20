@@ -132,6 +132,11 @@ describe('a spend paid in another currency', () => {
     expect(values(DINNER).charged).toBe('36.20')
   })
 
+  test('a charge in another currency than home starts without its code too', () => {
+    const usd = listed({ ...DINNER, charged: { amount: '27.00', currency: 'USD' } })
+    expect(values(usd).charged).toBe('27.00')
+  })
+
   test('a spend that converts nothing has no charge', () => {
     expect(values().charged).toBeNull()
   })

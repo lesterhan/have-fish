@@ -1828,6 +1828,29 @@ describe('a yen spend a card kept to CAD paid', () => {
     return { ...withCard, id, before }
   }
 
+  /**
+   * A converted dinner as sync or an import puts it: from visa, kept to `currency`, with `legs`
+   * in their order, each its account's name, amount and currency.
+   */
+  function putDinner(currency: string | null, legs: ['visa' | 'fx' | 'food', string, string][]) {
+    const ledger = tempLedger()
+    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency })
+    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const ids = { visa: visa.id, fx: fx.id, food: food.id }
+    const spend = {
+      ...aSpend(visa.id, food.id),
+      description: 'Dinner',
+      postings: legs.map(([name, amount, code]) => ({
+        accountId: ids[name],
+        amount,
+        currency: code,
+      })),
+    }
+    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
+    return { ledger, ctx: setup(ledger).ctx, id: spend.id }
+  }
+
   test('refiled, only its yen moves to the new category; the conversion and the card stay', () => {
     const { ledger, ctx, id, before } = dinner()
 
@@ -1905,47 +1928,29 @@ describe('a yen spend a card kept to CAD paid', () => {
   })
 
   test('from a card kept to no currency, its leg says what it paid in: 40 CAD makes it plain', () => {
-    const ledger = tempLedger()
-    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency: null })
-    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
-    const food = anAccount({ path: 'expenses:food', kind: 'category' })
-    const spend = aSpend(visa.id, food.id, '36.20', {
-      description: 'Dinner',
-      postings: [
-        { accountId: food.id, amount: '4000.00', currency: 'JPY' },
-        { accountId: fx.id, amount: '-4000.00', currency: 'JPY' },
-        { accountId: fx.id, amount: '36.20', currency: 'CAD' },
-        { accountId: visa.id, amount: '-36.20', currency: 'CAD' },
-      ],
-    })
-    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
-    const { ctx } = setup(ledger)
+    const { ledger, ctx, id } = putDinner(null, [
+      ['food', '4000.00', 'JPY'],
+      ['fx', '-4000.00', 'JPY'],
+      ['fx', '36.20', 'CAD'],
+      ['visa', '-36.20', 'CAD'],
+    ])
 
-    ok(editSpend(ctx, { id: spend.id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+    ok(editSpend(ctx, { id, amount: '40', currency: 'CAD', description: 'Dinner' }))
 
-    expect(postingLines(ledger, spend.id)).toEqual(['food 40.00 CAD', 'visa -40.00 CAD'])
+    expect(postingLines(ledger, id)).toEqual(['food 40.00 CAD', 'visa -40.00 CAD'])
   })
 
   test('from a card kept to USD, 40 CAD is still converted from the 27.00 it paid', () => {
-    const ledger = tempLedger()
-    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency: 'USD' })
-    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
-    const food = anAccount({ path: 'expenses:food', kind: 'category' })
-    const spend = aSpend(visa.id, food.id, '27.00', {
-      description: 'Dinner',
-      postings: [
-        { accountId: food.id, amount: '4000.00', currency: 'JPY' },
-        { accountId: fx.id, amount: '-4000.00', currency: 'JPY' },
-        { accountId: fx.id, amount: '27.00', currency: 'USD' },
-        { accountId: visa.id, amount: '-27.00', currency: 'USD' },
-      ],
-    })
-    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
-    const { ctx } = setup(ledger)
+    const { ledger, ctx, id } = putDinner('USD', [
+      ['food', '4000.00', 'JPY'],
+      ['fx', '-4000.00', 'JPY'],
+      ['fx', '27.00', 'USD'],
+      ['visa', '-27.00', 'USD'],
+    ])
 
-    ok(editSpend(ctx, { id: spend.id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+    ok(editSpend(ctx, { id, amount: '40', currency: 'CAD', description: 'Dinner' }))
 
-    expect(postingLines(ledger, spend.id)).toEqual([
+    expect(postingLines(ledger, id)).toEqual([
       'food 40.00 CAD',
       'conversion -40.00 CAD',
       'conversion 27.00 USD',
@@ -2007,25 +2012,16 @@ describe('a yen spend a card kept to CAD paid', () => {
   })
 
   test('postings written card first keep their places through a new amount', () => {
-    const ledger = tempLedger()
-    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency: 'CAD' })
-    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
-    const food = anAccount({ path: 'expenses:food', kind: 'category' })
-    const spend = aSpend(visa.id, food.id, '36.20', {
-      description: 'Dinner',
-      postings: [
-        { accountId: visa.id, amount: '-36.20', currency: 'CAD' },
-        { accountId: fx.id, amount: '36.20', currency: 'CAD' },
-        { accountId: fx.id, amount: '-4000.00', currency: 'JPY' },
-        { accountId: food.id, amount: '4000.00', currency: 'JPY' },
-      ],
-    })
-    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
-    const { ctx } = setup(ledger)
+    const { ledger, ctx, id } = putDinner('CAD', [
+      ['visa', '-36.20', 'CAD'],
+      ['fx', '36.20', 'CAD'],
+      ['fx', '-4000.00', 'JPY'],
+      ['food', '4000.00', 'JPY'],
+    ])
 
-    ok(editSpend(ctx, { id: spend.id, amount: '4500', description: 'Dinner' }))
+    ok(editSpend(ctx, { id, amount: '4500', description: 'Dinner' }))
 
-    expect(postingLines(ledger, spend.id)).toEqual([
+    expect(postingLines(ledger, id)).toEqual([
       'visa -36.20 CAD',
       'conversion 36.20 CAD',
       'conversion -4500.00 JPY',
