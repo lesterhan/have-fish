@@ -10,7 +10,7 @@ import { asTyped, dayOf, figureAsTyped, todayIn } from '../format'
  * The parts of the sentence, in the order they read. From is shown but, until a later note, can't
  * be changed here.
  */
-export type Part = 'amount' | 'charged' | 'description' | 'from' | 'date' | 'to'
+export type Part = 'amount' | 'description' | 'from' | 'date' | 'to' | 'charged'
 
 /** The parts a chip changes. */
 export type Changable = Exclude<Part, 'from'>

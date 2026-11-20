@@ -225,9 +225,6 @@ function edit(
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
-  // Found by account and currency as it was before the edit, each posting keeps its place.
-  const matches = (p: PostingDoc, accountId: string, postedIn: string) =>
-    p.accountId === accountId && p.currency === postedIn
   let postings: PostingDoc[]
   if (fx === null) {
     postings = doc.postings.map((p) => {
@@ -240,6 +237,9 @@ function edit(
       }
     })
   } else if (keepsCharge) {
+    // Found by account and currency as it was before the edit, each posting keeps its place.
+    const matches = (p: PostingDoc, accountId: string, postedIn: string) =>
+      p.accountId === accountId && p.currency === postedIn
     postings = doc.postings.map((p) => {
       if (matches(p, fx.to.accountId, fx.to.currency)) {
         return { ...p, accountId: moved.value.id ?? p.accountId, amount: format(cents), currency }
