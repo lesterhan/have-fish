@@ -95,7 +95,7 @@ describe('a spend paid in another currency', () => {
   })
 
   test('Enter on the charge as it was: nothing to send', () => {
-    const editing = { ...closed, part: 'charged' as const, value: '36.20' }
+    const editing = opened(closed, DINNER, 'charged')
     expect(committing(editing, DINNER, toOf, TODAY)).toEqual({ unchanged: 'charged' })
   })
 

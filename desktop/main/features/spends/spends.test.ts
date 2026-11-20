@@ -1904,6 +1904,28 @@ describe('a yen spend a card kept to CAD paid', () => {
     expect(row).not.toHaveProperty('charged')
   })
 
+  test('from a card kept to no currency, its leg says what it paid in: 40 CAD makes it plain', () => {
+    const ledger = tempLedger()
+    const visa = anAccount({ path: 'liabilities:visa', kind: 'card', currency: null })
+    const fx = anAccount({ path: 'equity:conversion', kind: 'conversion' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const spend = aSpend(visa.id, food.id, '36.20', {
+      description: 'Dinner',
+      postings: [
+        { accountId: food.id, amount: '4000.00', currency: 'JPY' },
+        { accountId: fx.id, amount: '-4000.00', currency: 'JPY' },
+        { accountId: fx.id, amount: '36.20', currency: 'CAD' },
+        { accountId: visa.id, amount: '-36.20', currency: 'CAD' },
+      ],
+    })
+    ok(applyLocal(ledger, [visa, fx, food, spend], NOW))
+    const { ctx } = setup(ledger)
+
+    ok(editSpend(ctx, { id: spend.id, amount: '40', currency: 'CAD', description: 'Dinner' }))
+
+    expect(postingLines(ledger, spend.id)).toEqual(['food 40.00 CAD', 'visa -40.00 CAD'])
+  })
+
   test('an amount in a third currency: converted from the same charge', () => {
     const { ledger, ctx, id } = dinner()
 
@@ -1941,6 +1963,20 @@ describe('a yen spend a card kept to CAD paid', () => {
       amount: '4500.00',
       currency: 'JPY',
     })
+  })
+
+  test('made plain and refiled in one edit: the dollars go to the new category', () => {
+    const { ledger, ctx, id } = dinner()
+    const input = { id, amount: '40', currency: 'CAD', description: 'Dinner' }
+
+    ok(editSpend(ctx, { ...input, to: { category: 'drinks' } }))
+
+    const drinks = accountAt(ledger, 'expenses:drinks')
+    const visa = accountAt(ledger, 'liabilities:visa')
+    expect(spendOf(ledger, id).postings).toEqual([
+      { accountId: drinks.id, amount: '40.00', currency: 'CAD' },
+      { accountId: visa.id, amount: '-40.00', currency: 'CAD' },
+    ])
   })
 
   test('postings written card first keep their places through a new amount', () => {

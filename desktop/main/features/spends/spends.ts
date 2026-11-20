@@ -176,9 +176,8 @@ function edit(
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
   const fx = shape.shape === 'converted' ? shape : null
-  const paid = fx?.from
   const currency = input.currency ?? simple.currency
-  const keepsCharge = paid !== undefined && currency !== paid.currency
+  const keepsCharge = fx !== null && currency !== fx.from.currency
   if (!keepsCharge && input.charged !== undefined) {
     return refused(failure('CHARGED_INVALID', { charged: input.charged }))
   }
@@ -189,12 +188,12 @@ function edit(
   if (!fitsCurrency(cents, currency)) {
     return refused(failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency }))
   }
-  const charge =
-    paid !== undefined && input.charged !== undefined
-      ? chargedOf(input.charged, paid.currency)
-      : { ok: true as const, value: -(paid?.cents ?? 0) }
-  if (!charge.ok) return refused(charge)
-  const chargeCents = charge.value
+  let chargeCents = fx === null ? 0 : -fx.from.cents
+  if (fx !== null && input.charged !== undefined) {
+    const read = chargedOf(input.charged, fx.from.currency)
+    if (!read.ok) return refused(read)
+    chargeCents = read.value
+  }
 
   const now = ctx.now()
   // Only a spend, transfer or income can go elsewhere: a start's and an other's accounts stay.
@@ -221,16 +220,16 @@ function edit(
     description === doc.description &&
     moved.value.id === into &&
     date === doc.date &&
-    (paid === undefined || chargeCents === -paid.cents)
+    (fx === null || chargeCents === -fx.from.cents)
   ) {
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
   // Found by account and currency as it was before the edit, each posting keeps its place.
-  const is = (p: PostingDoc, accountId: string, currency: string) =>
-    p.accountId === accountId && p.currency === currency
+  const matches = (p: PostingDoc, accountId: string, postedIn: string) =>
+    p.accountId === accountId && p.currency === postedIn
   let postings: PostingDoc[]
-  if (fx === null || paid === undefined) {
+  if (fx === null) {
     postings = doc.postings.map((p) => {
       const positive = toCents(p.amount) > 0
       return {
@@ -242,17 +241,17 @@ function edit(
     })
   } else if (keepsCharge) {
     postings = doc.postings.map((p) => {
-      if (is(p, fx.to.accountId, fx.to.currency)) {
+      if (matches(p, fx.to.accountId, fx.to.currency)) {
         return { ...p, accountId: moved.value.id ?? p.accountId, amount: format(cents), currency }
       }
-      if (is(p, fx.via, fx.to.currency)) return { ...p, amount: format(-cents), currency }
-      if (is(p, fx.via, paid.currency)) return { ...p, amount: format(chargeCents) }
+      if (matches(p, fx.via, fx.to.currency)) return { ...p, amount: format(-cents), currency }
+      if (matches(p, fx.via, fx.from.currency)) return { ...p, amount: format(chargeCents) }
       return { ...p, amount: format(-chargeCents) }
     })
   } else {
     const to = { accountId: moved.value.id ?? fx.to.accountId, cents, currency }
     postings = postingsOf(
-      legsOf({ from: { accountId: paid.accountId, cents: -cents, currency }, to }),
+      legsOf({ from: { accountId: fx.from.accountId, cents: -cents, currency }, to }),
     )
   }
   const edited: TransactionDoc = { ...doc, date, description, postings }
