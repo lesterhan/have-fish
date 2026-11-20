@@ -32,6 +32,7 @@ describe('a spend as a sentence', () => {
     expect(values()).toEqual({
       description: 'Coffee',
       amount: '4.50',
+      charged: null,
       to: 'food',
       date: '2026-10-29',
     })
@@ -114,6 +115,57 @@ describe('a spend in another currency', () => {
 
   test('its amount left as it was, code and all, sends nothing', () => {
     expect(changeOf(YEN_SPEND, values(YEN_SPEND), 'amount', '1500 JPY', toOf)).toBeNull()
+  })
+})
+
+describe('a spend paid in another currency', () => {
+  /** ¥4,000 for dinner, which a card kept to CAD was charged 36.20 for. */
+  const DINNER = listed({
+    description: 'Dinner',
+    shape: 'converted',
+    amounts: [{ amount: '4000.00', currency: 'JPY' }],
+    simple: { amount: '4000.00', currency: 'JPY' },
+    charged: { amount: '36.20', currency: 'CAD' },
+  })
+
+  test('its charge starts as the figure it was charged, without its code', () => {
+    expect(values(DINNER).charged).toBe('36.20')
+  })
+
+  test('a spend that converts nothing has no charge', () => {
+    expect(values().charged).toBeNull()
+  })
+
+  test('a new charge sends the charge as typed, with the amount and no code', () => {
+    expect(changeOf(DINNER, values(DINNER), 'charged', '38.10', toOf)).toStrictEqual({
+      id: 'a',
+      amount: '4000',
+      description: 'Dinner',
+      charged: '38.10',
+    })
+  })
+
+  test('a new amount in its own currency sends no charge and no code', () => {
+    expect(changeOf(DINNER, values(DINNER), 'amount', '4500 jpy', toOf)).toStrictEqual({
+      id: 'a',
+      amount: '4500',
+      description: 'Dinner',
+    })
+  })
+
+  test('a new amount with no code sends the home currency and no charge', () => {
+    expect(changeOf(DINNER, values(DINNER), 'amount', '40', toOf)).toStrictEqual({
+      id: 'a',
+      amount: '40',
+      description: 'Dinner',
+      currency: 'CAD',
+    })
+  })
+
+  test('a new description sends no charge', () => {
+    expect(
+      changeOf(DINNER, values(DINNER), 'description', 'Dinner, Shinjuku', toOf),
+    ).not.toHaveProperty('charged')
   })
 })
 

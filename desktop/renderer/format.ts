@@ -55,9 +55,13 @@ export function moneyParts(
 export const amountsText = (amounts: readonly Money[], { code = false } = {}) =>
   amounts.map(({ amount, currency }) => money(amount, currency, { code })).join(' · ')
 
+/** An amount as a field holds it to type again, without its code: `1500`, `36.20`. */
+export const figureAsTyped = (amount: string, currency: string) =>
+  minorUnits(currency) === 0 ? amount.replace(/\.00$/, '') : amount
+
 /** An amount as a field holds it to type again: `1500 JPY`, `35.00 EUR`; home's goes bare. */
 export function asTyped(amount: string, currency: string): string {
-  const figure = minorUnits(currency) === 0 ? amount.replace(/\.00$/, '') : amount
+  const figure = figureAsTyped(amount, currency)
   return currency === HOME_CURRENCY ? figure : `${figure} ${currency}`
 }
 
