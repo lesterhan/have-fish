@@ -52,7 +52,7 @@ async function threeCurrencies() {
   return page
 }
 
-/** A list down which amounts line up: its rows, the cell naming each, the cell holding its amount. */
+/** A list whose amounts line up: its rows, the cell that names each, the cell with its amount. */
 type Column = { rows: string; name: string; amount: string }
 
 const LEDGER: Column = {
