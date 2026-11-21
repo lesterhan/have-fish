@@ -24,6 +24,9 @@ import {
 } from './app'
 
 const ARRIVED = `${WRITE} input[name=arrived]`
+const LEDGER = 'ol[aria-label=Ledger]'
+/** The path picker R opens on a row's To. */
+const TO_PICKER = '[role=listbox][aria-label="Your categories and accounts"]'
 /** What follows the arrived input in its part: the code it's in, where To is kept to one. */
 const arrivedCode = (page: Page) =>
   page.locator(ARRIVED).evaluate((input) => input.nextSibling?.textContent ?? '')
@@ -185,7 +188,7 @@ describe('an exchange refused or taken back', () => {
     await page.keyboard.press('Escape')
     await page.waitForSelector(WRITE, { state: 'detached' })
 
-    await page.locator('ol[aria-label=Ledger]').focus()
+    await page.locator(LEDGER).focus()
     await page.keyboard.press('Control+z')
 
     await expect.poll(() => rows(page)).toEqual([])
@@ -198,6 +201,21 @@ describe('an exchange refused or taken back', () => {
 
     await expect.poll(() => page.locator(ARRIVED).isVisible()).toBe(true)
     expect(await page.inputValue(ARRIVED)).toBe('')
+  })
+
+  test('R on its row in the Ledger opens no path picker: its To stays', async () => {
+    const page = await anExchange()
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
+    await page.locator(LEDGER).focus()
+
+    await page.keyboard.press('r')
+    // Two frames: past the tick that would draw the picker.
+    await page.evaluate(
+      () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    )
+
+    expect(await page.locator(`${LEDGER} ${TO_PICKER}`).count()).toBe(0)
   })
 
   test('Reports leaves it out: the tree has no category', async () => {
