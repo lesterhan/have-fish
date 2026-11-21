@@ -171,7 +171,7 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
       shape: shape.shape,
       amounts: movedIn(rows),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      ...(shape.shape === 'converted'
+      ...(shape.shape === 'converted' || shape.shape === 'exchange'
         ? { charged: { amount: format(-shape.from.cents), currency: shape.from.currency } }
         : {}),
       from: fromPath && nameOf(fromPath),

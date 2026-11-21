@@ -171,6 +171,7 @@
         id={chipId('amount')}
         label={words.chip.amount}
         figures
+        locked={transaction.shape === 'exchange'}
         changing={chip.part === 'amount'}
         saved={chip.justSaved === 'amount'}
         error={refused('amount')}
@@ -262,6 +263,7 @@
         <Chip
           id={chipId('to')}
           label={words.chip.to}
+          locked={transaction.shape === 'exchange'}
           changing={chip.part === 'to'}
           saved={chip.justSaved === 'to'}
           error={refused('to')}
@@ -297,6 +299,7 @@
           id={chipId('charged')}
           label={words.chip.charged}
           figures
+          locked={transaction.shape === 'exchange'}
           changing={chip.part === 'charged'}
           saved={chip.justSaved === 'charged'}
           error={refused('charged')}

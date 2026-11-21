@@ -20,6 +20,7 @@ export const spends = {
       charged: 'charged',
       description: 'description',
       to: 'to',
+      arrived: 'arrived',
     },
     /** The first time, with no accounts yet: examples in the format to type. */
     examples: {
@@ -29,9 +30,13 @@ export const spends = {
       charged: '36.20',
       description: 'coffee',
       to: 'expenses:food:coffee',
+      arrived: '80.00',
     },
     /** The charged part, read out: what the account paying was charged, in the one it holds. */
     chargedLabel: (code: string) => `charged, in ${code}`,
+    /** The arrived part, read out: in the code To is kept to, or typed with its own. */
+    arrivedLabel: (code: string | null) =>
+      code === null ? 'arrived, with its code' : `arrived, in ${code}`,
     /** What the date list is called, read out. */
     dateList: 'Days it can read',
     /** Two words of why a part was refused; the input is underlined red beside them. */

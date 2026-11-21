@@ -23,6 +23,16 @@ const DINNER: ListedTransaction = {
   simple: { amount: '4000.00', currency: 'JPY' },
   charged: { amount: '36.20', currency: 'CAD' },
 }
+/** 100 CAD from wise:cad that arrived in wise:eur as 80 EUR. */
+const EXCHANGE: ListedTransaction = {
+  ...spend,
+  description: 'Wise',
+  shape: 'exchange',
+  simple: { amount: '80.00', currency: 'EUR' },
+  charged: { amount: '100.00', currency: 'CAD' },
+  from: 'wise:cad',
+  to: 'wise:eur',
+}
 const toOf = (typed: string) => ({ category: typed })
 const TODAY = '2026-10-30'
 
@@ -101,5 +111,19 @@ describe('a spend paid in another currency', () => {
 
   test('opens its other chips: To holds its category', () => {
     expect(opened(closed, DINNER, 'to')).toMatchObject({ part: 'to', value: 'food' })
+  })
+})
+
+describe('an exchange', () => {
+  test.each(['amount', 'charged', 'to'] as const)('keeps its %s chip closed', (part) => {
+    expect(opened(closed, EXCHANGE, part)).toBe(closed)
+  })
+
+  test('opens its description chip', () => {
+    expect(opened(closed, EXCHANGE, 'description')).toMatchObject({ part: 'description' })
+  })
+
+  test('opens its date chip', () => {
+    expect(opened(closed, EXCHANGE, 'date')).toMatchObject({ part: 'date' })
   })
 })

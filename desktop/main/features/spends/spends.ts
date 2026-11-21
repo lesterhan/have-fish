@@ -6,7 +6,7 @@ import { pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import { fitsCurrency, isValidCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, PostingDoc, TransactionDoc } from '@have-fish/core/documents'
-import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
+import { format, parseTyped, splitCode, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { CONVERSION, INCOME, UNSORTED, WALLET } from '@have-fish/core/own-accounts'
 import { amountOf, legsOf, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
@@ -25,6 +25,8 @@ import { applyKeeping, type Change, record } from '../../undo/steps'
  * to, else the one the account it goes to is kept to, else the home currency. Paid from an
  * account kept to another currency into a category, it goes through the conversion account, from
  * what the account was charged.
+ * Into an account of mine kept to another currency, or within one account that holds any, it
+ * exchanges through the conversion account, from what arrived.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
@@ -53,16 +55,31 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   if (income && 'category' in goesTo) {
     return failure('INCOME_NOT_TO_ACCOUNT', { accountId: from.value.id })
   }
-  const to = destination(ctx.ledger.db, goesTo, from.value.id, made)
+  const sameAccount = from.value.id === ('account' in goesTo ? goesTo.account : null)
+  const itself =
+    sameAccount && input.arrived !== undefined && from.value.currency === null && code !== undefined
+  if (sameAccount && !itself && input.arrived !== undefined) {
+    return failure('ARRIVED_INVALID', { arrived: input.arrived })
+  }
+  const to: Outcome<End> = itself
+    ? { ok: true, value: { id: from.value.id, currency: from.value.currency, made: [] } }
+    : destination(ctx.ledger.db, goesTo, from.value.id, made)
   if (!to.ok) return to
   const currency = code ?? from.value.currency ?? to.value.currency ?? HOME_CURRENCY
   if (!fitsCurrency(cents, currency)) {
     return failure('AMOUNT_TOO_PRECISE', { amount: input.amount, currency })
   }
+  const exchanging =
+    !income &&
+    'account' in goesTo &&
+    (itself || (to.value.currency !== null && to.value.currency !== currency))
   const keptTo = income ? null : from.value.currency
   const converting = keptTo !== null && keptTo !== currency && 'category' in goesTo
   if (!converting && input.charged !== undefined) {
     return failure('CHARGED_INVALID', { charged: input.charged })
+  }
+  if (!exchanging && input.arrived !== undefined) {
+    return failure('ARRIVED_INVALID', { arrived: input.arrived })
   }
   const into = { accountId: to.value.id, cents, currency }
   let legs: ShapeLeg[]
@@ -73,6 +90,16 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     const via = accountFor(ctx.ledger.db, CONVERSION, made)
     const paid = { accountId: from.value.id, cents: -charged.value, currency: keptTo }
     legs = legsOf({ from: paid, to: into, via: via.id })
+    conversion = via.made
+  } else if (exchanging) {
+    const got = arrivedOf(input.arrived, to.value.currency, currency)
+    if (!got.ok) return got
+    const via = accountFor(ctx.ledger.db, CONVERSION, made)
+    legs = legsOf({
+      from: { accountId: from.value.id, cents: -cents, currency },
+      to: { accountId: to.value.id, cents: got.value.cents, currency: got.value.currency },
+      via: via.id,
+    })
     conversion = via.made
   } else {
     legs = legsOf({ from: { accountId: from.value.id, cents: -cents, currency }, to: into })
@@ -175,6 +202,15 @@ function edit(
   )
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  // An exchange keeps its amounts and accounts: only its description and day change.
+  if (
+    shape.shape === 'exchange' &&
+    (cents !== simple.cents ||
+      (input.currency !== undefined && input.currency !== simple.currency) ||
+      input.to !== undefined)
+  ) {
+    return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
+  }
   const fx = shape.shape === 'converted' ? shape : null
   const currency = input.currency ?? simple.currency
   const keepsCharge = fx !== null && currency !== fx.from.currency
@@ -226,7 +262,9 @@ function edit(
   }
 
   let postings: PostingDoc[]
-  if (fx === null) {
+  if (shape.shape === 'exchange') {
+    postings = doc.postings
+  } else if (fx === null) {
     postings = doc.postings.map((p) => {
       const positive = toCents(p.amount) > 0
       return {
@@ -326,6 +364,30 @@ function chargedOf(typed: string | undefined, currency: string): Outcome<number>
     return failure('CHARGED_INVALID', { charged: typed })
   }
   return cents
+}
+
+/** What arrived, as typed: in its code, else its account's lock, and never the one sent. */
+function arrivedOf(
+  typed: string | undefined,
+  keptTo: string | null,
+  sent: string,
+): Outcome<{ cents: number; currency: string }> {
+  if (typed === undefined) return failure('ARRIVED_INVALID', { arrived: '' })
+  const { amount, currency: code } = splitCode(typed)
+  const currency = code ?? keptTo
+  if (
+    currency === null ||
+    !isValidCurrency(currency) ||
+    currency === sent ||
+    (keptTo !== null && currency !== keptTo)
+  ) {
+    return failure('ARRIVED_INVALID', { arrived: typed })
+  }
+  const cents = spendAmount(amount)
+  if (!cents.ok || !fitsCurrency(cents.value, currency)) {
+    return failure('ARRIVED_INVALID', { arrived: typed })
+  }
+  return { ok: true, value: { cents: cents.value, currency } }
 }
 
 /** A spend's amount as typed, in cents: a number, and more than zero. */

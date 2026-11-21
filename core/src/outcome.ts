@@ -26,6 +26,8 @@ export interface FailureDetails {
   AMOUNT_NOT_POSITIVE: { amount: string }
   /** What the account paying was charged: missing, not an amount, or where nothing converts. */
   CHARGED_INVALID: { charged: string }
+  /** What arrived between my accounts: missing, not an amount, or where nothing exchanges. */
+  ARRIVED_INVALID: { arrived: string }
   /** An amount with cents in a currency that has none: ¥1,500.50. */
   AMOUNT_TOO_PRECISE: { amount: string; currency: string }
   /** A rate that isn't a positive decimal, or has a part past what a rate can hold. */

@@ -119,7 +119,7 @@ describe('shapeOf', () => {
   })
 
   it('two currencies are other, with no one amount', () => {
-    const legs = [leg('c', 1000, 'JPY'), leg('x', -1000, 'JPY'), leg('x', 9), leg('b', -9)]
+    const legs = [leg('i', 1000, 'JPY'), leg('x', -1000, 'JPY'), leg('x', 9), leg('b', -9)]
     expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
   })
 
@@ -208,6 +208,41 @@ describe('shapeOf', () => {
     expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
   })
 
+  it('money from cash into euros in a bank, through the conversion account, is an exchange', () => {
+    const legs = [leg('b', 8000, 'EUR'), leg('x', -8000, 'EUR'), leg('x', 10000), leg('c', -10000)]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'exchange',
+      from: leg('c', -10000),
+      to: leg('b', 8000, 'EUR'),
+      via: 'x',
+    })
+  })
+
+  it('dollars into euros inside one bank, through the conversion account, is an exchange', () => {
+    const legs = [leg('b', 8000, 'EUR'), leg('x', -8000, 'EUR'), leg('x', 10000), leg('b', -10000)]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'exchange',
+      from: leg('b', -10000),
+      to: leg('b', 8000, 'EUR'),
+      via: 'x',
+    })
+  })
+
+  it('an exchange reads the same with its paying leg first and its getting leg last', () => {
+    const legs = [leg('c', -10000), leg('x', -8000, 'EUR'), leg('x', 10000), leg('b', 8000, 'EUR')]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'exchange',
+      from: leg('c', -10000),
+      to: leg('b', 8000, 'EUR'),
+      via: 'x',
+    })
+  })
+
+  it('four legs between my accounts through the conversion account in one currency are other', () => {
+    const legs = [leg('b', 10000), leg('x', -10000), leg('x', 10000), leg('c', -10000)]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
   it('the legs in either order give the same shape', () => {
     expect(shapeOf([leg('c', -450), leg('f', 450)], kindOf)).toEqual({
       shape: 'spend',
@@ -273,5 +308,15 @@ describe('amountOf', () => {
       via: 'x',
     }
     expect(amountOf(converted)).toEqual({ cents: 400000, currency: 'JPY' })
+  })
+
+  it('an exchange’s amount is what arrived, the euros', () => {
+    const exchange: Shape = {
+      shape: 'exchange',
+      from: leg('c', -10000),
+      to: leg('b', 8000, 'EUR'),
+      via: 'x',
+    }
+    expect(amountOf(exchange)).toEqual({ cents: 8000, currency: 'EUR' })
   })
 })

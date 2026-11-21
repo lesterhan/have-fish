@@ -106,6 +106,16 @@ describe('a charge refused', () => {
   })
 })
 
+describe('an arrival refused', () => {
+  test('is the arrived part’s', () => {
+    expect(fieldOf(refused('ARRIVED_INVALID', { arrived: '' }))).toBe('arrived')
+  })
+
+  test('says what arrived is not an amount', () => {
+    expect(composerWordsFor(refused('ARRIVED_INVALID', { arrived: '' }))).toBe('not an amount')
+  })
+})
+
 describe('the composer’s two words', () => {
   test('say which part, in the words the line has room for', () => {
     expect(composerWordsFor(refused('AMOUNT_INVALID', { amount: 'abc' }))).toBe('not an amount')

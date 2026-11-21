@@ -5,15 +5,16 @@ import { addDays } from '@have-fish/core/calendar-date'
 import { splitCode } from '@have-fish/core/money'
 import { dateFrom } from '@have-fish/core/typed-date'
 import type { From, ListedAccount, To } from '../../shared/commands'
+import { HOME_CURRENCY } from '../../shared/currency'
 
 /** The parts, in the order you think of them. */
-export const PARTS = ['from', 'date', 'amount', 'charged', 'description', 'to'] as const
+export const PARTS = ['from', 'date', 'amount', 'charged', 'description', 'to', 'arrived'] as const
 
 export type Part = (typeof PARTS)[number]
 
-/** The parts the line shows: Charged only while it asks what the account paying was charged. */
-export const partsShown = (charging: boolean): readonly Part[] =>
-  charging ? PARTS : PARTS.filter((p) => p !== 'charged')
+/** The parts the line shows: Charged and Arrived only while it asks for each. */
+export const partsShown = (charging: boolean, arriving = false): readonly Part[] =>
+  PARTS.filter((p) => (p !== 'charged' || charging) && (p !== 'arrived' || arriving))
 
 const placeOf = (part: Part) => PARTS.indexOf(part)
 
@@ -52,7 +53,7 @@ export function tabMark(
 /**
  * The currency the account paying is kept to, when the amount is typed in another and goes to a
  * category: what the line asks it was charged in. Null for income, an account holding any
- * currency, no code typed, or To an account of mine, which main refuses as currency locked.
+ * currency, no code typed, or To an account of mine.
  */
 export function chargedIn(
   accounts: readonly ListedAccount[],
@@ -65,6 +66,32 @@ export function chargedIn(
   const typed = splitCode(amount).currency
   const keptTo = account?.currency ?? null
   return keptTo !== null && typed !== undefined && typed !== keptTo ? keptTo : null
+}
+
+/** What the line asks arrived in: To's code, or null where To holds any currency. */
+export type Arrival = { code: string | null }
+
+/**
+ * What the line asks arrived, where main exchanges: To an account of mine kept to a currency other
+ * than the amount's, or the account it comes from holding any, with a code typed. From null is the
+ * wallet main makes, which holds any. Null for income, To a category, and the rest.
+ */
+export function arrivedIn(
+  accounts: readonly ListedAccount[],
+  from: From,
+  to: To,
+  amount: string,
+): Arrival | null {
+  if (!('account' in to) || (typeof from === 'object' && from !== null)) return null
+  const paying = accounts.find((a) => a.id === from)
+  const getting = accounts.find((a) => a.id === to.account)
+  const typed = splitCode(amount).currency
+  const currency = typed ?? paying?.currency ?? getting?.currency ?? HOME_CURRENCY
+  if (to.account === from) {
+    return paying?.currency === null && typed !== undefined ? { code: null } : null
+  }
+  const keptTo = getting?.currency ?? null
+  return keptTo !== null && keptTo !== currency ? { code: keptTo } : null
 }
 
 /** A day the date list offers: the shorthand, and the day it means. */

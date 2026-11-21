@@ -139,10 +139,15 @@
     return undefined
   }
 
-  /** R: the selected row's To becomes a path picker. Only a spend of one amount can move. */
+  /**
+   * R: the selected row's To becomes a path picker. Only a spend of one amount can move, never an
+   * exchange.
+   */
   export function refile(): boolean {
     const t = selected()
-    if (t === undefined || t.simple === null || onrefile === undefined) return false
+    if (t === undefined || t.simple === null || t.shape === 'exchange' || onrefile === undefined) {
+      return false
+    }
     refiling = t.id
     refileText = t.to ?? ''
     void tick().then(() => refilePicker?.focus())
