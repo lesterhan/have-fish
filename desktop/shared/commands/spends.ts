@@ -44,6 +44,8 @@ export const spendInputs = {
     currency: typed(64).optional(),
     /** What the account paying gave, in its one currency, when the spend is in another. */
     charged: typed(64).optional(),
+    /** What arrived, as typed, when money moves to an account of mine in another currency. */
+    arrived: typed(64).optional(),
     description: typed(500),
     from: from.default(null),
     /** Left out: unsorted. */
@@ -98,13 +100,19 @@ export type ListedTransaction = {
   id: string
   date: string
   description: string
-  /** What it is: a spend, a converted spend, a transfer, income, a starting balance, or other. */
+  /**
+   * What it is: a spend, a converted spend, an exchange, a transfer, income, a starting balance,
+   * or other.
+   */
   shape: ShapeName
   /** What it moved: the sum of its positive postings in each currency, by currency code. */
   amounts: Money[]
   /** The one amount it was written in, the yen of a converted spend too; null when it has none. */
   simple: Money | null
-  /** What paid for it, when it was paid in another currency: the card's CAD for a yen dinner. */
+  /**
+   * What paid for it in another currency: a card's CAD for a yen dinner, or the CAD an exchange
+   * sent.
+   */
   charged?: Money
   /**
    * For a spend, transfer or income, the name of the account of mine or income source it came out

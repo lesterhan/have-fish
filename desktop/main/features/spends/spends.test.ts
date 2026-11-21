@@ -13,6 +13,7 @@ import { getDocument } from '../../ledger/store'
 import { redoLast, undoLast } from '../../undo/steps'
 import { addAccount, listAccounts } from '../accounts/accounts'
 import { listPaths } from '../paths/paths'
+import { spendingIn } from '../reports/reports'
 import { assumedFrom, editSpend, removeSpend, writeSpend } from './spends'
 import { listTransactions } from './transactions'
 
@@ -1229,23 +1230,6 @@ describe('moving money between my accounts', () => {
     expect(spendOf(ledger, id).postings.map((p) => p.currency)).toEqual(['USD', 'USD'])
   })
 
-  test('between two kept to different currencies, the ledger refuses it', () => {
-    const { ledger, ctx } = setup()
-    const cad = ok(addAccount(ctx, { name: 'cad', kind: 'bank', currency: 'CAD' }))
-    const eur = ok(addAccount(ctx, { name: 'eur', kind: 'bank', currency: 'EUR' }))
-
-    expect(
-      writeSpend(ctx, { amount: '20', description: 'x', from: cad.id, to: { account: eur.id } }),
-    ).toEqual({
-      ok: false,
-      failure: {
-        code: 'ACCOUNT_CURRENCY_LOCKED',
-        details: { accountId: eur.id, currency: 'CAD', locked: 'EUR' },
-      },
-    })
-    expect(listTransactions(ledger.db)).toEqual([])
-  })
-
   test('to the account it comes from: refused, and nothing remembered', () => {
     const { ledger, ctx, chequing, wallet } = twoAccounts()
     ctx.machine.usedFrom(wallet)
@@ -2197,5 +2181,256 @@ describe('a yen spend a card kept to CAD paid', () => {
       failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
     })
     expect(spendOf(ledger, id)).toEqual(before.doc)
+  })
+})
+
+describe('money exchanged between my accounts', () => {
+  /** wise:cad kept to CAD and wise:eur kept to EUR, as at Wise. */
+  function withWise() {
+    const set = setup()
+    const cad = ok(addAccount(set.ctx, { name: 'wise:cad', kind: 'bank', currency: 'CAD' })).id
+    const eur = ok(addAccount(set.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR' })).id
+    return { ...set, cad, eur }
+  }
+
+  /** wise, one account that holds any currency. */
+  function withOneWise() {
+    const set = setup()
+    const wise = ok(addAccount(set.ctx, { name: 'wise', kind: 'bank', currency: null })).id
+    return { ...set, wise }
+  }
+
+  /** 100 CAD changed into 80 EUR, from wise:cad to wise:eur. */
+  const changed = (from: string, eur: string) => ({
+    amount: '100',
+    description: '',
+    from,
+    to: { account: eur },
+    arrived: '80',
+  })
+
+  /** The four postings of 100 CAD from `from` arriving as 80 EUR in `to`. */
+  function exchanged(ledger: Ledger, from: string, to: string) {
+    const fx = accountAt(ledger, 'equity:conversion').id
+    return [
+      { accountId: to, amount: '80.00', currency: 'EUR' },
+      { accountId: fx, amount: '-80.00', currency: 'EUR' },
+      { accountId: fx, amount: '100.00', currency: 'CAD' },
+      { accountId: from, amount: '-100.00', currency: 'CAD' },
+    ]
+  }
+
+  const arrivedRefused = (arrived: string) => ({
+    ok: false,
+    failure: { code: 'ARRIVED_INVALID', details: { arrived } },
+  })
+
+  test('100 from wise:cad arriving as 80 in wise:eur goes through the conversion account', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+
+    const { id } = ok(writeSpend(ctx, changed(cad, eur)))
+
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, cad, eur))
+  })
+
+  test('100 cad from a wallet that holds any currency arriving as 80 in wise:eur', () => {
+    const { ledger, ctx, eur } = withWise()
+    const wallet = ok(addAccount(ctx, { name: 'wallet', kind: 'cash', currency: null })).id
+
+    const { id } = ok(writeSpend(ctx, { ...changed(wallet, eur), currency: 'CAD' }))
+
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, wallet, eur))
+  })
+
+  test('100 cad arriving as 80 eur inside wise, which holds any currency', () => {
+    const { ledger, ctx, wise } = withOneWise()
+
+    const { id } = ok(
+      writeSpend(ctx, { ...changed(wise, wise), currency: 'CAD', arrived: '80 eur' }),
+    )
+
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, wise, wise))
+  })
+
+  test('inside wise with From left out, the account used last exchanges as if named', () => {
+    const { ledger, ctx, wise } = withOneWise()
+    ctx.machine.usedFrom(wise)
+    const { from: _, ...unnamed } = changed(wise, wise)
+
+    const { id } = ok(writeSpend(ctx, { ...unnamed, currency: 'CAD', arrived: '80 eur' }))
+
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, wise, wise))
+  })
+
+  test('arrived typed with the code wise:eur is kept to is taken as without it', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+
+    const { id } = ok(writeSpend(ctx, { ...changed(cad, eur), arrived: '80 eur' }))
+
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, cad, eur))
+  })
+
+  test('the first exchange makes the conversion account, and the second goes through it', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+    const before = Number(count(ledger, 'accounts'))
+
+    ok(writeSpend(ctx, changed(cad, eur)))
+    expect(count(ledger, 'accounts')).toBe(before + 1)
+    const { id } = ok(writeSpend(ctx, changed(cad, eur)))
+
+    expect(count(ledger, 'accounts')).toBe(before + 1)
+    expect(pathsOf(ledger, 'conversion')).toEqual(['equity:conversion'])
+    expect(spendOf(ledger, id).postings).toEqual(exchanged(ledger, cad, eur))
+  })
+
+  test('with arrived left out, nothing is saved, the conversion account included', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+    const { arrived: _, ...unarrived } = changed(cad, eur)
+    const accounts = count(ledger, 'accounts')
+
+    expect(writeSpend(ctx, unarrived)).toEqual(arrivedRefused(''))
+    expect(count(ledger, 'accounts')).toBe(accounts)
+  })
+
+  test('arrived that is not an amount is refused', () => {
+    const { ctx, cad, eur } = withWise()
+
+    expect(writeSpend(ctx, { ...changed(cad, eur), arrived: 'abc' })).toEqual(arrivedRefused('abc'))
+  })
+
+  test('nothing arrived is refused', () => {
+    const { ctx, cad, eur } = withWise()
+
+    expect(writeSpend(ctx, { ...changed(cad, eur), arrived: '0' })).toEqual(arrivedRefused('0'))
+  })
+
+  test('arrived in a currency other than wise:eur is kept to is refused', () => {
+    const { ctx, cad, eur } = withWise()
+
+    expect(writeSpend(ctx, { ...changed(cad, eur), arrived: '80 usd' })).toEqual(
+      arrivedRefused('80 usd'),
+    )
+  })
+
+  test('arrived in the currency it was sent in is refused', () => {
+    const { ctx, wise } = withOneWise()
+    const input = { ...changed(wise, wise), currency: 'CAD', arrived: '80 cad' }
+
+    expect(writeSpend(ctx, input)).toEqual(arrivedRefused('80 cad'))
+  })
+
+  test('arrived with no code inside an account that holds any currency is refused', () => {
+    const { ctx, wise } = withOneWise()
+
+    expect(writeSpend(ctx, { ...changed(wise, wise), currency: 'CAD' })).toEqual(
+      arrivedRefused('80'),
+    )
+  })
+
+  test('arrived with cents in a currency that has none is refused', () => {
+    const { ctx, cad } = withWise()
+    const jpy = ok(addAccount(ctx, { name: 'wise:jpy', kind: 'bank', currency: 'JPY' })).id
+
+    expect(writeSpend(ctx, { ...changed(cad, jpy), arrived: '8000.5' })).toEqual(
+      arrivedRefused('8000.5'),
+    )
+  })
+
+  test('arrived into an account kept to the currency sent is refused: nothing exchanges', () => {
+    const { ctx, cad } = withWise()
+    const chequing = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' })).id
+
+    expect(writeSpend(ctx, changed(cad, chequing))).toEqual(arrivedRefused('80'))
+  })
+
+  test('arrived on a spend to a category is refused', () => {
+    const { ctx, cad } = withWise()
+    const input = { ...changed(cad, cad), to: { category: 'food' } }
+
+    expect(writeSpend(ctx, input)).toEqual(arrivedRefused('80'))
+  })
+
+  test('income in CAD into wise:eur is still refused as locked', () => {
+    const { ctx, eur } = withWise()
+    const input = {
+      amount: '100',
+      currency: 'CAD',
+      description: '',
+      from: { income: 'salary' },
+      to: { account: eur },
+    }
+
+    expect(writeSpend(ctx, input)).toEqual({
+      ok: false,
+      failure: {
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId: eur, currency: 'CAD', locked: 'EUR' },
+      },
+    })
+  })
+
+  test('an undo takes the exchange back whole', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+    ok(writeSpend(ctx, changed(cad, eur)))
+    expect(listTransactions(ledger.db)).toHaveLength(1)
+
+    ok(undoLast(ctx))
+
+    expect(listTransactions(ledger.db)).toEqual([])
+  })
+
+  test('is listed as an exchange of what arrived, charged what was sent', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+
+    ok(writeSpend(ctx, changed(cad, eur)))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      shape: 'exchange',
+      simple: { amount: '80.00', currency: 'EUR' },
+      charged: { amount: '100.00', currency: 'CAD' },
+    })
+  })
+
+  test('is not spending: its week reports nothing spent and nothing in other currencies', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+
+    ok(writeSpend(ctx, { ...changed(cad, eur), date: '2026-10-28' }))
+
+    expect(ok(spendingIn(ledger.db, { start: '2026-10-26', end: '2026-11-01' }))).toMatchObject({
+      spent: [],
+      other: [],
+    })
+  })
+
+  test('its description changes and its four postings stay as written', () => {
+    const { ledger, ctx, cad, eur } = withWise()
+    const { id } = ok(writeSpend(ctx, changed(cad, eur)))
+
+    ok(editSpend(ctx, { id, amount: '80', description: 'Wise' }))
+
+    expect(spendOf(ledger, id)).toMatchObject({
+      description: 'Wise',
+      postings: exchanged(ledger, cad, eur),
+    })
+  })
+
+  test('a new amount is refused as not simple', () => {
+    const { ctx, cad, eur } = withWise()
+    const { id } = ok(writeSpend(ctx, changed(cad, eur)))
+
+    expect(editSpend(ctx, { id, amount: '90', description: '' })).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
+    })
+  })
+
+  test('moved to another account of mine, it is refused as not simple', () => {
+    const { ctx, cad, eur } = withWise()
+    const chequing = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: null })).id
+    const { id } = ok(writeSpend(ctx, changed(cad, eur)))
+
+    expect(
+      editSpend(ctx, { id, amount: '80', description: '', to: { account: chequing } }),
+    ).toEqual({ ok: false, failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } } })
   })
 })
