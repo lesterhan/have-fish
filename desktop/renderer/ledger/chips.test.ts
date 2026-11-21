@@ -122,4 +122,8 @@ describe('an exchange', () => {
   test('opens its description chip', () => {
     expect(opened(closed, EXCHANGE, 'description')).toMatchObject({ part: 'description' })
   })
+
+  test('opens its date chip', () => {
+    expect(opened(closed, EXCHANGE, 'date')).toMatchObject({ part: 'date' })
+  })
 })

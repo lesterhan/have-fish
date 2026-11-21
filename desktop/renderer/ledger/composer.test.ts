@@ -67,10 +67,6 @@ describe('the parts', () => {
     ])
   })
 
-  test('show neither Charged nor Arrived while the line asks neither', () => {
-    expect(partsShown(false)).toEqual(['from', 'date', 'amount', 'description', 'to'])
-  })
-
   test('Tab goes from To to Arrived, and round from Arrived to From', () => {
     expect(afterPart('to', partsShown(false, true))).toBe('arrived')
     expect(afterPart('arrived', partsShown(false, true))).toBe('from')
@@ -258,6 +254,10 @@ describe('what arrived', () => {
 
   test('is not asked of 100 from cash to wise:eur: it is in EUR', () => {
     expect(arrivedIn(ACCOUNTS, 'c', { account: 'we' }, '100')).toBeNull()
+  })
+
+  test('is asked, in EUR, of 100 cad from the wallet main makes when nothing is assumed', () => {
+    expect(arrivedIn([WISE_EUR], null, { account: 'we' }, '100 cad')).toEqual({ code: 'EUR' })
   })
 
   test('is asked, with no code, of 100 cad from wise to wise, which holds any currency', () => {

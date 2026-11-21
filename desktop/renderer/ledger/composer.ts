@@ -73,7 +73,8 @@ export type Arrival = { code: string | null }
 
 /**
  * What the line asks arrived, where main exchanges: To an account of mine kept to a currency other
- * than the amount's, or the account it comes from holding any, with a code typed. Else null.
+ * than the amount's, or the account it comes from holding any, with a code typed. From null is the
+ * wallet main makes, which holds any. Null for income, To a category, and the rest.
  */
 export function arrivedIn(
   accounts: readonly ListedAccount[],
@@ -81,7 +82,7 @@ export function arrivedIn(
   to: To,
   amount: string,
 ): Arrival | null {
-  if (!('account' in to) || typeof from !== 'string') return null
+  if (!('account' in to) || (typeof from === 'object' && from !== null)) return null
   const paying = accounts.find((a) => a.id === from)
   const getting = accounts.find((a) => a.id === to.account)
   const typed = splitCode(amount).currency
