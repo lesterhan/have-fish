@@ -55,8 +55,12 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   if (income && 'category' in goesTo) {
     return failure('INCOME_NOT_TO_ACCOUNT', { accountId: from.value.id })
   }
+  const sameAccount = 'account' in goesTo && goesTo.account === from.value.id
   const itself =
-    'account' in goesTo && goesTo.account === from.value.id && input.arrived !== undefined
+    sameAccount && input.arrived !== undefined && from.value.currency === null && code !== undefined
+  if (sameAccount && !itself && input.arrived !== undefined) {
+    return failure('ARRIVED_INVALID', { arrived: input.arrived })
+  }
   const to: Outcome<End> = itself
     ? { ok: true, value: { id: from.value.id, currency: from.value.currency, made: [] } }
     : destination(ctx.ledger.db, goesTo, from.value.id, made)

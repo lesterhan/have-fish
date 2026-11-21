@@ -2369,6 +2369,24 @@ describe('money exchanged between my accounts', () => {
     expect(writeSpend(ctx, input)).toEqual(arrivedRefused('80'))
   })
 
+  test('within wise with no code on the amount, arrived is refused and nothing saved', () => {
+    const { ledger, ctx, wise } = withOneWise()
+    const accounts = count(ledger, 'accounts')
+
+    expect(writeSpend(ctx, { ...changed(wise, wise), arrived: '80 eur' })).toEqual(
+      arrivedRefused('80 eur'),
+    )
+    expect(listTransactions(ledger.db)).toEqual([])
+    expect(count(ledger, 'accounts')).toBe(accounts)
+  })
+
+  test('within wise:cad, kept to CAD, arrived is refused', () => {
+    const { ctx, cad } = withWise()
+    const input = { ...changed(cad, cad), currency: 'EUR' }
+
+    expect(writeSpend(ctx, input)).toEqual(arrivedRefused('80'))
+  })
+
   test('income in CAD into wise:eur is still refused as locked', () => {
     const { ctx, eur } = withWise()
     const input = {
