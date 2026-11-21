@@ -2295,7 +2295,7 @@ describe('money exchanged between my accounts', () => {
   test('arrived that is not an amount is refused', () => {
     const { ctx, cad, eur } = withWise()
 
-    expect(writeSpend(ctx, { ...changed(cad, eur), arrived: 'abc' })).toEqual(arrivedRefused('abc'))
+    expect(writeSpend(ctx, { ...changed(cad, eur), arrived: '8x0' })).toEqual(arrivedRefused('8x0'))
   })
 
   test('nothing arrived is refused', () => {
