@@ -7,8 +7,8 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { copy } from '../copy'
 import {
-  ADD_ACCOUNT,
   accountLines,
+  addAccount,
   aHome,
   BEHIND,
   chip,
@@ -28,7 +28,6 @@ import {
   WRITE,
 } from './app'
 
-const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 const AMOUNT = `${WRITE} input[name=amount]`
 const CHARGED = `${WRITE} input[name=charged]`
 /** The card's second sentence: what paid for it, and at what rate. */
@@ -37,18 +36,6 @@ const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
 const CHARGED_FIELD = `${PANE} input[name=charged]`
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
-
-/** Adds an account on the Accounts place, kept to `currency` if given, then back to the ledger. */
-async function addAccount(page: Page, name: string, kind: string, currency?: string) {
-  await goTo(page, 'Accounts')
-  await page.click(ADD_ACCOUNT)
-  await page.fill(`${ADDING} input[name=name]`, name)
-  await page.selectOption(`${ADDING} select[name=kind]`, kind)
-  if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
-  await page.locator(`${ADDING} input[name=name]`).press('Enter')
-  await page.waitForSelector(`ol[aria-label=Accounts] li[data-id]:has-text("${name}")`)
-  await goTo(page, 'Ledger')
-}
 
 /** A fresh app with visa, a card kept to CAD. */
 async function withVisa(): Promise<Page> {

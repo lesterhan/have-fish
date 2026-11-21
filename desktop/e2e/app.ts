@@ -155,6 +155,25 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
 
 /** Add account, where the accounts are listed: it opens the form. */
 export const ADD_ACCOUNT = 'role=button[name="Add account"s]'
+/** The form that adds an account, in its pane. */
+export const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
+
+/** Adds an account on the Accounts place, kept to `currency` if given, then back to the ledger. */
+export async function addAccount(page: Page, name: string, kind: string, currency?: string) {
+  await goTo(page, 'Accounts')
+  await page.click(ADD_ACCOUNT)
+  await page.fill(`${ADDING} input[name=name]`, name)
+  await page.selectOption(`${ADDING} select[name=kind]`, kind)
+  if (currency !== undefined) await page.selectOption(`${ADDING} select[name=currency]`, currency)
+  await page.locator(`${ADDING} input[name=name]`).press('Enter')
+  // A child's line shows only its last part, after a colon: `wise:cad` is `:cad` under `wise`.
+  const line = name.includes(':') ? `:${name.split(':').at(-1)}` : name
+  await page.waitForSelector(
+    `ol[aria-label=Accounts] li[data-id] [data-cell=name]:text-is("${line}")`,
+  )
+  await goTo(page, 'Ledger')
+}
+
 /** The button that closes a pane, scoped to its pane. */
 export const BACK = 'role=button[name="Back to the list"s]'
 
