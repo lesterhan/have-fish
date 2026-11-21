@@ -7,6 +7,10 @@ describe('which way a row’s money went', () => {
     expect(wayOf('transfer')).toBe('between')
     for (const shape of ['spend', 'start', 'other'] as const) expect(wayOf(shape)).toBe('out')
   })
+
+  test('an exchange is between, as it moves between accounts of mine', () => {
+    expect(wayOf('exchange')).toBe('between')
+  })
 })
 
 describe('the days of a list held whole', () => {

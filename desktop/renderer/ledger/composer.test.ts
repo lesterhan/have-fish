@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import type { ListedAccount } from '../../shared/commands'
 import {
   after as afterPart,
+  arrivedIn,
   before as beforePart,
   chargedIn,
   dateSuggestions,
@@ -19,6 +20,7 @@ const values = (over: Partial<Record<Part, string>> = {}): Record<Part, string> 
   charged: '',
   description: '',
   to: '',
+  arrived: '',
   ...over,
 })
 
@@ -45,13 +47,33 @@ const CASH_LISTED: ListedAccount = {
 const FOOD = { category: 'food' }
 
 describe('the parts', () => {
-  test('read From, Date, Amount, Charged, Description, To', () => {
-    expect(PARTS).toEqual(['from', 'date', 'amount', 'charged', 'description', 'to'])
+  test('read From, Date, Amount, Charged, Description, To, Arrived', () => {
+    expect(PARTS).toEqual(['from', 'date', 'amount', 'charged', 'description', 'to', 'arrived'])
   })
 
   test('show Charged only while the line asks what was charged', () => {
     expect(partsShown(false)).toEqual(['from', 'date', 'amount', 'description', 'to'])
-    expect(partsShown(true)).toBe(PARTS)
+    expect(partsShown(true)).toEqual(['from', 'date', 'amount', 'charged', 'description', 'to'])
+  })
+
+  test('show Arrived while the line asks what arrived', () => {
+    expect(partsShown(false, true)).toEqual([
+      'from',
+      'date',
+      'amount',
+      'description',
+      'to',
+      'arrived',
+    ])
+  })
+
+  test('show neither Charged nor Arrived while the line asks neither', () => {
+    expect(partsShown(false)).toEqual(['from', 'date', 'amount', 'description', 'to'])
+  })
+
+  test('Tab goes from To to Arrived, and round from Arrived to From', () => {
+    expect(afterPart('to', partsShown(false, true))).toBe('arrived')
+    expect(afterPart('arrived', partsShown(false, true))).toBe('from')
   })
 
   test('Tab goes to the next part, and round from To to From', () => {
@@ -208,5 +230,61 @@ describe('the date list', () => {
 
   test('what it cannot read offers nothing', () => {
     expect(dateSuggestions('soon', today)).toEqual([])
+  })
+})
+
+describe('what arrived', () => {
+  /** An account of mine: `wise:cad`, kept to `currency` or holding any. */
+  const listed = (id: string, name: string, currency: string | null): ListedAccount => ({
+    ...CASH_LISTED,
+    id,
+    name,
+    kind: 'bank',
+    currency,
+  })
+  const WISE_CAD = listed('wc', 'wise:cad', 'CAD')
+  const WISE_EUR = listed('we', 'wise:eur', 'EUR')
+  const WISE = listed('w', 'wise', null)
+  const CHEQUING = listed('q', 'chequing', 'CAD')
+  const ACCOUNTS = [WISE_CAD, WISE_EUR, WISE, CHEQUING, CASH_LISTED]
+
+  test('is asked, in EUR, from wise:cad to wise:eur', () => {
+    expect(arrivedIn(ACCOUNTS, 'wc', { account: 'we' }, '100')).toEqual({ code: 'EUR' })
+  })
+
+  test('is asked, in EUR, of 100 cad from cash, which holds any currency, to wise:eur', () => {
+    expect(arrivedIn(ACCOUNTS, 'c', { account: 'we' }, '100 cad')).toEqual({ code: 'EUR' })
+  })
+
+  test('is not asked of 100 from cash to wise:eur: it is in EUR', () => {
+    expect(arrivedIn(ACCOUNTS, 'c', { account: 'we' }, '100')).toBeNull()
+  })
+
+  test('is asked, with no code, of 100 cad from wise to wise, which holds any currency', () => {
+    expect(arrivedIn(ACCOUNTS, 'w', { account: 'w' }, '100 cad')).toEqual({ code: null })
+  })
+
+  test('is not asked of 100 from wise to wise, with no code typed', () => {
+    expect(arrivedIn(ACCOUNTS, 'w', { account: 'w' }, '100')).toBeNull()
+  })
+
+  test('is not asked of 100 eur from wise:cad to itself, which is kept to CAD', () => {
+    expect(arrivedIn(ACCOUNTS, 'wc', { account: 'wc' }, '100 eur')).toBeNull()
+  })
+
+  test('is not asked of 100 cad from cash to wise, both holding any currency', () => {
+    expect(arrivedIn(ACCOUNTS, 'c', { account: 'w' }, '100 cad')).toBeNull()
+  })
+
+  test('is not asked between wise:cad and chequing, both kept to CAD', () => {
+    expect(arrivedIn(ACCOUNTS, 'wc', { account: 'q' }, '100')).toBeNull()
+  })
+
+  test('is not asked of a spend to a category', () => {
+    expect(arrivedIn(ACCOUNTS, 'wc', FOOD, '100')).toBeNull()
+  })
+
+  test('is not asked of income into wise:eur', () => {
+    expect(arrivedIn(ACCOUNTS, { income: 'salary' }, { account: 'we' }, '100 cad')).toBeNull()
   })
 })

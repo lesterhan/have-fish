@@ -9,6 +9,7 @@
   import type { ListedAccount, ListedPath } from '../../shared/commands'
   import {
     after,
+    arrivedIn,
     before,
     chargedIn,
     type DayChoice,
@@ -68,6 +69,7 @@
   let dateText = $state('')
   let amount = $state('')
   let charged = $state('')
+  let arrived = $state('')
   let description = $state('')
   let toText = $state('')
   /** The part the cursor is in, and the one Tab would mark. */
@@ -88,16 +90,15 @@
   let dateInput: HTMLInputElement | undefined = $state()
   let dateListbox: ReturnType<typeof Listbox<DayChoice>> | undefined = $state()
 
-  /** The currency the line asks the charge in; an empty From is the account main will assume. */
-  const chargedCode = $derived(
-    chargedIn(
-      accounts,
-      fromOf(accounts, fromText.trim() === '' ? (assumedName ?? '') : fromText),
-      toOf(accounts, toText),
-      amount,
-    ),
+  /** From as main reads it: an empty one is the account main will assume. */
+  const fromRead = $derived(
+    fromOf(accounts, fromText.trim() === '' ? (assumedName ?? '') : fromText),
   )
-  const shown = $derived(partsShown(chargedCode !== null))
+  /** The currency the line asks the charge in. */
+  const chargedCode = $derived(chargedIn(accounts, fromRead, toOf(accounts, toText), amount))
+  /** Whether the line asks what arrived, and in which code. */
+  const arrival = $derived(arrivedIn(accounts, fromRead, toOf(accounts, toText), amount))
+  const shown = $derived(partsShown(chargedCode !== null, arrival !== null))
 
   const values = $derived<Record<Part, string>>({
     from: fromText,
@@ -106,6 +107,7 @@
     charged,
     description,
     to: toText,
+    arrived,
   })
   const marked = $derived(tabMark(active, values, shown))
   const suggestions = $derived(dateOpen ? dateSuggestions(dateText, todayIn()) : [])
@@ -141,7 +143,7 @@
       fresh = false
       // Read the parts afresh: what carried over may not have reached `values` yet.
       active = startPart(
-        { from: fromText, date: dateText, amount, charged, description, to: toText },
+        { from: fromText, date: dateText, amount, charged, description, to: toText, arrived },
         shown,
       )
     })
@@ -206,6 +208,7 @@
     const written = await actions.write({
       amount,
       ...(chargedCode === null ? {} : { charged }),
+      ...(arrival === null ? {} : { arrived }),
       description,
       from,
       to: toOf(accounts, toText),
@@ -224,6 +227,7 @@
     await onsaved(written.id)
     amount = ''
     charged = ''
+    arrived = ''
     description = ''
     toText = ''
     error = null
@@ -449,6 +453,28 @@
       />
     {/snippet}
     {@render part('to', toField)}
+
+    {#if arrival !== null}
+      {#snippet arrivedField()}
+        <input
+          bind:this={fields.arrived}
+          id="composer-arrived"
+          bind:value={arrived}
+          name="arrived"
+          aria-label={copy.spends.composer.arrivedLabel(arrival.code)}
+          placeholder={word('arrived')}
+          aria-invalid={error?.part === 'arrived'}
+          inputmode="decimal"
+          autocomplete="off"
+          maxlength="64"
+          size={width('arrived')}
+          class="figures"
+          onfocus={(event) => event.currentTarget.select()}
+          oninput={() => clearError('arrived')}
+        />{arrival.code ?? ''}
+      {/snippet}
+      {@render part('arrived', arrivedField)}
+    {/if}
     {#if error?.part === 'form'}<span class="why" role="alert">{error.words}</span>{/if}
 
     <Button key={copy.spends.composer.esc} onclick={close}>{copy.spends.composer.done}</Button>

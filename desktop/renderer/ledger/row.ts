@@ -4,10 +4,10 @@ import type { ShapeName } from '@have-fish/core/shapes'
 import type { ListedDay, ListedTransaction } from '../../shared/commands'
 import type { Way } from '../format'
 
-/** Income comes in; a transfer moves between two accounts of mine; the rest go out, unsigned. */
+/** Income comes in; a transfer or an exchange moves between accounts of mine; the rest go out. */
 export function wayOf(shape: ShapeName): Way {
   if (shape === 'income') return 'in'
-  return shape === 'transfer' ? 'between' : 'out'
+  return shape === 'transfer' || shape === 'exchange' ? 'between' : 'out'
 }
 
 /**
