@@ -10,12 +10,12 @@ import {
   addAccount,
   aHome,
   chip,
+  convertedLine,
   focusedName,
   goTo,
   launch,
   openComposer,
   openSelected,
-  PANE,
   pickPath,
   reportTree,
   rows,
@@ -24,8 +24,9 @@ import {
 } from './app'
 
 const ARRIVED = `${WRITE} input[name=arrived]`
-/** The card's second sentence: what the exchange cost, and at what rate. */
-const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
+/** What follows the arrived input in its part: the code it's in, where To is kept to one. */
+const arrivedCode = (page: Page) =>
+  page.locator(ARRIVED).evaluate((input) => input.nextSibling?.textContent ?? '')
 
 /** The currency select's value for an account that holds any currency. */
 const ANY = ''
@@ -67,10 +68,6 @@ async function anExchange(): Promise<Page> {
   return page
 }
 
-/** The card's second sentence, its spaces made one. */
-const convertedLine = async (page: Page) =>
-  ((await page.locator(CONVERTED).textContent()) ?? '').replace(/\s+/g, ' ').trim()
-
 describe('100 from wise:cad to wise:eur', () => {
   test('the line asks what arrived, in EUR', async () => {
     const page = await withWise()
@@ -79,6 +76,14 @@ describe('100 from wise:cad to wise:eur', () => {
 
     await expect.poll(() => page.locator(ARRIVED).isVisible()).toBe(true)
     await expect.poll(() => page.getAttribute(ARRIVED, 'aria-label')).toBe('arrived, in EUR')
+  })
+
+  test('the part asking what arrived has EUR after it', async () => {
+    const page = await withWise()
+
+    await line(page, 'wise:cad', '100', 'wise:eur')
+
+    await expect.poll(() => arrivedCode(page)).toBe('EUR')
   })
 
   test('Tab from To goes to what arrived', async () => {
@@ -147,6 +152,13 @@ describe('100 cad inside wise, which holds any currency', () => {
     await expect.poll(() => page.getAttribute(ARRIVED, 'aria-label')).toBe('arrived, with its code')
   })
 
+  test('the part asking what arrived has no code after it', async () => {
+    const page = await insideWise()
+
+    await expect.poll(() => page.locator(ARRIVED).isVisible()).toBe(true)
+    expect(await arrivedCode(page)).toBe('')
+  })
+
   test('80 eur and Enter: the row reads the 80.00 EUR that arrived', async () => {
     const page = await insideWise()
 
@@ -177,6 +189,15 @@ describe('an exchange refused or taken back', () => {
     await page.keyboard.press('Control+z')
 
     await expect.poll(() => rows(page)).toEqual([])
+  })
+
+  test('the next line to wise:eur asks what arrived afresh: the last one saved is not carried', async () => {
+    const page = await anExchange()
+
+    await line(page, 'wise:cad', '100', 'wise:eur')
+
+    await expect.poll(() => page.locator(ARRIVED).isVisible()).toBe(true)
+    expect(await page.inputValue(ARRIVED)).toBe('')
   })
 
   test('Reports leaves it out: the tree has no category', async () => {

@@ -11,7 +11,9 @@ import {
   addAccount,
   aHome,
   BEHIND,
+  CONVERTED,
   chip,
+  convertedLine,
   focusedName,
   goTo,
   launch,
@@ -30,8 +32,6 @@ import {
 
 const AMOUNT = `${WRITE} input[name=amount]`
 const CHARGED = `${WRITE} input[name=charged]`
-/** The card's second sentence: what paid for it, and at what rate. */
-const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
 /** The charged chip's field, open in the card. */
 const CHARGED_FIELD = `${PANE} input[name=charged]`
 
@@ -71,10 +71,6 @@ async function aDinner(): Promise<Page> {
   await expect.poll(() => rows(page)).toHaveLength(1)
   return page
 }
-
-/** The card's second sentence, its spaces made one. */
-const convertedLine = async (page: Page) =>
-  ((await page.locator(CONVERTED).textContent()) ?? '').replace(/\s+/g, ' ').trim()
 
 describe('a yen spend my CAD card paid', () => {
   test('4000 jpy from visa: the line asks what it was charged, in CAD, and Tab goes there', async () => {

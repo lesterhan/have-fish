@@ -265,6 +265,13 @@ export async function pickPath(page: Page, field: string, name: string): Promise
 /** An open spend's chip for a part: `amount`, `description`, `from`, `date`, `to` or `charged`. */
 export const chip = (part: string, card = PANE) => `${card} [id$="-chip-${part}"]`
 
+/** A converted spend's or an exchange's second sentence in its card: what paid, and the rate. */
+export const CONVERTED = `${PANE} p:has([aria-label="Charged"])`
+
+/** That second sentence, its spaces made one. */
+export const convertedLine = async (page: Page) =>
+  ((await page.locator(CONVERTED).textContent()) ?? '').replace(/\s+/g, ' ').trim()
+
 /** Opens a chip in an open spend's details: a click, as a person does it. */
 export async function openChip(page: Page, part: string, card = PANE) {
   await page.click(chip(part, card))
