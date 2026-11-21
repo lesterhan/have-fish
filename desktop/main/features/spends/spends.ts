@@ -55,7 +55,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   if (income && 'category' in goesTo) {
     return failure('INCOME_NOT_TO_ACCOUNT', { accountId: from.value.id })
   }
-  const sameAccount = 'account' in goesTo && goesTo.account === from.value.id
+  const sameAccount = from.value.id === ('account' in goesTo ? goesTo.account : null)
   const itself =
     sameAccount && input.arrived !== undefined && from.value.currency === null && code !== undefined
   if (sameAccount && !itself && input.arrived !== undefined) {
