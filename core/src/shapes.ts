@@ -9,12 +9,13 @@ export type ShapeLeg = { accountId: string; cents: number; currency: string }
 
 /**
  * A spend, a transfer or income goes `from` the negative leg `to` the positive one. A start is an
- * account's opening balance. A converted spend is paid in one currency for another, through the
- * conversion account `via`. Anything else is `other`, with its one amount when it has one.
+ * account's opening balance. A converted spend pays a category in another currency, an exchange
+ * moves money between accounts of mine into another, each through the conversion account `via`.
+ * Anything else is `other`, with its one amount when it has one.
  */
 export type Shape =
   | { shape: 'spend' | 'transfer' | 'income'; from: ShapeLeg; to: ShapeLeg }
-  | { shape: 'converted'; from: ShapeLeg; to: ShapeLeg; via: string }
+  | { shape: 'converted' | 'exchange'; from: ShapeLeg; to: ShapeLeg; via: string }
   | { shape: 'start'; account: ShapeLeg; opening: ShapeLeg }
   | { shape: 'other'; amount: Leg | null }
 
@@ -44,8 +45,8 @@ export function shapeOf(
 }
 
 /**
- * Four legs: an account of mine paying in one currency, a category getting another, and the
- * conversion account taking each, in any order. Null for anything else.
+ * Four legs: an account of mine paying in one currency, a category or an account of mine getting
+ * another, and the conversion account taking each, in any order. Null for anything else.
  */
 function convertedOf(
   legs: readonly ShapeLeg[],
@@ -61,11 +62,14 @@ function convertedOf(
   const to = ends.find((l) => l.cents > 0)
   if (from === undefined || to === undefined || from.currency === to.currency) return null
   const out = kindOf(from.accountId)
-  if (out === undefined || !isAddable(out) || kindOf(to.accountId) !== 'category') return null
+  if (out === undefined || !isAddable(out)) return null
   const takes = (end: ShapeLeg) =>
     through.some((l) => l.currency === end.currency && l.cents === -end.cents)
   if (!takes(from) || !takes(to)) return null
-  return { shape: 'converted', from, to, via: one.accountId }
+  const [into, via] = [kindOf(to.accountId), one.accountId]
+  if (into === 'category') return { shape: 'converted', from, to, via }
+  if (into !== undefined && isAddable(into)) return { shape: 'exchange', from, to, via }
+  return null
 }
 
 /** The postings a shape the app writes is made of: `to` first, as a spend is written. */
