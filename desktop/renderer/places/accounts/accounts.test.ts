@@ -55,9 +55,12 @@ describe('costAsked', () => {
     expect(costAsked('CAD')).toBe(false)
   })
 
-  test.each([null, ANY])('an account that holds any starts in the home currency, so %j asks nothing', (currency) => {
-    expect(costAsked(currency)).toBe(false)
-  })
+  test.each([null, ANY])(
+    'an account that holds any starts in the home currency, so %j asks nothing',
+    (currency) => {
+      expect(costAsked(currency)).toBe(false)
+    },
+  )
 })
 
 describe('costSaid', () => {
@@ -115,6 +118,9 @@ describe('accountFieldOf', () => {
     expect(accountFieldOf({ ok: false, error: 'COST_INVALID', detail: { cost: 'lots' } })).toBe(
       'cost',
     )
+  })
+
+  test('a cost too long for its field shows under it', () => {
     const long = { path: 'cost', issue: 'too_big' }
     expect(accountFieldOf({ ok: false, error: 'INPUT_MALFORMED', detail: long })).toBe('cost')
   })

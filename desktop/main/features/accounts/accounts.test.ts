@@ -563,7 +563,13 @@ describe('a starting balance that cost me', () => {
     const { ctx, ledger } = setup()
 
     const { id } = ok(
-      addAccount(ctx, { name: 'visa:eur', kind: 'card', currency: 'EUR', start: '200', cost: '300' }),
+      addAccount(ctx, {
+        name: 'visa:eur',
+        kind: 'card',
+        currency: 'EUR',
+        start: '200',
+        cost: '300',
+      }),
     )
     const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
@@ -580,7 +586,15 @@ describe('a starting balance that cost me', () => {
   test('the card’s start lists what it cost, in the home currency', () => {
     const { ctx, ledger } = setup()
 
-    ok(addAccount(ctx, { name: 'visa:eur', kind: 'card', currency: 'EUR', start: '200', cost: '300' }))
+    ok(
+      addAccount(ctx, {
+        name: 'visa:eur',
+        kind: 'card',
+        currency: 'EUR',
+        start: '200',
+        cost: '300',
+      }),
+    )
 
     expect(listAccounts(ledger.db)[0]?.start).toEqual({
       amount: '200.00',
@@ -620,7 +634,15 @@ describe('a starting balance that cost me', () => {
     wiseEur(ctx)
     ctx.flush()
     const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
-    ok(addAccount(ctx, { name: 'savings:eur', kind: 'bank', currency: 'EUR', start: '5', cost: '6' }))
+    ok(
+      addAccount(ctx, {
+        name: 'savings:eur',
+        kind: 'bank',
+        currency: 'EUR',
+        start: '5',
+        cost: '6',
+      }),
+    )
     ctx.flush()
 
     expect(count(ledger, "accounts WHERE path = 'equity:conversion'")).toBe(1)
@@ -679,7 +701,13 @@ describe('a starting balance that cost me', () => {
 
     expect(
       refusal(
-        addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '200', cost: '300' }),
+        addAccount(ctx, {
+          name: 'chequing',
+          kind: 'bank',
+          currency: 'CAD',
+          start: '200',
+          cost: '300',
+        }),
       ),
     ).toEqual({ code: 'START_NOT_COSTABLE', details: { accountId: expect.any(String) } })
     expect(names()).toEqual([])
@@ -690,7 +718,15 @@ describe('a starting balance that cost me', () => {
     const { ctx, names } = setup()
 
     expect(
-      refusal(addAccount(ctx, { name: 'savings', kind: 'bank', currency: null, start: '200', cost: '300' })),
+      refusal(
+        addAccount(ctx, {
+          name: 'savings',
+          kind: 'bank',
+          currency: null,
+          start: '200',
+          cost: '300',
+        }),
+      ),
     ).toEqual({ code: 'START_NOT_COSTABLE', details: { accountId: expect.any(String) } })
     expect(names()).toEqual([])
   })
@@ -728,7 +764,9 @@ describe('a cost said after the start', () => {
   /** A bank kept to EUR with a start of 200 and nothing said of what it cost. */
   function wiseStarted() {
     const s = setup()
-    const { id } = ok(addAccount(s.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200' }))
+    const { id } = ok(
+      addAccount(s.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200' }),
+    )
     const start = listTransactions(s.ledger.db)[0]
     return { ...s, id, start }
   }

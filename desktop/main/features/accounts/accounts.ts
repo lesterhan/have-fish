@@ -289,9 +289,14 @@ type Start = {
 /** Each account's starting balance, by id: the oldest, if sync ever brings two. */
 function startsOf(db: Database.Database): Map<string, Start> {
   const found = new Map<string, Start>()
-  for (const { accountId, openingCents, openingCurrency, ...start } of statements(db).starts.all()) {
+  for (const { accountId, openingCents, openingCurrency, ...start } of statements(
+    db,
+  ).starts.all()) {
     if (!found.has(accountId)) {
-      found.set(accountId, { ...start, opening: { cents: openingCents, currency: openingCurrency } })
+      found.set(accountId, {
+        ...start,
+        opening: { cents: openingCents, currency: openingCurrency },
+      })
     }
   }
   return found

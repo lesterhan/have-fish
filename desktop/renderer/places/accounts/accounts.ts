@@ -9,7 +9,13 @@ import { HOME_CURRENCY } from '../../../shared/currency'
  * today as typed, empty unless "How much is in it today?" is open; `cost` is what the start cost,
  * as typed, empty unless asked.
  */
-export type Adding = { name: string; kind: AddableKind; currency: string; start: string; cost: string }
+export type Adding = {
+  name: string
+  kind: AddableKind
+  currency: string
+  start: string
+  cost: string
+}
 
 /** The currency field's value for "Any currency". */
 export const ANY = ''
