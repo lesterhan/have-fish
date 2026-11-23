@@ -1,4 +1,4 @@
-// What foreign money I started with cost: Entry-37's acceptance, with real keys.
+// What foreign money I started with cost: its acceptance, with real keys.
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'

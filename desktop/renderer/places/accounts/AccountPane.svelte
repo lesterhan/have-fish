@@ -59,7 +59,7 @@
   let startOpen = $state(false)
   let startText = $state('')
   let startInput: HTMLInputElement | undefined = $state()
-  /** What the start cost, in the home currency: kept as typed while the question folds, as the amount is. */
+  /** What the start cost: kept as typed while the question folds, as the amount is. */
   let costText = $state('')
   let costInput: HTMLInputElement | undefined = $state()
   let fold: Fold | undefined = $state()
@@ -102,7 +102,7 @@
     startInput?.focus()
   }
 
-  /** Opens the question when adding, and puts the cursor in the cost: where a refused cost is fixed. */
+  /** Opens the question when adding, and puts the cursor in a refused cost. */
   export async function focusCost() {
     if (adding) startOpen = true
     await tick()
