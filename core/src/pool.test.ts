@@ -44,28 +44,34 @@ const rateOf = (held: PoolDay): Rate => {
   return held.rate
 }
 
-/** 200 CAD into 150 EUR on 05-01, through the conversion account. */
-const ONE = [
+/** `paid` home cents buying `cents` of `currency` into `accountId` on `date`, through `x`. */
+const boughtWithCad = (
+  date: string,
+  accountId: string,
+  currency: string,
+  cents: number,
+  paid: number,
+): PoolTransaction =>
   tx(
-    '2026-05-01',
-    leg('w', 15000, 'EUR'),
-    leg('x', -15000, 'EUR'),
-    leg('x', 20000, 'CAD'),
-    leg('c', -20000, 'CAD'),
-  ),
-]
+    date,
+    leg(accountId, cents, currency),
+    leg('x', -cents, currency),
+    leg('x', paid, 'CAD'),
+    leg('c', -paid, 'CAD'),
+  )
+
+/** `cents` of EUR spent from `w` to `f` on `date`. */
+const spend = (date: string, cents: number): PoolTransaction =>
+  tx(date, leg('f', cents, 'EUR'), leg('w', -cents, 'EUR'))
+
+/** 200 CAD into 150 EUR on 05-01, through the conversion account. */
+const ONE = [boughtWithCad('2026-05-01', 'w', 'EUR', 15000, 20000)]
 
 /** (ONE), then 100 of those EUR spent on 05-03. */
-const SPEND_KEEPS = [...ONE, tx('2026-05-03', leg('f', 10000, 'EUR'), leg('w', -10000, 'EUR'))]
+const SPEND_KEEPS = [...ONE, spend('2026-05-03', 10000)]
 
 /** 200 CAD into 138 EUR on 05-07, through the conversion account. */
-const SECOND_EXCHANGE = tx(
-  '2026-05-07',
-  leg('w', 13800, 'EUR'),
-  leg('x', -13800, 'EUR'),
-  leg('x', 20000, 'CAD'),
-  leg('c', -20000, 'CAD'),
-)
+const SECOND_EXCHANGE = boughtWithCad('2026-05-07', 'w', 'EUR', 13800, 20000)
 
 /** (SPEND_KEEPS), then (SECOND_EXCHANGE), its 2.00 fee a spend apart. */
 const EXAMPLE = [
@@ -77,17 +83,13 @@ const EXAMPLE = [
 /** EUR started with on 04-01, of no known cost. */
 const UNKNOWN_START = [tx('2026-04-01', leg('w', 20000, 'EUR'), leg('o', -20000, 'EUR'))]
 
-/** (UNKNOWN_START), (ONE), then the 05-03 spend: 200 EUR known, 200 EUR not. */
-const POOL_FIRST = [
-  ...UNKNOWN_START,
-  ...ONE,
-  tx('2026-05-03', leg('f', 10000, 'EUR'), leg('w', -10000, 'EUR')),
-]
+/** (UNKNOWN_START), (ONE), then the 05-03 spend: 50 EUR known, 200 not. */
+const POOL_FIRST = [...UNKNOWN_START, ...ONE, spend('2026-05-03', 10000)]
 
 /** (POOL_FIRST), then 80 EUR spent on 05-04, past the known money. */
-const PAST_KNOWN = [...POOL_FIRST, tx('2026-05-04', leg('f', 8000, 'EUR'), leg('w', -8000, 'EUR'))]
+const PAST_KNOWN = [...POOL_FIRST, spend('2026-05-04', 8000)]
 
-/** (ONE), then a start I owe on 05-02: a card kept to EUR, owed 200 that cost 300 CAD. */
+/** A card kept to EUR, owed 200 that cost 300 CAD, on the day given. */
 const owedStart = (date: string) =>
   tx(
     date,
@@ -114,24 +116,10 @@ function tenYears(): PoolTransaction[] {
     const euros = Math.floor(i / 10) % 2 === 0
     if (i % 10 === 0) {
       return euros
-        ? tx(
-            date,
-            leg('w', 15000, 'EUR'),
-            leg('x', -15000, 'EUR'),
-            leg('x', 20000, 'CAD'),
-            leg('c', -20000, 'CAD'),
-          )
-        : tx(
-            date,
-            leg('j', 1600000, 'JPY'),
-            leg('x', -1600000, 'JPY'),
-            leg('x', 20000, 'CAD'),
-            leg('c', -20000, 'CAD'),
-          )
+        ? boughtWithCad(date, 'w', 'EUR', 15000, 20000)
+        : boughtWithCad(date, 'j', 'JPY', 1600000, 20000)
     }
-    return euros
-      ? tx(date, leg('f', 500, 'EUR'), leg('w', -500, 'EUR'))
-      : tx(date, leg('f', 40000, 'JPY'), leg('j', -40000, 'JPY'))
+    return euros ? spend(date, 500) : tx(date, leg('f', 40000, 'JPY'), leg('j', -40000, 'JPY'))
   })
 }
 
@@ -193,7 +181,7 @@ describe('what a currency cost me', () => {
   })
 
   it("a spend listed before its day's exchange takes the rate after it", () => {
-    const spendFirst = [tx('2026-05-01', leg('f', 10000, 'EUR'), leg('w', -10000, 'EUR')), ...ONE]
+    const spendFirst = [spend('2026-05-01', 10000), ...ONE]
     expect(day(pools(spendFirst), 'EUR', '2026-05-01')).toEqual({
       date: '2026-05-01',
       rate: { num: 4n, den: 3n },
@@ -322,6 +310,35 @@ describe('what a currency cost me', () => {
   it('a yen arrival listed before the euros takes its cost as the day orders it', () => {
     const held = day(pools([chainInto('2026-05-01'), ...ONE]), 'JPY', '2026-05-01')
     expect(significant(rateOf(held), 4)).toBe('0.008333')
+  })
+
+  it('an exchange into the home currency takes from the currency that left', () => {
+    const soldBack = [
+      ...ONE,
+      tx(
+        '2026-05-02',
+        leg('c', 7000, 'CAD'),
+        leg('x', -7000, 'CAD'),
+        leg('x', 5000, 'EUR'),
+        leg('w', -5000, 'EUR'),
+      ),
+    ]
+    expect(day(pools(soldBack), 'EUR', '2026-05-02')).toEqual({
+      date: '2026-05-02',
+      rate: { num: 4n, den: 3n },
+      known: 10000,
+      unknown: 0,
+    })
+  })
+
+  it("a debt listed before its day's exchange departs after it", () => {
+    const debtFirst = [owedStart('2026-05-01'), ...ONE]
+    expect(day(pools(debtFirst), 'EUR', '2026-05-01')).toEqual({
+      date: '2026-05-01',
+      rate: { num: 4n, den: 3n },
+      known: 0,
+      unknown: -5000,
+    })
   })
 
   it('a converted spend uses known-cost money and leaves the paid currency out', () => {

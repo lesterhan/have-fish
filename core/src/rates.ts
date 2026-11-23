@@ -4,11 +4,12 @@
 import { DECIMAL } from './money'
 import { failure, type Outcome } from './outcome'
 
-/** A rate as the two parts of a ratio in lowest terms, both above zero and inside the bound. */
+/** A ratio in lowest terms, both parts above zero; a rate read from text is inside the bound. */
 export type Rate = { readonly num: bigint; readonly den: bigint }
 
 // A rate's parts are at most 10^15: either fits an exact integer, and every real pair is under
-// it. Written once here, so the reading and its early refusals can't drift apart.
+// it. Written once here, so the reading and its early refusals can't drift apart. An average the
+// pool makes can pass it; `convert` and `significant` take any size.
 const RATE_DIGITS = 15
 const RATE_MAX = 10n ** BigInt(RATE_DIGITS)
 
@@ -92,7 +93,7 @@ export function significant(rate: Rate, digits: number): string {
 const ten = (power: number): bigint => (power > 0 ? 10n ** BigInt(power) : 1n)
 
 /** The largest whole number that divides both, for a ratio in lowest terms. */
-function gcd(a: bigint, b: bigint): bigint {
+export function gcd(a: bigint, b: bigint): bigint {
   while (b > 0n) [a, b] = [b, a % b]
   return a
 }

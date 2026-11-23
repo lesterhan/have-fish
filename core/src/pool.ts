@@ -2,7 +2,7 @@
 // known cost, from the ledger's own transactions. Derived each time it is asked, never stored.
 
 import { type AccountKind, isAddable } from './account-kind'
-import { type Rate, ratio } from './rates'
+import { gcd, type Rate, ratio } from './rates'
 import { type ShapeLeg, shapeOf } from './shapes'
 
 /** A transaction as the pool reads it: its day, and its legs. */
@@ -28,7 +28,10 @@ const SCALE = 1_000_000n
 /** What one currency holds as the pool goes: the three figures its PoolDay will hold. */
 type Running = { rate: Rate | null; known: number; unknown: number }
 
-/** One currency moving on a day, in one of the day's three phases. */
+/**
+ * What moves on a day, in one of its three phases: one currency, or two when one is carried into
+ * another.
+ */
 type Move =
   | { phase: 1; kind: 'arrive'; currency: string; cents: number; cost: bigint | null }
   | { phase: 2; kind: 'carry'; from: string; to: string; out: number; into: number }
@@ -49,26 +52,26 @@ export function poolsOf(
     else byDay.push({ date: transaction.date, transactions: [transaction] })
   }
 
-  const held = new Map<string, Running>()
+  const running = new Map<string, Running>()
   const pools = new Map<string, PoolDay[]>()
   for (const { date, transactions: sameDay } of byDay) {
     const moves = sameDay.flatMap((transaction) => movesOf(transaction.legs, kindOf, home))
     // Within a day every arrival comes before every departure, whatever order they were written
     // in: home-cost arrivals, then exchanges from another currency, then departures.
     moves.sort((a, b) => a.phase - b.phase)
-    for (const move of moves) apply(move, held)
+    for (const move of moves) apply(move, running)
     for (const currency of new Set(moves.flatMap(currenciesOf))) {
-      const running = held.get(currency)
-      if (running === undefined) continue
-      const moved: PoolDay = {
+      const figures = running.get(currency)
+      if (figures === undefined) continue
+      const day: PoolDay = {
         date,
-        rate: running.rate,
-        known: running.known,
-        unknown: running.unknown,
+        rate: figures.rate,
+        known: figures.known,
+        unknown: figures.unknown,
       }
       const days = pools.get(currency)
-      if (days === undefined) pools.set(currency, [moved])
-      else days.push(moved)
+      if (days === undefined) pools.set(currency, [day])
+      else days.push(day)
     }
   }
   return pools
@@ -94,37 +97,32 @@ function movesOf(
   kindOf: (accountId: string) => AccountKind | undefined,
   home: string,
 ): Move[] {
-  const conversion = legs.some((leg) => kindOf(leg.accountId) === 'conversion')
-  const shape = legs.length === 4 && conversion ? shapeOf(legs, kindOf) : null
+  const throughConversion = legs.some((leg) => kindOf(leg.accountId) === 'conversion')
+  const shape = legs.length === 4 && throughConversion ? shapeOf(legs, kindOf) : null
 
-  if (shape !== null && shape.shape === 'exchange') {
+  if (shape !== null && shape.shape === 'exchange' && shape.to.currency !== home) {
     const { from, to } = shape
-    if (to.currency !== home) {
-      if (from.currency === home) {
-        return [
-          {
-            phase: 1,
-            kind: 'arrive',
-            currency: to.currency,
-            cents: to.cents,
-            cost: BigInt(-from.cents) * SCALE,
-          },
-        ]
-      }
+    if (from.currency === home) {
       return [
         {
-          phase: 2,
-          kind: 'carry',
-          from: from.currency,
-          to: to.currency,
-          out: -from.cents,
-          into: to.cents,
+          phase: 1,
+          kind: 'arrive',
+          currency: to.currency,
+          cents: to.cents,
+          cost: BigInt(-from.cents) * SCALE,
         },
       ]
     }
-    // The home currency arrived. Only what left is of this pool.
-    if (from.currency === home) return []
-    return [{ phase: 3, kind: 'depart', currency: from.currency, cents: -from.cents }]
+    return [
+      {
+        phase: 2,
+        kind: 'carry',
+        from: from.currency,
+        to: to.currency,
+        out: -from.cents,
+        into: to.cents,
+      },
+    ]
   }
 
   if (shape !== null && shape.shape === 'start' && shape.via !== undefined) {
@@ -161,14 +159,14 @@ function netted(
   kindOf: (accountId: string) => AccountKind | undefined,
   home: string,
 ): Move[] {
-  const moved = new Map<string, number>()
+  const nets = new Map<string, number>()
   for (const leg of legs) {
     const kind = kindOf(leg.accountId)
     if (kind === undefined || !isAddable(kind) || leg.currency === home) continue
-    moved.set(leg.currency, (moved.get(leg.currency) ?? 0) + leg.cents)
+    nets.set(leg.currency, (nets.get(leg.currency) ?? 0) + leg.cents)
   }
   const moves: Move[] = []
-  for (const [currency, cents] of moved) {
+  for (const [currency, cents] of nets) {
     if (cents > 0) moves.push({ phase: 1, kind: 'arrive', currency, cents, cost: null })
     if (cents < 0) moves.push({ phase: 3, kind: 'depart', currency, cents: -cents })
   }
@@ -180,38 +178,38 @@ function currenciesOf(move: Move): string[] {
   return move.kind === 'carry' ? [move.from, move.to] : [move.currency]
 }
 
-function apply(move: Move, held: Map<string, Running>): void {
+function apply(move: Move, running: Map<string, Running>): void {
   switch (move.kind) {
     case 'arrive': {
-      if (move.cost === null) heldOf(held, move.currency).unknown += move.cents
-      else arriveAtCost(held, move.currency, move.cents, move.cost)
+      if (move.cost === null) runningOf(running, move.currency).unknown += move.cents
+      else arriveAtCost(running, move.currency, move.cents, move.cost)
       return
     }
     case 'carry': {
       // The two currencies move in one step: the share of what arrived bought with known-cost
       // money carries its cost, and the rest is of unknown cost.
-      const from = heldOf(held, move.from)
-      const rate = from.rate
-      const taken = rate === null ? 0 : Math.min(move.out, from.known)
+      const from = runningOf(running, move.from)
+      const taken = Math.min(move.out, from.known)
       from.known -= taken
       from.unknown -= move.out - taken
       const bought = Number(half(BigInt(move.into) * BigInt(taken), BigInt(move.out)))
-      if (rate !== null && bought > 0) {
-        arriveAtCost(held, move.to, bought, half(BigInt(taken) * SCALE * rate.num, rate.den))
+      const rate = from.rate
+      if (bought > 0 && rate !== null) {
+        arriveAtCost(running, move.to, bought, half(BigInt(taken) * SCALE * rate.num, rate.den))
       }
-      heldOf(held, move.to).unknown += move.into - bought
+      runningOf(running, move.to).unknown += move.into - bought
       return
     }
     case 'depart': {
-      depart(held, move.currency, move.cents)
+      depart(running, move.currency, move.cents)
       return
     }
     case 'debt': {
       // A start I owe lowers what is held like a spend, and sets the rate only where the
       // currency has none: a debt never weighs the next conversion's average.
-      const running = heldOf(held, move.currency)
-      depart(held, move.currency, move.cents)
-      if (running.rate === null) running.rate = move.rate
+      const debt = runningOf(running, move.currency)
+      depart(running, move.currency, move.cents)
+      if (debt.rate === null) debt.rate = move.rate
       return
     }
   }
@@ -219,34 +217,37 @@ function apply(move: Move, held: Map<string, Running>): void {
 
 /** `cents` at a known `cost`, in millionths: the new average over what the currency now holds. */
 function arriveAtCost(
-  held: Map<string, Running>,
+  running: Map<string, Running>,
   currency: string,
   cents: number,
   cost: bigint,
 ): void {
-  const running = heldOf(held, currency)
+  const figures = runningOf(running, currency)
   const before =
-    running.rate === null || running.known === 0
+    figures.rate === null || figures.known === 0
       ? 0n
-      : half(BigInt(running.known) * SCALE * running.rate.num, running.rate.den)
-  running.rate = lowest(before + cost, BigInt(running.known + cents) * SCALE)
-  running.known += cents
+      : half(BigInt(figures.known) * SCALE * figures.rate.num, figures.rate.den)
+  const top = before + cost
+  const bottom = BigInt(figures.known + cents) * SCALE
+  const divisor = gcd(top, bottom)
+  figures.rate = { num: top / divisor, den: bottom / divisor }
+  figures.known += cents
 }
 
 /** `cents` leave: what is of known cost first, then what is of unknown cost. */
-function depart(held: Map<string, Running>, currency: string, cents: number): void {
-  const running = heldOf(held, currency)
-  const taken = Math.min(cents, running.known)
-  running.known -= taken
-  running.unknown -= cents - taken
+function depart(running: Map<string, Running>, currency: string, cents: number): void {
+  const figures = runningOf(running, currency)
+  const taken = Math.min(cents, figures.known)
+  figures.known -= taken
+  figures.unknown -= cents - taken
 }
 
 /** The currency's figures, started empty the first time it moves. */
-function heldOf(held: Map<string, Running>, currency: string): Running {
-  const found = held.get(currency)
+function runningOf(running: Map<string, Running>, currency: string): Running {
+  const found = running.get(currency)
   if (found !== undefined) return found
   const started: Running = { rate: null, known: 0, unknown: 0 }
-  held.set(currency, started)
+  running.set(currency, started)
   return started
 }
 
@@ -254,11 +255,4 @@ function heldOf(held: Map<string, Running>, currency: string): Running {
 function half(n: bigint, d: bigint): bigint {
   const whole = n / d
   return (n % d) * 2n >= d ? whole + 1n : whole
-}
-
-/** The pair in lowest terms, both parts whole and above zero. */
-function lowest(num: bigint, den: bigint): Rate {
-  let [a, b] = [num, den]
-  while (b > 0n) [a, b] = [b, a % b]
-  return { num: num / a, den: den / a }
 }
