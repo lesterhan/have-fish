@@ -9,11 +9,10 @@ import { expect, onTestFinished, test } from 'vitest'
 import { copy } from '../copy'
 import type { Fixture } from '../scenes/fixture'
 import { SCENES } from '../scenes/scenes'
-import { PANE, WRITE } from './app'
+import { PANE, REPORT_TREE, WRITE } from './app'
 
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
-const TREE = 'ol[aria-label="Spending by category"]'
 const PALETTE = 'role=dialog[name="Do anything"]'
 const FROM_OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -94,7 +93,7 @@ test('accounts/year lists the fixture’s accounts, their parents among them', a
 
 test('reports/year reads the fixture’s last week as this week', async () => {
   const page = await openScene('reports/year')
-  await page.locator(`${TREE} li`).first().waitFor()
+  await page.locator(`${REPORT_TREE} li`).first().waitFor()
   await expect
     .poll(() => page.locator('[role=group] strong').textContent())
     .toBe(copy.reports.week.thisWeek)
@@ -102,9 +101,9 @@ test('reports/year reads the fixture’s last week as this week', async () => {
 
 test('reports/category-open has a row open and a row a level under', async () => {
   const page = await openScene('reports/category-open')
-  await page.locator(`${TREE} li`).first().waitFor()
-  expect(await page.locator(`${TREE} li[aria-expanded=true]`).count()).toBe(1)
-  expect(await page.locator(`${TREE} li[aria-level='2']`).count()).toBeGreaterThan(0)
+  await page.locator(`${REPORT_TREE} li`).first().waitFor()
+  expect(await page.locator(`${REPORT_TREE} li[aria-expanded=true]`).count()).toBe(1)
+  expect(await page.locator(`${REPORT_TREE} li[aria-level='2']`).count()).toBeGreaterThan(0)
 })
 
 test('with no scene named, a link to each', async () => {

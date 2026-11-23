@@ -4,14 +4,22 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, openComposer, pickPath, rows, WRITE } from './app'
+import {
+  aHome,
+  BEHIND,
+  launch,
+  openComposer,
+  pickPath,
+  REPORT_TREE,
+  rows,
+  treeRow,
+  WRITE,
+} from './app'
 import { seed } from './month'
 
 const NAV = 'nav[aria-label=Places]'
 const LEDGER = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
-const TREE = 'ol[aria-label="Spending by category"]'
-const BEHIND = 'ol[aria-label="Its spends"]'
 const ADD_ACCOUNT = 'role=button[name="Add account"s]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 
@@ -73,11 +81,7 @@ const treeNames = (page: Page) =>
         cut: name !== null && name !== undefined && name.scrollWidth > name.clientWidth + 1,
       }
     })
-  }, TREE)
-
-/** The tree's row whose name contains `name`. */
-const treeRow = (page: Page, name: string) =>
-  page.locator(`${TREE} li`).filter({ hasText: name }).first()
+  }, REPORT_TREE)
 
 describe("a row's columns", () => {
   test('at the size the window opens, To and the description each read a word', async () => {
@@ -134,20 +138,20 @@ describe("a row's columns", () => {
     await spend(page, '25', 'Cinema night', 'entertainment')
     await spend(page, '18', 'Dinner', 'food:restaurants')
     await page.click(`${NAV} button:has-text("Reports")`)
-    await page.waitForSelector(`${TREE} [data-cell=name]`)
+    await page.waitForSelector(`${REPORT_TREE} [data-cell=name]`)
     expect(await page.evaluate(() => innerWidth)).toBe(960)
 
     // Last week goes before a name does: the change still says it. The width binds after it
     // draws, so the headings are read when they say the narrow set.
     await expect
-      .poll(() => headingsOver(page, TREE).then((all) => all.map((h) => h.name)))
+      .poll(() => headingsOver(page, REPORT_TREE).then((all) => all.map((h) => h.name)))
       .toEqual(['Where it went', 'This week', 'Change'])
-    expect(Object.keys(await cellsIn(page, TREE))).toEqual(['name', 'shown', 'change'])
+    expect(Object.keys(await cellsIn(page, REPORT_TREE))).toEqual(['name', 'shown', 'change'])
 
     // Food open, so a child's name reads whole too.
     await treeRow(page, 'expenses food').click()
     await treeRow(page, 'expenses food').click()
-    await expect.poll(() => page.locator(`${TREE} li`).count()).toBe(4)
+    await expect.poll(() => page.locator(`${REPORT_TREE} li`).count()).toBe(4)
 
     const names = await treeNames(page)
     for (const name of ['expenses transport', 'expenses entertainment', ':restaurants']) {
@@ -188,12 +192,12 @@ describe("a row's columns", () => {
 
     // The tree has all four at a wide window, each heading over its column.
     await page.click(`${NAV} button:has-text("Reports")`)
-    await page.waitForSelector(`${TREE} [data-cell=name]`)
+    await page.waitForSelector(`${REPORT_TREE} [data-cell=name]`)
     await expect
-      .poll(() => headingsOver(page, TREE).then((all) => all.map((h) => h.name)))
+      .poll(() => headingsOver(page, REPORT_TREE).then((all) => all.map((h) => h.name)))
       .toEqual(['Where it went', 'This week', 'Last week', 'Change'])
-    const treeCells = await cellsIn(page, TREE)
-    const treeHeadings = await headingsOver(page, TREE)
+    const treeCells = await cellsIn(page, REPORT_TREE)
+    const treeHeadings = await headingsOver(page, REPORT_TREE)
     const [where, shown, before, change] = treeHeadings
     expect(where?.left).toBeCloseTo(treeCells.name?.left ?? 0, 0)
     expect(shown?.right).toBeCloseTo(treeCells.shown?.right ?? 0, 0)
