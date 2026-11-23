@@ -102,12 +102,14 @@
       kind: fields.kind,
       currency: lockOf(fields.currency),
       start: fields.start,
+      cost: fields.cost,
     })
     saving = false
     if (!added.ok) {
       error = { field: accountFieldOf(added), words: wordsFor(added) }
       if (error.field === 'name') pane.focusName()
       if (error.field === 'start') void pane.focusStart()
+      if (error.field === 'cost') void pane.focusCost()
       return
     }
     adding = false
@@ -119,16 +121,35 @@
     list.focus()
   }
 
-  /** A starting balance for the account showing. */
-  async function start(amount: string) {
+  /** A starting balance for the account showing, and what it cost. */
+  async function start(amount: string, cost: string) {
     const id = selectedId
     if (saving || id === null) return
     saving = true
-    const started = await window.haveFish.invoke('account.start', { id, amount })
+    const started = await window.haveFish.invoke('account.start', { id, amount, cost })
     saving = false
     if (!started.ok) {
       error = { field: accountFieldOf(started), words: wordsFor(started) }
       if (error.field === 'start') void pane.focusStart()
+      if (error.field === 'cost') void pane.focusCost()
+      return
+    }
+    error = null
+    forgetTyping()
+    await ledger.caughtUp()
+    list.focus()
+  }
+
+  /** What the account showing's start cost, said after it. */
+  async function cost(text: string) {
+    const id = selectedId
+    if (saving || id === null) return
+    saving = true
+    const costed = await window.haveFish.invoke('account.cost', { id, cost: text })
+    saving = false
+    if (!costed.ok) {
+      error = { field: accountFieldOf(costed), words: wordsFor(costed) }
+      if (error.field === 'cost') void pane.focusCost()
       return
     }
     error = null
@@ -193,7 +214,8 @@
     {error}
     {open}
     onadd={(fields) => void add(fields)}
-    onstart={(amount) => void start(amount)}
+    onstart={(amount, cost) => void start(amount, cost)}
+    oncost={(text) => void cost(text)}
     oncancel={() => void cancel()}
     onback={closePane}
   />

@@ -45,6 +45,7 @@ const REFUSED = [
   'spend.remove',
   'account.add',
   'account.start',
+  'account.cost',
   'ledger.undo',
   'ledger.redo',
 ] as const satisfies readonly CommandName[]

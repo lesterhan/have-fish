@@ -6,9 +6,10 @@ import { HOME_CURRENCY } from '../../../shared/currency'
 
 /**
  * What the pane's fields hold. `currency` is `ANY` or a currency code; `start` is what's in it
- * today as typed, empty unless "How much is in it today?" is open.
+ * today as typed, empty unless "How much is in it today?" is open; `cost` is what the start cost,
+ * as typed, empty unless asked.
  */
-export type Adding = { name: string; kind: AddableKind; currency: string; start: string }
+export type Adding = { name: string; kind: AddableKind; currency: string; start: string; cost: string }
 
 /** The currency field's value for "Any currency". */
 export const ANY = ''
@@ -25,10 +26,18 @@ export const lockOf = (currency: string): string | null => (currency === ANY ? n
 export const startCurrency = (currency: string | null): string =>
   currency === null || currency === ANY ? HOME_CURRENCY : currency
 
+/** Whether adding a start asks what it cost: only one in another currency than the home one. */
+export const costAsked = (currency: string | null): boolean =>
+  startCurrency(currency) !== HOME_CURRENCY
+
+/** The cost Adding says: what was typed where it is asked and a start was given, else empty. */
+export const costSaid = (currency: string | null, start: string, cost: string): string =>
+  costAsked(currency) && start.trim() !== '' ? cost : ''
+
 /** A card or a loan: its starting balance is what I owe. */
 export const owes = (kind: AddableKind): boolean => classOf(kind) === 'liability'
 
-export type AccountField = 'name' | 'start' | 'form'
+export type AccountField = 'name' | 'start' | 'cost' | 'form'
 
 /** A refusal about the name or the starting balance shows under it; anything else under the button. */
 export function accountFieldOf(failure: WireFailure): AccountField {
@@ -41,11 +50,14 @@ export function accountFieldOf(failure: WireFailure): AccountField {
     case 'AMOUNT_TOO_PRECISE':
     case 'ACCOUNT_ALREADY_STARTED':
       return 'start'
+    case 'COST_INVALID':
+      return 'cost'
     // The name is the account's path, once main has made it.
     case 'INPUT_MALFORMED':
     case 'DOCUMENT_MALFORMED':
       if (failure.detail.path === 'name' || failure.detail.path === 'path') return 'name'
-      return failure.detail.path === 'start' || failure.detail.path === 'amount' ? 'start' : 'form'
+      if (failure.detail.path === 'start' || failure.detail.path === 'amount') return 'start'
+      return failure.detail.path === 'cost' ? 'cost' : 'form'
     default:
       return 'form'
   }
