@@ -32,8 +32,8 @@ const pools = (transactions: readonly PoolTransaction[]): Pools =>
   poolsOf(transactions, kindOf, HOME)
 
 /** The day `costOn` answers, which a test expects to be there. */
-const day = (held: Pools, currency: string, date: string): PoolDay => {
-  const found = costOn(held, currency, date)
+const day = (all: Pools, currency: string, date: string): PoolDay => {
+  const found = costOn(all, currency, date)
   if (found === null) throw new Error(`nothing was held in ${currency} on ${date}`)
   return found
 }
@@ -146,9 +146,9 @@ describe('what a currency cost me', () => {
   })
 
   it('a spend lowers what is held and leaves the rate', () => {
-    const after = day(pools(SPEND_KEEPS), 'EUR', '2026-05-03')
-    expect(after.rate).toEqual(day(pools(ONE), 'EUR', '2026-05-01').rate)
-    expect(after.known).toBe(5000)
+    const held = day(pools(SPEND_KEEPS), 'EUR', '2026-05-03')
+    expect(held.rate).toEqual(day(pools(ONE), 'EUR', '2026-05-01').rate)
+    expect(held.known).toBe(5000)
   })
 
   it('a second exchange averages what is still held with what arrived', () => {
@@ -161,9 +161,9 @@ describe('what a currency cost me', () => {
   })
 
   it('shows the average to five figures: 1.4184, and 1.3333 before', () => {
-    const held = pools(EXAMPLE)
-    expect(significant(rateOf(day(held, 'EUR', '2026-05-07')), 5)).toBe('1.4184')
-    expect(significant(rateOf(day(held, 'EUR', '2026-05-01')), 5)).toBe('1.3333')
+    const all = pools(EXAMPLE)
+    expect(significant(rateOf(day(all, 'EUR', '2026-05-07')), 5)).toBe('1.4184')
+    expect(significant(rateOf(day(all, 'EUR', '2026-05-01')), 5)).toBe('1.3333')
   })
 
   it('converts 100 EUR at the average into 14,184 cents', () => {
@@ -234,9 +234,9 @@ describe('what a currency cost me', () => {
   })
 
   it('an arrival after the known money is gone prices itself alone', () => {
-    const after = day(pools([...PAST_KNOWN, SECOND_EXCHANGE]), 'EUR', '2026-05-07')
-    expect(significant(rateOf(after), 5)).toBe('1.4493')
-    expect(after.known).toBe(13800)
+    const held = day(pools([...PAST_KNOWN, SECOND_EXCHANGE]), 'EUR', '2026-05-07')
+    expect(significant(rateOf(held), 5)).toBe('1.4493')
+    expect(held.known).toBe(13800)
   })
 
   it('income arrives of unknown cost, with no rate', () => {
@@ -296,9 +296,9 @@ describe('what a currency cost me', () => {
   })
 
   it('euros changed into yen carry what the known euros cost', () => {
-    const yen = day(pools([...ONE, chainInto('2026-05-03')]), 'JPY', '2026-05-03')
-    expect(significant(rateOf(yen), 4)).toBe('0.008333')
-    expect(yen.known).toBe(1600000)
+    const held = day(pools([...ONE, chainInto('2026-05-03')]), 'JPY', '2026-05-03')
+    expect(significant(rateOf(held), 4)).toBe('0.008333')
+    expect(held.known).toBe(1600000)
   })
 
   it("the euros' pool shows what the exchange took", () => {
@@ -320,8 +320,8 @@ describe('what a currency cost me', () => {
   })
 
   it('a yen arrival listed before the euros takes its cost as the day orders it', () => {
-    const yen = day(pools([chainInto('2026-05-01'), ...ONE]), 'JPY', '2026-05-01')
-    expect(significant(rateOf(yen), 4)).toBe('0.008333')
+    const held = day(pools([chainInto('2026-05-01'), ...ONE]), 'JPY', '2026-05-01')
+    expect(significant(rateOf(held), 4)).toBe('0.008333')
   })
 
   it('a converted spend uses known-cost money and leaves the paid currency out', () => {
@@ -335,13 +335,13 @@ describe('what a currency cost me', () => {
         leg('v', -2500, 'EUR'),
       ),
     ]
-    const held = pools(converted)
-    expect(day(held, 'EUR', '2026-05-02').known).toBe(12500)
-    expect(costOn(held, 'JPY', '2026-05-02')).toBeNull()
+    const all = pools(converted)
+    expect(day(all, 'EUR', '2026-05-02').known).toBe(12500)
+    expect(costOn(all, 'JPY', '2026-05-02')).toBeNull()
   })
 
   it('one bank holding both currencies sets the rate from the two legs', () => {
-    const inside = [
+    const inOneBank = [
       tx(
         '2026-05-01',
         leg('w', 8000, 'EUR'),
@@ -350,7 +350,7 @@ describe('what a currency cost me', () => {
         leg('w', -10000, 'CAD'),
       ),
     ]
-    expect(day(pools(inside), 'EUR', '2026-05-01')).toEqual({
+    expect(day(pools(inOneBank), 'EUR', '2026-05-01')).toEqual({
       date: '2026-05-01',
       rate: { num: 5n, den: 4n },
       known: 8000,
@@ -359,14 +359,14 @@ describe('what a currency cost me', () => {
   })
 
   it('euros whose known money is used up give yen of unknown cost', () => {
-    const held = pools([...PAST_KNOWN, chainInto('2026-05-05')])
-    expect(day(held, 'JPY', '2026-05-05')).toEqual({
+    const all = pools([...PAST_KNOWN, chainInto('2026-05-05')])
+    expect(day(all, 'JPY', '2026-05-05')).toEqual({
       date: '2026-05-05',
       rate: null,
       known: 0,
       unknown: 1600000,
     })
-    expect(day(held, 'EUR', '2026-05-05')).toEqual({
+    expect(day(all, 'EUR', '2026-05-05')).toEqual({
       date: '2026-05-05',
       rate: { num: 4n, den: 3n },
       known: 0,
@@ -375,12 +375,12 @@ describe('what a currency cost me', () => {
   })
 
   it('only the share of yen bought with known-cost euros carries a cost', () => {
-    const held = pools([...POOL_FIRST, chainInto('2026-05-04')])
-    const yen = day(held, 'JPY', '2026-05-04')
-    expect(yen.known).toBe(800000)
-    expect(yen.unknown).toBe(800000)
-    expect(significant(rateOf(yen), 4)).toBe('0.008333')
-    expect(day(held, 'EUR', '2026-05-04')).toEqual({
+    const all = pools([...POOL_FIRST, chainInto('2026-05-04')])
+    const held = day(all, 'JPY', '2026-05-04')
+    expect(held.known).toBe(800000)
+    expect(held.unknown).toBe(800000)
+    expect(significant(rateOf(held), 4)).toBe('0.008333')
+    expect(day(all, 'EUR', '2026-05-04')).toEqual({
       date: '2026-05-04',
       rate: { num: 4n, den: 3n },
       known: 0,
