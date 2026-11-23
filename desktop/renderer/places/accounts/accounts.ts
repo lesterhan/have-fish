@@ -1,6 +1,7 @@
 // The add-account pane's rules: the currency a kind starts at, and which field shows a refusal.
 
 import { type AddableKind, classOf } from '@have-fish/core/account-kind'
+import { parseTyped } from '@have-fish/core/money'
 import type { WireFailure } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 
@@ -36,16 +37,22 @@ export const startCurrency = (currency: string | null): string =>
 export const costAsked = (currency: string | null): boolean =>
   startCurrency(currency) !== HOME_CURRENCY
 
-/** The cost Adding says: what was typed where it is asked and a start was given, else empty. */
+/**
+ * The cost a start says: what was typed where it is asked and the start isn't empty or zero.
+ * A start that isn't an amount says no cost either: its own refusal is what to fix.
+ */
 export const costSaid = (currency: string | null, start: string, cost: string): string =>
-  costAsked(currency) && start.trim() !== '' ? cost : ''
+  costAsked(currency) && (parseTyped(start) ?? 0) !== 0 ? cost : ''
 
 /** A card or a loan: its starting balance is what I owe. */
 export const owes = (kind: AddableKind): boolean => classOf(kind) === 'liability'
 
 export type AccountField = 'name' | 'start' | 'cost' | 'form'
 
-/** A refusal about the name or the starting balance shows under it; anything else under the button. */
+/**
+ * A refusal about the name, the starting balance or the cost shows under it; anything else under
+ * the button.
+ */
 export function accountFieldOf(failure: WireFailure): AccountField {
   switch (failure.error) {
     case 'ACCOUNT_NAME_EMPTY':

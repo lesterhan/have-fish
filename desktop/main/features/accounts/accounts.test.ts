@@ -9,7 +9,7 @@ import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../../ledge
 import { getDocument, liveAccountAt } from '../../ledger/store'
 import { undoItems } from '../../undo/menu'
 import { redoLast, undoLast } from '../../undo/steps'
-import { removeSpend, writeSpend } from '../spends/spends'
+import { editSpend, removeSpend, writeSpend } from '../spends/spends'
 import { listTransactions } from '../spends/transactions'
 import { addAccount, balancesQuery, costStart, listAccounts, startAccount } from './accounts'
 
@@ -35,7 +35,7 @@ const count = (ledger: Ledger, table: string) =>
   ledger.db.prepare(`SELECT count(*) FROM ${table}`).pluck().get()
 
 /** A transaction's postings, as the ledger stores them. */
-function postingsOf(ledger: Ledger, id: string) {
+function storedPostings(ledger: Ledger, id: string) {
   const stored = getDocument(ledger.db, 'transaction', id)
   if (stored === null || stored.doc.type !== 'transaction') throw new Error(`no transaction ${id}`)
   return stored.doc.postings
@@ -523,9 +523,20 @@ describe('a starting balance finer than its currency', () => {
 
 describe('a starting balance that cost me', () => {
   const TODAY = calendarDateAt(NOW, 'UTC')
-  /** A bank kept to EUR, its start in euros, and the two accounts the app makes for a cost. */
+  /** A bank kept to EUR with a start of 200 and a cost of 300, added: its id. */
   const wiseEur = (ctx: ReturnType<typeof setup>['ctx'], start = '200', cost = '300') =>
     ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start, cost })).id
+  /** A card kept to EUR, owed 200 which cost 300, added: its id. */
+  const visaEur = (ctx: ReturnType<typeof setup>['ctx']) =>
+    ok(
+      addAccount(ctx, {
+        name: 'visa:eur',
+        kind: 'card',
+        currency: 'EUR',
+        start: '200',
+        cost: '300',
+      }),
+    ).id
   /** Adding that bank with an invalid cost, and why it was refused. */
   const wiseEurRefusal = (ctx: ReturnType<typeof setup>['ctx'], cost: string, start = '200') =>
     refusal(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start, cost }))
@@ -538,7 +549,7 @@ describe('a starting balance that cost me', () => {
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
 
     const [start] = listTransactions(ledger.db)
-    expect(postingsOf(ledger, start?.id ?? '')).toEqual([
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
       { accountId: id, amount: '200.00', currency: 'EUR' },
       { accountId: conversion, amount: '-200.00', currency: 'EUR' },
       { accountId: conversion, amount: '300.00', currency: 'CAD' },
@@ -562,20 +573,12 @@ describe('a starting balance that cost me', () => {
   test('a debt’s cost goes the other way round, still balancing', () => {
     const { ctx, ledger } = setup()
 
-    const { id } = ok(
-      addAccount(ctx, {
-        name: 'visa:eur',
-        kind: 'card',
-        currency: 'EUR',
-        start: '200',
-        cost: '300',
-      }),
-    )
+    const id = visaEur(ctx)
     const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
 
     const [start] = listTransactions(ledger.db)
-    expect(postingsOf(ledger, start?.id ?? '')).toEqual([
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
       { accountId: id, amount: '-200.00', currency: 'EUR' },
       { accountId: conversion, amount: '200.00', currency: 'EUR' },
       { accountId: conversion, amount: '-300.00', currency: 'CAD' },
@@ -586,15 +589,7 @@ describe('a starting balance that cost me', () => {
   test('the card’s start lists what it cost, in the home currency', () => {
     const { ctx, ledger } = setup()
 
-    ok(
-      addAccount(ctx, {
-        name: 'visa:eur',
-        kind: 'card',
-        currency: 'EUR',
-        start: '200',
-        cost: '300',
-      }),
-    )
+    visaEur(ctx)
 
     expect(listAccounts(ledger.db)[0]?.start).toEqual({
       amount: '200.00',
@@ -613,7 +608,7 @@ describe('a starting balance that cost me', () => {
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
 
     const [start] = listTransactions(ledger.db)
-    expect(postingsOf(ledger, start?.id ?? '')).toEqual([
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
       { accountId: id, amount: '200.00', currency: 'EUR' },
       { accountId: opening, amount: '-200.00', currency: 'EUR' },
     ])
@@ -688,7 +683,7 @@ describe('a starting balance that cost me', () => {
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
 
     const [start] = listTransactions(ledger.db)
-    expect(postingsOf(ledger, start?.id ?? '')).toEqual([
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
       { accountId: id, amount: '200.00', currency: 'EUR' },
       { accountId: conversion, amount: '-200.00', currency: 'EUR' },
       { accountId: conversion, amount: '300.01', currency: 'CAD' },
@@ -751,7 +746,7 @@ describe('a starting balance given later, with its cost', () => {
 
     const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
-    expect(postingsOf(ledger, transaction ?? '')).toEqual([
+    expect(storedPostings(ledger, transaction ?? '')).toEqual([
       { accountId: id, amount: '200.00', currency: 'EUR' },
       { accountId: conversion, amount: '-200.00', currency: 'EUR' },
       { accountId: conversion, amount: '300.00', currency: 'CAD' },
@@ -779,7 +774,7 @@ describe('a cost said after the start', () => {
     const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
     const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
     expect(transaction).toBe(start?.id)
-    expect(postingsOf(ledger, transaction)).toEqual([
+    expect(storedPostings(ledger, transaction)).toEqual([
       { accountId: id, amount: '200.00', currency: 'EUR' },
       { accountId: conversion, amount: '-200.00', currency: 'EUR' },
       { accountId: conversion, amount: '300.00', currency: 'CAD' },
@@ -789,12 +784,20 @@ describe('a cost said after the start', () => {
 
   test('keeps the start’s day and description', () => {
     const { ctx, ledger, id, start } = wiseStarted()
+    ok(
+      editSpend(ctx, {
+        id: start?.id ?? '',
+        amount: '200',
+        description: 'Wise',
+        date: '2026-10-28',
+      }),
+    )
 
     ok(costStart(ctx, { id, cost: '300' }))
 
     expect(listTransactions(ledger.db)[0]).toMatchObject({
-      date: start?.date,
-      description: 'Starting balance',
+      date: '2026-10-28',
+      description: 'Wise',
     })
   })
 
@@ -812,7 +815,7 @@ describe('a cost said after the start', () => {
 
     ok(undoLast(ctx))
 
-    expect(postingsOf(ledger, start?.id ?? '')).toHaveLength(2)
+    expect(storedPostings(ledger, start?.id ?? '')).toHaveLength(2)
     expect(listAccounts(ledger.db)[0]?.start).not.toHaveProperty('cost')
   })
 
@@ -838,13 +841,13 @@ describe('a cost said after the start', () => {
   test('a second cost is refused, and the postings stay', () => {
     const { ctx, ledger, id, start } = wiseStarted()
     ok(costStart(ctx, { id, cost: '300' }))
-    const paid = postingsOf(ledger, start?.id ?? '')
+    const paid = storedPostings(ledger, start?.id ?? '')
 
     expect(refusal(costStart(ctx, { id, cost: '310' }))).toEqual({
       code: 'START_NOT_COSTABLE',
       details: { accountId: id },
     })
-    expect(postingsOf(ledger, start?.id ?? '')).toEqual(paid)
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual(paid)
   })
 
   test('with no start to cost is refused', () => {
@@ -876,7 +879,7 @@ describe('a cost said after the start', () => {
       code: 'COST_INVALID',
       details: { cost: 'lots' },
     })
-    expect(postingsOf(ledger, start?.id ?? '')).toHaveLength(2)
+    expect(storedPostings(ledger, start?.id ?? '')).toHaveLength(2)
   })
 
   test('on an account the file doesn’t hold is refused', () => {

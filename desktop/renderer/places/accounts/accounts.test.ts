@@ -78,6 +78,17 @@ describe('costSaid', () => {
   test('nothing, for a cost typed and left behind when the amount was emptied', () => {
     expect(costSaid('EUR', '  ', '300')).toBe('')
   })
+
+  test.each(['0', '0.00'])(
+    'nothing, for a zero start with a cost typed: %j has nothing to cost',
+    (start) => {
+      expect(costSaid('EUR', start, '300')).toBe('')
+    },
+  )
+
+  test('nothing, for a start that is not an amount: its own refusal is the one to show', () => {
+    expect(costSaid('EUR', 'lots', '300')).toBe('')
+  })
 })
 
 describe('accountFieldOf', () => {

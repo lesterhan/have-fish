@@ -2496,9 +2496,17 @@ describe('money exchanged between my accounts', () => {
 
 describe('a starting balance that cost me', () => {
   /** A bank kept to EUR, started at 200 with a cost of 300: its start, as the app writes it. */
-  function wiseEur(cost = '300') {
+  function wiseEur() {
     const s = setup()
-    ok(addAccount(s.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200', cost }))
+    ok(
+      addAccount(s.ctx, {
+        name: 'wise:eur',
+        kind: 'bank',
+        currency: 'EUR',
+        start: '200',
+        cost: '300',
+      }),
+    )
     const start = listTransactions(s.ledger.db)[0]
     return { ...s, id: start?.id ?? '', start }
   }

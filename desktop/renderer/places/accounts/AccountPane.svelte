@@ -135,7 +135,8 @@
 
   function onstartsubmit(event: SubmitEvent) {
     event.preventDefault()
-    if (!saving) onstart(startText, costText)
+    if (account === undefined) return
+    if (!saving) onstart(startText, costSaid(account.currency, startText, costText))
   }
 
   function oncostsubmit(event: SubmitEvent) {
@@ -301,7 +302,7 @@
         </span>
       {/snippet}
     </Field>
-    {#if costAsked(currency)}{@render costField(!adding)}{/if}
+    {#if costAsked(currency)}{@render costField(false)}{/if}
   </Fold>
 {/snippet}
 
