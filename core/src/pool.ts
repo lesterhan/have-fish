@@ -228,9 +228,9 @@ function arriveAtCost(
   const figures = runningOf(running, currency)
   const owed = figures.unknown < 0 ? Math.min(cents, -figures.unknown) : 0
   figures.unknown += owed
-  const paid = cents - owed
+  const left = cents - owed
 
-  if (paid === 0) {
+  if (left === 0) {
     // All of it paid off what I owed, so none of it is held: its rate is the currency's only
     // where it has none yet, as a debt's start sets it.
     if (figures.rate === null) {
@@ -241,16 +241,16 @@ function arriveAtCost(
     return
   }
 
-  const share = half(cost * BigInt(paid), BigInt(cents))
+  const share = half(cost * BigInt(left), BigInt(cents))
   const before =
     figures.rate === null || figures.known === 0
       ? 0n
       : half(BigInt(figures.known) * SCALE * figures.rate.num, figures.rate.den)
   const top = before + share
-  const bottom = BigInt(figures.known + paid) * SCALE
+  const bottom = BigInt(figures.known + left) * SCALE
   const divisor = gcd(top, bottom)
   figures.rate = { num: top / divisor, den: bottom / divisor }
-  figures.known += paid
+  figures.known += left
 }
 
 /** `cents` leave: what is of known cost first, then what is of unknown cost. */
