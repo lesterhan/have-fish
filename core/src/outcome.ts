@@ -28,6 +28,8 @@ export interface FailureDetails {
   CHARGED_INVALID: { charged: string }
   /** What arrived between my accounts: missing, not an amount, or where nothing exchanges. */
   ARRIVED_INVALID: { arrived: string }
+  /** What a starting balance cost: not an amount, or not above zero. */
+  COST_INVALID: { cost: string }
   /** An amount with cents in a currency that has none: ¥1,500.50. */
   AMOUNT_TOO_PRECISE: { amount: string; currency: string }
   /** A rate that isn't a positive decimal, or has a part past what a rate can hold. */
@@ -60,6 +62,8 @@ export interface FailureDetails {
   ACCOUNT_NAME_TAKEN: { name: string }
   /** A starting balance for an account that already has one. */
   ACCOUNT_ALREADY_STARTED: { accountId: string }
+  /** A cost for a start with none to say: no start, one in the home currency, or one costed. */
+  START_NOT_COSTABLE: { accountId: string }
   /** Money moved from an account to itself. */
   TRANSFER_TO_ITSELF: { accountId: string }
   /** Money from an income source going anywhere but an account of mine. */
