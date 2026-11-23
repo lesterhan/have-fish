@@ -31,7 +31,8 @@ export const closed: Editing = {
 export function opened(editing: Editing, t: ListedTransaction, part: Changable): Editing {
   const values = savedValues(t)
   if (values === null || (part === 'charged' && values.charged === null)) return editing
-  if (t.shape === 'exchange' && part !== 'description' && part !== 'date') return editing
+  if ((t.shape === 'exchange' || t.cost !== undefined) && part !== 'description' && part !== 'date')
+    return editing
   return { ...editing, part, value: values[part] ?? '', error: null }
 }
 

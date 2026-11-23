@@ -6,6 +6,7 @@ import { amountOf, legsOf, type Shape, type ShapeLeg, shapeOf } from './shapes'
 const KINDS: Record<string, AccountKind> = {
   c: 'cash',
   b: 'bank',
+  w: 'bank',
   v: 'card',
   l: 'loan',
   f: 'category',
@@ -243,6 +244,61 @@ describe('shapeOf', () => {
     expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
   })
 
+  it('a start that cost me is a start of my account, through the conversion account', () => {
+    const legs = [
+      leg('w', 20000, 'EUR'),
+      leg('x', -20000, 'EUR'),
+      leg('x', 30000),
+      leg('o', -30000),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'start',
+      account: leg('w', 20000, 'EUR'),
+      opening: leg('o', -30000),
+      via: 'x',
+    })
+  })
+
+  it('a start I owed, with what it cost, reads the same round the other way', () => {
+    const legs = [
+      leg('v', -20000, 'EUR'),
+      leg('x', 20000, 'EUR'),
+      leg('x', -30000),
+      leg('o', 30000),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'start',
+      account: leg('v', -20000, 'EUR'),
+      opening: leg('o', 30000),
+      via: 'x',
+    })
+  })
+
+  it('a costed start reads the same with its four legs in reverse order', () => {
+    const legs = [
+      leg('o', -30000),
+      leg('x', 30000),
+      leg('x', -20000, 'EUR'),
+      leg('w', 20000, 'EUR'),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'start',
+      account: leg('w', 20000, 'EUR'),
+      opening: leg('o', -30000),
+      via: 'x',
+    })
+  })
+
+  it('a costed start whose conversion does not balance is other', () => {
+    const legs = [
+      leg('w', 20000, 'EUR'),
+      leg('x', -20000, 'EUR'),
+      leg('x', 29000),
+      leg('o', -30000),
+    ]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
   it('the legs in either order give the same shape', () => {
     expect(shapeOf([leg('c', -450), leg('f', 450)], kindOf)).toEqual({
       shape: 'spend',
@@ -278,6 +334,19 @@ describe('legsOf', () => {
       leg('v', -3620),
     ])
   })
+
+  it('a costed start is written its account, the conversion each way, then the opening', () => {
+    expect(
+      legsOf({ account: leg('w', 20000, 'EUR'), opening: leg('o', -30000), via: 'x' }),
+    ).toEqual([leg('w', 20000, 'EUR'), leg('x', -20000, 'EUR'), leg('x', 30000), leg('o', -30000)])
+  })
+
+  it('a start is written its account, then the opening', () => {
+    expect(legsOf({ account: leg('b', 100), opening: leg('o', -100) })).toEqual([
+      leg('b', 100),
+      leg('o', -100),
+    ])
+  })
 })
 
 describe('amountOf', () => {
@@ -298,6 +367,28 @@ describe('amountOf', () => {
       cents: 100,
       currency: 'CAD',
     })
+  })
+
+  it('a costed start’s amount is what its account holds, not what it cost', () => {
+    expect(
+      amountOf({
+        shape: 'start',
+        account: leg('w', 20000, 'EUR'),
+        opening: leg('o', -30000),
+        via: 'x',
+      }),
+    ).toEqual({ cents: 20000, currency: 'EUR' })
+  })
+
+  it('a costed start I owed is what the card owes, not its cost', () => {
+    expect(
+      amountOf({
+        shape: 'start',
+        account: leg('v', -20000, 'EUR'),
+        opening: leg('o', 30000),
+        via: 'x',
+      }),
+    ).toEqual({ cents: 20000, currency: 'EUR' })
   })
 
   it('a converted spend’s amount is what it cost in its own currency, the yen', () => {

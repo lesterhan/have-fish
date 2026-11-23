@@ -11,6 +11,8 @@
     type AccountField,
     ANY,
     type Adding,
+    costAsked,
+    costSaid,
     owes,
     startCurrency,
     startingCurrency,
@@ -23,6 +25,8 @@
   import Money from '../../parts/Money.svelte'
   import Pane from '../../parts/Pane.svelte'
   import Path from '../../parts/Path.svelte'
+  import { HOME_CURRENCY } from '../../../shared/currency'
+  import { rateText } from '../../format'
 
   type Props = {
     account: ListedAccount | undefined
@@ -32,12 +36,15 @@
     /** In a narrow window, whether the pane is over the list. */
     open: boolean
     onadd: (adding: Adding) => void
-    /** A starting balance for the account showing, as typed. */
-    onstart: (amount: string) => void
+    /** A starting balance for the account showing, as typed, and what it cost. */
+    onstart: (amount: string, cost: string) => void
+    /** What the start cost, said after it: the account now showing. */
+    oncost: (text: string) => void
     oncancel: () => void
     onback: () => void
   }
-  let { account, adding, saving, error, open, onadd, onstart, oncancel, onback }: Props = $props()
+  let { account, adding, saving, error, open, onadd, onstart, oncost, oncancel, onback }: Props =
+    $props()
 
   const FIRST_KIND: AddableKind = 'bank'
   const words = copy.accounts.pane
@@ -52,6 +59,9 @@
   let startOpen = $state(false)
   let startText = $state('')
   let startInput: HTMLInputElement | undefined = $state()
+  /** What the start cost: kept as typed while the question folds, as the amount is. */
+  let costText = $state('')
+  let costInput: HTMLInputElement | undefined = $state()
   let fold: Fold | undefined = $state()
 
   /** Why it was refused, if it was about `field`; a refusal of the whole form shows on `whole`. */
@@ -65,6 +75,7 @@
     void shownId
     startOpen = false
     startText = ''
+    costText = ''
   })
 
   /** An empty form, with the cursor in Name. */
@@ -75,6 +86,7 @@
     picked = false
     startOpen = false
     startText = ''
+    costText = ''
     await tick()
     nameInput?.focus()
   }
@@ -88,6 +100,13 @@
     startOpen = true
     await tick()
     startInput?.focus()
+  }
+
+  /** Opens the question when adding, and puts the cursor in a refused cost. */
+  export async function focusCost() {
+    if (adding) startOpen = true
+    await tick()
+    costInput?.focus()
   }
 
   async function toggled(opened: boolean) {
@@ -104,12 +123,25 @@
     event.preventDefault()
     // Folded away, what's in the field isn't said: closing the question is skipping it.
     const asked = fold?.opened() ?? startOpen
-    if (!saving) onadd({ name, kind, currency, start: asked ? startText : '' })
+    if (!saving)
+      onadd({
+        name,
+        kind,
+        currency,
+        start: asked ? startText : '',
+        cost: asked ? costSaid(currency, startText, costText) : '',
+      })
   }
 
   function onstartsubmit(event: SubmitEvent) {
     event.preventDefault()
-    if (!saving) onstart(startText)
+    if (account === undefined) return
+    if (!saving) onstart(startText, costSaid(account.currency, startText, costText))
+  }
+
+  function oncostsubmit(event: SubmitEvent) {
+    event.preventDefault()
+    if (!saving) oncost(costText)
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -204,6 +236,7 @@
       </Field>
       {#if account.start}
         {@const start = account.start}
+        {@const cost = start.cost}
         <Field
           id="account-started"
           label={owes(account.kind) ? words.started.owe : words.started.have}
@@ -213,6 +246,21 @@
               ><Money of={start} code /> <Day date={start.date} /></output
             >{/snippet}
         </Field>
+        {#if cost}
+          <Field id="account-cost-said" label={words.cost} figures>
+            {#snippet children()}<output id="account-cost-said"
+                ><Money of={cost} code /> {words.costAt(rateText(cost, start))}</output
+              >{/snippet}
+          </Field>
+        {:else if costAsked(account.currency)}
+          <form class="fields" onsubmit={oncostsubmit} novalidate aria-label={words.costForm}>
+            {@render costField(true)}
+            <span class="buttons">
+              <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
+              <Button type="submit" aria-disabled={saving}>{words.saveCost}</Button>
+            </span>
+          </form>
+        {/if}
       {:else}
         <form class="fields" onsubmit={onstartsubmit} novalidate>
           {@render question(owes(account.kind), startCurrency(account.currency))}
@@ -254,7 +302,30 @@
         </span>
       {/snippet}
     </Field>
+    {#if costAsked(currency)}{@render costField(false)}{/if}
   </Fold>
+{/snippet}
+
+<!-- What the start cost, in the home currency: the Amount's twin, under it. -->
+{#snippet costField(whole: boolean)}
+  <Field id="account-cost" label={words.cost} error={refused('cost', whole)}>
+    {#snippet children(describedby)}
+      <span class="money">
+        <input
+          bind:this={costInput}
+          bind:value={costText}
+          id="account-cost"
+          name="cost"
+          inputmode="decimal"
+          autocomplete="off"
+          maxlength="64"
+          aria-invalid={error?.field === 'cost'}
+          aria-describedby={describedby}
+        />
+        <span>{HOME_CURRENCY}</span>
+      </span>
+    {/snippet}
+  </Field>
 {/snippet}
 
 <style>

@@ -41,9 +41,10 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
     )
     expect(plans).toEqual([
       // account.list: the starting balances, from the opening account out. The sort is of those.
+      // The opening leg's row is read for what a start cost: one row a start, never one a spend.
       [
         'SCAN opening_account',
-        'SEARCH opening_leg USING COVERING INDEX postings_account_transaction (accountId=?)',
+        'SEARCH opening_leg USING INDEX postings_account_transaction (accountId=?)',
         'SEARCH transactions USING INDEX sqlite_autoindex_transactions_1 (id=?)',
         'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
         'USE TEMP B-TREE FOR ORDER BY',

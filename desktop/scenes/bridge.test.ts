@@ -221,6 +221,7 @@ describe('writes', () => {
     'spend.remove',
     'account.add',
     'account.start',
+    'account.cost',
     'ledger.undo',
     'ledger.redo',
   ] as const

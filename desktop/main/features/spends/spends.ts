@@ -202,12 +202,13 @@ function edit(
   )
   const simple = amountOf(shape)
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
-  // An exchange keeps its amounts and accounts: only its description and day change.
+  const costed = shape.shape === 'start' && shape.via !== undefined
+  // An exchange, or a start with its cost, keeps its amounts: only its description and day change.
   if (
-    shape.shape === 'exchange' &&
+    (shape.shape === 'exchange' || costed) &&
     (cents !== simple.cents ||
       (input.currency !== undefined && input.currency !== simple.currency) ||
-      input.to !== undefined)
+      (shape.shape === 'exchange' && input.to !== undefined))
   ) {
     return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
   }
@@ -262,7 +263,7 @@ function edit(
   }
 
   let postings: PostingDoc[]
-  if (shape.shape === 'exchange') {
+  if (shape.shape === 'exchange' || costed) {
     postings = doc.postings
   } else if (fx === null) {
     postings = doc.postings.map((p) => {

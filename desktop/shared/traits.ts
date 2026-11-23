@@ -32,6 +32,7 @@ export const traits: TraitsTable = {
 
   'account.add': { writes: true, reads: ALL_TYPES },
   'account.start': { writes: true, reads: ALL_TYPES },
+  'account.cost': { writes: true, reads: ALL_TYPES },
   'account.list': { writes: false, reads: ALL_TYPES },
 
   'path.list': { writes: false, reads: ALL_TYPES },

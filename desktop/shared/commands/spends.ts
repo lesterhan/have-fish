@@ -114,6 +114,8 @@ export type ListedTransaction = {
    * sent.
    */
   charged?: Money
+  /** What a start in another currency cost, in the home currency: only on a start given one. */
+  cost?: Money
   /**
    * For a spend, transfer or income, the name of the account of mine or income source it came out
    * of, without its root; for a starting balance, the card or loan it put what I owe on.

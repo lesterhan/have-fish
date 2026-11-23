@@ -3,14 +3,15 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../../shared/commands'
 import { contextFor, type Time } from '../../context'
+import type { Ledger } from '../../db/ledger'
 import { applyLocal } from '../../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../../ledger/fixtures'
 import { getDocument, liveAccountAt } from '../../ledger/store'
 import { undoItems } from '../../undo/menu'
 import { redoLast, undoLast } from '../../undo/steps'
-import { removeSpend, writeSpend } from '../spends/spends'
+import { editSpend, removeSpend, writeSpend } from '../spends/spends'
 import { listTransactions } from '../spends/transactions'
-import { addAccount, balancesQuery, listAccounts, startAccount } from './accounts'
+import { addAccount, balancesQuery, costStart, listAccounts, startAccount } from './accounts'
 
 function setup() {
   const ledger = tempLedger()
@@ -28,6 +29,17 @@ function setup() {
 
 const refusal = (outcome: { ok: boolean; failure?: unknown }) =>
   outcome.ok ? null : outcome.failure
+
+/** How many rows a table, or a table with its own WHERE, holds. */
+const count = (ledger: Ledger, table: string) =>
+  ledger.db.prepare(`SELECT count(*) FROM ${table}`).pluck().get()
+
+/** A transaction's postings, as the ledger stores them. */
+function storedPostings(ledger: Ledger, id: string) {
+  const stored = getDocument(ledger.db, 'transaction', id)
+  if (stored === null || stored.doc.type !== 'transaction') throw new Error(`no transaction ${id}`)
+  return stored.doc.postings
+}
 
 describe('addAccount', () => {
   test('a card goes under liabilities, as I named it, locked to the currency I picked', () => {
@@ -506,5 +518,388 @@ describe('a starting balance finer than its currency', () => {
     const added = addAccount(ctx, { name: 'yen', kind: 'cash', currency: 'JPY', start: '100.5' })
     expect(added.ok || added.failure.code).toBe('AMOUNT_TOO_PRECISE')
     expect(listAccounts(ledger.db)).toEqual([])
+  })
+})
+
+describe('a starting balance that cost me', () => {
+  const TODAY = calendarDateAt(NOW, 'UTC')
+  /** A bank kept to EUR with a start of 200 and a cost of 300, added: its id. */
+  const wiseEur = (ctx: ReturnType<typeof setup>['ctx'], start = '200', cost = '300') =>
+    ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start, cost })).id
+  /** A card kept to EUR, owed 200 which cost 300, added: its id. */
+  const visaEur = (ctx: ReturnType<typeof setup>['ctx']) =>
+    ok(
+      addAccount(ctx, {
+        name: 'visa:eur',
+        kind: 'card',
+        currency: 'EUR',
+        start: '200',
+        cost: '300',
+      }),
+    ).id
+  /** Adding that bank with an invalid cost, and why it was refused. */
+  const wiseEurRefusal = (ctx: ReturnType<typeof setup>['ctx'], cost: string, start = '200') =>
+    refusal(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start, cost }))
+
+  test('a cost in another currency is a start through the conversion account', () => {
+    const { ctx, ledger } = setup()
+
+    const id = wiseEur(ctx)
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+
+    const [start] = listTransactions(ledger.db)
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
+      { accountId: id, amount: '200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '-200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '300.00', currency: 'CAD' },
+      { accountId: opening, amount: '-300.00', currency: 'CAD' },
+    ])
+  })
+
+  test('the list says what the start cost, beside its amount', () => {
+    const { ctx, ledger } = setup()
+
+    wiseEur(ctx)
+
+    expect(listAccounts(ledger.db)[0]?.start).toEqual({
+      amount: '200.00',
+      currency: 'EUR',
+      date: TODAY,
+      cost: { amount: '300.00', currency: 'CAD' },
+    })
+  })
+
+  test('a debt’s cost goes the other way round, still balancing', () => {
+    const { ctx, ledger } = setup()
+
+    const id = visaEur(ctx)
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+
+    const [start] = listTransactions(ledger.db)
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
+      { accountId: id, amount: '-200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '-300.00', currency: 'CAD' },
+      { accountId: opening, amount: '300.00', currency: 'CAD' },
+    ])
+  })
+
+  test('the card’s start lists what it cost, in the home currency', () => {
+    const { ctx, ledger } = setup()
+
+    visaEur(ctx)
+
+    expect(listAccounts(ledger.db)[0]?.start).toEqual({
+      amount: '200.00',
+      currency: 'EUR',
+      date: TODAY,
+      cost: { amount: '300.00', currency: 'CAD' },
+    })
+  })
+
+  test('a start with no cost is the two postings it was, and lists none', () => {
+    const { ctx, ledger } = setup()
+
+    const { id } = ok(
+      addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200' }),
+    )
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+
+    const [start] = listTransactions(ledger.db)
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
+      { accountId: id, amount: '200.00', currency: 'EUR' },
+      { accountId: opening, amount: '-200.00', currency: 'EUR' },
+    ])
+    expect(listAccounts(ledger.db)[0]?.start).not.toHaveProperty('cost')
+  })
+
+  test('what the account holds is its own currency, never the cost', () => {
+    const { ctx, ledger } = setup()
+
+    wiseEur(ctx)
+
+    expect(listAccounts(ledger.db)[0]?.balance).toEqual([{ amount: '200.00', currency: 'EUR' }])
+  })
+
+  test('the conversion account is made once, by the first start that needs it', () => {
+    const { ctx, ledger, announced } = setup()
+
+    wiseEur(ctx)
+    ctx.flush()
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    ok(
+      addAccount(ctx, {
+        name: 'savings:eur',
+        kind: 'bank',
+        currency: 'EUR',
+        start: '5',
+        cost: '6',
+      }),
+    )
+    ctx.flush()
+
+    expect(count(ledger, "accounts WHERE path = 'equity:conversion'")).toBe(1)
+    expect(announced[0]?.map((c) => c.id)).toContain(conversion)
+    expect(announced[1]?.map((c) => c.id)).not.toContain(conversion)
+  })
+
+  test('undo takes the account and its start back, and leaves the conversion account', () => {
+    const { ctx, ledger } = setup()
+    wiseEur(ctx)
+
+    ok(undoLast(ctx))
+
+    expect(listAccounts(ledger.db)).toEqual([])
+    expect(listTransactions(ledger.db)).toEqual([])
+    expect(liveAccountAt(ledger.db, 'equity:conversion')).toBeDefined()
+  })
+
+  test('a cost that is not an amount is refused, and nothing is added', () => {
+    const { ctx, ledger } = setup()
+
+    expect(wiseEurRefusal(ctx, 'lots')).toEqual({ code: 'COST_INVALID', details: { cost: 'lots' } })
+    expect(count(ledger, 'accounts')).toBe(0)
+  })
+
+  test('a cost of zero is refused', () => {
+    const { ctx } = setup()
+
+    expect(wiseEurRefusal(ctx, '0')).toEqual({ code: 'COST_INVALID', details: { cost: '0' } })
+  })
+
+  test('a cost below zero is refused', () => {
+    const { ctx } = setup()
+
+    expect(wiseEurRefusal(ctx, '-300')).toEqual({ code: 'COST_INVALID', details: { cost: '-300' } })
+  })
+
+  test('a cost past the cent rounds, as a typed amount does', () => {
+    const { ctx, ledger } = setup()
+
+    const id = wiseEur(ctx, '200', '300.005')
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+
+    const [start] = listTransactions(ledger.db)
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual([
+      { accountId: id, amount: '200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '-200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '300.01', currency: 'CAD' },
+      { accountId: opening, amount: '-300.01', currency: 'CAD' },
+    ])
+  })
+
+  test('a cost on a start in the home currency is refused', () => {
+    const { ctx, ledger, names } = setup()
+
+    expect(
+      refusal(
+        addAccount(ctx, {
+          name: 'chequing',
+          kind: 'bank',
+          currency: 'CAD',
+          start: '200',
+          cost: '300',
+        }),
+      ),
+    ).toEqual({ code: 'START_NOT_COSTABLE', details: { accountId: expect.any(String) } })
+    expect(names()).toEqual([])
+    expect(count(ledger, 'accounts')).toBe(0)
+  })
+
+  test('a cost on a start in an account that holds any currency is refused: its start is in CAD', () => {
+    const { ctx, names } = setup()
+
+    expect(
+      refusal(
+        addAccount(ctx, {
+          name: 'savings',
+          kind: 'bank',
+          currency: null,
+          start: '200',
+          cost: '300',
+        }),
+      ),
+    ).toEqual({ code: 'START_NOT_COSTABLE', details: { accountId: expect.any(String) } })
+    expect(names()).toEqual([])
+  })
+
+  test('a cost with nothing to cost is refused, and nothing is added', () => {
+    const { ctx, names } = setup()
+
+    expect(wiseEurRefusal(ctx, '300', '')).toEqual({
+      code: 'START_NOT_COSTABLE',
+      details: { accountId: expect.any(String) },
+    })
+    expect(names()).toEqual([])
+  })
+})
+
+describe('a starting balance given later, with its cost', () => {
+  test('is the same four postings, through the conversion account', () => {
+    const { ctx, ledger } = setup()
+    const { id } = ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR' }))
+
+    const { id: transaction } = ok(startAccount(ctx, { id, amount: '200', cost: '300' }))
+
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+    expect(storedPostings(ledger, transaction ?? '')).toEqual([
+      { accountId: id, amount: '200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '-200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '300.00', currency: 'CAD' },
+      { accountId: opening, amount: '-300.00', currency: 'CAD' },
+    ])
+  })
+})
+
+describe('a cost said after the start', () => {
+  /** A bank kept to EUR with a start of 200 and nothing said of what it cost. */
+  function wiseStarted() {
+    const s = setup()
+    const { id } = ok(
+      addAccount(s.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200' }),
+    )
+    const start = listTransactions(s.ledger.db)[0]
+    return { ...s, id, start }
+  }
+
+  test('says what the start cost, as a new version of the same start', () => {
+    const { ctx, ledger, id, start } = wiseStarted()
+
+    const { id: transaction } = ok(costStart(ctx, { id, cost: '300' }))
+
+    const conversion = liveAccountAt(ledger.db, 'equity:conversion') ?? ''
+    const opening = liveAccountAt(ledger.db, 'equity:opening') ?? ''
+    expect(transaction).toBe(start?.id)
+    expect(storedPostings(ledger, transaction)).toEqual([
+      { accountId: id, amount: '200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '-200.00', currency: 'EUR' },
+      { accountId: conversion, amount: '300.00', currency: 'CAD' },
+      { accountId: opening, amount: '-300.00', currency: 'CAD' },
+    ])
+  })
+
+  test('keeps the start’s day and description', () => {
+    const { ctx, ledger, id, start } = wiseStarted()
+    ok(
+      editSpend(ctx, {
+        id: start?.id ?? '',
+        amount: '200',
+        description: 'Wise',
+        date: '2026-10-28',
+      }),
+    )
+
+    ok(costStart(ctx, { id, cost: '300' }))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      date: '2026-10-28',
+      description: 'Wise',
+    })
+  })
+
+  test('the list says the cost from then on', () => {
+    const { ctx, ledger, id } = wiseStarted()
+
+    ok(costStart(ctx, { id, cost: '300' }))
+
+    expect(listAccounts(ledger.db)[0]?.start?.cost).toEqual({ amount: '300.00', currency: 'CAD' })
+  })
+
+  test('undo puts the two postings back, and the list loses the cost', () => {
+    const { ctx, ledger, id, start } = wiseStarted()
+    ok(costStart(ctx, { id, cost: '300' }))
+
+    ok(undoLast(ctx))
+
+    expect(storedPostings(ledger, start?.id ?? '')).toHaveLength(2)
+    expect(listAccounts(ledger.db)[0]?.start).not.toHaveProperty('cost')
+  })
+
+  test('names the step for the cost, for undo', () => {
+    const { ctx, id } = wiseStarted()
+    ok(costStart(ctx, { id, cost: '300' }))
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
+      'Undo cost of wise:eur',
+    )
+  })
+
+  test('names it for redo too, once taken back', () => {
+    const { ctx, id } = wiseStarted()
+    ok(costStart(ctx, { id, cost: '300' }))
+    ok(undoLast(ctx))
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).redo.label).toBe(
+      'Redo cost of wise:eur',
+    )
+  })
+
+  test('a second cost is refused, and the postings stay', () => {
+    const { ctx, ledger, id, start } = wiseStarted()
+    ok(costStart(ctx, { id, cost: '300' }))
+    const paid = storedPostings(ledger, start?.id ?? '')
+
+    expect(refusal(costStart(ctx, { id, cost: '310' }))).toEqual({
+      code: 'START_NOT_COSTABLE',
+      details: { accountId: id },
+    })
+    expect(storedPostings(ledger, start?.id ?? '')).toEqual(paid)
+  })
+
+  test('with no start to cost is refused', () => {
+    const { ctx } = setup()
+    const { id } = ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR' }))
+
+    expect(refusal(costStart(ctx, { id, cost: '300' }))).toEqual({
+      code: 'START_NOT_COSTABLE',
+      details: { accountId: id },
+    })
+  })
+
+  test('on a start in the home currency is refused', () => {
+    const { ctx } = setup()
+    const { id } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }),
+    )
+
+    expect(refusal(costStart(ctx, { id, cost: '300' }))).toEqual({
+      code: 'START_NOT_COSTABLE',
+      details: { accountId: id },
+    })
+  })
+
+  test('that is not an amount is refused, and the postings are as they were', () => {
+    const { ctx, ledger, id, start } = wiseStarted()
+
+    expect(refusal(costStart(ctx, { id, cost: 'lots' }))).toEqual({
+      code: 'COST_INVALID',
+      details: { cost: 'lots' },
+    })
+    expect(storedPostings(ledger, start?.id ?? '')).toHaveLength(2)
+  })
+
+  test('on an account the file doesn’t hold is refused', () => {
+    const { ctx } = setup()
+    const missing = '7d1c2f3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
+
+    expect(refusal(costStart(ctx, { id: missing, cost: '300' }))).toEqual({
+      code: 'ACCOUNT_NOT_FOUND',
+      details: { accountId: missing },
+    })
+  })
+
+  test('on a category is refused, as a start is', () => {
+    const { ctx, ledger } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const unsorted = liveAccountAt(ledger.db, 'expenses:unsorted') ?? ''
+
+    expect(refusal(costStart(ctx, { id: unsorted, cost: '300' }))).toEqual({
+      code: 'ACCOUNT_NOT_FOUND',
+      details: { accountId: unsorted },
+    })
   })
 })

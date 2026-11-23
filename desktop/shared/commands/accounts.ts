@@ -12,9 +12,13 @@ export const accountInputs = {
     currency: typed(8).nullable(),
     /** How much is in it today, or owed on it, as typed; empty for nothing. */
     start: typed(64).default(''),
+    /** What the start cost in the home currency, as typed; empty for unknown. */
+    cost: typed(64).default(''),
   }),
   /** A starting balance for an account that has none. */
-  'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
+  'account.start': z.strictObject({ id: z.uuid(), amount: typed(64), cost: typed(64).default('') }),
+  /** What an account's start cost, said after it started. */
+  'account.cost': z.strictObject({ id: z.uuid(), cost: typed(64) }),
   'account.list': z.strictObject({}),
 }
 
@@ -26,8 +30,11 @@ export type ListedAccount = {
   kind: AddableKind
   /** The one currency it holds, or null for any. */
   currency: string | null
-  /** What was in it, or owed on it, the day it started; null if it was never said. */
-  start: (Money & { date: string }) | null
+  /**
+   * What was in it, or owed on it, the day it started; null if it was never said. And what it cost
+   * in the home currency when said.
+   */
+  start: (Money & { date: string; cost?: Money }) | null
   /**
    * What its own postings sum to in each currency, by code, as the ledger holds it: what I owe is
    * below zero. None that sum to zero; empty for nothing in it.
@@ -39,9 +46,14 @@ export interface AccountValues {
   'account.add': { id: string }
   /** The starting balance's transaction; null when there was nothing to write (empty, or zero). */
   'account.start': { id: string | null }
+  /** The start transaction, a new version of it. */
+  'account.cost': { id: string }
   /** Sorted by name, without regard to case. */
   'account.list': ListedAccount[]
 }
 
 /** What an undo step of an account is called. */
-export type AccountStep = { action: 'addAccount'; name: string } | { action: 'start'; name: string }
+export type AccountStep =
+  | { action: 'addAccount'; name: string }
+  | { action: 'start'; name: string }
+  | { action: 'cost'; name: string }

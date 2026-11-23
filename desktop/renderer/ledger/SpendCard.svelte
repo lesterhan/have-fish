@@ -171,7 +171,7 @@
         id={chipId('amount')}
         label={words.chip.amount}
         figures
-        locked={transaction.shape === 'exchange'}
+        locked={transaction.shape === 'exchange' || transaction.cost !== undefined}
         changing={chip.part === 'amount'}
         saved={chip.justSaved === 'amount'}
         error={refused('amount')}

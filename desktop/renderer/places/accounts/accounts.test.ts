@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import { HOME_CURRENCY } from '../../../shared/currency'
-import { ANY, accountFieldOf, lockOf, owes, startCurrency, startingCurrency } from './accounts'
+import {
+  ANY,
+  accountFieldOf,
+  costAsked,
+  costSaid,
+  lockOf,
+  owes,
+  startCurrency,
+  startingCurrency,
+} from './accounts'
 
 describe('startingCurrency', () => {
   test('cash holds any; a bank account, a card and a loan start at the home currency', () => {
@@ -37,6 +46,51 @@ describe('owes', () => {
   })
 })
 
+describe('costAsked', () => {
+  test('a start in another currency than the home one asks what it cost', () => {
+    expect(costAsked('EUR')).toBe(true)
+  })
+
+  test('a start in the home currency asks nothing', () => {
+    expect(costAsked('CAD')).toBe(false)
+  })
+
+  test.each([null, ANY])(
+    'an account that holds any starts in the home currency, so %j asks nothing',
+    (currency) => {
+      expect(costAsked(currency)).toBe(false)
+    },
+  )
+})
+
+describe('costSaid', () => {
+  test('what was typed, where a start in another currency was given', () => {
+    expect(costSaid('EUR', '200', '300')).toBe('300')
+  })
+
+  test.each([HOME_CURRENCY, ANY])(
+    'nothing, for a cost typed and left behind when the currency became %s',
+    (currency) => {
+      expect(costSaid(currency, '200', '300')).toBe('')
+    },
+  )
+
+  test('nothing, for a cost typed and left behind when the amount was emptied', () => {
+    expect(costSaid('EUR', '  ', '300')).toBe('')
+  })
+
+  test.each(['0', '0.00'])(
+    'nothing, for a zero start with a cost typed: %j has nothing to cost',
+    (start) => {
+      expect(costSaid('EUR', start, '300')).toBe('')
+    },
+  )
+
+  test('nothing, for a start that is not an amount: its own refusal is the one to show', () => {
+    expect(costSaid('EUR', 'lots', '300')).toBe('')
+  })
+})
+
 describe('accountFieldOf', () => {
   test('a starting balance that isn’t an amount, or is one too many, shows under it', () => {
     expect(accountFieldOf({ ok: false, error: 'AMOUNT_INVALID', detail: { amount: 'x' } })).toBe(
@@ -69,5 +123,22 @@ describe('accountFieldOf', () => {
     expect(accountFieldOf({ ok: false, error: 'UNEXPECTED', detail: undefined })).toBe('form')
     const kind = { path: 'kind', issue: 'invalid_value' }
     expect(accountFieldOf({ ok: false, error: 'INPUT_MALFORMED', detail: kind })).toBe('form')
+  })
+
+  test('a cost that isn’t an amount shows under it', () => {
+    expect(accountFieldOf({ ok: false, error: 'COST_INVALID', detail: { cost: 'lots' } })).toBe(
+      'cost',
+    )
+  })
+
+  test('a cost too long for its field shows under it', () => {
+    const long = { path: 'cost', issue: 'too_big' }
+    expect(accountFieldOf({ ok: false, error: 'INPUT_MALFORMED', detail: long })).toBe('cost')
+  })
+
+  test('a cost with nothing to cost shows under the button', () => {
+    expect(
+      accountFieldOf({ ok: false, error: 'START_NOT_COSTABLE', detail: { accountId: 'a' } }),
+    ).toBe('form')
   })
 })

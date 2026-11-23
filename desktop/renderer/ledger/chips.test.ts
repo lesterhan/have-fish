@@ -33,6 +33,22 @@ const EXCHANGE: ListedTransaction = {
   from: 'wise:cad',
   to: 'wise:eur',
 }
+/** €200 in wise:eur, with nothing said of what it cost: a start of two postings. */
+const START: ListedTransaction = {
+  ...spend,
+  description: 'Starting balance',
+  shape: 'start',
+  simple: { amount: '200.00', currency: 'EUR' },
+  from: null,
+  to: null,
+  fromPath: null,
+  toPath: null,
+}
+/** The same €200, which cost 300 CAD: a start of four postings. */
+const COSTED_START: ListedTransaction = {
+  ...START,
+  cost: { amount: '300.00', currency: 'CAD' },
+}
 const toOf = (typed: string) => ({ category: typed })
 const TODAY = '2026-10-30'
 
@@ -125,5 +141,19 @@ describe('an exchange', () => {
 
   test('opens its date chip', () => {
     expect(opened(closed, EXCHANGE, 'date')).toMatchObject({ part: 'date' })
+  })
+})
+
+describe('a start that cost me', () => {
+  test('keeps its amount chip closed: its cost would be wiped', () => {
+    expect(opened(closed, COSTED_START, 'amount')).toBe(closed)
+  })
+
+  test.each(['description', 'date'] as const)('opens its %s chip', (part) => {
+    expect(opened(closed, COSTED_START, part)).toMatchObject({ part })
+  })
+
+  test('a start of two postings opens its amount chip', () => {
+    expect(opened(closed, START, 'amount')).toMatchObject({ part: 'amount' })
   })
 })

@@ -14,8 +14,8 @@ import { fitsCurrency } from '@have-fish/core/currencies'
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
-import { OPENING } from '@have-fish/core/own-accounts'
-import { legsOf } from '@have-fish/core/shapes'
+import { CONVERSION, OPENING } from '@have-fish/core/own-accounts'
+import { legsOf, type ShapeLeg } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
@@ -69,7 +69,7 @@ export function addAccount(ctx: Context, input: InputOf<'account.add'>): Outcome
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
-  const start = startOf(ctx, account, input.start ?? '', made)
+  const start = startOf(ctx, account, input.start ?? '', input.cost ?? '', made)
   if (!start.ok) return start
   const { docs, kept } = start.value ?? { docs: [], kept: [] }
 
@@ -86,16 +86,13 @@ export function startAccount(
 ): Outcome<{ id: string | null }> {
   const { db } = ctx.ledger
   const { id } = input
-  const stored = getDocument(db, 'account', id)
-  if (stored === null || !isAddable(stored.doc.kind)) {
-    return failure('ACCOUNT_NOT_FOUND', { accountId: id })
-  }
-  const account = stored.doc
-  if (account.deletedAt !== null) return failure('ACCOUNT_DELETED', { accountId: id })
+  const live = liveAddable(db, id)
+  if (!live.ok) return live
+  const account = live.value
   if (startsOf(db).has(id)) return failure('ACCOUNT_ALREADY_STARTED', { accountId: id })
 
   const now = ctx.now()
-  const start = startOf(ctx, account, input.amount, {
+  const start = startOf(ctx, account, input.amount, input.cost ?? '', {
     createdAt: now,
     deviceId: ctx.ledger.meta.deviceId,
   })
@@ -118,27 +115,42 @@ export function startAccount(
  * The transaction that says what was in an account today, against the opening account, with that
  * account if the app hasn't made it yet. Null when nothing was typed, or zero: there's nothing
  * to say. What I owe on a card or a loan goes on as a negative, which is what owing is.
+ * Given its cost, in another currency than the home one, it goes through the conversion account.
  */
 function startOf(
   ctx: Context,
   account: AccountDoc,
   typed: string,
+  typedCost: string,
   made: Made,
 ): Outcome<{ docs: LedgerDocument[]; kept: TransactionDoc[] } | null> {
-  if (typed.trim() === '') return { ok: true, value: null }
-  const cents = parseTyped(typed)
+  const empty = typed.trim() === ''
+  const cents = empty ? null : parseTyped(typed)
+  const asked = typedCost.trim() !== ''
+  const currency = account.currency ?? HOME_CURRENCY
+  if (asked && (empty || cents === 0))
+    return failure('START_NOT_COSTABLE', { accountId: account.id })
+  if (asked && currency === HOME_CURRENCY)
+    return failure('START_NOT_COSTABLE', { accountId: account.id })
+  if (empty) return { ok: true, value: null }
   if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
   if (cents === 0) return { ok: true, value: null }
 
   const signed = classOf(account.kind) === 'liability' ? -cents : cents
-  const currency = account.currency ?? HOME_CURRENCY
   if (!fitsCurrency(cents, currency))
     return failure('AMOUNT_TOO_PRECISE', { amount: typed, currency })
-  const opening = accountFor(ctx.ledger.db, OPENING, made)
-  const legs = legsOf({
-    account: { accountId: account.id, cents: signed, currency },
-    opening: { accountId: opening.id, cents: -signed, currency },
-  })
+  let cost: number | null = null
+  if (asked) {
+    const read = costOf(typedCost)
+    if (!read.ok) return read
+    cost = read.value
+  }
+  const { legs, made: accounts } = startLegs(
+    ctx.ledger.db,
+    { accountId: account.id, cents: signed, currency },
+    cost,
+    made,
+  )
   const transaction: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
@@ -148,7 +160,49 @@ function startOf(
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
-  return { ok: true, value: { docs: [...opening.made, transaction], kept: [transaction] } }
+  return { ok: true, value: { docs: [...accounts, transaction], kept: [transaction] } }
+}
+
+/**
+ * The legs of a start, and the accounts the app makes for it: the opening account, and the
+ * conversion account when it cost something. `cost` null: nothing said, so two postings.
+ */
+function startLegs(
+  db: Database.Database,
+  account: ShapeLeg,
+  cost: number | null,
+  made: Made,
+): { legs: ShapeLeg[]; made: AccountDoc[] } {
+  const opening = accountFor(db, OPENING, made)
+  const openingLeg = { accountId: opening.id, cents: -account.cents, currency: account.currency }
+  if (cost === null) return { legs: legsOf({ account, opening: openingLeg }), made: opening.made }
+  const via = accountFor(db, CONVERSION, made)
+  const paid = {
+    accountId: opening.id,
+    cents: account.cents < 0 ? cost : -cost,
+    currency: HOME_CURRENCY,
+  }
+  return {
+    legs: legsOf({ account, opening: paid, via: via.id }),
+    made: [...opening.made, ...via.made],
+  }
+}
+
+/** What a start cost, in cents: not an amount, or not above zero, is refused. */
+function costOf(typed: string): Outcome<number> {
+  const cents = parseTyped(typed)
+  if (cents === null || cents <= 0) return failure('COST_INVALID', { cost: typed })
+  return { ok: true, value: cents }
+}
+
+/** The account at `id`, where the file holds it and it's one I add to: a category isn't. */
+function liveAddable(db: Database.Database, id: string): Outcome<AccountDoc> {
+  const stored = getDocument(db, 'account', id)
+  if (stored === null || !isAddable(stored.doc.kind)) {
+    return failure('ACCOUNT_NOT_FOUND', { accountId: id })
+  }
+  if (stored.doc.deletedAt !== null) return failure('ACCOUNT_DELETED', { accountId: id })
+  return { ok: true, value: stored.doc }
 }
 
 /**
@@ -189,6 +243,9 @@ const statements = perConnection((orm) => ({
       cents: postings.amountCents,
       currency: postings.currency,
       date: transactions.date,
+      transactionId: transactions.id,
+      openingCents: openingLeg.amountCents,
+      openingCurrency: openingLeg.currency,
     })
     .from(openingAccount)
     .crossJoin(openingLeg)
@@ -221,13 +278,24 @@ function balancesOf(db: Database.Database): Map<string, Money[]> {
   return found
 }
 
-type Start = { cents: number; currency: string; date: string }
+type Start = {
+  cents: number
+  currency: string
+  date: string
+  transactionId: string
+  opening: { cents: number; currency: string }
+}
 
 /** Each account's starting balance, by id: the oldest, if sync ever brings two. */
 function startsOf(db: Database.Database): Map<string, Start> {
   const found = new Map<string, Start>()
-  for (const { accountId, ...start } of statements(db).starts.all()) {
-    if (!found.has(accountId)) found.set(accountId, start)
+  const starts = statements(db).starts.all()
+  for (const { accountId, openingCents, openingCurrency, ...start } of starts) {
+    if (!found.has(accountId))
+      found.set(accountId, {
+        ...start,
+        opening: { cents: openingCents, currency: openingCurrency },
+      })
   }
   return found
 }
@@ -249,12 +317,61 @@ export function listAccounts(db: Database.Database): ListedAccount[] {
         kind: kind as AddableKind,
         currency,
         start: start
-          ? { amount: format(sign * start.cents), currency: start.currency, date: start.date }
+          ? {
+              amount: format(sign * start.cents),
+              currency: start.currency,
+              date: start.date,
+              // A start in another currency was given what it cost, in the home one.
+              ...(start.opening.currency === start.currency
+                ? {}
+                : {
+                    cost: {
+                      amount: format(-sign * start.opening.cents),
+                      currency: start.opening.currency,
+                    },
+                  }),
+            }
           : null,
         balance: balances.get(id) ?? [],
       }
     })
     .sort((a, b) => byName.compare(a.name, b.name) || (a.id < b.id ? -1 : 1))
+}
+
+/** A cost said after the start: a new version of it, through the conversion account. */
+export function costStart(ctx: Context, input: InputOf<'account.cost'>): Outcome<{ id: string }> {
+  const { db } = ctx.ledger
+  const { id } = input
+  const live = liveAddable(db, id)
+  if (!live.ok) return live
+  const account = live.value
+  const start = startsOf(db).get(id)
+  if (
+    start === undefined ||
+    start.currency === HOME_CURRENCY ||
+    start.opening.currency !== start.currency
+  ) {
+    return failure('START_NOT_COSTABLE', { accountId: id })
+  }
+  const cost = costOf(input.cost)
+  if (!cost.ok) return cost
+
+  const now = ctx.now()
+  const stored = getDocument(db, 'transaction', start.transactionId)
+  if (stored === null) return failure('TRANSACTION_NOT_FOUND', { id: start.transactionId })
+  const { legs, made } = startLegs(
+    db,
+    { accountId: id, cents: start.cents, currency: start.currency },
+    cost.value,
+    { createdAt: now, deviceId: ctx.ledger.meta.deviceId },
+  )
+  const edited: TransactionDoc = { ...stored.doc, postings: postingsOf(legs) }
+  const { applied, changes } = applyKeeping(ctx, [...made, edited], now, [edited])
+  record(ctx, { action: 'cost', name: nameOf(account.path) }, changes, {
+    spends: [],
+    accounts: [id],
+  })
+  return idOf(applied, edited.id)
 }
 
 const byName = new Intl.Collator('en', { sensitivity: 'accent' })
