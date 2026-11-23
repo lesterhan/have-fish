@@ -215,7 +215,10 @@ function apply(move: Move, running: Map<string, Running>): void {
   }
 }
 
-/** `cents` at a known `cost`, in millionths: the new average over what the currency now holds. */
+/**
+ * `cents` at a known `cost`, in millionths: what the currency owes is paid off first, and the rest
+ * sets the new average over what it now holds.
+ */
 function arriveAtCost(
   running: Map<string, Running>,
   currency: string,
@@ -223,15 +226,31 @@ function arriveAtCost(
   cost: bigint,
 ): void {
   const figures = runningOf(running, currency)
+  const owed = figures.unknown < 0 ? Math.min(cents, -figures.unknown) : 0
+  figures.unknown += owed
+  const paid = cents - owed
+
+  if (paid === 0) {
+    // All of it paid off what I owed, so none of it is held: its rate is the currency's only
+    // where it has none yet, as a debt's start sets it.
+    if (figures.rate === null) {
+      const bottom = BigInt(cents) * SCALE
+      const divisor = gcd(cost, bottom)
+      figures.rate = { num: cost / divisor, den: bottom / divisor }
+    }
+    return
+  }
+
+  const share = half(cost * BigInt(paid), BigInt(cents))
   const before =
     figures.rate === null || figures.known === 0
       ? 0n
       : half(BigInt(figures.known) * SCALE * figures.rate.num, figures.rate.den)
-  const top = before + cost
-  const bottom = BigInt(figures.known + cents) * SCALE
+  const top = before + share
+  const bottom = BigInt(figures.known + paid) * SCALE
   const divisor = gcd(top, bottom)
   figures.rate = { num: top / divisor, den: bottom / divisor }
-  figures.known += cents
+  figures.known += paid
 }
 
 /** `cents` leave: what is of known cost first, then what is of unknown cost. */

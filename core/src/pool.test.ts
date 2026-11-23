@@ -60,9 +60,9 @@ const boughtWithCad = (
     leg('c', -paid, 'CAD'),
   )
 
-/** `cents` of EUR spent from `w` to `f` on `date`. */
-const spend = (date: string, cents: number): PoolTransaction =>
-  tx(date, leg('f', cents, 'EUR'), leg('w', -cents, 'EUR'))
+/** `cents` of EUR spent from `accountId` to `f` on `date`. */
+const spend = (date: string, cents: number, accountId = 'w'): PoolTransaction =>
+  tx(date, leg('f', cents, 'EUR'), leg(accountId, -cents, 'EUR'))
 
 /** 200 CAD into 150 EUR on 05-01, through the conversion account. */
 const ONE = [boughtWithCad('2026-05-01', 'w', 'EUR', 15000, 20000)]
@@ -98,6 +98,12 @@ const owedStart = (date: string) =>
     leg('x', -30000, 'CAD'),
     leg('o', 30000, 'CAD'),
   )
+
+/** 100 EUR spent on the card on 05-01, then 140 CAD paid in on 05-02 to settle it. */
+const PAYS_DEBT = [
+  spend('2026-05-01', 10000, 'v'),
+  boughtWithCad('2026-05-02', 'v', 'EUR', 10000, 14000),
+]
 
 /** 100 EUR of the pool changed into 16,000 JPY on `date`, through the conversion account. */
 const chainInto = (date: string) =>
@@ -336,6 +342,48 @@ describe('what a currency cost me', () => {
     expect(day(pools(debtFirst), 'EUR', '2026-05-01')).toEqual({
       date: '2026-05-01',
       rate: { num: 4n, den: 3n },
+      known: 0,
+      unknown: -5000,
+    })
+  })
+
+  it('money of a known cost paid in settles what I owe', () => {
+    expect(day(pools(PAYS_DEBT), 'EUR', '2026-05-02')).toEqual({
+      date: '2026-05-02',
+      rate: { num: 7n, den: 5n },
+      known: 0,
+      unknown: 0,
+    })
+  })
+
+  it("the euros that settled a debt don't weigh the next average", () => {
+    const settled = [...PAYS_DEBT, boughtWithCad('2026-05-05', 'w', 'EUR', 15000, 20000)]
+    expect(day(pools(settled), 'EUR', '2026-05-05')).toEqual({
+      date: '2026-05-05',
+      rate: { num: 4n, den: 3n },
+      known: 15000,
+      unknown: 0,
+    })
+  })
+
+  it('what is left over after a debt is held at its share of the cost', () => {
+    const part = [
+      spend('2026-05-01', 10000, 'v'),
+      boughtWithCad('2026-05-02', 'w', 'EUR', 15000, 20000),
+    ]
+    expect(day(pools(part), 'EUR', '2026-05-02')).toEqual({
+      date: '2026-05-02',
+      rate: { num: 6666666667n, den: 5000000000n },
+      known: 5000,
+      unknown: 0,
+    })
+  })
+
+  it("an exchange into a debt's currency settles part of it and leaves the rate", () => {
+    const paid = [owedStart('2026-04-01'), ...ONE]
+    expect(day(pools(paid), 'EUR', '2026-05-01')).toEqual({
+      date: '2026-05-01',
+      rate: { num: 3n, den: 2n },
       known: 0,
       unknown: -5000,
     })
