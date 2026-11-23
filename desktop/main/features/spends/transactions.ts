@@ -174,6 +174,14 @@ function listed(db: Database.Database, heads: readonly Head[]): ListedTransactio
       ...(shape.shape === 'converted' || shape.shape === 'exchange'
         ? { charged: { amount: format(-shape.from.cents), currency: shape.from.currency } }
         : {}),
+      ...(shape.shape === 'start' && shape.via !== undefined
+        ? {
+            cost: {
+              amount: format(Math.abs(shape.opening.cents)),
+              currency: shape.opening.currency,
+            },
+          }
+        : {}),
       from: fromPath && nameOf(fromPath),
       to: toPath && nameOf(toPath),
       fromPath,

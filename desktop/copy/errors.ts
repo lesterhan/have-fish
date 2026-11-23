@@ -13,6 +13,7 @@ const codes: { [C in FailureCode]: string } = {
   AMOUNT_NOT_POSITIVE: 'A spend has to be more than zero.',
   CHARGED_INVALID: 'Type what the account paying was charged, in the currency it holds.',
   ARRIVED_INVALID: 'Type what arrived, in the currency it arrived in.',
+  COST_INVALID: 'Type what it cost you, as an amount above zero.',
   AMOUNT_TOO_PRECISE: 'That currency has no cents. Type a whole amount, like 1500.',
   DATE_INVALID: "That isn't a day on the calendar.",
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
@@ -58,6 +59,7 @@ const codes: { [C in FailureCode]: string } = {
   RATE_PUBLISHED_MISSING: TRY_AGAIN,
   RATE_PUBLISHED_TYPED: TRY_AGAIN,
   TOMBSTONE_HAS_POSTINGS: TRY_AGAIN,
+  START_NOT_COSTABLE: TRY_AGAIN,
   UNEXPECTED: 'Something went wrong. Try again.',
   VERSION_MALFORMED: TRY_AGAIN,
 }

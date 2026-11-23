@@ -46,6 +46,12 @@ export const accounts = {
     started: { have: 'Started with', owe: 'Owed at the start' },
     /** The field the folded question opens: how much. */
     amount: 'Amount',
+    /** What the start cost, in the home currency. */
+    cost: 'Cost',
+    costAt: (rate: string) => `at ${rate}`,
+    /** The form that says what a start already made cost. */
+    costForm: 'What it cost',
+    saveCost: 'Save',
     saveStart: 'Save',
     save: 'Add account',
     cancel: 'Cancel',

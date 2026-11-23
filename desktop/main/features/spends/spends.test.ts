@@ -2493,3 +2493,90 @@ describe('money exchanged between my accounts', () => {
     })
   })
 })
+
+describe('a starting balance that cost me', () => {
+  /** A bank kept to EUR, started at 200 with a cost of 300: its start, as the app writes it. */
+  function wiseEur(cost = '300') {
+    const s = setup()
+    ok(addAccount(s.ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200', cost }))
+    const start = listTransactions(s.ledger.db)[0]
+    return { ...s, id: start?.id ?? '', start }
+  }
+
+  test('is listed with its amount in euros and what it cost in dollars', () => {
+    const { start } = wiseEur()
+
+    expect(start).toMatchObject({
+      shape: 'start',
+      simple: { amount: '200.00', currency: 'EUR' },
+      cost: { amount: '300.00', currency: 'CAD' },
+    })
+  })
+
+  test('a start with no cost is listed with no cost', () => {
+    const { ledger, ctx } = setup()
+    ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR', start: '200' }))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({ shape: 'start' })
+    expect(listTransactions(ledger.db)[0]).not.toHaveProperty('cost')
+  })
+
+  test('is not spending: its week reports nothing spent and nothing in other currencies', () => {
+    const { ledger } = wiseEur()
+
+    expect(ok(spendingIn(ledger.db, { start: '2026-10-26', end: '2026-11-01' }))).toMatchObject({
+      spent: [],
+      other: [],
+    })
+  })
+
+  test('its words change and its four postings stay as written', () => {
+    const { ledger, ctx, id } = wiseEur()
+    const postings = spendOf(ledger, id).postings
+
+    ok(editSpend(ctx, { id, amount: '200', description: 'Wise' }))
+
+    expect(spendOf(ledger, id)).toMatchObject({ description: 'Wise', postings })
+  })
+
+  test('its day changes and its four postings stay as written', () => {
+    const { ledger, ctx, id } = wiseEur()
+    const postings = spendOf(ledger, id).postings
+
+    ok(editSpend(ctx, { id, amount: '200', description: '', date: '2026-10-28' }))
+
+    expect(spendOf(ledger, id)).toMatchObject({ date: '2026-10-28', postings })
+  })
+
+  test('a new amount is refused, and its four postings stay as written', () => {
+    const { ledger, ctx, id } = wiseEur()
+
+    expect(editSpend(ctx, { id, amount: '250', description: '' })).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
+    })
+    expect(spendOf(ledger, id).postings).toHaveLength(4)
+  })
+
+  test('a new currency is refused, and its four postings stay as written', () => {
+    const { ledger, ctx, id } = wiseEur()
+
+    expect(editSpend(ctx, { id, amount: '200', currency: 'CAD', description: '' })).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } },
+    })
+    expect(spendOf(ledger, id).postings).toHaveLength(4)
+  })
+
+  test('a To is ignored, as for every start, and its four postings stay as written', () => {
+    const { ledger, ctx, id } = wiseEur()
+    const postings = spendOf(ledger, id).postings
+    const { id: chequing } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' }),
+    )
+
+    ok(editSpend(ctx, { id, amount: '200', description: '', to: { account: chequing } }))
+
+    expect(spendOf(ledger, id).postings).toEqual(postings)
+  })
+})
