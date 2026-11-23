@@ -12,11 +12,14 @@ import {
   ADD_ACCOUNT,
   aHome,
   BATCH,
+  BEHIND,
   launch,
   openChip,
   openSpend,
   PANE,
+  REPORT_TREE,
   type Running,
+  treeRow,
   WRITE,
 } from './app'
 import { seed } from './month'
@@ -29,8 +32,6 @@ const NAV = 'nav[aria-label=Places]'
 const SPENDS = 'ol[aria-label=Ledger]'
 const ACCOUNTS = 'ol[aria-label=Accounts]'
 const PALETTE = 'role=dialog[name="Do anything"]'
-const TREE = 'ol[aria-label="Spending by category"]'
-const REPORTED = 'ol[aria-label="Its spends"]'
 
 /** A laptop screen; the size the window opens; half of one, which is narrow; and 200%. */
 const WIDE = { width: 1280, height: 800, scale: 1 }
@@ -207,19 +208,19 @@ test('every place and state', { timeout: 300_000 }, async () => {
 
   // Reports.
   await go(page, 'Reports')
-  await page.waitForSelector(`${TREE} li`)
+  await page.waitForSelector(`${REPORT_TREE} li`)
   await shot.take('reports')
   await shot.dark('reports')
   // This week can be a day old; the one before is whole.
   await page.click('button[aria-label="The week before"]')
   await shot.take('reports-week-before')
   // Food open, with a category under it picked: its spends beside the tree.
-  const food = page.locator(`${TREE} li`).filter({ hasText: 'expenses food' }).first()
+  const food = treeRow(page, 'expenses food')
   await food.click()
   await food.click()
-  await page.locator(`${TREE} li`).filter({ hasText: ':restaurants' }).first().click()
+  await treeRow(page, ':restaurants').click()
   await shot.take('reports-opened')
-  await openSpend(page.locator(`${REPORTED} li >> nth=0`), 'section[aria-label="The spend picked"]')
+  await openSpend(page.locator(`${BEHIND} li >> nth=0`), 'section[aria-label="The spend picked"]')
   await shot.take('reports-spend')
 
   // The size the window opens: the form beside the list leaves it narrow, and Reports' half more so.
