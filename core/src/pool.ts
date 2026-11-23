@@ -207,9 +207,9 @@ function apply(move: Move, running: Map<string, Running>): void {
     case 'debt': {
       // A start I owe lowers what is held like a spend, and sets the rate only where the
       // currency has none: a debt never weighs the next conversion's average.
-      const debt = runningOf(running, move.currency)
+      const figures = runningOf(running, move.currency)
       depart(running, move.currency, move.cents)
-      if (debt.rate === null) debt.rate = move.rate
+      if (figures.rate === null) figures.rate = move.rate
       return
     }
   }
