@@ -99,6 +99,22 @@ describe('deriveTokens', () => {
     }
   })
 
+  test('the cap is 70% of the way from the background to the accent in light', () => {
+    const t = deriveTokens(LIGHT)
+    const [bg, accent, cap] = ['background', 'accent', 'accent-cap'].map(
+      (n) => hexToOklch(t[`--color-${n}`] as string).l,
+    ) as [number, number, number]
+    expect(cap).toBeCloseTo(bg + (accent - bg) * 0.7, 2)
+  })
+
+  test('the cap is 60% of the way from the background to the accent in dark', () => {
+    const t = deriveTokens(DARK)
+    const [bg, accent, cap] = ['background', 'accent', 'accent-cap'].map(
+      (n) => hexToOklch(t[`--color-${n}`] as string).l,
+    ) as [number, number, number]
+    expect(cap).toBeCloseTo(bg + (accent - bg) * 0.6, 2)
+  })
+
   test('the money and account colours are the same whatever the theme', () => {
     const other: Theme = { ...LIGHT, neutralHue: 250, accentHue: 300 }
     const fixed = ['in', 'error', 'assets', 'liabilities', 'expenses', 'income'].map(
@@ -128,6 +144,17 @@ describe('the built-ins keep the contract', () => {
     ])
   })
 
+  test('a cap too near the background fails, naming the pair', () => {
+    const light = { ...deriveTokens(LIGHT), '--color-accent-cap': '#b5a783' }
+    expect(inkFailures({ light, dark: deriveTokens(DARK) })).toEqual([
+      expect.objectContaining({
+        scheme: 'light',
+        ink: '--color-accent-cap',
+        on: '--color-background',
+      }),
+    ])
+  })
+
   test('muted text moved off its rung fails, naming the pair', () => {
     // No inputs can do this: muted's lightness is a rung, not an input.
     const light = {
@@ -141,8 +168,8 @@ describe('the built-ins keep the contract', () => {
   })
 })
 
-test('the contract checks 57 pairs and 4 steps in each scheme', () => {
-  expect([INK.length, STEPS.length]).toEqual([57, 4])
+test('the contract checks 58 pairs and 4 steps in each scheme', () => {
+  expect([INK.length, STEPS.length]).toEqual([58, 4])
 })
 
 describe('backgroundFor', () => {

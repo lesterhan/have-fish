@@ -72,6 +72,8 @@ export const INK: readonly Ink[] = [
   // A bar, and the accent's edge, on the line under a row.
   { ink: '--color-bar', on: '--color-rule', use: 'graphic' },
   { ink: '--color-accent', on: '--color-rule', use: 'graphic' },
+  // The chosen tab's cap, on the background it rises from.
+  { ink: '--color-accent-cap', on: '--color-background', use: 'graphic' },
 ]
 
 /** Every surface, on the one beneath it. */

@@ -76,6 +76,9 @@ export function deriveTokens(theme: Theme): Palette {
   for (const root of ['assets', 'liabilities', 'expenses', 'income']) {
     colours[`${root}-tint`] = mix(colours.background as Oklch, colours[root] as Oklch, 0.14)
   }
+  // The chosen tab's cap: the accent over the background, 70% in light and 60% in dark.
+  const capShare = scheme === 'light' ? 0.7 : 0.6
+  colours['accent-cap'] = mix(colours.background as Oklch, colours.accent as Oklch, capShare)
 
   return Object.fromEntries(
     Object.entries(colours).map(([name, colour]) => [`--color-${name}`, oklchToHex(colour)]),

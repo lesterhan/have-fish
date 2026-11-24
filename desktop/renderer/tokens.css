@@ -144,6 +144,7 @@
   --color-liabilities-tint: #f1e1d5;
   --color-expenses-tint: #eae1e9;
   --color-income-tint: #dfe7d9;
+  --color-accent-cap: #a58419;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -172,6 +173,7 @@
     --color-liabilities-tint: #37291e;
     --color-expenses-tint: #322a2e;
     --color-income-tint: #2a2e22;
+    --color-accent-cap: #a0563c;
   }
 }
 /* End of the colours. */
