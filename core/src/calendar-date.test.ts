@@ -1,5 +1,12 @@
 import { describe, expect, it, test } from 'vitest'
-import { addDays, CALENDAR_DATE, calendarDateAt, isCalendarDate, weekOf } from './calendar-date'
+import {
+  addDays,
+  CALENDAR_DATE,
+  calendarDateAt,
+  firstAfter,
+  isCalendarDate,
+  weekOf,
+} from './calendar-date'
 
 describe('isCalendarDate', () => {
   it('accepts a real day and refuses anything else', () => {
@@ -51,6 +58,20 @@ describe('addDays', () => {
     ['2026-11-04', -7, '2026-10-28'],
   ])('%s and %i days is %s', (date, days, expected) => {
     expect(addDays(date, days)).toBe(expected)
+  })
+})
+
+describe('firstAfter', () => {
+  it('is the index of the first day past a date, in a list kept in order', () => {
+    const days = [
+      { date: '2026-05-01' },
+      { date: '2026-05-03' },
+      { date: '2026-05-03' },
+      { date: '2026-05-08' },
+    ]
+    expect(firstAfter(days, '2026-05-03')).toBe(3)
+    expect(firstAfter(days, '2026-04-30')).toBe(0)
+    expect(firstAfter(days, '2026-05-09')).toBe(4)
   })
 })
 

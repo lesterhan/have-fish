@@ -34,6 +34,21 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/** The index of the first of `days` after `date`, in a list kept in order of day. */
+export function firstAfter<T extends { readonly date: string }>(
+  days: readonly T[],
+  date: string,
+): number {
+  let [low, high] = [0, days.length]
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    const day = days[middle]
+    if (day !== undefined && day.date <= date) low = middle + 1
+    else high = middle
+  }
+  return low
+}
+
 /** The week `date` falls in, Monday to Sunday, both days in it. */
 export function weekOf(date: string): { start: string; end: string } {
   // getUTCDay counts from Sunday; a week here starts on Monday.
