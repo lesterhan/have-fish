@@ -72,6 +72,17 @@ async function aDinner(): Promise<Page> {
   return page
 }
 
+/** ¥1,500 from a cash wallet kept to JPY, no rate anywhere: unsorted, and worth nothing in CAD. */
+async function yenFromCash(page: Page) {
+  await addAccount(page, 'suica', 'cash', 'JPY')
+  await openComposer(page)
+  await pickPath(page, `${WRITE} input[name=from]`, 'suica')
+  await page.fill(AMOUNT, '1500')
+  await page.press(AMOUNT, 'Enter')
+  await page.keyboard.press('Escape')
+  await expect.poll(() => rows(page)).toHaveLength(2)
+}
+
 describe('a yen spend my CAD card paid', () => {
   test('4000 jpy from visa: the line asks what it was charged, in CAD, and Tab goes there', async () => {
     const page = await withVisa()
@@ -354,21 +365,40 @@ describe('a converted spend in Reports', () => {
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
   })
 
-  test('beside 1500 yen in cash: the line under the tree says only the 1,500 JPY', async () => {
+  test('beside 1500 yen in cash, no rate: the Unsorted 36.20 is underlined, and so is the total’s', async () => {
     const page = await aDinner()
-    await addAccount(page, 'suica', 'cash', 'JPY')
-    await openComposer(page)
-    await pickPath(page, `${WRITE} input[name=from]`, 'suica')
-    await page.fill(AMOUNT, '1500')
-    await page.press(AMOUNT, 'Enter')
-    await page.keyboard.press('Escape')
-    await expect.poll(() => rows(page)).toHaveLength(2)
+    await yenFromCash(page)
 
     await goTo(page, 'Reports')
 
+    const unsorted = treeRow(page, 'Unsorted')
+    await expect.poll(() => unsorted.locator('[data-cell=shown]').innerText()).toBe('36.20')
     await expect
-      .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
-      .toBe(true)
+      .poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(1)
+    const foot = page.locator("p:has-text('All spending')")
+    await expect
+      .poll(() => foot.locator('[data-guessed]').allTextContents())
+      .toEqual(['36.20', '36.20 more'])
+  })
+
+  test('the dinner alone: no cell of the tree is underlined', async () => {
+    const page = await aDinner()
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+    await expect.poll(() => page.locator('[data-guessed]').count()).toBe(0)
+  })
+
+  test('the dinner and the yen from cash: no line reads “Not in these totals”', async () => {
+    const page = await aDinner()
+    await yenFromCash(page)
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+    await expect.poll(() => page.getByText('Not in these totals').count()).toBe(0)
   })
 
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {

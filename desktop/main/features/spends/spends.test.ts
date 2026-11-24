@@ -2435,7 +2435,6 @@ describe('money exchanged between my accounts', () => {
 
     expect(ok(spendingIn(ledger.db, { start: '2026-10-26', end: '2026-11-01' }))).toMatchObject({
       spent: [],
-      other: [],
     })
   })
 
@@ -2534,7 +2533,6 @@ describe('a starting balance that cost me', () => {
 
     expect(ok(spendingIn(ledger.db, { start: '2026-10-26', end: '2026-11-01' }))).toMatchObject({
       spent: [],
-      other: [],
     })
   })
 

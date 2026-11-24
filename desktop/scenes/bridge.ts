@@ -85,7 +85,7 @@ export function replayBridge(
     'spend.assumedFrom': () => ({ ok: true, value: { id: fixture.assumedFrom } }),
     'report.spending': ({ start }) => ({
       ok: true,
-      value: fixture.reports[start] ?? { currency: fixture.currency, spent: [], other: [] },
+      value: fixture.reports[start] ?? { currency: fixture.currency, spent: [] },
     }),
     'ledger.steps': () => ({ ok: true, value: { undo: null, redo: null } }),
     'settings.density.get': () => ({ ok: true, value: { density } }),

@@ -1,23 +1,29 @@
 // What went to each category in a period: the money a spending report sums.
 
+import { type AccountKind } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
 import { isCalendarDate } from '@have-fish/core/calendar-date'
 import { format } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { UNSORTED } from '@have-fish/core/own-accounts'
-import { shapeOf } from '@have-fish/core/shapes'
+import { type Pools, poolsOf } from '@have-fish/core/pool'
+import { type Mark, type RateBook, rateBookOf, rateFor } from '@have-fish/core/rate-for'
+import { convert } from '@have-fish/core/rates'
+import { type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
-import { and, between, eq, isNull, sql } from 'drizzle-orm'
-import type { InputOf, Money, Values } from '../../../shared/commands'
+import { and, between, eq, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
+import type { InputOf, Values } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 import { perConnection } from '../../db/prepared'
-import { accounts, postings, transactions } from '../../db/schema'
+import { accounts, postings, rates, transactions } from '../../db/schema'
+import { rateOf } from '../../ledger/rows'
 
 const statements = perConnection((orm) => ({
   // Each live posting of a transaction in the period, together, so core can say its shape.
   postingsIn: orm
     .select({
       id: transactions.id,
+      date: transactions.date,
       accountId: postings.accountId,
       kind: accounts.kind,
       path: accounts.path,
@@ -36,13 +42,50 @@ const statements = perConnection((orm) => ({
     )
     .orderBy(transactions.date, transactions.id, postings.position)
     .prepare(),
+  // Each live posting of every transaction up to `end` that holds one in another currency: what
+  // each currency I hold cost me, since euros bought with dollars carry what the dollars cost.
+  history: orm
+    .select({
+      id: transactions.id,
+      date: transactions.date,
+      accountId: postings.accountId,
+      kind: accounts.kind,
+      cents: postings.amountCents,
+      currency: postings.currency,
+    })
+    .from(postings)
+    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+    .innerJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        lte(transactions.date, sql.placeholder('end')),
+        inArray(
+          transactions.id,
+          orm
+            .select({ id: postings.transactionId })
+            .from(postings)
+            .where(ne(postings.currency, HOME_CURRENCY)),
+        ),
+      ),
+    )
+    .orderBy(transactions.date, transactions.id, postings.position)
+    .prepare(),
+  // Every rate the ledger holds: the one I typed or fetched, by day, for a spend with no cost.
+  rates: orm.select().from(rates).where(isNull(rates.deletedAt)).prepare(),
 }))
+
+/** What a currency I hold cost me, and the rates beside it: how a spend converts. */
+type Reading = { pools: Pools; book: RateBook }
+
+/** One spend's money in the home currency, and how good the rate it took is. */
+type Amount = { amount: string; mark: Mark }
 
 /**
  * Each spend's money in a category from `start` to `end`, both days in it, in the home currency.
  * Transfers between my accounts, income and starting balances go to no category, so they are not
- * spending. A spend paid in another currency counts what its account paid. What went out in other
- * currencies is summed apart, since it can't be added in yet.
+ * spending. A spend in another currency counts what it cost me, at the best rate there is, and
+ * says how good that rate is; one with none counts nothing, marked `missing`.
  */
 export function spendingIn(
   db: Database.Database,
@@ -54,7 +97,24 @@ export function spendingIn(
   if (end < start) return failure('DATE_INVALID', { date: end })
 
   const spent: Values['report.spending']['spent'] = []
-  const other = new Map<string, number>()
+  /** The pool and the book, read once, when the first spend in another currency needs them. */
+  let reading: Reading | null = null
+  /** A leg's money in the home currency, and how good the rate it took there is. */
+  const amountOf = (leg: { cents: number; currency: string; date: string }): Amount => {
+    if (leg.currency === HOME_CURRENCY) return { amount: format(leg.cents), mark: 'exact' }
+    reading ??= readingOf(db, end)
+    const { pools, book } = reading
+    const rate = rateFor(
+      { currency: leg.currency, date: leg.date, own: null },
+      pools,
+      book,
+      HOME_CURRENCY,
+    )
+    // A spend with no rate at all adds nothing to the sums it is in.
+    if (rate.mark === 'missing') return { amount: format(0), mark: rate.mark }
+    return { amount: format(convert(leg.cents, rate.rate)), mark: rate.mark }
+  }
+
   const byTransaction = Map.groupBy(statements(db).postingsIn.all({ start, end }), (p) => p.id)
   for (const [id, posted] of byTransaction) {
     const accountKinds = new Map(posted.map((p) => [p.accountId, p.kind]))
@@ -67,18 +127,30 @@ export function spendingIn(
             .map((p) => ({ ...p, cents: -shape.from.cents, currency: shape.from.currency }))
         : posted.filter((p) => p.kind === 'category')
     for (const leg of counted) {
-      if (leg.currency !== HOME_CURRENCY) {
-        other.set(leg.currency, (other.get(leg.currency) ?? 0) + leg.cents)
-        continue
-      }
       // A spend with no category reports as unsorted, `''`.
       const category = leg.pathKey === UNSORTED.path ? '' : nameOf(leg.path)
-      spent.push({ id, category, amount: format(leg.cents), mark: 'exact' })
+      spent.push({ id, category, ...amountOf(leg) })
     }
   }
-  const elsewhere: Money[] = [...other]
-    .filter(([, cents]) => cents !== 0)
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([currency, cents]) => ({ amount: format(cents), currency }))
-  return { ok: true, value: { currency: HOME_CURRENCY, spent, other: elsewhere } }
+  return { ok: true, value: { currency: HOME_CURRENCY, spent } }
+}
+
+/** The pool and the book, from the whole ledger up to `end`: how a spend converts. */
+function readingOf(db: Database.Database, end: string): Reading {
+  const found = statements(db)
+  const kindByAccount = new Map<string, AccountKind>()
+  const byTransaction = new Map<string, { date: string; legs: ShapeLeg[] }>()
+  for (const row of found.history.all({ end })) {
+    kindByAccount.set(row.accountId, row.kind)
+    const kept = byTransaction.get(row.id)
+    const leg = { accountId: row.accountId, cents: row.cents, currency: row.currency }
+    if (kept === undefined) byTransaction.set(row.id, { date: row.date, legs: [leg] })
+    else kept.legs.push(leg)
+  }
+  const docs = found.rates.all().map((row) => rateOf(row).doc)
+  const kindOf = (accountId: string) => kindByAccount.get(accountId)
+  return {
+    pools: poolsOf([...byTransaction.values()], kindOf, HOME_CURRENCY),
+    book: rateBookOf(docs, HOME_CURRENCY),
+  }
 }

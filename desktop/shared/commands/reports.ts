@@ -2,7 +2,7 @@
 
 import type { Mark } from '@have-fish/core/rate-for'
 import { z } from 'zod'
-import { date, type Money } from './wire'
+import { date } from './wire'
 
 export const reportInputs = {
   /** What went to each category from `start` to `end`, both days in it. */
@@ -22,9 +22,8 @@ export type ReportedSpend = {
 
 export interface ReportValues {
   /**
-   * In the home currency, `currency`, oldest day first; a spend paid in another currency counts
-   * what its account paid. `other` is what went out in each other currency, by code: none that
-   * sum to zero.
+   * In the home currency, `currency`, oldest day first: each spend in another currency at the best
+   * rate there is, with its mark; one with none counts 0.00, marked `missing`.
    */
-  'report.spending': { currency: string; spent: ReportedSpend[]; other: Money[] }
+  'report.spending': { currency: string; spent: ReportedSpend[] }
 }

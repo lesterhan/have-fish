@@ -1,14 +1,20 @@
+import { randomUUID } from 'node:crypto'
+import type { RateDoc, TransactionDoc } from '@have-fish/core/documents'
 import { afterAll, describe, expect, test } from 'vitest'
+import type { InputOf } from '../../../shared/commands'
 import { contextFor, type Time } from '../../context'
 import { applyLocal } from '../../ledger/apply'
 import {
   aLedgerOf,
   anAccount,
+  aRate,
   aSpend,
+  MANUAL,
   NOW,
   ok,
   openTempLedger,
   recorded,
+  SYSTEM,
   tempLedger,
 } from '../../ledger/fixtures'
 import { addAccount } from '../accounts/accounts'
@@ -40,13 +46,49 @@ function setup() {
   /** Each spend as `category amount`, and `''` for unsorted. */
   const lines = (start?: string, end?: string) =>
     week(start, end).spent.map((s) => `${s.category} ${s.amount}`)
-  return { ledger, ctx, spend, week, lines }
+  /** An account the app makes, kept to `currency`, with `start` when it is given one. */
+  const account = (
+    name: string,
+    kind: InputOf<'account.add'>['kind'],
+    currency: string,
+    start = '',
+  ) => ok(addAccount(ctx, { name, kind, currency, start })).id
+  /** The account every exchange here goes through, as the app writes one. */
+  const via = anAccount({ path: 'equity:conversion', kind: 'conversion' })
+  ok(applyLocal(ledger, [via], NOW))
+  /** `paid` from `from` into `got` in `to` on `date`: the four postings an exchange has. */
+  const exchange = (
+    date: string,
+    from: { id: string; currency: string },
+    paid: string,
+    to: { id: string; currency: string },
+    got: string,
+  ) => {
+    const doc: TransactionDoc = {
+      type: 'transaction',
+      id: randomUUID(),
+      date,
+      description: 'Exchange',
+      postings: [
+        { accountId: from.id, amount: `-${paid}`, currency: from.currency },
+        { accountId: via.id, amount: paid, currency: from.currency },
+        { accountId: via.id, amount: `-${got}`, currency: to.currency },
+        { accountId: to.id, amount: got, currency: to.currency },
+      ],
+      deletedAt: null,
+      origin: MANUAL,
+    }
+    ok(applyLocal(ledger, [doc], NOW))
+  }
+  /** A rate document: typed, unless it says it was fetched. */
+  const rate = (fields: Partial<RateDoc>) => ok(applyLocal(ledger, [aRate(fields)], NOW))
+  return { ledger, ctx, spend, week, lines, account, exchange, rate }
 }
 
 describe('spendingIn', () => {
   test('nothing written: nothing spent, in the home currency', () => {
     const { week } = setup()
-    expect(week()).toEqual({ currency: 'CAD', spent: [], other: [] })
+    expect(week()).toEqual({ currency: 'CAD', spent: [] })
   })
 
   test('each spend to a category, by its name without the root, oldest day first', () => {
@@ -103,24 +145,6 @@ describe('spendingIn', () => {
     spend('6', 'fun')
     ok(removeSpend(ctx, { id }))
     expect(lines()).toEqual(['fun 6.00'])
-  })
-
-  test('other currencies are summed apart, by code', () => {
-    const { ctx, spend, week } = setup()
-    const euros = ok(addAccount(ctx, { name: 'wise:eur', kind: 'bank', currency: 'EUR' })).id
-    const yen = ok(addAccount(ctx, { name: 'suica', kind: 'cash', currency: 'JPY' })).id
-    const loonies = ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: 'CAD' })).id
-    spend('10', 'food', '2026-10-29', euros)
-    spend('5', 'fun', '2026-10-29', euros)
-    spend('500', 'transport', '2026-10-29', yen)
-    spend('7', 'food', '2026-10-29', loonies)
-
-    const { spent, other } = week()
-    expect(spent.map((s) => s.amount)).toEqual(['7.00'])
-    expect(other).toEqual([
-      { amount: '15.00', currency: 'EUR' },
-      { amount: '500.00', currency: 'JPY' },
-    ])
   })
 
   test('four postings that are no conversion count each category', () => {
@@ -180,12 +204,6 @@ describe('a yen dinner my card was charged for', () => {
     expect(week().spent).toEqual([{ id, category: '', amount: '36.20', mark: 'exact' }])
   })
 
-  test('charged in CAD: none of it is in other', () => {
-    const { dinner, week } = withCard()
-    dinner()
-    expect(week().other).toEqual([])
-  })
-
   test('to food: food counts the 36.20', () => {
     const { dinner, week } = withCard()
     const id = dinner('food')
@@ -200,32 +218,128 @@ describe('a yen dinner my card was charged for', () => {
     expect(week().spent.map((s) => s.amount)).toEqual(['4.50', '36.20', '12.00'])
   })
 
-  test('beside 1500 yen in cash: only the cash yen are in other', () => {
-    const { ctx, dinner, spend, week } = withCard()
-    const suica = ok(addAccount(ctx, { name: 'suica', kind: 'cash', currency: 'JPY' })).id
-    dinner('food')
-    spend('1500', 'food', '2026-10-28', suica)
-    expect(week().other).toEqual([{ amount: '1500.00', currency: 'JPY' }])
-  })
-
-  test('charged 27.00 by a card kept to USD: none of it is in spent', () => {
-    const { dinner, week } = withCard('amex', 'USD', '27.00')
-    dinner()
-    expect(week().spent).toEqual([])
-  })
-
-  test('charged 27.00 by a card kept to USD: other holds the 27.00 USD', () => {
-    const { dinner, week } = withCard('amex', 'USD', '27.00')
-    dinner()
-    expect(week().other).toEqual([{ amount: '27.00', currency: 'USD' }])
-  })
-
   test('the week before counts it at its charge too', () => {
     const { dinner, week } = withCard()
     const id = dinner('', '2026-10-21')
     expect(week('2026-10-19', '2026-10-25').spent).toEqual([
       { id, category: '', amount: '36.20', mark: 'exact' },
     ])
+  })
+})
+
+describe('a spend in another currency', () => {
+  test('the week’s exchange prices it: 200.00 CAD into 150.00 EUR makes 15.00 EUR cost 20.00', () => {
+    const { account, exchange, spend, week } = setup()
+    const chequing = account('chequing', 'bank', 'CAD', '1000')
+    const wallet = account('cash:eur', 'cash', 'EUR')
+    const cad = { id: chequing, currency: 'CAD' }
+    const eur = { id: wallet, currency: 'EUR' }
+    exchange('2026-10-26', cad, '200.00', eur, '150.00')
+    const id = spend('15', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '20.00', mark: 'cost' }])
+  })
+
+  test('an exchange before the week prices it too: 150.00 EUR from January still costs 20.00', () => {
+    const { account, exchange, spend, week } = setup()
+    const chequing = account('chequing', 'bank', 'CAD', '1000')
+    const wallet = account('cash:eur', 'cash', 'EUR')
+    exchange(
+      '2026-01-05',
+      { id: chequing, currency: 'CAD' },
+      '200.00',
+      { id: wallet, currency: 'EUR' },
+      '150.00',
+    )
+    const id = spend('15', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '20.00', mark: 'cost' }])
+  })
+
+  test('a typed rate on its day: 10.00 EUR at 1.45 is 14.50, marked mine', () => {
+    const { account, rate, spend, week } = setup()
+    const wallet = account('cash:eur', 'cash', 'EUR', '10')
+    rate({ date: '2026-10-27', from: 'EUR', to: 'CAD', rate: '1.45' })
+    const id = spend('10', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '14.50', mark: 'mine' }])
+  })
+
+  test('a fetched rate on its day: 10.00 EUR at 1.46 is 14.60, marked estimate', () => {
+    const { account, rate, spend, week } = setup()
+    const wallet = account('cash:eur', 'cash', 'EUR', '10')
+    rate({ date: '2026-10-27', from: 'EUR', to: 'CAD', rate: '1.46', published: '2026-10-27', origin: SYSTEM })
+    const id = spend('10', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '14.60', mark: 'estimate' }])
+  })
+
+  test('a rate from another day is borrowed: 10.00 EUR at 1.40 is 14.00, marked borrowed', () => {
+    const { account, rate, spend, week } = setup()
+    const wallet = account('cash:eur', 'cash', 'EUR', '10')
+    rate({ date: '2026-10-20', from: 'EUR', to: 'CAD', rate: '1.40' })
+    const id = spend('10', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '14.00', mark: 'borrowed' }])
+  })
+
+  test('no rate at all: 15.00 JPY counts 0.00, marked missing', () => {
+    const { account, spend, week } = setup()
+    const wallet = account('cash:jpy', 'cash', 'JPY')
+    const id = spend('15', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '0.00', mark: 'missing' }])
+  })
+
+  test('a currency bought with another: 46.00 EUR carried from 200.00 CAD through USD is 66.67', () => {
+    const { account, exchange, spend, week } = setup()
+    const chequing = account('chequing', 'bank', 'CAD', '1000')
+    const dollars = account('cash:usd', 'cash', 'USD')
+    const wallet = account('cash:eur', 'cash', 'EUR')
+    exchange(
+      '2026-01-05',
+      { id: chequing, currency: 'CAD' },
+      '200.00',
+      { id: dollars, currency: 'USD' },
+      '150.00',
+    )
+    exchange(
+      '2026-10-20',
+      { id: dollars, currency: 'USD' },
+      '100.00',
+      { id: wallet, currency: 'EUR' },
+      '92.00',
+    )
+    const id = spend('46', 'food', '2026-10-27', wallet)
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '66.67', mark: 'cost' }])
+  })
+
+  test('a card kept to USD converts its 27.00 leg: the 4,000 JPY dinner is 37.26, marked estimate', () => {
+    const { account, ctx, rate, week } = setup()
+    const amex = account('amex', 'card', 'USD')
+    rate({ date: '2026-10-28', from: 'USD', to: 'CAD', rate: '1.38', published: '2026-10-28', origin: SYSTEM })
+    const id = ok(
+      writeSpend(ctx, {
+        amount: '4000',
+        currency: 'JPY',
+        charged: '27.00',
+        description: 'Dinner',
+        to: { category: 'food' },
+        from: amex,
+        date: '2026-10-28',
+      }),
+    ).id
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '37.26', mark: 'estimate' }])
+  })
+
+  test('a spend with no rate: the answer holds its currency and its spends, and nothing else', () => {
+    const { account, spend, week } = setup()
+    const wallet = account('cash:eur', 'cash', 'EUR', '15')
+    spend('15', 'food', '2026-10-27', wallet)
+
+    expect(Object.keys(week())).toEqual(['currency', 'spent'])
   })
 })
 
@@ -245,6 +359,7 @@ describe('the week shown and the week before, at ten years', { timeout: 120_000 
       for (const { start, end } of weeks) expect(week(start, end).spent.length).toBeGreaterThan(0)
     })
     const took = ran.reduce((sum, r) => sum + r.ms, 0)
+
     // Measured at about 1.2 ms together. Loose for a slow runner.
     expect(took).toBeLessThan(20)
 
@@ -268,5 +383,29 @@ describe('the week shown and the week before, at ten years', { timeout: 120_000 
         'USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY',
       ],
     ])
+  })
+})
+
+describe('a traveller’s two weeks, at ten years', { timeout: 120_000 }, () => {
+  const temp = openTempLedger()
+  afterAll(temp.dispose)
+  const ledger = aLedgerOf(50_000, temp.ledger, 'traveller')
+  /** Both weeks are in a trip, so each holds spends the week has to convert. */
+  const weeks = [
+    { start: '2026-10-26', end: '2026-11-01' },
+    { start: '2026-10-19', end: '2026-10-25' },
+  ]
+  const week = (start: string, end: string) => ok(spendingIn(ledger.db, { start, end }))
+
+  test('both weeks, warm, take under 250 ms, each with a spend the week guessed', () => {
+    for (const { start, end } of weeks) week(start, end)
+    const ran = recorded(() => {
+      for (const { start, end } of weeks) {
+        expect(week(start, end).spent.some((s) => s.mark !== 'exact')).toBe(true)
+      }
+    })
+    const took = ran.reduce((sum, r) => sum + r.ms, 0)
+    // Measured warm at about 200 ms together: over the plan's 100 ms stop, so the build stopped.
+    expect(took).toBeLessThan(250)
   })
 })
