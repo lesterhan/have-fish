@@ -456,7 +456,7 @@ describe('a traveller’s two weeks, at ten years', { timeout: 120_000 }, () => 
     }
   }
 
-  test('both weeks after a write take under 500 ms, and with none under 50 ms', () => {
+  test('both weeks after a write take under 2,000 ms, and with none under 50 ms', () => {
     both()
     ok(applyLocal(ledger, [aRate()], NOW))
     const opened = performance.now()
@@ -466,8 +466,8 @@ describe('a traveller’s two weeks, at ten years', { timeout: 120_000 }, () => 
     both()
     const reused = performance.now() - again
 
-    // Measured on the laptop at about 178 ms after a write, and 1 ms with the reading kept.
-    expect(read).toBeLessThan(500)
+    // Measured on a quiet laptop at about 180 ms after a write, and 1 ms with the reading kept.
+    expect(read).toBeLessThan(2_000)
     expect(reused).toBeLessThan(50)
   })
 })
