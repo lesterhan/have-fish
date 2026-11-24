@@ -11,6 +11,9 @@ export const MARKS = ['exact', 'cost', 'mine', 'estimate', 'borrowed', 'missing'
 
 export type Mark = (typeof MARKS)[number]
 
+/** The weaker of two marks: the one later in MARKS. */
+export const weaker = (a: Mark, b: Mark): Mark => (MARKS.indexOf(a) >= MARKS.indexOf(b) ? a : b)
+
 /** A rate and how good it is; a borrowed one says its day, and a missing one has none. */
 export type MarkedRate =
   | { readonly mark: 'exact' | 'cost' | 'mine' | 'estimate'; readonly rate: Rate }

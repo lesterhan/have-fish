@@ -1,3 +1,4 @@
+import type { Mark } from '@have-fish/core/rate-for'
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
 import type { Bridge, CommandName, ListedTransaction, Values, Wire } from '../../../shared/commands'
@@ -31,12 +32,12 @@ describe('the week shown', () => {
 
 describe('spentOf', () => {
   test('the report’s amounts in cents', () => {
-    const report = {
+    const report: Values['report.spending'] = {
       currency: 'CAD',
-      spent: [{ id: 'a', category: 'food', amount: '4.50' }],
+      spent: [{ id: 'a', category: 'food', amount: '4.50', mark: 'cost' }],
       other: [],
     }
-    expect(spentOf(report)).toEqual([{ id: 'a', category: 'food', cents: 450 }])
+    expect(spentOf(report)).toEqual([{ id: 'a', category: 'food', cents: 450, mark: 'cost' }])
   })
 })
 
@@ -64,7 +65,12 @@ describe('otherText', () => {
 })
 
 let n = 0
-const spent = (category: string, cents: number): Spent => ({ id: `s${++n}`, category, cents })
+const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => ({
+  id: `s${++n}`,
+  category,
+  cents,
+  mark,
+})
 
 /** A row as `level key open`, with `open` when it has rows under it. */
 const row = (r: ReturnType<typeof treeRows>[number]) =>
@@ -191,8 +197,8 @@ describe('idsWanted', () => {
 
   test('one spend split across food and fun is asked for once', () => {
     const split = [
-      { id: 'split', category: 'food:coffee', cents: 450 },
-      { id: 'split', category: 'fun', cents: 550 },
+      { id: 'split', category: 'food:coffee', cents: 450, mark: 'exact' as const },
+      { id: 'split', category: 'fun', cents: 550, mark: 'exact' as const },
     ]
     expect(idsWanted(split)).toEqual(['split'])
   })
@@ -215,10 +221,10 @@ describe('spendsBehind', () => {
   })
   const listed = [t('coffee'), t('rent'), t('lunch'), t('bus'), t('transfer')]
   const week: Spent[] = [
-    { id: 'coffee', category: 'food:coffee', cents: 450 },
-    { id: 'lunch', category: 'food', cents: 1200 },
-    { id: 'bus', category: '', cents: 330 },
-    { id: 'rent', category: 'home', cents: 100000 },
+    { id: 'coffee', category: 'food:coffee', cents: 450, mark: 'exact' },
+    { id: 'lunch', category: 'food', cents: 1200, mark: 'exact' },
+    { id: 'bus', category: '', cents: 330, mark: 'exact' },
+    { id: 'rent', category: 'home', cents: 100000, mark: 'exact' },
   ]
   const ids = (ts: ListedTransaction[]) => ts.map((x) => x.id)
 
@@ -242,7 +248,7 @@ describe('weekSpending', () => {
   const refused = { ok: false, error: 'UNEXPECTED', detail: undefined } as const
   const reportOf = (ids: string[]): Report => ({
     currency: 'CAD',
-    spent: ids.map((id) => ({ id, category: 'food', amount: '4.50' })),
+    spent: ids.map((id) => ({ id, category: 'food', amount: '4.50', mark: 'exact' as const })),
     other: [],
   })
   const earlier = reportOf(['older'])

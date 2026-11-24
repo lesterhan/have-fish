@@ -114,7 +114,12 @@
 
   // The tree's fixed weeks: food open, one child with a dash this week, and a row each of more,
   // less and same.
-  const counted = (category: string, cents: number) => ({ id: `${category}-${cents}`, category, cents })
+  const counted = (category: string, cents: number) => ({
+    id: `${category}-${cents}`,
+    category,
+    cents,
+    mark: 'exact' as const,
+  })
   const TREE_SHOWN = [
     counted('food:groceries', 5000),
     counted('food:coffee', 450),

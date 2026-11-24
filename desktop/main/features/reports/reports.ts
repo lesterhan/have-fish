@@ -73,7 +73,7 @@ export function spendingIn(
       }
       // A spend with no category reports as unsorted, `''`.
       const category = leg.pathKey === UNSORTED.path ? '' : nameOf(leg.path)
-      spent.push({ id, category, amount: format(leg.cents) })
+      spent.push({ id, category, amount: format(leg.cents), mark: 'exact' })
     }
   }
   const elsewhere: Money[] = [...other]

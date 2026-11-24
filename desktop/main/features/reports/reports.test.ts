@@ -55,8 +55,8 @@ describe('spendingIn', () => {
     const bus = spend('3.30', 'transport', '2026-10-27')
 
     expect(week().spent).toEqual([
-      { id: bus, category: 'transport', amount: '3.30' },
-      { id: coffee, category: 'food:coffee', amount: '4.50' },
+      { id: bus, category: 'transport', amount: '3.30', mark: 'exact' },
+      { id: coffee, category: 'food:coffee', amount: '4.50', mark: 'exact' },
     ])
   })
 
@@ -177,7 +177,7 @@ describe('a yen dinner my card was charged for', () => {
   test('charged 36.20 CAD, to no category: unsorted counts the 36.20', () => {
     const { dinner, week } = withCard()
     const id = dinner()
-    expect(week().spent).toEqual([{ id, category: '', amount: '36.20' }])
+    expect(week().spent).toEqual([{ id, category: '', amount: '36.20', mark: 'exact' }])
   })
 
   test('charged in CAD: none of it is in other', () => {
@@ -189,7 +189,7 @@ describe('a yen dinner my card was charged for', () => {
   test('to food: food counts the 36.20', () => {
     const { dinner, week } = withCard()
     const id = dinner('food')
-    expect(week().spent).toEqual([{ id, category: 'food', amount: '36.20' }])
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '36.20', mark: 'exact' }])
   })
 
   test('between two CAD spends, oldest day first: it sits between them', () => {
@@ -223,7 +223,9 @@ describe('a yen dinner my card was charged for', () => {
   test('the week before counts it at its charge too', () => {
     const { dinner, week } = withCard()
     const id = dinner('', '2026-10-21')
-    expect(week('2026-10-19', '2026-10-25').spent).toEqual([{ id, category: '', amount: '36.20' }])
+    expect(week('2026-10-19', '2026-10-25').spent).toEqual([
+      { id, category: '', amount: '36.20', mark: 'exact' },
+    ])
   })
 })
 
