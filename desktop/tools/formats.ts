@@ -32,7 +32,7 @@ export function rawFormatsIn(source: string): string[] {
 }
 
 /** A component's own call to a formatter, where a `Money` or a `Day` would draw it. */
-const DRAWN_HERE = /\b(?:money|day|amountsText|moneyParts|bandDay)\(/g
+const DRAWN_HERE = /\b(?:money|day|moneyParts|bandDay)\(/g
 
 /** In a component, each amount or day it formats itself instead of drawing a `Money` or a `Day`. */
 export function drawnHereIn(source: string): string[] {

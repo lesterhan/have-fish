@@ -59,23 +59,22 @@
 </script>
 
 {#snippet figure(cents: number | null, mark: Mark | null)}
-  {#if cents === null}{copy.reports.tree.dash}{:else if guessed(mark)}<span
-      class="guessed"
-      data-guessed
-    ><Money of={moneyOf(cents, currency)} /></span
-    >{:else}<Money of={moneyOf(cents, currency)} />{/if}
+  {#if cents === null}{copy.reports.tree.dash}{:else}<span
+      class:guessed={guessed(mark)}
+      data-guessed={guessed(mark) || undefined}
+    ><Money of={moneyOf(cents, currency)} /></span>{/if}
 {/snippet}
 
 {#snippet change(moved: Change, mark: Mark | null, beforeMark: Mark | null)}
+  {@const guessedChange = guessed(mark) || guessed(beforeMark)}
   {#if moved.cents > 0}<span
-      class:guessed={guessed(mark) || guessed(beforeMark)}
-      data-guessed={guessed(mark) || guessed(beforeMark) || undefined}
+      class:guessed={guessedChange}
+      data-guessed={guessedChange || undefined}
     ><Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree.change[
         moved.way
       ]}</span
-    >{:else}<span class:guessed={guessed(mark) || guessed(beforeMark)}>{copy.reports.tree.change
-        .same}</span
-    >{/if}
+    >{:else}<span class:guessed={guessedChange} data-guessed={guessedChange || undefined}
+    >{copy.reports.tree.change.same}</span>{/if}
 {/snippet}
 
 <div class="tree" bind:clientWidth={width}>

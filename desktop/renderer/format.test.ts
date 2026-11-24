@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest'
 import {
-  amountsText,
   asTyped,
   bandDay,
   day,
@@ -125,25 +124,6 @@ describe('a moment', () => {
     expect(moment(at, 'UTC')).toBe('Thu 5 Nov 2026, 12:40')
     expect(moment(at, 'America/Toronto')).toBe('Thu 5 Nov 2026, 07:40')
   })
-})
-
-test('an amount with its currency', () => {
-  expect(amountsText([{ amount: '4.50', currency: 'USD' }])).toBe('4.50 USD')
-  expect(amountsText([{ amount: '4.50', currency: 'CAD' }])).toBe('4.50')
-  expect(amountsText([{ amount: '4.50', currency: 'CAD' }], { code: true })).toBe('4.50 CAD')
-})
-
-test('several, one after the other', () => {
-  expect(
-    amountsText([
-      { amount: '10.00', currency: 'CAD' },
-      { amount: '1100.00', currency: 'JPY' },
-    ]),
-  ).toBe('10.00 · 1,100 JPY')
-})
-
-test('none is empty', () => {
-  expect(amountsText([])).toBe('')
 })
 
 test('today is the day it is where I am, not in UTC', () => {
