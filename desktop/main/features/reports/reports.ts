@@ -101,10 +101,13 @@ export function spendingIn(
   if (end < start) return failure('DATE_INVALID', { date: end })
 
   const spent: Values['report.spending']['spent'] = []
+  /** The reading this call is using, asked for once, by the first spend in another currency. */
+  let reading: Reading | null = null
   /** A leg's money in the home currency, and how good the rate it took there is. */
   const amountOf = (leg: { cents: number; currency: string; date: string }): Amount => {
     if (leg.currency === HOME_CURRENCY) return { amount: format(leg.cents), mark: 'exact' }
-    const { pools, book } = readingIn(db)
+    reading ??= readingIn(db)
+    const { pools, book } = reading
     const rate = rateFor(
       { currency: leg.currency, date: leg.date, own: null },
       pools,
