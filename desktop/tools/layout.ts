@@ -1,5 +1,6 @@
-// Guards for what parts own (DESIGN.md, "Parts"): a `<kbd>` only in `Keys`, one narrow width,
-// and a place's style that is layout only. `renderer/parts/parts.test.ts` runs them over the app.
+// Guards for what parts own (DESIGN.md, "Parts"): a `<kbd>` only in `Keys`, a tab role only in
+// `Tabs`, one narrow width, and a place's style that is layout only.
+// `renderer/parts/parts.test.ts` runs them over the app.
 
 const strip = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '')
@@ -16,6 +17,11 @@ export function listboxesIn(source: string): string[] {
       /role=["']?(?:listbox|option|tree|treeitem)\b["']?|aria-activedescendant/g,
     ),
   ].map(([found]) => found)
+}
+
+/** Each `role` of a tab list or a tab. A panel is the place's own, so `tabpanel` isn't one. */
+export function tabsIn(source: string): string[] {
+  return [...strip(source).matchAll(/role=["']?(?:tablist|tab)\b["']?/g)].map(([found]) => found)
 }
 
 /** The one narrow width (DESIGN.md, "Layout"). */
