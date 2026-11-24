@@ -3,7 +3,7 @@
 
 import { type Mark, weaker } from './rate-for'
 
-/** One spend's money in one category, by its name without the root; `''` is unsorted. */
+/** One spend's money in one category, and its rate's mark; `''` is unsorted. */
 export type Spent = { id: string; category: string; cents: number; mark: Mark }
 
 export type SpendingLine = {
@@ -55,7 +55,7 @@ export type Compared = {
  * what's unsorted. Ordering them is `comparedAt`'s.
  */
 export function spendingAt(spent: readonly Spent[], level: string): Level {
-  const children = new Map<string, { cents: number; mark: Mark; opens: boolean }>()
+  const children = new Map<string, Child>()
   let own = 0
   let ownMark: Mark = 'exact'
   let hasOwn = false
@@ -70,7 +70,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
     const rest = s.category.slice(level === '' ? 0 : level.length + 1)
     const [next = ''] = rest.split(':')
     const category = level === '' ? next : `${level}:${next}`
-    const child = children.get(category) ?? { cents: 0, mark: s.mark, opens: false }
+    const child: Child = children.get(category) ?? { cents: 0, mark: 'exact', opens: false }
     child.cents += s.cents
     child.mark = weaker(child.mark, s.mark)
     child.opens ||= s.category !== category
@@ -116,6 +116,9 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   const total = lines.reduce((sum, l) => sum + l.cents, 0)
   return { total, mark: weakest(lines.map((l) => l.mark)), lines }
 }
+
+/** A category's line as `spendingAt` sums it. */
+type Child = { cents: number; mark: Mark; opens: boolean }
 
 /** The weakest of `marks`; `exact` with none, the one every mark is weaker than. */
 const weakest = (marks: readonly Mark[]): Mark =>
