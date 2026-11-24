@@ -35,6 +35,7 @@
   let dismissed = $state<string | null>(null)
   const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
 
+  /** Coming here from another place: the chosen tab, its own way on Accounts. */
   export function focus() {
     if (chosen === 'accounts') body.focus()
     else strip.focus()
@@ -59,6 +60,7 @@
     else dismissed = unloaded
   }
 
+  /** An empty pane to add one in, on the Accounts tab: Name, Kind, Currency. */
   export async function startAdding() {
     chosen = 'accounts'
     await tick()
@@ -81,16 +83,16 @@
 
   <AccountsTab bind:this={body} hidden={chosen !== 'accounts'} {ledger} {forgetTyping} />
 
-  {#if chosen === 'currencies'}
-    <div
-      class="currencies"
-      role="tabpanel"
-      id="accounts-panel-currencies"
-      aria-labelledby="accounts-tab-currencies"
-    >
-      <Empty>{copy.app.underConstruction}</Empty>
-    </div>
-  {/if}
+  <div
+    class="currencies"
+    role="tabpanel"
+    id="accounts-panel-currencies"
+    aria-labelledby="accounts-tab-currencies"
+    tabindex="0"
+    hidden={chosen !== 'currencies'}
+  >
+    <Empty>{copy.app.underConstruction}</Empty>
+  </div>
 </main>
 
 <style>
@@ -109,6 +111,10 @@
   .top {
     display: grid;
     gap: var(--space-3);
+  }
+
+  .currencies[hidden] {
+    display: none;
   }
 
   /* NARROW in narrow.ts. */

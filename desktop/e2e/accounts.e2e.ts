@@ -60,6 +60,12 @@ async function boxOf(page: Page, target: string) {
   return box
 }
 
+/** Currencies chosen, as a person clicks its tab; a failure while it isn't. */
+async function chooseCurrencies(page: Page) {
+  await page.click(CURRENCIES_TAB)
+  await expect.poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-selected')).toBe('true')
+}
+
 describe('the places', () => {
   test('Ledger, Accounts and Reports down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
     const { page, press } = await launch(aHome())
@@ -116,10 +122,9 @@ describe('the tabs', () => {
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
 
-    expect(await page.locator(TABLIST).getByRole('tab').allInnerTexts()).toEqual([
-      'Accounts',
-      'Currencies',
-    ])
+    await expect
+      .poll(() => page.locator(TABLIST).getByRole('tab').allInnerTexts())
+      .toEqual(['Accounts', 'Currencies'])
     await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
   })
 
@@ -162,7 +167,7 @@ describe('the tabs', () => {
     await expect
       .poll(() => page.locator(CURRENCIES_PANEL).innerText())
       .toBe(copy.app.underConstruction)
-    expect(await page.isVisible(LIST)).toBe(false)
+    await expect.poll(() => page.isVisible(LIST)).toBe(false)
   })
 
   test('from there, ArrowLeft: Accounts is selected and the list is visible again', async () => {
@@ -170,12 +175,12 @@ describe('the tabs', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    await page.click(CURRENCIES_TAB)
+    await chooseCurrencies(page)
 
     await page.keyboard.press('ArrowLeft')
 
     await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
-    expect(await page.isVisible(LIST)).toBe(true)
+    await expect.poll(() => page.isVisible(LIST)).toBe(true)
   })
 
   test('Currencies chosen, then Ctrl+1, then Ctrl+2: Currencies is still selected', async () => {
@@ -183,8 +188,7 @@ describe('the tabs', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    await page.click(CURRENCIES_TAB)
-    await expect.poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-selected')).toBe('true')
+    await chooseCurrencies(page)
 
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
@@ -199,7 +203,7 @@ describe('the tabs', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    await page.click(CURRENCIES_TAB)
+    await chooseCurrencies(page)
 
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
@@ -214,7 +218,7 @@ describe('the tabs', () => {
 
     press('ctrl+2')
     await expect.poll(() => current(page)).toMatch(/^Accounts/)
-    await page.click(CURRENCIES_TAB)
+    await chooseCurrencies(page)
 
     press('ctrl+shift+n')
 
@@ -230,7 +234,7 @@ describe('the tabs', () => {
 
     press('ctrl+z')
     await expect.poll(() => accounts(page)).toEqual([])
-    await page.click(CURRENCIES_TAB)
+    await chooseCurrencies(page)
 
     press('ctrl+shift+z')
 
@@ -246,11 +250,42 @@ describe('the tabs', () => {
 
     press('ctrl+z')
     await expect.poll(() => accounts(page)).toEqual([])
-    await page.click(CURRENCIES_TAB)
+    await chooseCurrencies(page)
 
     press('ctrl+shift+z')
 
     await expect.poll(() => focusedIn(page)).toBe('Accounts OL')
+  })
+
+  test('an account added, then Ctrl+Z, then a click on the Accounts tab, then Ctrl+Shift+Z: the cursor stays on the Accounts tab', async () => {
+    const { page, press } = await launch(aHome())
+    await page.click(`${NAV} button:has-text("Accounts")`)
+    await add(page, 'visa', 'card')
+    await expect.poll(() => accounts(page)).toHaveLength(1)
+
+    press('ctrl+z')
+    await expect.poll(() => accounts(page)).toEqual([])
+    await page.click(ACCOUNTS_TAB)
+    await expect.poll(() => focusedTab(page)).toBe('Accounts')
+
+    press('ctrl+shift+z')
+
+    await expect.poll(() => selected(page)).toEqual(['visa'])
+    await expect.poll(() => focusedTab(page)).toBe('Accounts')
+  })
+
+  test("Ctrl+2 with the Accounts tab chosen: the page holds one Currencies panel, hidden, so the tab's aria-controls names it", async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    const panel = '#accounts-panel-currencies'
+    await expect.poll(() => page.locator(panel).count()).toBe(1)
+    await expect
+      .poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-controls'))
+      .toBe('accounts-panel-currencies')
+    await expect.poll(() => page.isVisible(panel)).toBe(false)
   })
 
   test("at 420 by 700, Accounts: both tabs are visible, and each tab's box ends inside the window", async () => {

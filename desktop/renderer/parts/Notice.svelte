@@ -1,6 +1,6 @@
 <script lang="ts">
-  // What stopped something, under a place's header, where you were looking. It stays until you
-  // act on it or put it away.
+  // What stopped something, under a place's header or its tabs, where you were looking. It
+  // stays until you act on it or put it away.
   import type { Snippet } from 'svelte'
   import { copy } from '../../copy'
   import Button from './Button.svelte'

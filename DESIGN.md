@@ -185,7 +185,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
 | `Notice` | Under a place's header or its tabs, where you were looking; an action and ✕; stays until acted on | Every place |
-| `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open | Every list, the palette |
+| `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open. Where something is still to come, the app's one line for it, `copy.app.underConstruction` | Every list, the palette, a tab still to come |
 
 | The ledger's, in `ledger/` | States | Used by |
 |---|---|---|
