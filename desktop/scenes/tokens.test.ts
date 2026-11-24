@@ -187,7 +187,13 @@ describe('pasteOf', () => {
     const lab = moved(BUILT_IN_LAB, 'light', 'accentHue', '200')
     const painted = deriveTokens(lab.light)
     expect(pasteOf(fields, {}, lab)).toBe(
-      ['--color-selected', '--color-accent', '--color-accent-hover', '--color-card']
+      [
+        '--color-selected',
+        '--color-accent',
+        '--color-accent-hover',
+        '--color-card',
+        '--color-accent-cap',
+      ]
         .map((name) => `${name}: ${painted[name]}; /* light */`)
         .join('\n'),
     )
@@ -196,7 +202,7 @@ describe('pasteOf', () => {
   test('marks the dark colours dark', () => {
     const lab = moved(BUILT_IN_LAB, 'dark', 'neutralHue', '200')
     const lines = pasteOf(fields, {}, lab).split('\n')
-    expect(lines).toHaveLength(15)
+    expect(lines).toHaveLength(16)
     expect(lines.filter((line) => !line.endsWith(' /* dark */'))).toEqual([])
     expect(lines[0]).toBe(
       `--color-sidebar: ${deriveTokens(lab.dark)['--color-sidebar']}; /* dark */`,
@@ -206,10 +212,10 @@ describe('pasteOf', () => {
   test("writes the panel's tokens, then light's colours, then dark's", () => {
     const lab = moved(moved(BUILT_IN_LAB, 'dark', 'neutralHue', '200'), 'light', 'accentHue', '200')
     const lines = pasteOf(fields, { '--space-2': '10px' }, lab).split('\n')
-    expect(lines).toHaveLength(20)
+    expect(lines).toHaveLength(22)
     expect(lines[0]).toBe('--space-2: 10px;')
-    expect(lines.slice(1, 5).filter((line) => !line.endsWith(' /* light */'))).toEqual([])
-    expect(lines.slice(5).filter((line) => !line.endsWith(' /* dark */'))).toEqual([])
+    expect(lines.slice(1, 6).filter((line) => !line.endsWith(' /* light */'))).toEqual([])
+    expect(lines.slice(6).filter((line) => !line.endsWith(' /* dark */'))).toEqual([])
   })
 
   test("is empty for a lab moved and moved back to the built-in's value", () => {

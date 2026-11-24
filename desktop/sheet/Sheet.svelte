@@ -12,6 +12,7 @@
   import Header from '../renderer/parts/Header.svelte'
   import Keys from '../renderer/parts/Keys.svelte'
   import Notice from '../renderer/parts/Notice.svelte'
+  import Tabs from '../renderer/parts/Tabs.svelte'
   import Band from '../renderer/parts/Band.svelte'
   import Day from '../renderer/parts/Day.svelte'
   import Money from '../renderer/parts/Money.svelte'
@@ -33,6 +34,12 @@
   // script shoots the Button section with each.
   let place = $state<Place>('ledger')
   const TODAY = '2026-11-05'
+  // The places as tabs, so the strip needs no words of its own.
+  const PLACES = [
+    { id: 'ledger', label: copy.app.places.ledger },
+    { id: 'accounts', label: copy.app.places.accounts },
+    { id: 'reports', label: copy.app.places.reports },
+  ]
   const cad = (amount: string) => ({ amount, currency: 'CAD' })
   const row = (
     id: string,
@@ -217,6 +224,28 @@
       <Header title={copy.app.places.accounts} line="4 accounts">
         <Button variant="primary" action="addAccount">{copy.accounts.add}</Button>
       </Header>
+    </div>
+  </section>
+
+  <section aria-label="Tabs">
+    <h2>Tabs: the first chosen, then the last</h2>
+    <div class="frame">
+      <Tabs
+        id="sheet-first"
+        title={copy.app.places.label}
+        tabs={PLACES}
+        selected="ledger"
+        onselect={() => {}}
+      />
+    </div>
+    <div class="frame">
+      <Tabs
+        id="sheet-last"
+        title={copy.app.places.label}
+        tabs={PLACES}
+        selected="reports"
+        onselect={() => {}}
+      />
     </div>
   </section>
 

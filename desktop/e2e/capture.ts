@@ -324,6 +324,12 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
     await shot.dark('sheet-path-picker')
     await page.keyboard.press('Escape')
     await page.click('h1')
+    // The tabs, wherever the sheet has grown them to: element shots, light then dark.
+    const tabs = page.locator('section[aria-label=Tabs]')
+    await tabs.screenshot({ path: join(out, 'sheet-tabs.png') })
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await tabs.screenshot({ path: join(out, 'sheet-tabs-dark.png') })
+    await page.emulateMedia({ colorScheme: 'light' })
 
     // What can't be drawn at rest: the first button focused from the keyboard, the second hovered,
     // then held down.
