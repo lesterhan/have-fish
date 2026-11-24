@@ -2,7 +2,7 @@
 // per scheme, so a theme changes the colours and never the hierarchy (DESIGN.md, "Themes").
 
 import type { Palette, Scheme } from './contract'
-import { type Oklch, oklchToHex } from './oklch'
+import { hexToOklch, type Oklch, oklchToHex } from './oklch'
 import { BUILTINS, FOR_SCHEME, type Theme, type ThemeChoice } from './theme'
 
 /** The accent's chroma, and the selection's: constants, not inputs. */
@@ -76,9 +76,11 @@ export function deriveTokens(theme: Theme): Palette {
   for (const root of ['assets', 'liabilities', 'expenses', 'income']) {
     colours[`${root}-tint`] = mix(colours.background as Oklch, colours[root] as Oklch, 0.14)
   }
-  // The chosen tab's cap: the accent over the background, 70% in light and 60% in dark.
+  // The chosen tab's cap: the accent over the background, 70% in light and 60% in dark,
+  // mixed as shown, since the accent's OKLCH is past sRGB and a raw mix comes out louder.
   const capShare = scheme === 'light' ? 0.7 : 0.6
-  colours['accent-cap'] = mix(colours.background as Oklch, colours.accent as Oklch, capShare)
+  const shown = hexToOklch(oklchToHex(colours.accent as Oklch))
+  colours['accent-cap'] = mix(colours.background as Oklch, shown, capShare)
 
   return Object.fromEntries(
     Object.entries(colours).map(([name, colour]) => [`--color-${name}`, oklchToHex(colour)]),
