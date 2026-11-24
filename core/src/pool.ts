@@ -2,6 +2,7 @@
 // known cost, from the ledger's own transactions. Derived each time it is asked, never stored.
 
 import { type AccountKind, isAddable } from './account-kind'
+import { firstAfter } from './calendar-date'
 import { gcd, type Rate, ratio } from './rates'
 import { type ShapeLeg, shapeOf } from './shapes'
 
@@ -81,14 +82,7 @@ export function poolsOf(
 export function costOn(pools: Pools, currency: string, date: string): PoolDay | null {
   const days = pools.get(currency)
   if (days === undefined) return null
-  let [low, high] = [0, days.length]
-  while (low < high) {
-    const middle = (low + high) >>> 1
-    const day = days[middle]
-    if (day !== undefined && day.date <= date) low = middle + 1
-    else high = middle
-  }
-  return days[low - 1] ?? null
+  return days[firstAfter(days, date) - 1] ?? null
 }
 
 /** What the transaction moves, by the shape it takes and the kinds of its accounts. */

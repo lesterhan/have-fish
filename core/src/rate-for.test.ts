@@ -251,6 +251,54 @@ describe('the rate for one amount', () => {
     })
   })
 
+  it('the book puts the days in order whatever order the documents come in', () => {
+    const book = rateBookOf(
+      [
+        rateDoc('2026-05-09', 'EUR', 'CAD', '1.50', 'manual'),
+        rateDoc('2026-05-06', 'EUR', 'CAD', '1.46', 'system'),
+        rateDoc('2026-05-01', 'EUR', 'CAD', '1.40', 'manual'),
+      ],
+      'CAD',
+    )
+    expect(rateFor(amount('EUR', '2026-05-04'), NO_POOLS, book, 'CAD')).toEqual({
+      mark: 'borrowed',
+      rate: { num: 73n, den: 50n },
+      day: '2026-05-06',
+    })
+  })
+
+  it('a borrowed rate comes from the neighbours, not the book’s ends', () => {
+    const book = rateBookOf(
+      [
+        rateDoc('2026-05-01', 'EUR', 'CAD', '1.40', 'manual'),
+        rateDoc('2026-05-03', 'EUR', 'CAD', '1.42', 'manual'),
+        rateDoc('2026-05-08', 'EUR', 'CAD', '1.48', 'manual'),
+        rateDoc('2026-05-12', 'EUR', 'CAD', '1.50', 'manual'),
+      ],
+      'CAD',
+    )
+    expect(rateFor(amount('EUR', '2026-05-07'), NO_POOLS, book, 'CAD')).toEqual({
+      mark: 'borrowed',
+      rate: { num: 37n, den: 25n },
+      day: '2026-05-08',
+    })
+  })
+
+  it('each currency answers from its own days', () => {
+    const book = rateBookOf(
+      [
+        rateDoc('2026-05-04', 'JPY', 'CAD', '0.0091', 'manual'),
+        rateDoc('2026-05-02', 'EUR', 'CAD', '1.40', 'manual'),
+      ],
+      'CAD',
+    )
+    expect(rateFor(amount('EUR', '2026-05-04'), NO_POOLS, book, 'CAD')).toEqual({
+      mark: 'borrowed',
+      rate: { num: 7n, den: 5n },
+      day: '2026-05-02',
+    })
+  })
+
   it('a book into another currency answers from its own documents', () => {
     const docs = [
       rateDoc('2026-05-04', 'EUR', 'USD', '1.08', 'manual'),
@@ -274,13 +322,13 @@ describe('the rate for one amount', () => {
     const amounts = Array.from({ length: 50_000 }, (_, i) =>
       amount(i % 2 === 0 ? 'EUR' : 'JPY', addDays('2016-01-01', Math.floor((i * 3650) / 50_000))),
     )
-    const convert = () => {
+    const rateEvery = () => {
       const book = rateBookOf(docs, 'CAD')
       for (const each of amounts) rateFor(each, NO_POOLS, book, 'CAD')
     }
-    convert()
+    rateEvery()
     const began = performance.now()
-    convert()
+    rateEvery()
     // Measured at about 22 ms warm; the bound is loose so a slow runner doesn't fail it.
     expect(performance.now() - began).toBeLessThan(250)
   })

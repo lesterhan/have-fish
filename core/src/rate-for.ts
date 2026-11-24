@@ -1,5 +1,6 @@
 // The rate for one amount, best first, with how good it is: what a report converts by.
 
+import { firstAfter } from './calendar-date'
 import type { RateDoc } from './documents'
 import { costOn, type Pools } from './pool'
 import { invert, type Rate, ratio, readRate } from './rates'
@@ -28,7 +29,7 @@ export type RateBook = ReadonlyMap<string, readonly BookDay[]>
 
 /** The ledger's rates into `into`, either way round, by currency and day; no tombstones. */
 export function rateBookOf(docs: readonly RateDoc[], into: string): RateBook {
-  const days = new Map<string, Map<string, BookDay>>()
+  const byCurrency = new Map<string, Map<string, BookDay>>()
   for (const doc of docs) {
     if (doc.deletedAt !== null) continue
     const inverted = doc.from === into
@@ -38,14 +39,14 @@ export function rateBookOf(docs: readonly RateDoc[], into: string): RateBook {
     const currency = inverted ? doc.to : doc.from
     const rate = inverted ? invert(read.value) : read.value
     const typed = doc.origin.source === 'manual'
-    const currencyDays = days.get(currency) ?? new Map<string, BookDay>()
-    days.set(currency, currencyDays)
+    const currencyDays = byCurrency.get(currency) ?? new Map<string, BookDay>()
+    byCurrency.set(currency, currencyDays)
     const day = currencyDays.get(doc.date) ?? { date: doc.date, mine: null, fetched: null }
     currencyDays.set(doc.date, typed ? { ...day, mine: rate } : { ...day, fetched: rate })
   }
 
   const book = new Map<string, readonly BookDay[]>()
-  for (const [currency, currencyDays] of days) {
+  for (const [currency, currencyDays] of byCurrency) {
     const inOrder = [...currencyDays.values()].sort((a, b) =>
       a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
     )
@@ -87,18 +88,6 @@ export function rateFor(
 export function ownRate(shape: Shape, into: string): Rate | null {
   if (shape.shape !== 'converted' || shape.from.currency !== into) return null
   return ratio(shape.to.cents, -shape.from.cents)
-}
-
-/** The index of the first of `days` after `date`, kept in order of day. */
-function firstAfter(days: readonly BookDay[], date: string): number {
-  let [low, high] = [0, days.length]
-  while (low < high) {
-    const middle = (low + high) >>> 1
-    const day = days[middle]
-    if (day !== undefined && day.date <= date) low = middle + 1
-    else high = middle
-  }
-  return low
 }
 
 /** Whichever of the two days is nearer `date`, counted in days: the earlier on a tie. */
