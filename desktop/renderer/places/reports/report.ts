@@ -18,9 +18,14 @@ export const thisWeek = (today: string): Week => weekOf(today)
 /** The week `by` weeks after `week`; before it, when negative. */
 export const weekAfter = (week: Week, by: number): Week => weekOf(addDays(week.start, by * 7))
 
-/** What the report sums, in cents. */
+/** What the report sums, in cents, with each spend's rate's mark. */
 export const spentOf = (report: Values['report.spending']): Spent[] =>
-  report.spent.map((s) => ({ id: s.id, category: s.category, cents: cents(s.amount) }))
+  report.spent.map((s) => ({
+    id: s.id,
+    category: s.category,
+    cents: cents(s.amount),
+    mark: s.mark,
+  }))
 
 /** How a line names itself. */
 export function lineLabel(line: Pick<ComparedLine, 'holds' | 'label'>): string {

@@ -76,7 +76,7 @@ function aFixture(): Fixture {
     reports: {
       '2026-11-03': {
         currency: 'CAD',
-        spent: [{ id: 'row-0', category: 'food', amount: '1.00' }],
+        spent: [{ id: 'row-0', category: 'food', amount: '1.00', mark: 'exact' }],
         other: [],
       },
       '2026-10-27': { currency: 'CAD', spent: [], other: [] },

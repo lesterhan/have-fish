@@ -136,8 +136,13 @@ export function comparedAt(
   const lines = new Map<string, ComparedLine>()
   const add = (at: Level, sum: 'cents' | 'before', mark: 'mark' | 'beforeMark') => {
     for (const line of at.lines) {
-      const kept =
-        lines.get(line.key) ?? { ...line, cents: null, before: null, mark: null, beforeMark: null }
+      const kept = lines.get(line.key) ?? {
+        ...line,
+        cents: null,
+        before: null,
+        mark: null,
+        beforeMark: null,
+      }
       kept[sum] = line.cents
       kept[mark] = line.mark
       kept.opens ||= line.opens

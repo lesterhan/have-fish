@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import type { Mark } from './rate-for'
 import {
   type ComparedLine,
   comparedAt,
@@ -9,7 +10,6 @@ import {
   type Spent,
   spendingAt,
 } from './spending'
-import type { Mark } from './rate-for'
 
 let n = 0
 const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => ({
@@ -20,7 +20,8 @@ const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => 
 })
 
 /** Each line as `key mark`: the line's own, never the level's. */
-const marks = (level: Level | { lines: SpendingLine[] }) => level.lines.map((l) => `${l.key} ${l.mark}`).sort()
+const marks = (level: Level | { lines: SpendingLine[] }) =>
+  level.lines.map((l) => `${l.key} ${l.mark}`).sort()
 
 /** A line as `label › cents`, `›` for one that opens, and what it holds when not a category. */
 const line = (l: SpendingLine) =>
@@ -95,7 +96,10 @@ describe('spendingAt', () => {
   })
 
   test('a line takes the weakest mark of the spends under it, and the level the weakest line’s', () => {
-    const level = spendingAt([spent('food', 1000), spent('food', 500, 'borrowed'), spent('rent', 200)], '')
+    const level = spendingAt(
+      [spent('food', 1000), spent('food', 500, 'borrowed'), spent('rent', 200)],
+      '',
+    )
     expect(marks(level)).toEqual(['category:food borrowed', 'category:rent exact'])
     expect(level.mark).toBe('borrowed')
   })
@@ -107,7 +111,10 @@ describe('spendingAt', () => {
   })
 
   test('a level’s own line takes the weakest mark of what went to it itself', () => {
-    const level = spendingAt([spent('food', 500, 'borrowed'), spent('food:coffee', 300, 'missing')], 'food')
+    const level = spendingAt(
+      [spent('food', 500, 'borrowed'), spent('food:coffee', 300, 'missing')],
+      'food',
+    )
     expect(marks(level)).toEqual(['category:food:coffee missing', 'own:food borrowed'])
     expect(level.mark).toBe('missing')
   })
@@ -140,9 +147,9 @@ describe('comparedAt', () => {
 
   test('a line only last week had carries no mark for this week', () => {
     const at = comparedAt([], [spent('rent', 500, 'borrowed')], '')
-    expect(at.lines.map((l) => `${l.label} ${l.cents} ${l.mark} ${l.before} ${l.beforeMark}`)).toEqual([
-      'rent null null 500 borrowed',
-    ])
+    expect(
+      at.lines.map((l) => `${l.label} ${l.cents} ${l.mark} ${l.before} ${l.beforeMark}`),
+    ).toEqual(['rent null null 500 borrowed'])
   })
 
   test('each category this week and last; the sums of each week', () => {

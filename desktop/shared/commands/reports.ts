@@ -1,5 +1,6 @@
 // What a report asks of main: what went where over some days.
 
+import type { Mark } from '@have-fish/core/rate-for'
 import { z } from 'zod'
 import { date, type Money } from './wire'
 
@@ -15,6 +16,8 @@ export type ReportedSpend = {
   /** Its name without the root (`food:coffee`); `''` for unsorted. */
   category: string
   amount: string
+  /** How good the rate it was converted at is: `exact` when it was in `currency`. */
+  mark: Mark
 }
 
 export interface ReportValues {
