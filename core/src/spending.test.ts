@@ -112,7 +112,12 @@ describe('spendingAt', () => {
 
   test('a level’s own line takes the weakest mark of what went to it itself', () => {
     const level = spendingAt(
-      [spent('food', 500, 'borrowed'), spent('food:coffee', 300, 'missing')],
+      [
+        spent('food', 200),
+        spent('food', 500, 'borrowed'),
+        spent('food', 100),
+        spent('food:coffee', 300, 'missing'),
+      ],
       'food',
     )
     expect(marks(level)).toEqual(['category:food:coffee missing', 'own:food borrowed'])
@@ -120,7 +125,10 @@ describe('spendingAt', () => {
   })
 
   test('unsorted takes the weakest mark of what went to none', () => {
-    const level = spendingAt([spent('', 200, 'cost'), spent('food', 100)], '')
+    const level = spendingAt(
+      [spent('', 100), spent('', 200, 'cost'), spent('', 50), spent('food', 100)],
+      '',
+    )
     expect(marks(level)).toEqual(['category:food exact', 'unsorted cost'])
     expect(level.mark).toBe('cost')
   })

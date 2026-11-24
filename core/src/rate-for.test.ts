@@ -61,7 +61,7 @@ const amount = (currency: string, date: string, own: Rate | null = null) => ({
 })
 
 describe('the weaker of two marks', () => {
-  it('is the one later in MARKS, and the first of two the same', () => {
+  it('is the one later in MARKS, and the same mark twice is itself', () => {
     expect(weaker('cost', 'borrowed')).toBe('borrowed')
     expect(weaker('missing', 'exact')).toBe('missing')
     expect(weaker('mine', 'mine')).toBe('mine')

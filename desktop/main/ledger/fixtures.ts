@@ -102,12 +102,12 @@ function anExchange(
   from: { accountId: string; currency: string; amount: string },
   to: { accountId: string; currency: string; amount: string },
   via: string,
-  fields: { date: string; at: number },
+  fields: Partial<TransactionDoc> = {},
 ): TransactionDoc {
   return {
     type: 'transaction',
     id: randomUUID(),
-    date: fields.date,
+    date: '2026-10-29',
     description: 'Exchange',
     postings: [
       { accountId: from.accountId, amount: `-${from.amount}`, currency: from.currency },
@@ -116,7 +116,8 @@ function anExchange(
       { accountId: to.accountId, amount: to.amount, currency: to.currency },
     ],
     deletedAt: null,
-    origin: { ...MANUAL, createdAt: NOW - fields.at },
+    origin: MANUAL,
+    ...fields,
   }
 }
 
@@ -152,7 +153,7 @@ const TRIPS = ['EUR', 'CNY', 'JPY', 'GBP', 'MXN'] as const
 
 type Trip = (typeof TRIPS)[number]
 
-/** What a trip costs in its own currency, for 200 CAD and for 150 USD. */
+/** What a trip costs in its own currency for 200 CAD. */
 const FROM_CAD: Record<Trip, string> = {
   EUR: '135.00',
   CNY: '1040.00',
@@ -161,12 +162,22 @@ const FROM_CAD: Record<Trip, string> = {
   MXN: '2600.00',
 }
 
+/** What a trip costs in its own currency for 150 USD. */
 const FROM_USD: Record<Trip, string> = {
   EUR: '140.00',
   CNY: '1080.00',
   JPY: '22500.00',
   GBP: '118.00',
   MXN: '2700.00',
+}
+
+/** What a trip day's spend is in each currency: the yen has no cents, so it is ¥1,250. */
+const TRIP_SPEND: Record<Trip, string> = {
+  EUR: '12.50',
+  CNY: '12.50',
+  JPY: '1250.00',
+  GBP: '12.50',
+  MXN: '12.50',
 }
 
 /** What a rate into CAD is, fetched each day: the trip currencies among them. */
@@ -238,7 +249,7 @@ export function aLedgerOf(
   }
   for (let i = 0; i < n; i++) {
     const date = day(i)
-    const spend = { date, description: `Spend ${i}`, origin: { ...MANUAL, createdAt: NOW - i } }
+    const fields = { date, description: `Spend ${i}`, origin: { ...MANUAL, createdAt: NOW - i } }
     const category = categories[i % categories.length] as AccountDoc
     if (traveller === null) {
       const paid = i % 28 === 0
@@ -247,7 +258,7 @@ export function aLedgerOf(
           paid ? pay.id : (i % 3 === 0 ? bank : card).id,
           paid ? bank.id : category.id,
           paid ? '1500.00' : '12.50',
-          spend,
+          fields,
         ),
       )
       continue
@@ -262,11 +273,11 @@ export function aLedgerOf(
     // A trip is the first fourteen days of every sixty, in one currency after another.
     const d = Math.floor(i / 14)
     const trip = d % 60 < 14 ? TRIPS[Math.floor(d / 60) % TRIPS.length] : undefined
-    // One transaction a day, as home writes one: a pay day takes its spend's place.
+    // One transaction for each spend, as home writes one: a pay day's pay takes its place.
     if (i % 28 === 0) {
-      docs.push(aSpendIn('CAD', pay.id, bank.id, '1500.00', spend))
+      docs.push(aSpendIn('CAD', pay.id, bank.id, '1500.00', fields))
     } else if (i % 28 === 14) {
-      docs.push(aSpendIn('USD', traveller.usPay.id, traveller.us.id, '1500.00', spend))
+      docs.push(aSpendIn('USD', traveller.usPay.id, traveller.us.id, '1500.00', fields))
     } else if (trip !== undefined) {
       const wallet = traveller.wallets[trip]
       if (i % 14 === 1) {
@@ -275,7 +286,7 @@ export function aLedgerOf(
             { accountId: bank.id, currency: 'CAD', amount: '200.00' },
             { accountId: wallet.id, currency: trip, amount: FROM_CAD[trip] },
             traveller.via.id,
-            { date, at: i },
+            fields,
           ),
         )
       } else if (i % 14 === 2) {
@@ -284,17 +295,17 @@ export function aLedgerOf(
             { accountId: traveller.us.id, currency: 'USD', amount: '150.00' },
             { accountId: wallet.id, currency: trip, amount: FROM_USD[trip] },
             traveller.via.id,
-            { date, at: i },
+            fields,
           ),
         )
       } else {
-        docs.push(aSpendIn(trip, wallet.id, category.id, '12.50', spend))
+        docs.push(aSpendIn(trip, wallet.id, category.id, TRIP_SPEND[trip], fields))
       }
     } else {
       docs.push(
         i % 3 === 0
-          ? aSpendIn('USD', traveller.us.id, category.id, '12.50', spend)
-          : aSpendIn('CAD', card.id, category.id, '12.50', spend),
+          ? aSpendIn('USD', traveller.us.id, category.id, '12.50', fields)
+          : aSpendIn('CAD', card.id, category.id, '12.50', fields),
       )
     }
   }
