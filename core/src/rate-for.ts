@@ -64,18 +64,18 @@ export function rateFor(
   if (amount.currency === into) return { mark: 'exact', rate: { num: 1n, den: 1n } }
   if (amount.own !== null) return { mark: 'exact', rate: amount.own }
 
-  const cost = costOn(pools, amount.currency, amount.date)
-  if (cost !== null && cost.rate !== null) return { mark: 'cost', rate: cost.rate }
+  const found = costOn(pools, amount.currency, amount.date)
+  if (found !== null && found.rate !== null) return { mark: 'cost', rate: found.rate }
 
   const days = book.get(amount.currency) ?? []
   const next = firstAfter(days, amount.date)
-  const before = days[next - 1]
-  if (before !== undefined && before.date === amount.date) {
-    if (before.mine !== null) return { mark: 'mine', rate: before.mine }
-    if (before.fetched !== null) return { mark: 'estimate', rate: before.fetched }
+  const onOrBefore = days[next - 1]
+  if (onOrBefore !== undefined && onOrBefore.date === amount.date) {
+    if (onOrBefore.mine !== null) return { mark: 'mine', rate: onOrBefore.mine }
+    if (onOrBefore.fetched !== null) return { mark: 'estimate', rate: onOrBefore.fetched }
   }
 
-  const near = nearest(before, days[next], amount.date)
+  const near = nearest(onOrBefore, days[next], amount.date)
   if (near !== null) {
     const rate = near.mine ?? near.fetched
     if (rate !== null) return { mark: 'borrowed', rate, day: near.date }
@@ -103,15 +103,15 @@ function firstAfter(days: readonly BookDay[], date: string): number {
 
 /** Whichever of the two days is nearer `date`, counted in days: the earlier on a tie. */
 function nearest(
-  before: BookDay | undefined,
-  after: BookDay | undefined,
+  earlier: BookDay | undefined,
+  later: BookDay | undefined,
   date: string,
 ): BookDay | null {
-  if (before === undefined) return after ?? null
-  if (after === undefined) return before
-  const back = dayNumber(date) - dayNumber(before.date)
-  const ahead = dayNumber(after.date) - dayNumber(date)
-  return back <= ahead ? before : after
+  if (earlier === undefined) return later ?? null
+  if (later === undefined) return earlier
+  const back = dayNumber(date) - dayNumber(earlier.date)
+  const ahead = dayNumber(later.date) - dayNumber(date)
+  return back <= ahead ? earlier : later
 }
 
 /** The day `date` names, as a whole number of days since 1970: a month boundary counts as days. */
