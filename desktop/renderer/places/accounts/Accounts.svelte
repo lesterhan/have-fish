@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { onMount, tick, untrack } from 'svelte'
+  // Accounts: its tabs, the notice under them, and what App asks of the place.
+  import { tick } from 'svelte'
   import { copy } from '../../../copy'
-  import AccountList from './AccountList.svelte'
-  import AccountPane from './AccountPane.svelte'
-  import { type AccountField, accountFieldOf, type Adding, lockOf } from './accounts'
-  import { accountRows } from './balances'
+  import AccountsTab from './AccountsTab.svelte'
   import type { LedgerStore } from '../../ledger/ledger'
-  import { NARROW } from '../../narrow'
   import { wordsFor } from '../../ledger/refusals'
-  import { kept } from '../../ledger/selection'
-  import Button from '../../parts/Button.svelte'
-  import Header from '../../parts/Header.svelte'
+  import Empty from '../../parts/Empty.svelte'
   import Notice from '../../parts/Notice.svelte'
+  import Tabs from '../../parts/Tabs.svelte'
 
   type Props = {
     hidden: boolean
@@ -22,21 +18,14 @@
   }
   let { hidden, ledger, forgetTyping }: Props = $props()
 
-  const accounts = $derived($ledger.accounts)
-  let selectedId = $state<string | null>(null)
-  let adding = $state(false)
-  let saving = $state(false)
-  let error = $state<{ field: AccountField; words: string } | null>(null)
-  /** In a narrow window, whether the pane is over the list. */
-  let open = $state(false)
-  let list: AccountList
-  let pane: AccountPane
-  let addButton: Button
-
-  const selected = $derived(accounts.find((a) => a.id === selectedId))
-  /** The list as a tree, parents rolled up; and the accounts in it, in the order it shows them. */
-  const rows = $derived(accountRows(accounts))
-  const ordered = $derived(rows.flatMap((r) => (r.account ? [r.account] : [])))
+  /** The place's views: its accounts, and what each currency cost me. */
+  const TAB_LIST = [
+    { id: 'accounts', label: copy.accounts.tabs.accounts },
+    { id: 'currencies', label: copy.accounts.tabs.currencies },
+  ]
+  let chosen = $state('accounts')
+  let strip: Tabs
+  let body: AccountsTab
 
   /** Why the list couldn't load, until it next does. */
   const unloaded = $derived($ledger.failure && wordsFor($ledger.failure))
@@ -46,34 +35,19 @@
   let dismissed = $state<string | null>(null)
   const notice = $derived(refusal ?? (unloaded !== dismissed ? unloaded : null))
 
-  // Each load: the selection stays where it can.
-  $effect(() => {
-    const now = ordered
-    untrack(() => {
-      selectedId = kept(now, selectedId)
-    })
-  })
-
-  onMount(() => {
-    const narrow = matchMedia(NARROW)
-    const widened = () => {
-      if (!narrow.matches) open = false
-    }
-    narrow.addEventListener('change', widened)
-    return () => narrow.removeEventListener('change', widened)
-  })
-
-  /** Coming here from another place: the list, or Add account while there's nothing in it. */
+  /** Coming here from another place: the chosen tab, its own way on Accounts. */
   export function focus() {
-    if (adding) pane.focusName()
-    else if (ordered.length > 0) list.focus()
-    else addButton.focus()
+    if (chosen === 'accounts') body.focus()
+    else strip.focus()
   }
 
-  /** After an undo or redo: the list as it is now, with the account that came back selected. */
+  /** After an undo or redo: the Accounts tab, the account that came back selected. */
   export async function show(id: string) {
-    await ledger.caughtUp()
-    if (ledger.current().accounts.some((a) => a.id === id)) selectedId = id
+    const switched = chosen !== 'accounts'
+    chosen = 'accounts'
+    await tick()
+    await body.show(id)
+    if (switched) body.focus()
   }
 
   /** An undo or redo refused while this place is showing. */
@@ -86,139 +60,38 @@
     else dismissed = unloaded
   }
 
-  /** An empty pane to add one in: Name, Kind, Currency. */
+  /** An empty pane to add one in, on the Accounts tab: Name, Kind, Currency. */
   export async function startAdding() {
-    adding = true
-    error = null
-    open = matchMedia(NARROW).matches
-    await pane.start()
-  }
-
-  async function add(fields: Adding) {
-    if (saving) return
-    saving = true
-    const added = await window.haveFish.invoke('account.add', {
-      name: fields.name,
-      kind: fields.kind,
-      currency: lockOf(fields.currency),
-      start: fields.start,
-      cost: fields.cost,
-    })
-    saving = false
-    if (!added.ok) {
-      error = { field: accountFieldOf(added), words: wordsFor(added) }
-      if (error.field === 'name') pane.focusName()
-      if (error.field === 'start') void pane.focusStart()
-      if (error.field === 'cost') void pane.focusCost()
-      return
-    }
-    adding = false
-    error = null
-    open = false
-    forgetTyping()
-    await ledger.caughtUp()
-    selectedId = added.value.id
-    list.focus()
-  }
-
-  /** A starting balance for the account showing, and what it cost. */
-  async function start(amount: string, cost: string) {
-    const id = selectedId
-    if (saving || id === null) return
-    saving = true
-    const started = await window.haveFish.invoke('account.start', { id, amount, cost })
-    saving = false
-    if (!started.ok) {
-      error = { field: accountFieldOf(started), words: wordsFor(started) }
-      if (error.field === 'start') void pane.focusStart()
-      if (error.field === 'cost') void pane.focusCost()
-      return
-    }
-    error = null
-    forgetTyping()
-    await ledger.caughtUp()
-    list.focus()
-  }
-
-  /** What the account showing's start cost, said after it. */
-  async function cost(text: string) {
-    const id = selectedId
-    if (saving || id === null) return
-    saving = true
-    const costed = await window.haveFish.invoke('account.cost', { id, cost: text })
-    saving = false
-    if (!costed.ok) {
-      error = { field: accountFieldOf(costed), words: wordsFor(costed) }
-      if (error.field === 'cost') void pane.focusCost()
-      return
-    }
-    error = null
-    forgetTyping()
-    await ledger.caughtUp()
-    list.focus()
-  }
-
-  async function cancel() {
-    adding = false
-    error = null
-    open = false
+    chosen = 'accounts'
     await tick()
-    focus()
-  }
-
-  /** Choosing an account puts away a half-filled pane: there's little in it to lose. */
-  function select(id: string) {
-    selectedId = id
-    adding = false
-    error = null
-  }
-
-  function closePane() {
-    if (adding) void cancel()
-    else {
-      open = false
-      list.focus()
-    }
+    await body.startAdding()
   }
 </script>
 
 <main class="accounts" {hidden}>
   <div class="top">
-    <Header title={copy.app.places.accounts}>
-      <Button
-        bind:this={addButton}
-        variant="primary"
-        action="addAccount"
-        onclick={() => void startAdding()}
-      >
-        {copy.accounts.add}
-      </Button>
-    </Header>
+    <Tabs
+      bind:this={strip}
+      id="accounts"
+      title={copy.app.places.accounts}
+      tabs={TAB_LIST}
+      selected={chosen}
+      onselect={(id) => (chosen = id)}
+    />
     {#if notice}<Notice words={notice} ondismiss={dismiss} />{/if}
   </div>
 
-  <AccountList
-    bind:this={list}
-    {rows}
-    {selectedId}
-    onselect={select}
-    onopen={() => (open = matchMedia(NARROW).matches)}
-  />
+  <AccountsTab bind:this={body} hidden={chosen !== 'accounts'} {ledger} {forgetTyping} />
 
-  <div class="pane">
-    <AccountPane
-    bind:this={pane}
-    account={selected}
-    {adding}
-    {saving}
-    {error}
-    {open}
-    onadd={(fields) => void add(fields)}
-    onstart={(amount, cost) => void start(amount, cost)}
-    oncost={(text) => void cost(text)}
-    oncancel={() => void cancel()}
-    onback={closePane}
-  />
+  <div
+    class="currencies"
+    role="tabpanel"
+    id="accounts-panel-currencies"
+    aria-labelledby="accounts-tab-currencies"
+    tabindex="0"
+    hidden={chosen !== 'currencies'}
+  >
+    <Empty>{copy.app.underConstruction}</Empty>
   </div>
 </main>
 
@@ -226,12 +99,8 @@
   main {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
     grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      'top top'
-      'list pane';
-    gap: var(--space-4) var(--space-6);
+    gap: var(--space-4);
     padding: var(--space-4);
   }
 
@@ -239,31 +108,19 @@
     display: none;
   }
 
-  .pane {
-    grid-area: pane;
-    display: grid;
-    min-height: 0;
-  }
-
   .top {
-    grid-area: top;
     display: grid;
     gap: var(--space-3);
+  }
+
+  .currencies[hidden] {
+    display: none;
   }
 
   /* NARROW in narrow.ts. */
   @media (max-width: 44rem) {
     main {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-areas:
-        'top'
-        'list';
       padding: var(--space-3);
-    }
-
-    /* The pane slides over the list, out of the grid. */
-    .pane {
-      display: contents;
     }
   }
 </style>

@@ -96,9 +96,11 @@ taller than Compact's rows in Large.
 ### Layout
 
 - **The sidebar** is 176px on the deepest rung and holds places only, each with its keycap.
-- **A place** is a header (its title, one quiet line, at most one primary button), a notice under
-  the header when something was refused, and its list at full width. Nothing persistent sits
-  beside the list. Reports is the one place with two lists side by side: the tree, and the spends
+- **A place** is a header (its title, one quiet line, at most one primary button), or, where it
+  has more than one view, its tabs: the tab says where you are, the title is heard and not shown,
+  and each tab's action sits quietly at the head of its list (Accounts). Then a notice when
+  something was refused, and its list at full width. Nothing persistent sits beside the list.
+  Reports is the one place with two lists side by side: the tree, and the spends
   of what's selected in it.
 - **Details open in place**, under their row: a click selects a row, and a second click or Enter
   opens it. Esc puts back what was typed and closes them; reaching for another row closes them
@@ -182,8 +184,8 @@ screen that needs it, not copied until a third copy forces it out.
 | `Tabs` | A place's views across its top: the chosen one a folder open onto the work, capped in the accent laid over the background (70% in light, 60% in dark, 3:1 on it); the others muted, the band under the pointer; ← → move and choose, Home and End; the place's title heard, not shown | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
-| `Notice` | Under a place's header, where you were looking; an action and ✕; stays until acted on | Every place |
-| `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open | Every list, the palette |
+| `Notice` | Under a place's header or its tabs, where you were looking; an action and ✕; stays until acted on | Every place |
+| `Empty` | Shows what to do rather than saying it: an example, a drop target, the composer open. Where something is still to come, the app's one line for it, `copy.app.underConstruction` | Every list, the palette, a tab still to come |
 
 | The ledger's, in `ledger/` | States | Used by |
 |---|---|---|

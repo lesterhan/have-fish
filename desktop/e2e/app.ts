@@ -155,6 +155,9 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
 
 /** Add account, where the accounts are listed: it opens the form. */
 export const ADD_ACCOUNT = 'role=button[name="Add account"s]'
+/** Accounts' two tabs, by their words. */
+export const ACCOUNTS_TAB = 'role=tab[name="Accounts"s]'
+export const CURRENCIES_TAB = 'role=tab[name="Currencies"s]'
 /** The form that adds an account, in its pane. */
 export const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 
@@ -217,6 +220,13 @@ export const focusedIn = (page: Page) =>
     const el = document.activeElement
     const where = el?.closest('form, section, ol, nav, main, dialog, [role=dialog]')
     return `${where?.getAttribute('aria-label')} ${el?.getAttribute('name') ?? el?.tagName}`
+  })
+
+/** The tab holding the cursor, by its words; null when the cursor is on no tab. */
+export const focusedTab = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.activeElement
+    return el?.getAttribute('role') === 'tab' ? el.textContent : null
   })
 
 /** A spend's details, open under its row in the ledger. */
