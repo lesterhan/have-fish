@@ -179,7 +179,7 @@ const FETCHED = [
   ['MXN', '0.077'],
 ] as const
 
-/** A traveller's own accounts: USD in and out, the conversion account, and a wallet per trip currency. */
+/** A traveller's own accounts: USD in and out, the conversion account, a wallet per trip. */
 function aTraveller() {
   const wallet = (currency: Trip) =>
     anAccount({ path: `assets:cash:${currency.toLowerCase()}`, kind: 'cash', currency })
