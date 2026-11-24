@@ -258,42 +258,44 @@ export function aLedgerOf(
         docs.push(aRate({ from, to: 'CAD', rate, date, published: date, origin: SYSTEM }))
       }
     }
-    if (i % 28 === 0) docs.push(aSpendIn('CAD', pay.id, bank.id, '1500.00', spend))
-    if (i % 28 === 14)
-      docs.push(aSpendIn('USD', traveller.usPay.id, traveller.us.id, '1500.00', spend))
 
     // A trip is the first fourteen days of every sixty, in one currency after another.
     const d = Math.floor(i / 14)
     const trip = d % 60 < 14 ? TRIPS[Math.floor(d / 60) % TRIPS.length] : undefined
-    if (trip === undefined) {
+    // One transaction a day, as home writes one: a pay day takes its spend's place.
+    if (i % 28 === 0) {
+      docs.push(aSpendIn('CAD', pay.id, bank.id, '1500.00', spend))
+    } else if (i % 28 === 14) {
+      docs.push(aSpendIn('USD', traveller.usPay.id, traveller.us.id, '1500.00', spend))
+    } else if (trip !== undefined) {
+      const wallet = traveller.wallets[trip]
+      if (i % 14 === 1) {
+        docs.push(
+          anExchange(
+            { accountId: bank.id, currency: 'CAD', amount: '200.00' },
+            { accountId: wallet.id, currency: trip, amount: FROM_CAD[trip] },
+            traveller.via.id,
+            { date, at: i },
+          ),
+        )
+      } else if (i % 14 === 2) {
+        docs.push(
+          anExchange(
+            { accountId: traveller.us.id, currency: 'USD', amount: '150.00' },
+            { accountId: wallet.id, currency: trip, amount: FROM_USD[trip] },
+            traveller.via.id,
+            { date, at: i },
+          ),
+        )
+      } else {
+        docs.push(aSpendIn(trip, wallet.id, category.id, '12.50', spend))
+      }
+    } else {
       docs.push(
         i % 3 === 0
           ? aSpendIn('USD', traveller.us.id, category.id, '12.50', spend)
           : aSpendIn('CAD', card.id, category.id, '12.50', spend),
       )
-      continue
-    }
-    const wallet = traveller.wallets[trip]
-    if (i % 14 === 1) {
-      docs.push(
-        anExchange(
-          { accountId: bank.id, currency: 'CAD', amount: '200.00' },
-          { accountId: wallet.id, currency: trip, amount: FROM_CAD[trip] },
-          traveller.via.id,
-          { date, at: i },
-        ),
-      )
-    } else if (i % 14 === 2) {
-      docs.push(
-        anExchange(
-          { accountId: traveller.us.id, currency: 'USD', amount: '150.00' },
-          { accountId: wallet.id, currency: trip, amount: FROM_USD[trip] },
-          traveller.via.id,
-          { date, at: i },
-        ),
-      )
-    } else {
-      docs.push(aSpendIn(trip, wallet.id, category.id, '12.50', spend))
     }
   }
   ok(applyLocal(ledger, docs, NOW))
