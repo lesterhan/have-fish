@@ -1,6 +1,6 @@
 // What went to each category in a period: the money a spending report sums.
 
-import { type AccountKind } from '@have-fish/core/account-kind'
+import type { AccountKind } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
 import { isCalendarDate } from '@have-fish/core/calendar-date'
 import { format } from '@have-fish/core/money'
@@ -11,14 +11,14 @@ import { type Mark, type RateBook, rateBookOf, rateFor } from '@have-fish/core/r
 import { convert } from '@have-fish/core/rates'
 import { type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
-import { and, between, eq, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
+import { and, between, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { InputOf, Values } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 import { perConnection } from '../../db/prepared'
 import { accounts, postings, rates, transactions } from '../../db/schema'
 import { rateOf } from '../../ledger/rows'
 
-const statements = perConnection((orm) => ({
+const statements = perConnection((orm, db) => ({
   // Each live posting of a transaction in the period, together, so core can say its shape.
   postingsIn: orm
     .select({
@@ -42,8 +42,8 @@ const statements = perConnection((orm) => ({
     )
     .orderBy(transactions.date, transactions.id, postings.position)
     .prepare(),
-  // Each live posting of every transaction up to `end` that holds one in another currency: what
-  // each currency I hold cost me, since euros bought with dollars carry what the dollars cost.
+  // Each live posting of every transaction that holds one in another currency: what each currency
+  // I hold cost me, since euros bought with dollars carry what the dollars cost.
   history: orm
     .select({
       id: transactions.id,
@@ -59,7 +59,6 @@ const statements = perConnection((orm) => ({
     .where(
       and(
         isNull(transactions.deletedAt),
-        lte(transactions.date, sql.placeholder('end')),
         inArray(
           transactions.id,
           orm
@@ -73,6 +72,8 @@ const statements = perConnection((orm) => ({
     .prepare(),
   // Every rate the ledger holds: the one I typed or fetched, by day, for a spend with no cost.
   rates: orm.select().from(rates).where(isNull(rates.deletedAt)).prepare(),
+  // How many rows this connection has changed: any write moves it, so a reading can't outlive one.
+  changes: db.prepare<[], { changes: number }>('SELECT total_changes() AS changes'),
 }))
 
 /** What a currency I hold cost me, and the rates beside it: how a spend converts. */
@@ -80,6 +81,9 @@ type Reading = { pools: Pools; book: RateBook }
 
 /** One spend's money in the home currency, and how good the rate it took is. */
 type Amount = { amount: string; mark: Mark }
+
+/** The reading in hand for a connection, and the write count it was made at. */
+const kept = new WeakMap<Database.Database, { changes: number; reading: Reading }>()
 
 /**
  * Each spend's money in a category from `start` to `end`, both days in it, in the home currency.
@@ -97,13 +101,10 @@ export function spendingIn(
   if (end < start) return failure('DATE_INVALID', { date: end })
 
   const spent: Values['report.spending']['spent'] = []
-  /** The pool and the book, read once, when the first spend in another currency needs them. */
-  let reading: Reading | null = null
   /** A leg's money in the home currency, and how good the rate it took there is. */
   const amountOf = (leg: { cents: number; currency: string; date: string }): Amount => {
     if (leg.currency === HOME_CURRENCY) return { amount: format(leg.cents), mark: 'exact' }
-    reading ??= readingOf(db, end)
-    const { pools, book } = reading
+    const { pools, book } = readingIn(db)
     const rate = rateFor(
       { currency: leg.currency, date: leg.date, own: null },
       pools,
@@ -135,17 +136,30 @@ export function spendingIn(
   return { ok: true, value: { currency: HOME_CURRENCY, spent } }
 }
 
-/** The pool and the book, from the whole ledger up to `end`: how a spend converts. */
-function readingOf(db: Database.Database, end: string): Reading {
+/**
+ * The pool and the book for `db`: the reading in hand while no write has moved the ledger since it
+ * was made, else one read from the whole ledger, which every week then shares.
+ */
+function readingIn(db: Database.Database): Reading {
   const found = statements(db)
+  const changes = found.changes.get()?.changes ?? 0
+  const inHand = kept.get(db)
+  if (inHand !== undefined && inHand.changes === changes) return inHand.reading
+  const reading = readingOf(found)
+  kept.set(db, { changes, reading })
+  return reading
+}
+
+/** The pool and the book of every currency, from the whole ledger. */
+function readingOf(found: ReturnType<typeof statements>): Reading {
   const kindByAccount = new Map<string, AccountKind>()
   const byTransaction = new Map<string, { date: string; legs: ShapeLeg[] }>()
-  for (const row of found.history.all({ end })) {
+  for (const row of found.history.all()) {
     kindByAccount.set(row.accountId, row.kind)
-    const kept = byTransaction.get(row.id)
     const leg = { accountId: row.accountId, cents: row.cents, currency: row.currency }
-    if (kept === undefined) byTransaction.set(row.id, { date: row.date, legs: [leg] })
-    else kept.legs.push(leg)
+    const group = byTransaction.get(row.id)
+    if (group === undefined) byTransaction.set(row.id, { date: row.date, legs: [leg] })
+    else group.legs.push(leg)
   }
   const docs = found.rates.all().map((row) => rateOf(row).doc)
   const kindOf = (accountId: string) => kindByAccount.get(accountId)

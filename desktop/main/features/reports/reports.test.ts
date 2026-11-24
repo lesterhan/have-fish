@@ -268,7 +268,14 @@ describe('a spend in another currency', () => {
   test('a fetched rate on its day: 10.00 EUR at 1.46 is 14.60, marked estimate', () => {
     const { account, rate, spend, week } = setup()
     const wallet = account('cash:eur', 'cash', 'EUR', '10')
-    rate({ date: '2026-10-27', from: 'EUR', to: 'CAD', rate: '1.46', published: '2026-10-27', origin: SYSTEM })
+    rate({
+      date: '2026-10-27',
+      from: 'EUR',
+      to: 'CAD',
+      rate: '1.46',
+      published: '2026-10-27',
+      origin: SYSTEM,
+    })
     const id = spend('10', 'food', '2026-10-27', wallet)
 
     expect(week().spent).toEqual([{ id, category: 'food', amount: '14.60', mark: 'estimate' }])
@@ -318,7 +325,14 @@ describe('a spend in another currency', () => {
   test('a card kept to USD converts its 27.00 leg: the 4,000 JPY dinner is 37.26, marked estimate', () => {
     const { account, ctx, rate, week } = setup()
     const amex = account('amex', 'card', 'USD')
-    rate({ date: '2026-10-28', from: 'USD', to: 'CAD', rate: '1.38', published: '2026-10-28', origin: SYSTEM })
+    rate({
+      date: '2026-10-28',
+      from: 'USD',
+      to: 'CAD',
+      rate: '1.38',
+      published: '2026-10-28',
+      origin: SYSTEM,
+    })
     const id = ok(
       writeSpend(ctx, {
         amount: '4000',
@@ -340,6 +354,45 @@ describe('a spend in another currency', () => {
     spend('15', 'food', '2026-10-27', wallet)
 
     expect(Object.keys(week())).toEqual(['currency', 'spent'])
+  })
+
+  test('asked again with no write between: the week’s statement and the count, and no history or rates', () => {
+    const { account, exchange, spend, week } = setup()
+    const chequing = account('chequing', 'bank', 'CAD', '1000')
+    const wallet = account('cash:eur', 'cash', 'EUR')
+    exchange(
+      '2026-10-26',
+      { id: chequing, currency: 'CAD' },
+      '200.00',
+      { id: wallet, currency: 'EUR' },
+      '150.00',
+    )
+    spend('15', 'food', '2026-10-27', wallet)
+    week()
+
+    const ran = recorded(() => week())
+
+    expect(ran).toHaveLength(2)
+    expect(ran[0]?.sql).toContain('between')
+    expect(ran[1]?.sql).toContain('total_changes()')
+  })
+
+  test('a write drops the reading: the same week reads missing, then the exchange’s cost', () => {
+    const { account, exchange, spend, week } = setup()
+    const chequing = account('chequing', 'bank', 'CAD', '1000')
+    const wallet = account('cash:eur', 'cash', 'EUR', '15')
+    const id = spend('15', 'food', '2026-10-27', wallet)
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '0.00', mark: 'missing' }])
+
+    exchange(
+      '2026-10-26',
+      { id: chequing, currency: 'CAD' },
+      '200.00',
+      { id: wallet, currency: 'EUR' },
+      '150.00',
+    )
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '20.00', mark: 'cost' }])
   })
 })
 
@@ -396,16 +449,25 @@ describe('a traveller’s two weeks, at ten years', { timeout: 120_000 }, () => 
     { start: '2026-10-19', end: '2026-10-25' },
   ]
   const week = (start: string, end: string) => ok(spendingIn(ledger.db, { start, end }))
+  /** Both weeks, as the window's load asks them, each holding a spend the week had to guess. */
+  const both = () => {
+    for (const { start, end } of weeks) {
+      expect(week(start, end).spent.some((s) => s.mark !== 'exact')).toBe(true)
+    }
+  }
 
-  test('both weeks, warm, take under 250 ms, each with a spend the week guessed', () => {
-    for (const { start, end } of weeks) week(start, end)
-    const ran = recorded(() => {
-      for (const { start, end } of weeks) {
-        expect(week(start, end).spent.some((s) => s.mark !== 'exact')).toBe(true)
-      }
-    })
-    const took = ran.reduce((sum, r) => sum + r.ms, 0)
-    // Measured warm at about 200 ms together: over the plan's 100 ms stop, so the build stopped.
-    expect(took).toBeLessThan(250)
+  test('both weeks after a write take under 500 ms, and with none under 50 ms', () => {
+    both()
+    ok(applyLocal(ledger, [aRate()], NOW))
+    const opened = performance.now()
+    both()
+    const read = performance.now() - opened
+    const again = performance.now()
+    both()
+    const reused = performance.now() - again
+
+    // Measured on the laptop at about 178 ms after a write, and 1 ms with the reading kept.
+    expect(read).toBeLessThan(500)
+    expect(reused).toBeLessThan(50)
   })
 })

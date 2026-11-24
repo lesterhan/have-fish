@@ -373,9 +373,7 @@ describe('a converted spend in Reports', () => {
 
     const unsorted = treeRow(page, 'Unsorted')
     await expect.poll(() => unsorted.locator('[data-cell=shown]').innerText()).toBe('36.20')
-    await expect
-      .poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count())
-      .toBe(1)
+    await expect.poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count()).toBe(1)
     const foot = page.locator("p:has-text('All spending')")
     await expect
       .poll(() => foot.locator('[data-guessed]').allTextContents())
@@ -384,6 +382,8 @@ describe('a converted spend in Reports', () => {
 
   test('the dinner alone: no cell of the tree is underlined', async () => {
     const page = await aDinner()
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
 
     await goTo(page, 'Reports')
 
@@ -394,6 +394,8 @@ describe('a converted spend in Reports', () => {
   test('the dinner and the yen from cash: no line reads “Not in these totals”', async () => {
     const page = await aDinner()
     await yenFromCash(page)
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
 
     await goTo(page, 'Reports')
 
