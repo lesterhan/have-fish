@@ -3,7 +3,7 @@ import type { AccountKind } from './account-kind'
 import { addDays } from './calendar-date'
 import type { RateDoc } from './documents'
 import type { PoolDay, Pools } from './pool'
-import { MARKS, ownRate, rateBookOf, rateFor } from './rate-for'
+import { MARKS, ownRate, rateBookOf, rateFor, weaker } from './rate-for'
 import { type Rate, ratio } from './rates'
 import { type ShapeLeg, shapeOf } from './shapes'
 
@@ -58,6 +58,14 @@ const amount = (currency: string, date: string, own: Rate | null = null) => ({
   currency,
   date,
   own,
+})
+
+describe('the weaker of two marks', () => {
+  it('is the one later in MARKS, and the first of two the same', () => {
+    expect(weaker('cost', 'borrowed')).toBe('borrowed')
+    expect(weaker('missing', 'exact')).toBe('missing')
+    expect(weaker('mine', 'mine')).toBe('mine')
+  })
 })
 
 describe('the rate for one amount', () => {
