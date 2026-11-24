@@ -19,6 +19,7 @@ export const COLOURS = [
   'muted',
   'text',
   'accent',
+  'accent-cap',
   'on-accent',
   'in',
   'error',

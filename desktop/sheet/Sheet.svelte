@@ -12,6 +12,7 @@
   import Header from '../renderer/parts/Header.svelte'
   import Keys from '../renderer/parts/Keys.svelte'
   import Notice from '../renderer/parts/Notice.svelte'
+  import Tabs from '../renderer/parts/Tabs.svelte'
   import Band from '../renderer/parts/Band.svelte'
   import Day from '../renderer/parts/Day.svelte'
   import Money from '../renderer/parts/Money.svelte'
@@ -26,13 +27,15 @@
   import { spendActions } from '../renderer/ledger/spendActions'
   import Batch from '../renderer/ledger/Batch.svelte'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
-  import type { Place } from '../renderer/shell/places'
+  import { PLACES, type Place } from '../renderer/shell/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
   // Each part in each of its states. Hover, focus and pressed can't be drawn at rest: the capture
   // script shoots the Button section with each.
   let place = $state<Place>('ledger')
   const TODAY = '2026-11-05'
+  // The places as tabs, so the strip needs no words of its own.
+  const placeTabs = PLACES.map((id) => ({ id, label: copy.app.places[id] }))
   const cad = (amount: string) => ({ amount, currency: 'CAD' })
   const row = (
     id: string,
@@ -217,6 +220,28 @@
       <Header title={copy.app.places.accounts} line="4 accounts">
         <Button variant="primary" action="addAccount">{copy.accounts.add}</Button>
       </Header>
+    </div>
+  </section>
+
+  <section aria-label="Tabs">
+    <h2>Tabs: the first chosen, then the last</h2>
+    <div class="frame">
+      <Tabs
+        id="sheet-first"
+        title={copy.app.places.label}
+        tabs={placeTabs}
+        selected="ledger"
+        onselect={() => {}}
+      />
+    </div>
+    <div class="frame">
+      <Tabs
+        id="sheet-last"
+        title={copy.app.places.label}
+        tabs={placeTabs}
+        selected="reports"
+        onselect={() => {}}
+      />
     </div>
   </section>
 

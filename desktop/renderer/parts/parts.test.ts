@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { kbdsIn, listboxesIn, lookIn, otherWidthsIn } from '../../tools/layout'
+import { kbdsIn, listboxesIn, lookIn, otherWidthsIn, tabsIn } from '../../tools/layout'
 
 const RENDERER = join(import.meta.dirname, '..')
 const read = (file: string) => readFileSync(join(RENDERER, file), 'utf8')
@@ -45,6 +45,11 @@ describe('parts own what they draw', () => {
         listboxesIn(read(f)).length > 0,
     )
     expect(elsewhere, 'Use <Listbox>').toEqual([])
+  })
+
+  test('a tab list and its tabs are only in Tabs', () => {
+    const elsewhere = files.filter((f) => f !== 'parts/Tabs.svelte' && tabsIn(read(f)).length > 0)
+    expect(elsewhere, 'Use <Tabs>').toEqual([])
   })
 
   test('the one narrow width is the only one', () => {

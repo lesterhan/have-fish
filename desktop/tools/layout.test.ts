@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kbdsIn, listboxesIn, lookIn, otherWidthsIn } from './layout'
+import { kbdsIn, listboxesIn, lookIn, otherWidthsIn, tabsIn } from './layout'
 
 describe('kbdsIn', () => {
   it('counts each keycap in markup', () => {
@@ -27,6 +27,23 @@ describe('listboxesIn', () => {
 
   it('passes a combobox, which owns no list', () => {
     expect(listboxesIn('<input role="combobox" aria-controls="x" />')).toEqual([])
+  })
+})
+
+describe('tabsIn', () => {
+  it('catches a hand-rolled tab list and its tabs', () => {
+    expect(tabsIn('<div role="tablist"><button role="tab"></button></div>')).toEqual([
+      'role="tablist"',
+      'role="tab"',
+    ])
+  })
+
+  it("passes a tabpanel, which is the place's own", () => {
+    expect(tabsIn('<div role="tabpanel" aria-labelledby="x"></div>')).toEqual([])
+  })
+
+  it('ignores a tab list in a comment', () => {
+    expect(tabsIn('<!-- <div role="tab"></div> -->')).toEqual([])
   })
 })
 

@@ -203,12 +203,13 @@ describe('matchedOf', () => {
 describe('tokenNamesOf', () => {
   test("names tokens.css's first :root, then the colours, density's tokens among them", () => {
     const names = tokenNamesOf(tokensCss)
-    expect(names).toHaveLength(72)
-    expect([names[0], names[47], names[48], names[71]]).toEqual([
+    expect(names).toHaveLength(73)
+    expect([names[0], names[47], names[48], names[71], names[72]]).toEqual([
       '--font',
       '--duration-land',
       '--color-sidebar',
       '--color-income-tint',
+      '--color-accent-cap',
     ])
     expect(names).toContain('--text-base')
     expect(names).toContain('--row')
