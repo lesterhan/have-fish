@@ -38,7 +38,7 @@ describe('tabsIn', () => {
     ])
   })
 
-  it('passes a tabpanel, which is the place own', () => {
+  it("passes a tabpanel, which is the place's own", () => {
     expect(tabsIn('<div role="tabpanel" aria-labelledby="x"></div>')).toEqual([])
   })
 

@@ -330,6 +330,13 @@ test('the parts sheet, light and dark', { timeout: 60_000 }, async () => {
     await page.emulateMedia({ colorScheme: 'dark' })
     await tabs.screenshot({ path: join(out, 'sheet-tabs-dark.png') })
     await page.emulateMedia({ colorScheme: 'light' })
+    // Focused from the keyboard, and a tab not chosen under the pointer.
+    await tabs.getByRole('tab', { name: 'Ledger' }).first().click()
+    await page.keyboard.press('Home')
+    const hoveredTab = await tabs.getByRole('tab', { name: 'Reports' }).first().boundingBox()
+    if (hoveredTab === null) throw new Error('the sheet has no Reports tab')
+    await page.mouse.move(hoveredTab.x + hoveredTab.width / 2, hoveredTab.y + hoveredTab.height / 2)
+    await tabs.screenshot({ path: join(out, 'sheet-tabs-focus-hover.png') })
 
     // What can't be drawn at rest: the first button focused from the keyboard, the second hovered,
     // then held down.

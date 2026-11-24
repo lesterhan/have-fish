@@ -96,8 +96,8 @@
 
   .unseen {
     position: absolute;
-    width: 1px;
-    height: 1px;
+    inline-size: 1px;
+    block-size: 1px;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;

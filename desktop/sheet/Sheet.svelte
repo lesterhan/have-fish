@@ -27,7 +27,7 @@
   import { spendActions } from '../renderer/ledger/spendActions'
   import Batch from '../renderer/ledger/Batch.svelte'
   import type { ListedPath, ListedTransaction } from '../shared/commands'
-  import type { Place } from '../renderer/shell/places'
+  import { PLACES, type Place } from '../renderer/shell/places'
   import { COLOURS, DURATIONS, RADII, SHADOWS, SPACE, TYPE } from './tokens'
 
   // Each part in each of its states. Hover, focus and pressed can't be drawn at rest: the capture
@@ -35,11 +35,7 @@
   let place = $state<Place>('ledger')
   const TODAY = '2026-11-05'
   // The places as tabs, so the strip needs no words of its own.
-  const PLACES = [
-    { id: 'ledger', label: copy.app.places.ledger },
-    { id: 'accounts', label: copy.app.places.accounts },
-    { id: 'reports', label: copy.app.places.reports },
-  ]
+  const placeTabs = PLACES.map((id) => ({ id, label: copy.app.places[id] }))
   const cad = (amount: string) => ({ amount, currency: 'CAD' })
   const row = (
     id: string,
@@ -233,7 +229,7 @@
       <Tabs
         id="sheet-first"
         title={copy.app.places.label}
-        tabs={PLACES}
+        tabs={placeTabs}
         selected="ledger"
         onselect={() => {}}
       />
@@ -242,7 +238,7 @@
       <Tabs
         id="sheet-last"
         title={copy.app.places.label}
-        tabs={PLACES}
+        tabs={placeTabs}
         selected="reports"
         onselect={() => {}}
       />
