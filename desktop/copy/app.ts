@@ -5,6 +5,8 @@ export const app = {
   places: { label: 'Places', ledger: 'Ledger', accounts: 'Accounts', reports: 'Reports' },
   /** What stopped something, under a place's header. */
   notice: { dismiss: 'Dismiss' },
+  /** Where something is still to come, said the same way everywhere. */
+  underConstruction: 'Under construction 🚧',
   /** Before a day band's day, when it's one of these. */
   days: {
     today: 'Today',

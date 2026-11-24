@@ -2,11 +2,15 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
 import {
+  ACCOUNTS_TAB,
   ADD_ACCOUNT,
   aHome,
   BACK,
+  CURRENCIES_TAB,
   focusedIn,
+  focusedTab,
   launch,
   openChip,
   openSelected,
@@ -22,6 +26,9 @@ const ADDING = `${ACCOUNT} form[aria-label="Add an account"]`
 const NAME = `${ADDING} input[name=name]`
 const KIND = `${ADDING} select[name=kind]`
 const CURRENCY = `${ADDING} select[name=currency]`
+const TABLIST = 'role=tablist[name="Accounts"s]'
+const ACCOUNTS_PANEL = 'role=tabpanel[name="Accounts"s]'
+const CURRENCIES_PANEL = 'role=tabpanel[name="Currencies"s]'
 
 /** The accounts list as text: name and balance (Kind goes at the size the window opens). */
 const accounts = (page: Page) =>
@@ -44,6 +51,13 @@ async function add(page: Page, name: string, kind: string, currency?: string) {
   if (currency !== undefined) await page.selectOption(CURRENCY, currency)
   await page.locator(NAME).focus()
   await page.keyboard.press('Enter')
+}
+
+/** What a control's box is, so two boxes can be compared; a failure while it has none. */
+async function boxOf(page: Page, target: string) {
+  const box = await page.locator(target).boundingBox()
+  if (box === null) throw new Error(`${target} has no box to measure`)
+  return box
 }
 
 describe('the places', () => {
@@ -92,6 +106,163 @@ describe('the places', () => {
     press('ctrl+1')
     await expect.poll(() => current(page)).toMatch(/^Ledger/)
     expect((await rows(page))[0]).toContain('6.00')
+  })
+})
+
+describe('the tabs', () => {
+  test('Ctrl+2 on a fresh ledger: the tablist named Accounts holds the tabs Accounts and Currencies, in that order, and Accounts is selected', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    expect(await page.locator(TABLIST).getByRole('tab').allInnerTexts()).toEqual([
+      'Accounts',
+      'Currencies',
+    ])
+    await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
+  })
+
+  test('Ctrl+2: the heading named Accounts is at most 1px wide and 1px tall, so it is heard and not shown', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    const heading = 'role=heading[name="Accounts"s]'
+    await expect.poll(() => page.locator(heading).count()).toBe(1)
+    const box = await boxOf(page, heading)
+    expect(box.width).toBeLessThanOrEqual(1)
+    expect(box.height).toBeLessThanOrEqual(1)
+  })
+
+  test("Ctrl+2: Add account is inside the tabpanel named Accounts, and its box ends above the list's", async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    const add = `${ACCOUNTS_PANEL} >> ${ADD_ACCOUNT}`
+    await expect.poll(() => page.locator(add).count()).toBe(1)
+    const button = await boxOf(page, add)
+    const list = await boxOf(page, LIST)
+    expect(button.y + button.height).toBeLessThanOrEqual(list.y)
+  })
+
+  test('Ctrl+2, a click on the Accounts tab, then ArrowRight: Currencies is selected, its panel says under construction, and the list is hidden', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    await page.click(ACCOUNTS_TAB)
+    await page.keyboard.press('ArrowRight')
+
+    await expect.poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-selected')).toBe('true')
+    await expect
+      .poll(() => page.locator(CURRENCIES_PANEL).innerText())
+      .toBe(copy.app.underConstruction)
+    expect(await page.isVisible(LIST)).toBe(false)
+  })
+
+  test('from there, ArrowLeft: Accounts is selected and the list is visible again', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+    await page.click(CURRENCIES_TAB)
+
+    await page.keyboard.press('ArrowLeft')
+
+    await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
+    expect(await page.isVisible(LIST)).toBe(true)
+  })
+
+  test('Currencies chosen, then Ctrl+1, then Ctrl+2: Currencies is still selected', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+    await page.click(CURRENCIES_TAB)
+    await expect.poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-selected')).toBe('true')
+
+    press('ctrl+1')
+    await expect.poll(() => current(page)).toMatch(/^Ledger/)
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    await expect.poll(() => page.getAttribute(CURRENCIES_TAB, 'aria-selected')).toBe('true')
+  })
+
+  test('Currencies chosen, then Ctrl+1, then Ctrl+2: the cursor is on the Currencies tab', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+    await page.click(CURRENCIES_TAB)
+
+    press('ctrl+1')
+    await expect.poll(() => current(page)).toMatch(/^Ledger/)
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+
+    await expect.poll(() => focusedTab(page)).toBe('Currencies')
+  })
+
+  test('Currencies chosen, then Ctrl+Shift+N: the Accounts tab is selected and the cursor is in Name', async () => {
+    const { page, press } = await launch(aHome())
+
+    press('ctrl+2')
+    await expect.poll(() => current(page)).toMatch(/^Accounts/)
+    await page.click(CURRENCIES_TAB)
+
+    press('ctrl+shift+n')
+
+    await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
+    await expect.poll(() => focusedIn(page)).toBe('Add an account name')
+  })
+
+  test('an account added, undone, Currencies chosen, then Ctrl+Shift+Z: the Accounts tab is selected and the account is the selected row', async () => {
+    const { page, press } = await launch(aHome())
+    await page.click(`${NAV} button:has-text("Accounts")`)
+    await add(page, 'visa', 'card')
+    await expect.poll(() => accounts(page)).toHaveLength(1)
+
+    press('ctrl+z')
+    await expect.poll(() => accounts(page)).toEqual([])
+    await page.click(CURRENCIES_TAB)
+
+    press('ctrl+shift+z')
+
+    await expect.poll(() => page.getAttribute(ACCOUNTS_TAB, 'aria-selected')).toBe('true')
+    await expect.poll(() => selected(page)).toEqual(['visa'])
+  })
+
+  test('from there, the cursor is in the list, which shows what came back', async () => {
+    const { page, press } = await launch(aHome())
+    await page.click(`${NAV} button:has-text("Accounts")`)
+    await add(page, 'visa', 'card')
+    await expect.poll(() => accounts(page)).toHaveLength(1)
+
+    press('ctrl+z')
+    await expect.poll(() => accounts(page)).toEqual([])
+    await page.click(CURRENCIES_TAB)
+
+    press('ctrl+shift+z')
+
+    await expect.poll(() => focusedIn(page)).toBe('Accounts OL')
+  })
+
+  test("at 420 by 700, Accounts: both tabs are visible, and each tab's box ends inside the window", async () => {
+    const { page } = await launch(aHome())
+    await page.setViewportSize({ width: 420, height: 700 })
+    await page.click(`${NAV} button:has-text("Accounts")`)
+
+    for (const tab of [ACCOUNTS_TAB, CURRENCIES_TAB]) {
+      await expect.poll(() => page.locator(tab).isVisible()).toBe(true)
+      const box = await boxOf(page, tab)
+      expect(box.x + box.width, tab).toBeLessThanOrEqual(420)
+    }
   })
 })
 

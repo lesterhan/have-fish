@@ -26,6 +26,11 @@
     onselect(tab.id)
     buttons[to]?.focus()
   }
+
+  /** Puts the cursor on the chosen tab. */
+  export function focus() {
+    buttons[tabs.findIndex((tab) => tab.id === selected)]?.focus()
+  }
 </script>
 
 <h1 class="unseen" id="{id}-title">{title}</h1>

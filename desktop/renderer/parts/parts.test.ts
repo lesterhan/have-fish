@@ -22,6 +22,7 @@ const LAYOUT_ONLY = [
   'ledger/SpendList.svelte',
   'ledger/SpendCard.svelte',
   'places/accounts/Accounts.svelte',
+  'places/accounts/AccountsTab.svelte',
   'places/accounts/AccountList.svelte',
   'places/accounts/AccountPane.svelte',
 ]

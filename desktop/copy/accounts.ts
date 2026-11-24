@@ -4,6 +4,8 @@ import type { AddableKind } from '@have-fish/core/account-kind'
 
 export const accounts = {
   add: 'Add account',
+  /** The place's views, as tabs. */
+  tabs: { accounts: 'Accounts', currencies: 'Currencies' },
   list: {
     label: 'Accounts',
     /** The headings over the list's columns. */
