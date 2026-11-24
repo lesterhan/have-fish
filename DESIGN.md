@@ -159,8 +159,9 @@ screen that needs it, not copied until a third copy forces it out.
 4. **Replacing means deleting.** The change that brings a part moves every caller onto it and
    deletes what it replaces. There are never two ways to do one thing.
 5. **What a part owns can't be hand-rolled elsewhere**, and a guard says so: a listbox's role and
-   `aria-activedescendant` only in `Listbox`, a `<kbd>` only in `Keys`, money and days only
-   through `Money` and `Day`, a media query's width only the narrow one, a size only a type token.
+   `aria-activedescendant` only in `Listbox`, a tab list's and its tabs' roles only in `Tabs`, a
+   `<kbd>` only in `Keys`, money and days only through `Money` and `Day`, a media query's width
+   only the narrow one, a size only a type token.
 6. **Every part shows on one sheet** in each of its states, light and dark, which the capture
    script shoots, so a change to a part is seen everywhere it lands. The sheet (`desktop/sheet/`)
    is built for tests only, into `sheet-out/`, opened by its own entry, and never packaged.
@@ -178,6 +179,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
 | `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
+| `Tabs` | A place's views across its top: the chosen one a folder open onto the work, capped in the accent laid over the background (70% in light, 60% in dark, 3:1 on it); the others muted, the band under the pointer; ← → move and choose, Home and End; the place's title heard, not shown | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |
 | `Popover` | Opaque, fades in 4px down | Pickers, the date list, tooltips |
 | `Notice` | Under a place's header, where you were looking; an action and ✕; stays until acted on | Every place |
