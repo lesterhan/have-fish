@@ -14,7 +14,8 @@ import { writeRate } from './rates'
 
 const HOUR = 3_600_000
 
-const refusal = (outcome: { ok: boolean; failure?: unknown }) => (outcome.ok ? null : outcome.failure)
+const refusal = (outcome: { ok: boolean; failure?: unknown }) =>
+  outcome.ok ? null : outcome.failure
 
 function setup() {
   const ledger = tempLedger()
@@ -188,18 +189,20 @@ describe('a rate the ledger refuses', () => {
   test('is the home currency as its own pair, and writes nothing', () => {
     const { ctx, count } = setup()
 
-    expect(refusal(writeRate(ctx, { date: '2026-11-05', currency: 'CAD', rate: '1.72' }))).toEqual(
-      { code: 'RATE_SAME_CURRENCY', details: { currency: 'CAD' } },
-    )
+    expect(refusal(writeRate(ctx, { date: '2026-11-05', currency: 'CAD', rate: '1.72' }))).toEqual({
+      code: 'RATE_SAME_CURRENCY',
+      details: { currency: 'CAD' },
+    })
     expect(count('rates')).toBe(0)
   })
 
   test('is a currency the app does not hold, and writes nothing', () => {
     const { ctx, count } = setup()
 
-    expect(refusal(writeRate(ctx, { date: '2026-11-05', currency: 'XYZ', rate: '1.72' }))).toEqual(
-      { code: 'UNSUPPORTED_CURRENCY', details: { currency: 'XYZ' } },
-    )
+    expect(refusal(writeRate(ctx, { date: '2026-11-05', currency: 'XYZ', rate: '1.72' }))).toEqual({
+      code: 'UNSUPPORTED_CURRENCY',
+      details: { currency: 'XYZ' },
+    })
     expect(count('rates')).toBe(0)
   })
 
