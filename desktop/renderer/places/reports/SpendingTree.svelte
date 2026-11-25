@@ -69,7 +69,7 @@
   }
 </script>
 
-<!-- A figure's money, a button that opens its rates when the week guessed it, else plain. -->
+<!-- A guessed figure's money or words, as the button that opens its rates; else plain. -->
 {#snippet atFigure(at: GuessedFigure, pressable: boolean, content: Snippet)}
   {#if pressable}<button
       type="button"
