@@ -168,15 +168,18 @@ export function comparedAt(
   }
 }
 
-/** Whether `s` is behind `line`. */
-export function isIn(s: Spent, line: Pick<SpendingLine, 'holds' | 'category'>): boolean {
+/** Whether `s` is behind `line`: only its category is read, so a reported spend can ask. */
+export function isIn(
+  s: Pick<Spent, 'category'>,
+  line: Pick<SpendingLine, 'holds' | 'category'>,
+): boolean {
   if (line.holds === 'unsorted') return s.category === ''
   if (line.holds === 'own') return s.category === line.category
   return isUnder(s, line.category)
 }
 
 /** Whether `s` went to `level`'s category or one under it; everything is under the top. */
-export function isUnder(s: Spent, level: string): boolean {
+export function isUnder(s: Pick<Spent, 'category'>, level: string): boolean {
   return level === '' || s.category === level || s.category.startsWith(`${level}:`)
 }
 
