@@ -6,7 +6,15 @@ import { cents, format } from '@have-fish/core/money'
 import type { Mark } from '@have-fish/core/rate-for'
 import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
 import { copy } from '../../../copy'
-import type { ListedTransaction, Money, Values, Wire } from '../../../shared/commands'
+import type {
+  Guess,
+  ListedTransaction,
+  Money,
+  ReportedSpend,
+  Values,
+  Wire,
+} from '../../../shared/commands'
+import { day } from '../../format'
 import type { Ask } from '../../ledger/query'
 import type { TreeSpot } from '../../parts/listbox'
 
@@ -42,6 +50,38 @@ export const moneyOf = (cents: number, currency: string): Money => ({
 
 /** Whether an amount's rate was a guess, so it is underlined. */
 export const guessed = (mark: Mark | null): boolean => mark === 'borrowed' || mark === 'missing'
+
+/** An underlined figure: its row by key (null for the total) and the week it sums. */
+export type GuessedFigure = { key: string | null; week: 'shown' | 'before' | 'both' }
+
+/** A guessed day's name among the popover's lines: its day and currency. */
+export const guessKey = (guess: Pick<Guess, 'date' | 'currency'>): string =>
+  `${guess.date}-${guess.currency}`
+
+/**
+ * The guessed days behind `line` (every spend's for null), each day and currency once, by day
+ * then currency.
+ */
+export function guessesBehind(
+  spent: readonly ReportedSpend[],
+  line: Pick<ComparedLine, 'holds' | 'category'> | null,
+): Guess[] {
+  const lines = new Map<string, Guess>()
+  for (const s of spent) {
+    if (s.guess === undefined || (line !== null && !isIn(s, line))) continue
+    lines.set(guessKey(s.guess), s.guess)
+  }
+  return [...lines.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency),
+  )
+}
+
+/** What a guessed day's line says. */
+export function guessLabel(guess: Guess, today: string): string {
+  const { date, currency, from } = guess
+  if (from === null) return copy.reports.guesses.missing(day(date, today), currency)
+  return copy.reports.guesses.borrowed(day(date, today), currency, from.rate, day(from.date, today))
+}
 
 /**
  * A row of the tree: a line of a level, and where it sits in it. An open category's children

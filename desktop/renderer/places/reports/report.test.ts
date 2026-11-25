@@ -1,11 +1,21 @@
 import type { Mark } from '@have-fish/core/rate-for'
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
-import type { Bridge, CommandName, ListedTransaction, Values, Wire } from '../../../shared/commands'
+import type {
+  Bridge,
+  CommandName,
+  ListedTransaction,
+  ReportedSpend,
+  Values,
+  Wire,
+} from '../../../shared/commands'
 import { type Ask, query } from '../../ledger/query'
 import {
   changeOf,
   guessed,
+  guessesBehind,
+  guessKey,
+  guessLabel,
   idsWanted,
   lineLabel,
   spendsBehind,
@@ -66,6 +76,122 @@ const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => 
   category,
   cents,
   mark,
+})
+
+/** A reported spend whose rate was guessed on `date` in `currency`: borrowed from `from`, or none. */
+const reported = (
+  category: string,
+  date: string,
+  currency: string,
+  from: { date: string; rate: string } | null = null,
+): ReportedSpend => ({
+  id: `r${++n}`,
+  category,
+  amount: '0.00',
+  mark: from === null ? 'missing' : 'borrowed',
+  guess: { date, currency, from },
+})
+
+describe('guessesBehind', () => {
+  const FOOD = { holds: 'category', category: 'food' } as const
+  const UNSORTED = { holds: 'unsorted', category: '' } as const
+  const GBP = { date: '2026-11-02', rate: '1.71' }
+
+  test('a guessed spend behind the row, and one outside it left out', () => {
+    const spends = [
+      reported('food:coffee', '2026-11-05', 'GBP', GBP),
+      reported('fun', '2026-11-06', 'JPY'),
+    ]
+
+    expect(guessesBehind(spends, FOOD)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+    ])
+  })
+
+  test('every guessed day with none picked', () => {
+    const spends = [
+      reported('food:coffee', '2026-11-05', 'GBP', GBP),
+      reported('fun', '2026-11-06', 'JPY'),
+    ]
+
+    expect(guessesBehind(spends, null)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+      { date: '2026-11-06', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('unsorted is the empty category', () => {
+    const spends = [reported('', '2026-11-05', 'JPY'), reported('food', '2026-11-05', 'GBP', GBP)]
+
+    expect(guessesBehind(spends, UNSORTED)).toEqual([
+      { date: '2026-11-05', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('the same day and currency twice is one line', () => {
+    const spends = [
+      reported('food:coffee', '2026-11-05', 'GBP', GBP),
+      reported('food', '2026-11-05', 'GBP', GBP),
+    ]
+
+    expect(guessesBehind(spends, FOOD)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+    ])
+  })
+
+  test('the earlier day first', () => {
+    const spends = [
+      reported('food', '2026-11-06', 'JPY'),
+      reported('food', '2026-11-05', 'GBP', GBP),
+    ]
+
+    expect(guessesBehind(spends, null).map(guessKey)).toEqual(['2026-11-05-GBP', '2026-11-06-JPY'])
+  })
+
+  test('the same day, by currency', () => {
+    const spends = [
+      reported('food', '2026-11-05', 'JPY'),
+      reported('food', '2026-11-05', 'GBP', GBP),
+    ]
+
+    expect(guessesBehind(spends, null).map(guessKey)).toEqual(['2026-11-05-GBP', '2026-11-05-JPY'])
+  })
+
+  test('a spend the week trusted has no line', () => {
+    const trusted: ReportedSpend = { id: 'r-mine', category: 'food', amount: '7.22', mark: 'mine' }
+
+    expect(guessesBehind([trusted], null)).toEqual([])
+  })
+})
+
+describe('guessKey', () => {
+  test('a day and currency named', () => {
+    expect(guessKey({ date: '2026-11-05', currency: 'GBP' })).toBe('2026-11-05-GBP')
+  })
+})
+
+describe('guessLabel', () => {
+  test('a borrowed day says where its rate came from', () => {
+    const guess = {
+      date: '2026-11-05',
+      currency: 'GBP',
+      from: { date: '2026-11-02', rate: '1.71' },
+    }
+
+    expect(guessLabel(guess, '2026-11-25')).toBe('Thu 5 Nov · GBP · using 1.71 from Mon 2 Nov')
+  })
+
+  test('a missing day says there was no rate', () => {
+    const guess = { date: '2026-11-05', currency: 'JPY', from: null }
+
+    expect(guessLabel(guess, '2026-11-25')).toBe('Thu 5 Nov · JPY · no rate')
+  })
+
+  test('a day of another year says its year', () => {
+    const guess = { date: '2025-12-29', currency: 'JPY', from: null }
+
+    expect(guessLabel(guess, '2026-01-02')).toBe('Mon 29 Dec 2025 · JPY · no rate')
+  })
 })
 
 /** A row as `level key open`, with `open` when it has rows under it. */

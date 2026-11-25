@@ -274,6 +274,7 @@
         onpick={() => {}}
         onselect={() => {}}
         onkey={() => false}
+        onguess={() => {}}
       /></div>
   </section>
 

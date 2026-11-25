@@ -3,7 +3,7 @@
   import { format } from '@have-fish/core/money'
   import { tick, untrack } from 'svelte'
   import { copy } from '../../../copy'
-  import type { ListedTransaction } from '../../../shared/commands'
+  import type { Guess, ListedTransaction } from '../../../shared/commands'
   import { todayIn } from '../../format'
   import Day from '../../parts/Day.svelte'
   import type { LedgerStore } from '../../ledger/ledger'
@@ -12,6 +12,8 @@
   import { query } from '../../ledger/query'
   import { wordsFor } from '../../ledger/refusals'
   import {
+    guessesBehind,
+    type GuessedFigure,
     spendsBehind,
     spentOf,
     thisWeek,
@@ -26,6 +28,7 @@
   import Empty from '../../parts/Empty.svelte'
   import Header from '../../parts/Header.svelte'
   import Notice from '../../parts/Notice.svelte'
+  import FixRates from './FixRates.svelte'
   import SpendingTree from './SpendingTree.svelte'
   import SpendCard from '../../ledger/SpendCard.svelte'
   import SpendList from '../../ledger/SpendList.svelte'
@@ -75,6 +78,8 @@
   let selectedId = $state<string | null>(null)
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
+  /** The popover of an underlined figure's guessed days; null when none is open. */
+  let fixing = $state<{ anchor: HTMLElement; lines: Guess[] } | null>(null)
 
   let tree: SpendingTree
   let list: SpendList
@@ -169,6 +174,21 @@
     opened = next
   }
 
+  /** An underlined figure clicked: its row's, and its week's, guessed days, for the popover. */
+  function openGuesses(anchor: HTMLElement, at: GuessedFigure) {
+    const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
+    const weeks = at.week === 'before' ? [earlier] : at.week === 'both' ? [report, earlier] : [report]
+    const behind = weeks.flatMap((week) => week?.spent ?? [])
+    fixing = { anchor, lines: guessesBehind(behind, row) }
+  }
+
+  /** The popover closed, written or not: the tree takes the cursor back. */
+  async function closeGuesses() {
+    fixing = null
+    await tick()
+    tree.focus()
+  }
+
   /** A row picked: the first click selects it, and a second opens or closes it. */
   function pick(key: string) {
     const row = rows.find((r) => r.key === key)
@@ -253,7 +273,16 @@
       onpick={pick}
       onselect={(key) => (selectedKey = key)}
       {onkey}
+      onguess={openGuesses}
     />
+    {#if fixing !== null}
+      <FixRates
+        anchor={fixing.anchor}
+        lines={fixing.lines}
+        today={todayIn()}
+        onclose={closeGuesses}
+      />
+    {/if}
   </div>
 
   <div class="spends">
