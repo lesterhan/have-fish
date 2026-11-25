@@ -5,6 +5,7 @@ import type { z } from 'zod'
 import { type AccountValues, accountInputs } from './accounts'
 import { type ClipboardValues, clipboardInputs } from './clipboard'
 import { type PathValues, pathInputs } from './paths'
+import { type RateValues, rateInputs } from './rates'
 import { type ReportValues, reportInputs } from './reports'
 import { type SettingsValues, settingsInputs } from './settings'
 import { type SpendValues, spendInputs } from './spends'
@@ -14,6 +15,7 @@ import type { Changed, Typing, Wire } from './wire'
 export * from './accounts'
 export * from './clipboard'
 export * from './paths'
+export * from './rates'
 export * from './reports'
 export * from './settings'
 export * from './spends'
@@ -25,6 +27,7 @@ export const inputs = {
   ...accountInputs,
   ...pathInputs,
   ...reportInputs,
+  ...rateInputs,
   ...undoInputs,
   ...settingsInputs,
   ...clipboardInputs,
@@ -35,6 +38,7 @@ export interface Values
     AccountValues,
     PathValues,
     ReportValues,
+    RateValues,
     UndoValues,
     SettingsValues,
     ClipboardValues {}

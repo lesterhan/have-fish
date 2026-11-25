@@ -4,6 +4,7 @@
 import { handlers as accounts } from '../features/accounts/commands'
 import { handlers as clipboard } from '../features/clipboard/commands'
 import { handlers as paths } from '../features/paths/commands'
+import { handlers as rates } from '../features/rates/commands'
 import { handlers as reports } from '../features/reports/commands'
 import { handlers as settings } from '../features/settings/commands'
 import { handlers as spends } from '../features/spends/commands'
@@ -15,6 +16,7 @@ export const handlers: Handlers = {
   ...accounts,
   ...paths,
   ...reports,
+  ...rates,
   ...undo,
   ...settings,
   ...clipboard,

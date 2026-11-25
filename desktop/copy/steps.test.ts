@@ -12,4 +12,10 @@ describe('the words for a step', () => {
   test('still read as a sentence for a spend with no description', () => {
     expect(copy.steps.undo.write({ action: 'write', description: '' })).toBe('Undo write a spend')
   })
+
+  test('name a rate by its currency and day', () => {
+    expect(
+      copy.steps.redo.writeRate({ action: 'writeRate', currency: 'GBP', date: '2026-11-05' }),
+    ).toBe('Redo GBP rate for 2026-11-05')
+  })
 })

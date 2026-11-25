@@ -3,6 +3,7 @@ import { accountInputs } from './accounts'
 import { clipboardInputs } from './clipboard'
 import { inputs } from './index'
 import { pathInputs } from './paths'
+import { rateInputs } from './rates'
 import { reportInputs } from './reports'
 import { settingsInputs } from './settings'
 import { spendInputs } from './spends'
@@ -14,6 +15,7 @@ const EACH: Record<string, unknown>[] = [
   accountInputs,
   pathInputs,
   reportInputs,
+  rateInputs,
   undoInputs,
   settingsInputs,
   clipboardInputs,

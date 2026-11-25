@@ -5,7 +5,7 @@ import { type Changed, type CommandName, type InputOf, inputs } from '../../shar
 import { traits } from '../../shared/traits'
 import { type Context, contextFor } from '../context'
 import { applyLocal } from '../ledger/apply'
-import { anAccount, aRate, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { anAccount, aSpend, NOW, ok, tempLedger } from '../ledger/fixtures'
 import { type Log, runCommand } from './run'
 
 /** An input for each command whose `reads` leaves a kind out, and for no other. */
@@ -53,12 +53,8 @@ const CHANGE: { [K in DocumentTypeName]: (ctx: Context, cardId: string) => boole
   transaction: (ctx, cardId) => runCommand(ctx, 'spend.write', fromCard(cardId), log).ok,
   account: (ctx) =>
     runCommand(ctx, 'account.add', { name: 'Savings', kind: 'bank', currency: null }, log).ok,
-  // No command writes a rate yet, so it's applied and announced as a command's write would be.
-  rate: (ctx) => {
-    const saved = ctx.apply([aRate()], NOW).ok
-    ctx.flush()
-    return saved
-  },
+  rate: (ctx) =>
+    runCommand(ctx, 'rate.write', { date: '2026-11-05', currency: 'GBP', rate: '1.72' }, log).ok,
 }
 
 describe("a command's reads", () => {
