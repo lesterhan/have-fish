@@ -3,9 +3,12 @@
   // change between them, and the categories under a row that's open, a level deeper. Under it,
   // what the week came to against the week before.
   import { copy } from '../../../copy'
+  import type { Mark } from '@have-fish/core/rate-for'
+  import type { Compared } from '@have-fish/core/spending'
   import {
     type Change,
     changeOf,
+    guessed,
     lineLabel,
     moneyOf,
     treeColumnsOf,
@@ -20,9 +23,8 @@
   type Props = {
     /** The tree's rows, the ones under an open category straight after it. */
     rows: TreeRow[]
-    /** This week's sum and the week before's, in cents. */
-    total: number
-    before: number
+    /** This week's sums and the week before's, in cents, each with its mark. */
+    sums: Pick<Compared, 'total' | 'before' | 'mark' | 'beforeMark'>
     currency: string
     /** This week's headings, or another week's. */
     thisWeek: boolean
@@ -33,17 +35,7 @@
     onselect: (key: string) => void
     onkey: (event: KeyboardEvent) => boolean
   }
-  let {
-    rows,
-    total,
-    before,
-    currency,
-    thisWeek,
-    selectedKey,
-    onpick,
-    onselect,
-    onkey,
-  }: Props = $props()
+  let { rows, sums, currency, thisWeek, selectedKey, onpick, onselect, onkey }: Props = $props()
 
   let listbox: ReturnType<typeof Listbox<TreeRow>>
   // The tree's width, not the window's: beside the spends it runs out first, and Last week goes
@@ -59,23 +51,30 @@
       : []),
     { name: names.change, end: true },
   ])
-  const sum = $derived(changeOf(total, before))
+  const sum = $derived(changeOf(sums.total, sums.before))
 
   export function focus() {
     listbox.focus()
   }
 </script>
 
-{#snippet figure(cents: number | null)}
-  {#if cents === null}{copy.reports.tree.dash}{:else}<Money
-      of={moneyOf(cents, currency)}
-    />{/if}
+{#snippet figure(cents: number | null, mark: Mark | null)}
+  {#if cents === null}{copy.reports.tree.dash}{:else}<span
+      class:guessed={guessed(mark)}
+      data-guessed={guessed(mark) || undefined}
+    ><Money of={moneyOf(cents, currency)} /></span>{/if}
 {/snippet}
 
-{#snippet change(moved: Change)}
-  {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree.change[
-      moved.way
-    ]}{:else}{copy.reports.tree.change.same}{/if}
+{#snippet change(moved: Change, mark: Mark | null, beforeMark: Mark | null)}
+  {@const guessedChange = guessed(mark) || guessed(beforeMark)}
+  {#if moved.cents > 0}<span
+      class:guessed={guessedChange}
+      data-guessed={guessedChange || undefined}
+    ><Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree.change[
+        moved.way
+      ]}</span
+    >{:else}<span class:guessed={guessedChange} data-guessed={guessedChange || undefined}
+    >{copy.reports.tree.change.same}</span>{/if}
 {/snippet}
 
 <div class="tree" bind:clientWidth={width}>
@@ -112,11 +111,11 @@
           <span class:unsorted={line.holds === 'unsorted'}>{lineLabel(line)}</span>
         {/if}
       </span>
-      <span data-cell="shown">{@render figure(line.cents)}</span>
+      <span data-cell="shown">{@render figure(line.cents, line.mark)}</span>
       {#if shown.cells.includes('before')}
-        <span data-cell="before">{@render figure(line.before)}</span>
+        <span data-cell="before">{@render figure(line.before, line.beforeMark)}</span>
       {/if}
-      <span data-cell="change">{@render change(moved)}</span>
+      <span data-cell="change">{@render change(moved, line.mark, line.beforeMark)}</span>
     {/snippet}
   </Listbox>
   {#if rows.length === 0}
@@ -124,11 +123,11 @@
   {:else}
     <p class="total" style:grid-template-columns={shown.template}>
       <span>{copy.reports.tree.total}</span>
-      <span class="amount">{@render figure(total)}</span>
+      <span class="amount">{@render figure(sums.total, sums.mark)}</span>
       {#if shown.cells.includes('before')}
-        <span class="amount">{@render figure(before)}</span>
+        <span class="amount">{@render figure(sums.before, sums.beforeMark)}</span>
       {/if}
-      <span class="change">{@render change(sum)}</span>
+      <span class="change">{@render change(sum, sums.mark, sums.beforeMark)}</span>
     </p>
   {/if}
 </div>
@@ -150,6 +149,10 @@
   .opens,
   .unsorted {
     color: var(--color-muted);
+  }
+
+  .guessed {
+    text-decoration: underline;
   }
 
   [data-cell='shown'],

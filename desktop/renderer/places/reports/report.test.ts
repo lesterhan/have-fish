@@ -5,9 +5,9 @@ import type { Bridge, CommandName, ListedTransaction, Values, Wire } from '../..
 import { type Ask, query } from '../../ledger/query'
 import {
   changeOf,
+  guessed,
   idsWanted,
   lineLabel,
-  otherText,
   spendsBehind,
   spentOf,
   thisWeek,
@@ -35,7 +35,6 @@ describe('spentOf', () => {
     const report: Values['report.spending'] = {
       currency: 'CAD',
       spent: [{ id: 'a', category: 'food', amount: '4.50', mark: 'cost' }],
-      other: [],
     }
     expect(spentOf(report)).toEqual([{ id: 'a', category: 'food', cents: 450, mark: 'cost' }])
   })
@@ -49,18 +48,15 @@ describe('lineLabel', () => {
   })
 })
 
-describe('otherText', () => {
-  test('nothing in other currencies says nothing', () => {
-    expect(otherText([])).toBeNull()
-  })
-
-  test('each other currency’s amount, once', () => {
-    expect(
-      otherText([
-        { amount: '15.00', currency: 'EUR' },
-        { amount: '500.00', currency: 'JPY' },
-      ]),
-    ).toBe('Not in these totals, in other currencies: 15.00 EUR · 500 JPY')
+describe('guessed', () => {
+  test('borrowed and missing are guesses, and exact, cost, mine and estimate are not', () => {
+    expect(guessed('borrowed')).toBe(true)
+    expect(guessed('missing')).toBe(true)
+    expect(guessed('exact')).toBe(false)
+    expect(guessed('cost')).toBe(false)
+    expect(guessed('mine')).toBe(false)
+    expect(guessed('estimate')).toBe(false)
+    expect(guessed(null)).toBe(false)
   })
 })
 
@@ -249,7 +245,6 @@ describe('weekSpending', () => {
   const reportOf = (ids: string[]): Report => ({
     currency: 'CAD',
     spent: ids.map((id) => ({ id, category: 'food', amount: '4.50', mark: 'exact' as const })),
-    other: [],
   })
   const earlier = reportOf(['older'])
   const spends = [{ id: 'lunch' }, { id: 'snack' }] as ListedTransaction[]

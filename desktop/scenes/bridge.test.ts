@@ -77,9 +77,8 @@ function aFixture(): Fixture {
       '2026-11-03': {
         currency: 'CAD',
         spent: [{ id: 'row-0', category: 'food', amount: '1.00', mark: 'exact' }],
-        other: [],
       },
-      '2026-10-27': { currency: 'CAD', spent: [], other: [] },
+      '2026-10-27': { currency: 'CAD', spent: [] },
     },
   }
 }
@@ -178,7 +177,7 @@ describe('report.spending', () => {
     ).resolves.toEqual({ ok: true, value: fixture.reports['2026-11-03'] })
     await expect(
       bridge.invoke('report.spending', { start: '2026-10-20', end: '2026-10-26' }),
-    ).resolves.toEqual({ ok: true, value: { currency: 'CAD', spent: [], other: [] } })
+    ).resolves.toEqual({ ok: true, value: { currency: 'CAD', spent: [] } })
   })
 })
 

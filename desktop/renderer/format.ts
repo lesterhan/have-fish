@@ -51,10 +51,6 @@ export function moneyParts(
   }
 }
 
-/** What a transaction moved, each currency's amount as `money` writes it. */
-export const amountsText = (amounts: readonly Money[], { code = false } = {}) =>
-  amounts.map(({ amount, currency }) => money(amount, currency, { code })).join(' · ')
-
 /** An amount as a field holds it to type again, without its code: `1500`, `36.20`. */
 export const figureAsTyped = (amount: string, currency: string) =>
   minorUnits(currency) === 0 ? amount.replace(/\.00$/, '') : amount

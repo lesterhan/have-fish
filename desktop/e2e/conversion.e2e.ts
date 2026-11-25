@@ -35,7 +35,10 @@ const CHARGED = `${WRITE} input[name=charged]`
 /** The charged chip's field, open in the card. */
 const CHARGED_FIELD = `${PANE} input[name=charged]`
 
-const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
+const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
+const today = () => calendarDateAt(Date.now(), ZONE)
+/** The day `days` back from today, as the composer's date field takes it. */
+const daysAgo = (days: number) => calendarDateAt(Date.now() - days * 86_400_000, ZONE)
 
 /** A fresh app with visa, a card kept to CAD. */
 async function withVisa(): Promise<Page> {
@@ -70,6 +73,22 @@ async function aDinner(): Promise<Page> {
   await writeDinner(page)
   await expect.poll(() => rows(page)).toHaveLength(1)
   return page
+}
+
+/**
+ * ¥1,500 from a cash wallet kept to JPY, no rate anywhere: unsorted, and worth nothing in CAD.
+ * `on` is its day, left out for today.
+ */
+async function yenFromCash(page: Page, on = '') {
+  const before = (await rows(page)).length
+  await addAccount(page, 'suica', 'cash', 'JPY')
+  await openComposer(page)
+  await pickPath(page, `${WRITE} input[name=from]`, 'suica')
+  await page.fill(AMOUNT, '1500')
+  if (on !== '') await page.fill(`${WRITE} input[name=date]`, on)
+  await page.press(AMOUNT, 'Enter')
+  await page.keyboard.press('Escape')
+  await expect.poll(() => rows(page)).toHaveLength(before + 1)
 }
 
 describe('a yen spend my CAD card paid', () => {
@@ -354,21 +373,74 @@ describe('a converted spend in Reports', () => {
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
   })
 
-  test('beside 1500 yen in cash: the line under the tree says only the 1,500 JPY', async () => {
+  test('beside 1500 yen in cash, no rate: the Unsorted 36.20 is underlined, and so is the total’s', async () => {
     const page = await aDinner()
-    await addAccount(page, 'suica', 'cash', 'JPY')
-    await openComposer(page)
-    await pickPath(page, `${WRITE} input[name=from]`, 'suica')
-    await page.fill(AMOUNT, '1500')
-    await page.press(AMOUNT, 'Enter')
-    await page.keyboard.press('Escape')
-    await expect.poll(() => rows(page)).toHaveLength(2)
+    await yenFromCash(page)
 
     await goTo(page, 'Reports')
 
+    const unsorted = treeRow(page, 'Unsorted')
+    await expect.poll(() => unsorted.locator('[data-cell=shown]').innerText()).toBe('36.20')
+    await expect.poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count()).toBe(1)
+    const foot = page.locator("p:has-text('All spending')")
     await expect
-      .poll(() => page.getByText(copy.reports.tree.other('1,500 JPY'), { exact: true }).isVisible())
-      .toBe(true)
+      .poll(() => foot.locator('[data-guessed]').allTextContents())
+      .toEqual(['36.20', '36.20 more'])
+  })
+
+  test('a guess last week: its Last week cell and the change are underlined, its This week is not', async () => {
+    const page = await aDinner()
+    await yenFromCash(page, daysAgo(7))
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    const unsorted = treeRow(page, 'Unsorted')
+    await expect.poll(() => unsorted.locator('[data-cell=before] [data-guessed]').count()).toBe(1)
+    await expect.poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count()).toBe(0)
+    await expect.poll(() => unsorted.locator('[data-cell=change] [data-guessed]').count()).toBe(1)
+    const foot = page.locator("p:has-text('All spending')")
+    await expect
+      .poll(() => foot.locator('[data-guessed]').allTextContents())
+      .toEqual(['0.00', '36.20 more'])
+  })
+
+  test('a guess this week with nothing last week: the change reads same, and is underlined too', async () => {
+    const { page } = await launch(aHome())
+    await yenFromCash(page)
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    const foot = page.locator("p:has-text('All spending')")
+    await expect
+      .poll(() => foot.locator('[data-guessed]').allTextContents())
+      .toEqual(['0.00', copy.reports.tree.change.same])
+  })
+
+  test('the dinner alone: no cell of the tree is underlined', async () => {
+    const page = await aDinner()
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+    await expect.poll(() => page.locator('[data-guessed]').count()).toBe(0)
+  })
+
+  test('the dinner and the yen from cash: no line reads “Not in these totals”', async () => {
+    const page = await aDinner()
+    await yenFromCash(page)
+    // Wide enough for the week before's column.
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+    await expect.poll(() => page.getByText('Not in these totals').count()).toBe(0)
   })
 
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {

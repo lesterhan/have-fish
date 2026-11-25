@@ -43,7 +43,7 @@ describe('the component detector', () => {
   it('catches a component formatting an amount or a day itself', () => {
     expect(drawnHereIn('<span>{money(m.amount, m.currency)}</span>')).toEqual(['money('])
     expect(drawnHereIn('<span>{day(t.date, today)}</span>')).toEqual(['day('])
-    expect(drawnHereIn('{amountsText(t.amounts)}')).toEqual(['amountsText('])
+    expect(drawnHereIn('{moneyParts(t.amounts)}')).toEqual(['moneyParts('])
   })
 
   it('leaves the parts that draw them alone, and other words with day in them', () => {

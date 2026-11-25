@@ -3,10 +3,10 @@
 
 import { addDays, weekOf } from '@have-fish/core/calendar-date'
 import { cents, format } from '@have-fish/core/money'
+import type { Mark } from '@have-fish/core/rate-for'
 import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
 import { copy } from '../../../copy'
 import type { ListedTransaction, Money, Values, Wire } from '../../../shared/commands'
-import { amountsText } from '../../format'
 import type { Ask } from '../../ledger/query'
 import type { TreeSpot } from '../../parts/listbox'
 
@@ -40,9 +40,8 @@ export const moneyOf = (cents: number, currency: string): Money => ({
   currency,
 })
 
-/** What went out in other currencies, said once, or null when there was none. */
-export const otherText = (other: Values['report.spending']['other']) =>
-  other.length === 0 ? null : copy.reports.tree.other(amountsText(other))
+/** Whether an amount's rate was a guess, so it is underlined. */
+export const guessed = (mark: Mark | null): boolean => mark === 'borrowed' || mark === 'missing'
 
 /**
  * A row of the tree: a line of a level, and where it sits in it. An open category's children

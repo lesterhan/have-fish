@@ -12,7 +12,6 @@
   import { query } from '../../ledger/query'
   import { wordsFor } from '../../ledger/refusals'
   import {
-    otherText,
     spendsBehind,
     spentOf,
     thisWeek,
@@ -103,7 +102,6 @@
   })
 
   const isThisWeek = $derived(week.start === thisWeek(todayIn()).start)
-  const other = $derived(report && otherText(report.other))
   const sumsLine = $derived(
     report === null || earlier === null
       ? ''
@@ -248,8 +246,7 @@
     <SpendingTree
       bind:this={tree}
       {rows}
-      total={sums.total}
-      before={sums.before}
+      {sums}
       currency={report?.currency ?? ''}
       thisWeek={isThisWeek}
       {selectedKey}
@@ -257,9 +254,6 @@
       onselect={(key) => (selectedKey = key)}
       {onkey}
     />
-    {#if other}
-      <p class="other">{other}</p>
-    {/if}
   </div>
 
   <div class="spends">
@@ -370,11 +364,6 @@
   .span {
     font-family: var(--font-figures);
     font-variant-numeric: tabular-nums;
-    color: var(--color-muted);
-  }
-
-  .other {
-    font-size: var(--text-quiet);
     color: var(--color-muted);
   }
 

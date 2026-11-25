@@ -36,8 +36,6 @@ export const reports = {
     unsorted: 'Unsorted',
     /** What went to a category itself, beside the ones under it. */
     own: (name: string) => `Just ${name}`,
-    /** What went to categories in currencies these totals can't add in yet. */
-    other: (amounts: string) => `Not in these totals, in other currencies: ${amounts}`,
   },
   spends: {
     label: 'Its spends',

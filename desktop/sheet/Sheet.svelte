@@ -1,5 +1,6 @@
 <script lang="ts">
   import { OPENING } from '@have-fish/core/own-accounts'
+  import type { Mark } from '@have-fish/core/rate-for'
   import type { ShapeName } from '@have-fish/core/shapes'
   import { comparedAt } from '@have-fish/core/spending'
   import { copy } from '../copy'
@@ -114,15 +115,15 @@
 
   // The tree's fixed weeks: food open, one child with a dash this week, and a row each of more,
   // less and same.
-  const counted = (category: string, cents: number) => ({
+  const counted = (category: string, cents: number, mark: Mark = 'exact') => ({
     id: `${category}-${cents}`,
     category,
     cents,
-    mark: 'exact' as const,
+    mark,
   })
   const TREE_SHOWN = [
     counted('food:groceries', 5000),
-    counted('food:coffee', 450),
+    counted('food:coffee', 450, 'borrowed'),
     counted('food', 500),
     counted('transport', 3000),
     counted('entertainment', 1000),
@@ -263,11 +264,10 @@
   </section>
 
   <section aria-label="SpendingTree">
-    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same</h2>
+    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same, and a guess underlined</h2>
     <div class="frame"><SpendingTree
         rows={TREE_ROWS}
-        total={TREE_SUMS.total}
-        before={TREE_SUMS.before}
+        sums={TREE_SUMS}
         currency="CAD"
         thisWeek
         selectedKey="category:food"
