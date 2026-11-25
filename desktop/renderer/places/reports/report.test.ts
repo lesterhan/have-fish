@@ -171,7 +171,10 @@ describe('guessesFor', () => {
     { key: 'category:fun', holds: 'category', category: 'fun' },
   ] as const
   const GBP = { date: '2026-11-02', rate: '1.71' }
-  const shown = [reported('food:coffee', '2026-11-05', 'GBP', GBP), reported('fun', '2026-11-06', 'JPY')]
+  const shown = [
+    reported('food:coffee', '2026-11-05', 'GBP', GBP),
+    reported('fun', '2026-11-06', 'JPY'),
+  ]
 
   test('a row’s figure lists only its row’s days', () => {
     expect(guessesFor({ key: 'category:food', week: 'shown' }, shown, [], ROWS)).toEqual([
