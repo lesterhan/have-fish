@@ -61,8 +61,10 @@
     if (event.key === 'Escape') onclose(true)
   }
 
-  /** The cursor left it: a click on another control keeps the cursor there, one on nothing
-   *  gives the tree the cursor, and a window that lost it keeps the popover as it was. */
+  /**
+   * The cursor left it: a click on another control keeps the cursor there, one on nothing gives
+   * the tree the cursor, and a window that lost it keeps the popover as it was.
+   */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
     if (!document.hasFocus()) return
     const next = event.relatedTarget
