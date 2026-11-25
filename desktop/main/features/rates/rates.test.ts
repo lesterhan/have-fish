@@ -1,6 +1,5 @@
 import type { RateDoc } from '@have-fish/core/documents'
 import { describe, expect, test } from 'vitest'
-import type { InputOf } from '../../../shared/commands'
 import { contextFor, type Time } from '../../context'
 import { MANUAL, NOW, ok, tempLedger } from '../../ledger/fixtures'
 import { rateId } from '../../ledger/rate-id'
@@ -30,21 +29,26 @@ function setup() {
   }
   /** How many rows a table holds. */
   const count = (table: string) => ledger.db.prepare(`SELECT count(*) FROM ${table}`).pluck().get()
-  /** A spend of `amount` from `from` to a category, on `date`. */
-  const spend = (amount: string, category: string, date: string, from: string) =>
-    ok(writeSpend(ctx, { amount, description: '', to: { category }, from, date })).id
-  /** An account I add, kept to `currency`. */
-  const account = (name: string, kind: InputOf<'account.add'>['kind'], currency: string) => ({
-    id: ok(addAccount(ctx, { name, kind, currency })).id,
-    currency,
-  })
+  /** The 4.20 GBP spend from a wallet kept to GBP, on 5 November. */
+  const gbpSpend = () => {
+    const wallet = ok(addAccount(ctx, { name: 'cash:gbp', kind: 'cash', currency: 'GBP' })).id
+    return ok(
+      writeSpend(ctx, {
+        amount: '4.20',
+        description: '',
+        to: { category: 'food' },
+        from: wallet,
+        date: '2026-11-05',
+      }),
+    ).id
+  }
   /** The week's spending, Tuesday the 3rd of November to Monday the 9th. */
   const week = () => ok(spendingIn(ledger.db, { start: '2026-11-03', end: '2026-11-09' }))
   /** An hour on, so the next write is a later version. */
   const later = () => {
     now += HOUR
   }
-  return { ctx, stored, count, spend, account, week, later }
+  return { ctx, stored, count, gbpSpend, week, later }
 }
 
 describe('writing a rate', () => {
@@ -105,9 +109,8 @@ describe('writing a rate', () => {
 
     const { id } = ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.71' }))
     later()
-    const again = writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.72' })
+    ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.72' }))
 
-    expect(again.ok).toBe(true)
     expect(stored(id).rate).toBe('1.72')
     expect(stored(id).origin.createdAt).toBe(NOW)
   })
@@ -123,9 +126,8 @@ describe('writing a rate', () => {
   })
 
   test('converts the week at the rate I typed on its day', () => {
-    const { ctx, week, spend, account } = setup()
-    const wallet = account('cash:gbp', 'cash', 'GBP')
-    const id = spend('4.20', 'food', '2026-11-05', wallet.id)
+    const { ctx, week, gbpSpend } = setup()
+    const id = gbpSpend()
 
     ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.72' }))
 
@@ -146,7 +148,9 @@ describe('a rate the ledger refuses', () => {
   test('writes nothing', () => {
     const { ctx, count } = setup()
 
-    refusal(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.7x' }))
+    expect(
+      refusal(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.7x' })),
+    ).toMatchObject({ code: 'RATE_INVALID' })
 
     expect(count('rates')).toBe(0)
   })
@@ -227,9 +231,8 @@ describe('undoing a rate', () => {
   })
 
   test('takes the rate out, and the week counts the spend as missing', () => {
-    const { ctx, week, spend, account } = setup()
-    const wallet = account('cash:gbp', 'cash', 'GBP')
-    const id = spend('4.20', 'food', '2026-11-05', wallet.id)
+    const { ctx, week, gbpSpend } = setup()
+    const id = gbpSpend()
     ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.72' }))
 
     undoLast(ctx)
@@ -270,9 +273,8 @@ describe('undoing a rate', () => {
     undoLast(ctx)
     later()
 
-    const again = writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.73' })
+    ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.73' }))
 
-    expect(again.ok).toBe(true)
     expect(stored(id).rate).toBe('1.73')
     expect(stored(id).deletedAt).toBeNull()
   })
@@ -281,7 +283,9 @@ describe('undoing a rate', () => {
     const { ctx } = setup()
 
     ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.71' }))
-    refusal(writeRate(ctx, { date: '2026-11-06', currency: 'GBP', rate: '1.7x' }))
+    expect(
+      refusal(writeRate(ctx, { date: '2026-11-06', currency: 'GBP', rate: '1.7x' })),
+    ).toMatchObject({ code: 'RATE_INVALID' })
 
     expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
       'Undo GBP rate for 2026-11-05',
