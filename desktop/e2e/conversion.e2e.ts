@@ -25,7 +25,6 @@ import {
   openSelected,
   PANE,
   pickPath,
-  REPORT_TREE,
   reportTree,
   rows,
   shownDay,
@@ -596,7 +595,6 @@ describe('fixing a guessed rate in Reports', () => {
       .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
       .toBe(0)
 
-    await page.locator(REPORT_TREE).focus()
     await page.keyboard.press('Control+z')
 
     await expect
