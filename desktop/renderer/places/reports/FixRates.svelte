@@ -1,7 +1,7 @@
 <script lang="ts">
   // The days and currencies whose rate an amount guessed, each with a field for the rate I'd
   // give it. Enter writes it and closes; Escape, or a click away, closes with nothing written.
-  import { onMount } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
@@ -17,17 +17,22 @@
     anchor: HTMLElement
     /** Today, so a day of another year says its year. */
     today: string
-    /** Closed, written or not. */
-    onclose: () => void
+    /** Closed, written or not; `back` when the cursor goes back to the tree. */
+    onclose: (back: boolean) => void
   }
   let { lines, anchor, today, onclose }: Props = $props()
 
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
   let layer: HTMLElement | undefined
+  // Set as it goes: a write's answer that comes back now has no popover to close.
+  let gone = false
 
   // The first field takes the cursor, so Enter writes without a click.
   onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
+  onDestroy(() => {
+    gone = true
+  })
 
   /** Enter in a field: the rate typed there is written for that day and currency. */
   async function write(
@@ -42,24 +47,27 @@
       currency: line.currency,
       rate: event.currentTarget.value,
     })
+    if (gone) return
     saving = false
     if (!written.ok) {
       error = { key, words: wordsFor(written) }
       return
     }
-    onclose()
+    onclose(true)
   }
 
   /** Escape anywhere in it closes it, written or not. */
   function keydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') onclose()
+    if (event.key === 'Escape') onclose(true)
   }
 
-  /** The cursor left for something outside it: a click away closes it too. */
+  /** The cursor left it: a click on another control keeps the cursor there, one on nothing
+   *  gives the tree the cursor, and a window that lost it keeps the popover as it was. */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
+    if (!document.hasFocus()) return
     const next = event.relatedTarget
     if (next instanceof Node && event.currentTarget.contains(next)) return
-    onclose()
+    onclose(next === null)
   }
 </script>
 
@@ -76,17 +84,17 @@
   <Popover>
     <ul>
       {#each lines as line (guessKey(line))}
-        {@const id = `guess-${guessKey(line)}`}
+        {@const key = guessKey(line)}
         <li>
           <Field
-            {id}
+            id={`guess-${key}`}
             label={guessLabel(line, today)}
-            error={error?.key === guessKey(line) ? error.words : null}
+            error={error?.key === key ? error.words : null}
             figures
           >
             {#snippet children(describedby)}
               <input
-                {id}
+                id={`guess-${key}`}
                 aria-describedby={describedby}
                 autocomplete="off"
                 spellcheck="false"

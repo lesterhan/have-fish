@@ -14,6 +14,7 @@ import {
   changeOf,
   guessed,
   guessesBehind,
+  guessesFor,
   guessKey,
   guessLabel,
   idsWanted,
@@ -161,6 +162,47 @@ describe('guessesBehind', () => {
     const trusted: ReportedSpend = { id: 'r-mine', category: 'food', amount: '7.22', mark: 'mine' }
 
     expect(guessesBehind([trusted], null)).toEqual([])
+  })
+})
+
+describe('guessesFor', () => {
+  const ROWS = [
+    { key: 'category:food', holds: 'category', category: 'food' },
+    { key: 'category:fun', holds: 'category', category: 'fun' },
+  ] as const
+  const GBP = { date: '2026-11-02', rate: '1.71' }
+  const shown = [reported('food:coffee', '2026-11-05', 'GBP', GBP), reported('fun', '2026-11-06', 'JPY')]
+
+  test('a row’s figure lists only its row’s days', () => {
+    expect(guessesFor({ key: 'category:food', week: 'shown' }, shown, [], ROWS)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+    ])
+  })
+
+  test('the total’s figure lists every row’s days', () => {
+    expect(guessesFor({ key: null, week: 'shown' }, shown, [], ROWS)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+      { date: '2026-11-06', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('a week’s figure takes only that week', () => {
+    const thisWeek = [reported('fun', '2026-11-06', 'JPY')]
+    const lastWeek = [reported('food:coffee', '2026-10-29', 'GBP', GBP)]
+
+    expect(guessesFor({ key: null, week: 'before' }, thisWeek, lastWeek, ROWS)).toEqual([
+      { date: '2026-10-29', currency: 'GBP', from: GBP },
+    ])
+  })
+
+  test('the change takes both weeks, the earlier first', () => {
+    const thisWeek = [reported('fun', '2026-11-06', 'JPY')]
+    const lastWeek = [reported('food:coffee', '2026-10-29', 'GBP', GBP)]
+
+    expect(guessesFor({ key: null, week: 'both' }, thisWeek, lastWeek, ROWS)).toEqual([
+      { date: '2026-10-29', currency: 'GBP', from: GBP },
+      { date: '2026-11-06', currency: 'JPY', from: null },
+    ])
   })
 })
 

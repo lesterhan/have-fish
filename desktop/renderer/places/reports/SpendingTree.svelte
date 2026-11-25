@@ -20,6 +20,7 @@
   import Listbox from '../../parts/Listbox.svelte'
   import Money from '../../parts/Money.svelte'
   import Path from '../../parts/Path.svelte'
+  import type { Snippet } from 'svelte'
 
   type Props = {
     /** The tree's rows, the ones under an open category straight after it. */
@@ -68,21 +69,25 @@
   }
 </script>
 
-{#snippet figure(cents: number | null, mark: Mark | null, at: GuessedFigure)}
-  {#if cents === null}{copy.reports.tree.dash}{:else if guessed(mark)}<button
+<!-- A figure's money, a button that opens its rates when the week guessed it, else plain. -->
+{#snippet atFigure(at: GuessedFigure, pressable: boolean, content: Snippet)}
+  {#if pressable}<button
       type="button"
       tabindex="-1"
       class="guessed"
       data-guessed
       onclick={(event) => openFix(event, at)}
-    ><Money of={moneyOf(cents, currency)} /></button
-    >{:else}<span><Money of={moneyOf(cents, currency)} /></span>{/if}
+    >{@render content()}</button
+    >{:else}<span>{@render content()}</span>{/if}
 {/snippet}
 
-{#snippet changeText(moved: Change)}
-  {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree.change[
-      moved.way
-    ]}{:else}{copy.reports.tree.change.same}{/if}
+{#snippet figure(cents: number | null, mark: Mark | null, at: GuessedFigure)}
+  {#if cents === null}
+    {copy.reports.tree.dash}
+  {:else}
+    {#snippet amount()}<Money of={moneyOf(cents, currency)} />{/snippet}
+    {@render atFigure(at, guessed(mark), amount)}
+  {/if}
 {/snippet}
 
 {#snippet change(
@@ -92,14 +97,11 @@
   at: GuessedFigure
 )}
   {@const changeGuessed = guessed(mark) || guessed(beforeMark)}
-  {#if changeGuessed}<button
-      type="button"
-      tabindex="-1"
-      class="guessed"
-      data-guessed
-      onclick={(event) => openFix(event, at)}
-    >{@render changeText(moved)}</button
-    >{:else}<span>{@render changeText(moved)}</span>{/if}
+  {#snippet changeText()}
+    {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree
+        .change[moved.way]}{:else}{copy.reports.tree.change.same}{/if}
+  {/snippet}
+  {@render atFigure(at, changeGuessed, changeText)}
 {/snippet}
 
 <div class="tree" bind:clientWidth={width}>

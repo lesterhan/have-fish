@@ -76,6 +76,21 @@ export function guessesBehind(
   )
 }
 
+/**
+ * The guessed days an underlined figure sums: its row's, or every row's for the total, in its
+ * week.
+ */
+export function guessesFor(
+  at: GuessedFigure,
+  shown: readonly ReportedSpend[],
+  before: readonly ReportedSpend[],
+  rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
+): Guess[] {
+  const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
+  const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
+  return guessesBehind(spent, row)
+}
+
 /** What a guessed day's line says. */
 export function guessLabel(guess: Guess, today: string): string {
   const { date, currency, from } = guess

@@ -121,21 +121,15 @@ export function spendingIn(
     )
     // A spend with no rate at all adds nothing to the sums it is in.
     if (rate.mark === 'missing') {
-      return {
-        amount: format(0),
-        mark: rate.mark,
-        guess: { date: leg.date, currency: leg.currency, from: null },
-      }
+      const guess = { date: leg.date, currency: leg.currency, from: null }
+      return { amount: format(0), mark: rate.mark, guess }
     }
+    const amount = format(convert(leg.cents, rate.rate))
     if (rate.mark === 'borrowed') {
       const from = { date: rate.day, rate: significant(rate.rate, 4) }
-      return {
-        amount: format(convert(leg.cents, rate.rate)),
-        mark: rate.mark,
-        guess: { date: leg.date, currency: leg.currency, from },
-      }
+      return { amount, mark: rate.mark, guess: { date: leg.date, currency: leg.currency, from } }
     }
-    return { amount: format(convert(leg.cents, rate.rate)), mark: rate.mark }
+    return { amount, mark: rate.mark }
   }
 
   const byTransaction = Map.groupBy(statements(db).postingsIn.all({ start, end }), (p) => p.id)

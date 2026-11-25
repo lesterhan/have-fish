@@ -578,6 +578,9 @@ describe('fixing a guessed rate in Reports', () => {
     const lastWeek = await openFigure(page, 'before')
 
     await writeRate(lastWeek, '0.0091')
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=before] [data-guessed]').count())
+      .toBe(0)
 
     const popover = await openFigure(page, 'shown')
     const label = `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`
@@ -656,6 +659,38 @@ describe('fixing a guessed rate in Reports', () => {
     await page.getByText(copy.reports.tree.total, { exact: true }).click()
 
     await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('a click away saves nothing', async () => {
+    const page = await aYenWeek()
+    const popover = await openFigure(page, 'shown')
+    await popover.getByRole('textbox').fill('0.0091')
+
+    await page.getByText(copy.reports.tree.total, { exact: true }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(1)
+  })
+
+  test('a click on nothing gives the tree the cursor', async () => {
+    const page = await aYenWeek()
+    await openFigure(page, 'shown')
+
+    await page.getByText(copy.reports.tree.total, { exact: true }).click()
+
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+  })
+
+  test('a click on another control keeps the cursor there', async () => {
+    const page = await aYenWeek()
+    const popover = await openFigure(page, 'shown')
+
+    await page.getByRole('button', { name: copy.reports.week.before }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.week.before)
   })
 
   test('the total’s figure lists every guessed day', async () => {

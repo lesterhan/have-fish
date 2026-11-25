@@ -12,8 +12,8 @@
   import { query } from '../../ledger/query'
   import { wordsFor } from '../../ledger/refusals'
   import {
-    guessesBehind,
     type GuessedFigure,
+    guessesFor,
     spendsBehind,
     spentOf,
     thisWeek,
@@ -174,17 +174,15 @@
     opened = next
   }
 
-  /** An underlined figure clicked: its row's, and its week's, guessed days, for the popover. */
+  /** An underlined figure clicked: the days behind its row and week, for the popover. */
   function openGuesses(anchor: HTMLElement, at: GuessedFigure) {
-    const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
-    const weeks = at.week === 'before' ? [earlier] : at.week === 'both' ? [report, earlier] : [report]
-    const behind = weeks.flatMap((week) => week?.spent ?? [])
-    fixing = { anchor, lines: guessesBehind(behind, row) }
+    fixing = { anchor, lines: guessesFor(at, report?.spent ?? [], earlier?.spent ?? [], rows) }
   }
 
-  /** The popover closed, written or not: the tree takes the cursor back. */
-  async function closeGuesses() {
+  /** The popover closed, written or not: the tree takes the cursor back only when `back`. */
+  async function closeGuesses(back: boolean) {
     fixing = null
+    if (!back) return
     await tick()
     tree.focus()
   }
