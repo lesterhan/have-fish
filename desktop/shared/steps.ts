@@ -2,6 +2,7 @@
 // `copy/steps.ts`, one for every action.
 
 import type { AccountStep } from './commands/accounts'
+import type { RateStep } from './commands/rates'
 import type { SpendStep } from './commands/spends'
 
-export type StepName = SpendStep | AccountStep
+export type StepName = SpendStep | AccountStep | RateStep

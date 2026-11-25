@@ -12,6 +12,7 @@ const undo: Words = {
   addAccount: ({ name }) => `Undo add account ${name}`,
   start: ({ name }) => `Undo starting balance of ${name}`,
   cost: ({ name }) => `Undo cost of ${name}`,
+  writeRate: ({ currency, date }) => `Undo ${currency} rate for ${date}`,
 }
 
 const redo: Words = {
@@ -21,6 +22,7 @@ const redo: Words = {
   addAccount: ({ name }) => `Redo add account ${name}`,
   start: ({ name }) => `Redo starting balance of ${name}`,
   cost: ({ name }) => `Redo cost of ${name}`,
+  writeRate: ({ currency, date }) => `Redo ${currency} rate for ${date}`,
 }
 
 /** What Undo or Redo says it would do with `name`: the menu's words, and the palette's. */
@@ -39,6 +41,8 @@ function said(way: 'undo' | 'redo', name: StepName): string {
       return words.start(name)
     case 'cost':
       return words.cost(name)
+    case 'writeRate':
+      return words.writeRate(name)
   }
 }
 
