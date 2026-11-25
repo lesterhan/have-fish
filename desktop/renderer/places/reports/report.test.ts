@@ -78,7 +78,7 @@ const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => 
   mark,
 })
 
-/** A reported spend whose rate was guessed on `date` in `currency`: borrowed from `from`, or none. */
+/** A reported spend whose rate was guessed on `date` in `currency`: borrowed, or missing. */
 const reported = (
   category: string,
   date: string,

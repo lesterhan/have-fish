@@ -78,7 +78,7 @@ async function aDinner(): Promise<Page> {
 
 /**
  * ¥1,500 from a cash wallet kept to JPY, no rate anywhere: unsorted, and worth nothing in CAD.
- * `on` is its day, left out for today; a second spend from the same wallet passes `addWallet` false.
+ * `on` is its day, today when left out; a second spend from the wallet passes `addWallet` false.
  */
 async function yenFromCash(page: Page, on = '', addWallet = true) {
   const before = (await rows(page)).length
