@@ -11,6 +11,7 @@ import type {
 } from '../../../shared/commands'
 import { type Ask, query } from '../../ledger/query'
 import {
+  changeMarkOf,
   changeOf,
   guessed,
   guessesBehind,
@@ -19,6 +20,7 @@ import {
   guessLabel,
   idsWanted,
   lineLabel,
+  lookOf,
   nearestOf,
   spendsBehind,
   spentOf,
@@ -69,6 +71,18 @@ describe('guessed', () => {
     expect(guessed('mine')).toBe(false)
     expect(guessed('estimate')).toBe(false)
     expect(guessed(null)).toBe(false)
+  })
+})
+
+describe('lookOf', () => {
+  test('a guess if borrowed or missing, fetched if an estimate, plain for the rest', () => {
+    expect(lookOf('exact')).toBe('plain')
+    expect(lookOf('cost')).toBe('plain')
+    expect(lookOf('mine')).toBe('plain')
+    expect(lookOf('estimate')).toBe('fetched')
+    expect(lookOf('borrowed')).toBe('guessed')
+    expect(lookOf('missing')).toBe('guessed')
+    expect(lookOf(null)).toBe('plain')
   })
 })
 
@@ -438,6 +452,21 @@ describe('changeOf', () => {
 
   test('the same either side says so, with nothing to add', () => {
     expect(changeOf(500, 500)).toEqual({ cents: 0, way: 'same' })
+  })
+})
+
+describe('changeMarkOf', () => {
+  test('the weaker of the two weeks', () => {
+    expect(changeMarkOf('cost', 'missing')).toBe('missing')
+    expect(changeMarkOf('estimate', 'exact')).toBe('estimate')
+    expect(changeMarkOf('mine', 'estimate')).toBe('estimate')
+    expect(changeMarkOf('borrowed', 'estimate')).toBe('borrowed')
+  })
+
+  test('a week with nothing takes the other week’s', () => {
+    expect(changeMarkOf(null, 'estimate')).toBe('estimate')
+    expect(changeMarkOf('borrowed', null)).toBe('borrowed')
+    expect(changeMarkOf(null, null)).toBeNull()
   })
 })
 
