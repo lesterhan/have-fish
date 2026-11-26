@@ -1,5 +1,7 @@
+import { addDays } from '@have-fish/core/calendar-date'
 import type { RateDoc } from '@have-fish/core/documents'
 import { describe, expect, test } from 'vitest'
+import { rateInputs } from '../../../shared/commands'
 import { contextFor, type Time } from '../../context'
 import { MANUAL, NOW, ok, tempLedger } from '../../ledger/fixtures'
 import { rateId } from '../../ledger/rate-id'
@@ -9,7 +11,7 @@ import { redoLast, undoLast } from '../../undo/steps'
 import { addAccount } from '../accounts/accounts'
 import { spendingIn } from '../reports/reports'
 import { writeSpend } from '../spends/spends'
-import { writeRate } from './rates'
+import { writeAllRates, writeRate } from './rates'
 
 const HOUR = 3_600_000
 
@@ -318,5 +320,255 @@ describe('undoing a rate', () => {
     expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
       'Undo GBP rate for 2026-11-05',
     )
+  })
+})
+
+describe('writing several rates', () => {
+  /** The input writing each of `rates` on `date`, as the command takes them. */
+  const ratesOn = (date: string, rates: readonly { currency: string; rate: string }[]) => ({
+    rates: rates.map((one) => ({ date, ...one })),
+  })
+
+  /** `days` rates of GBP, one a day from 2026-01-01 on. */
+  const manyRates = (days: number) => ({
+    rates: Array.from({ length: days }, (_, at) => ({
+      date: addDays('2026-01-01', at),
+      currency: 'GBP',
+      rate: '1.71',
+    })),
+  })
+
+  test('writes every rate of the batch, each into the home currency', () => {
+    const { ctx, stored } = setup()
+
+    const answer = ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '0.0091' },
+        ]),
+      ),
+    )
+
+    expect(
+      answer.ids
+        .map((id) => stored(id))
+        .map((one) => [one.from, one.to, one.rate, one.origin.source]),
+    ).toEqual([
+      ['GBP', 'CAD', '1.71', 'manual'],
+      ['JPY', 'CAD', '0.0091', 'manual'],
+    ])
+  })
+
+  test("answers each rate's id, in the order the rates came", () => {
+    const { ctx } = setup()
+
+    const answer = ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'JPY', rate: '0.0091' },
+          { currency: 'GBP', rate: '1.71' },
+        ]),
+      ),
+    )
+
+    expect(answer.ids).toEqual([
+      rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: MANUAL }),
+      rateId({ date: '2026-11-05', from: 'GBP', to: 'CAD', origin: MANUAL }),
+    ])
+  })
+
+  test('trims each rate as it writes it', () => {
+    const { ctx, stored } = setup()
+
+    const answer = ok(
+      writeAllRates(ctx, ratesOn('2026-11-05', [{ currency: 'GBP', rate: ' 1.72 ' }])),
+    )
+
+    expect(answer.ids.map((id) => stored(id).rate)).toEqual(['1.72'])
+  })
+
+  test('keeps the origin a day already had when the batch writes it again', () => {
+    const { ctx, stored, later } = setup()
+    ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.71' }))
+    later()
+
+    const answer = ok(
+      writeAllRates(ctx, ratesOn('2026-11-05', [{ currency: 'GBP', rate: '1.80' }])),
+    )
+
+    expect(answer.ids.map((id) => stored(id).origin.createdAt)).toEqual([NOW])
+  })
+
+  test('refuses the batch with the rate it could not read', () => {
+    const { ctx } = setup()
+
+    expect(
+      refusal(
+        writeAllRates(
+          ctx,
+          ratesOn('2026-11-05', [
+            { currency: 'GBP', rate: '1.71' },
+            { currency: 'JPY', rate: '1.7x' },
+          ]),
+        ),
+      ),
+    ).toEqual({ code: 'RATE_INVALID', details: { rate: '1.7x' } })
+  })
+
+  test('writes none of the batch when one rate is refused', () => {
+    const { ctx, count } = setup()
+
+    refusal(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '1.7x' },
+        ]),
+      ),
+    )
+
+    expect(count('rates')).toBe(0)
+  })
+
+  test('takes every rate of the batch out on one undo', () => {
+    const { ctx, stored } = setup()
+    const answer = ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '0.0091' },
+        ]),
+      ),
+    )
+
+    undoLast(ctx)
+
+    expect(answer.ids.map((id) => stored(id).deletedAt !== null)).toEqual([true, true])
+  })
+
+  test('puts every rate of the batch back on one redo', () => {
+    const { ctx, stored } = setup()
+    const answer = ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '0.0091' },
+        ]),
+      ),
+    )
+    undoLast(ctx)
+
+    redoLast(ctx)
+
+    expect(answer.ids.map((id) => stored(id).deletedAt)).toEqual([null, null])
+  })
+
+  test('names the step by how many rates it holds', () => {
+    const { ctx } = setup()
+
+    ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '0.0091' },
+        ]),
+      ),
+    )
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe('Undo 2 rates')
+  })
+
+  test('marks the week mine once the rate for its day is written', () => {
+    const { ctx, week, gbpSpend } = setup()
+    const id = gbpSpend()
+    ok(writeRate(ctx, { date: '2026-11-02', currency: 'GBP', rate: '1.75' }))
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '7.35',
+        mark: 'borrowed',
+        guess: { date: '2026-11-05', currency: 'GBP', from: { date: '2026-11-02', rate: '1.75' } },
+      },
+    ])
+
+    ok(writeAllRates(ctx, ratesOn('2026-11-05', [{ currency: 'GBP', rate: '1.71' }])))
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '7.18', mark: 'mine' }])
+  })
+
+  test('refuses a batch that writes one day and currency twice', () => {
+    const parsed = rateInputs['rate.writeAll'].safeParse(
+      ratesOn('2026-11-05', [
+        { currency: 'GBP', rate: '1.71' },
+        { currency: 'GBP', rate: '1.72' },
+      ]),
+    )
+
+    expect(parsed.success).toBe(false)
+  })
+
+  test('allows the same currency on two days', () => {
+    const parsed = rateInputs['rate.writeAll'].safeParse({
+      rates: [
+        { date: '2026-11-05', currency: 'GBP', rate: '1.71' },
+        { date: '2026-11-06', currency: 'GBP', rate: '1.72' },
+      ],
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  test('refuses a batch of no rates', () => {
+    expect(rateInputs['rate.writeAll'].safeParse({ rates: [] }).success).toBe(false)
+  })
+
+  test('allows a batch of a hundred rates', () => {
+    expect(rateInputs['rate.writeAll'].safeParse(manyRates(100)).success).toBe(true)
+  })
+
+  test('refuses a batch of a hundred and one', () => {
+    expect(rateInputs['rate.writeAll'].safeParse(manyRates(101)).success).toBe(false)
+  })
+
+  test('adds no step for a refused batch', () => {
+    const { ctx } = setup()
+    ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.71' }))
+
+    refusal(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-06', [
+          { currency: 'GBP', rate: '1.80' },
+          { currency: 'JPY', rate: '1.7x' },
+        ]),
+      ),
+    )
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
+      'Undo GBP rate for 2026-11-05',
+    )
+  })
+
+  test('leaves the window where it is when the batch is undone', () => {
+    const { ctx } = setup()
+    ok(
+      writeAllRates(
+        ctx,
+        ratesOn('2026-11-05', [
+          { currency: 'GBP', rate: '1.71' },
+          { currency: 'JPY', rate: '0.0091' },
+        ]),
+      ),
+    )
+
+    expect(undoLast(ctx)).toEqual({ ok: true, value: { spends: [], accounts: [] } })
   })
 })

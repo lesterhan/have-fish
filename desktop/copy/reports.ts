@@ -8,6 +8,7 @@ export const reports = {
     borrowed: (day: string, currency: string, rate: string, from: string) =>
       `${day} · ${currency} · using ${rate} from ${from}`,
     missing: (day: string, currency: string) => `${day} · ${currency} · no rate`,
+    nearest: 'Use the nearest rates',
   },
   week: {
     label: 'The week shown',

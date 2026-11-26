@@ -19,6 +19,7 @@ import {
   guessLabel,
   idsWanted,
   lineLabel,
+  nearestOf,
   spendsBehind,
   spentOf,
   thisWeek,
@@ -236,6 +237,53 @@ describe('guessLabel', () => {
     const guess = { date: '2025-12-29', currency: 'JPY', from: null }
 
     expect(guessLabel(guess, '2026-01-02')).toBe('Mon 29 Dec 2025 · JPY · no rate')
+  })
+})
+
+describe('nearestOf', () => {
+  test('a borrowed line gives its own day, currency and the rate the label showed', () => {
+    const line = {
+      date: '2026-11-26',
+      currency: 'JPY',
+      from: { date: '2026-11-19', rate: '0.009123' },
+    }
+
+    expect(nearestOf([line])).toEqual([{ date: '2026-11-26', currency: 'JPY', rate: '0.009123' }])
+  })
+
+  test('a line with no rate is left out', () => {
+    const borrowed = {
+      date: '2026-11-26',
+      currency: 'JPY',
+      from: { date: '2026-11-19', rate: '0.009123' },
+    }
+
+    expect(nearestOf([borrowed, { date: '2026-11-26', currency: 'EUR', from: null }])).toEqual([
+      { date: '2026-11-26', currency: 'JPY', rate: '0.009123' },
+    ])
+  })
+
+  test('the lines keep the order they came in', () => {
+    const eur = { date: '2026-11-24', currency: 'EUR', from: { date: '2026-11-20', rate: '0.83' } }
+    const jpy = {
+      date: '2026-11-26',
+      currency: 'JPY',
+      from: { date: '2026-11-19', rate: '0.009123' },
+    }
+
+    expect(nearestOf([eur, jpy])).toEqual([
+      { date: '2026-11-24', currency: 'EUR', rate: '0.83' },
+      { date: '2026-11-26', currency: 'JPY', rate: '0.009123' },
+    ])
+  })
+
+  test('none borrowed is no rates', () => {
+    expect(
+      nearestOf([
+        { date: '2026-11-26', currency: 'EUR', from: null },
+        { date: '2026-11-26', currency: 'JPY', from: null },
+      ]),
+    ).toEqual([])
   })
 })
 
