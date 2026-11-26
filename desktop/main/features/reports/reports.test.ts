@@ -293,7 +293,32 @@ describe('a spend in another currency', () => {
     rate({ date: '2026-10-20', from: 'EUR', to: 'CAD', rate: '1.40' })
     const id = spend('10', 'food', '2026-10-27', wallet.id)
 
-    expect(week().spent).toEqual([{ id, category: 'food', amount: '14.00', mark: 'borrowed' }])
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '14.00',
+        mark: 'borrowed',
+        guess: { date: '2026-10-27', currency: 'EUR', from: { date: '2026-10-20', rate: '1.4' } },
+      },
+    ])
+  })
+
+  test('a rate typed the other way round is flipped: 10.00 EUR at 1.429 is 14.29, marked borrowed', () => {
+    const { account, rate, spend, week } = setup()
+    const wallet = account('cash:eur', 'cash', 'EUR')
+    rate({ date: '2026-10-20', from: 'CAD', to: 'EUR', rate: '0.7' })
+    const id = spend('10', 'food', '2026-10-27', wallet.id)
+
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '14.29',
+        mark: 'borrowed',
+        guess: { date: '2026-10-27', currency: 'EUR', from: { date: '2026-10-20', rate: '1.429' } },
+      },
+    ])
   })
 
   test('no rate at all: 15.00 JPY counts 0.00, marked missing', () => {
@@ -301,7 +326,15 @@ describe('a spend in another currency', () => {
     const wallet = account('cash:jpy', 'cash', 'JPY')
     const id = spend('15', 'food', '2026-10-27', wallet.id)
 
-    expect(week().spent).toEqual([{ id, category: 'food', amount: '0.00', mark: 'missing' }])
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '0.00',
+        mark: 'missing',
+        guess: { date: '2026-10-27', currency: 'JPY', from: null },
+      },
+    ])
   })
 
   test('a currency bought with another: 46.00 EUR carried from 200.00 CAD through USD is 66.67', () => {
@@ -343,7 +376,15 @@ describe('a spend in another currency', () => {
     const chequing = account('chequing', 'bank', 'CAD', '1000')
     const wallet = account('cash:eur', 'cash', 'EUR', '15')
     const id = spend('15', 'food', '2026-10-27', wallet.id)
-    expect(week().spent).toEqual([{ id, category: 'food', amount: '0.00', mark: 'missing' }])
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '0.00',
+        mark: 'missing',
+        guess: { date: '2026-10-27', currency: 'EUR', from: null },
+      },
+    ])
 
     exchange('2026-10-26', chequing, '200.00', wallet, '150.00')
 

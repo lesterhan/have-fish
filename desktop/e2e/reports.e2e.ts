@@ -1,13 +1,13 @@
 // This week beside the week before, as a tree of categories: the Reports tree that replaced the
 // list, and its keys (#640).
 
-import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import {
   ADD_ACCOUNT,
   aHome,
   BEHIND,
+  daysAgo,
   launch,
   openChip,
   openComposer,
@@ -25,10 +25,6 @@ const NAV = 'nav[aria-label=Places]'
 const PICKED = 'section[aria-label="The spend picked"]'
 const WEEK = '[role=group][aria-label="The week shown"]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
-
-const DAY = 86_400_000
-const here = Intl.DateTimeFormat().resolvedOptions().timeZone
-const daysAgo = (n: number) => calendarDateAt(Date.now() - n * DAY, here)
 
 /** A spend written in the ledger: amount, what for, To, and From and its day if given. */
 async function spend(

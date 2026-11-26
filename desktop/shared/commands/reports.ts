@@ -9,6 +9,14 @@ export const reportInputs = {
   'report.spending': z.strictObject({ start: date, end: date }),
 }
 
+/** Why a spend's rate is a guess: its day and currency, and the day it borrowed from. */
+export type Guess = {
+  date: string
+  currency: string
+  /** The day borrowed from and its rate to four figures; null when there was none. */
+  from: { date: string; rate: string } | null
+}
+
 /** One spend's money in one category, as a report sums it. */
 export type ReportedSpend = {
   /** The transaction's id. */
@@ -18,6 +26,8 @@ export type ReportedSpend = {
   amount: string
   /** How good the rate it was converted at is: `exact` when it was in `currency`. */
   mark: Mark
+  /** Its day and currency when `mark` is borrowed or missing, and never else. */
+  guess?: Guess
 }
 
 export interface ReportValues {

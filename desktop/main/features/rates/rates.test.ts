@@ -237,7 +237,15 @@ describe('undoing a rate', () => {
 
     undoLast(ctx)
 
-    expect(week().spent).toEqual([{ id, category: 'food', amount: '0.00', mark: 'missing' }])
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '0.00',
+        mark: 'missing',
+        guess: { date: '2026-11-05', currency: 'GBP', from: null },
+      },
+    ])
   })
 
   test('puts the rate back on redo', () => {

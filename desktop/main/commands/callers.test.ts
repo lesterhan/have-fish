@@ -5,8 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { type CommandName, inputs } from '../../shared/commands'
 
 /** The commands main may hold that the window never invokes. */
-// rate.write, until the Reports popover calls it.
-const MAINS_OWN: readonly CommandName[] = ['rate.write']
+const MAINS_OWN: readonly CommandName[] = []
 
 const RENDERER = fileURLToPath(new URL('../../renderer', import.meta.url))
 

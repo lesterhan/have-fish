@@ -8,11 +8,11 @@ import { failure, type Outcome } from '@have-fish/core/outcome'
 import { UNSORTED } from '@have-fish/core/own-accounts'
 import { type Pools, poolsOf } from '@have-fish/core/pool'
 import { type Mark, type RateBook, rateBookOf, rateFor } from '@have-fish/core/rate-for'
-import { convert } from '@have-fish/core/rates'
+import { convert, significant } from '@have-fish/core/rates'
 import { type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import { and, between, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
-import type { InputOf, Values } from '../../../shared/commands'
+import type { Guess, InputOf, Values } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 import { perConnection } from '../../db/prepared'
 import { accounts, postings, rates, transactions } from '../../db/schema'
@@ -80,7 +80,12 @@ const statements = perConnection((orm, db) => ({
 type Reading = { pools: Pools; book: RateBook }
 
 /** One spend's money in the home currency, and how good the rate it took is. */
-type Amount = { amount: string; mark: Mark }
+type Amount = {
+  amount: string
+  mark: Mark
+  /** Why the rate is a guess: for a borrowed or missing one, and no other. */
+  guess?: Guess
+}
 
 /** The reading in hand for a connection, and the write count it was made at. */
 const kept = new WeakMap<Database.Database, { changes: number; reading: Reading }>()
@@ -115,8 +120,16 @@ export function spendingIn(
       HOME_CURRENCY,
     )
     // A spend with no rate at all adds nothing to the sums it is in.
-    if (rate.mark === 'missing') return { amount: format(0), mark: rate.mark }
-    return { amount: format(convert(leg.cents, rate.rate)), mark: rate.mark }
+    if (rate.mark === 'missing') {
+      const guess = { date: leg.date, currency: leg.currency, from: null }
+      return { amount: format(0), mark: rate.mark, guess }
+    }
+    const amount = format(convert(leg.cents, rate.rate))
+    if (rate.mark === 'borrowed') {
+      const from = { date: rate.day, rate: significant(rate.rate, 4) }
+      return { amount, mark: rate.mark, guess: { date: leg.date, currency: leg.currency, from } }
+    }
+    return { amount, mark: rate.mark }
   }
 
   const byTransaction = Map.groupBy(statements(db).postingsIn.all({ start, end }), (p) => p.id)

@@ -9,6 +9,7 @@
     type Change,
     changeOf,
     guessed,
+    type GuessedFigure,
     lineLabel,
     moneyOf,
     treeColumnsOf,
@@ -19,6 +20,7 @@
   import Listbox from '../../parts/Listbox.svelte'
   import Money from '../../parts/Money.svelte'
   import Path from '../../parts/Path.svelte'
+  import type { Snippet } from 'svelte'
 
   type Props = {
     /** The tree's rows, the ones under an open category straight after it. */
@@ -34,8 +36,11 @@
     /** The keys moved the selection to another row. */
     onselect: (key: string) => void
     onkey: (event: KeyboardEvent) => boolean
+    /** An underlined figure clicked: its element, and which row and week it sums. */
+    onguess: (anchor: HTMLElement, figure: GuessedFigure) => void
   }
-  let { rows, sums, currency, thisWeek, selectedKey, onpick, onselect, onkey }: Props = $props()
+  let { rows, sums, currency, thisWeek, selectedKey, onpick, onselect, onkey, onguess }: Props =
+    $props()
 
   let listbox: ReturnType<typeof Listbox<TreeRow>>
   // The tree's width, not the window's: beside the spends it runs out first, and Last week goes
@@ -56,25 +61,47 @@
   export function focus() {
     listbox.focus()
   }
+
+  /** A guessed figure clicked: the popover opens from it, and the click goes no further. */
+  function openFix(event: MouseEvent & { currentTarget: HTMLButtonElement }, at: GuessedFigure) {
+    event.stopPropagation()
+    onguess(event.currentTarget, at)
+  }
 </script>
 
-{#snippet figure(cents: number | null, mark: Mark | null)}
-  {#if cents === null}{copy.reports.tree.dash}{:else}<span
-      class:guessed={guessed(mark)}
-      data-guessed={guessed(mark) || undefined}
-    ><Money of={moneyOf(cents, currency)} /></span>{/if}
+<!-- A guessed figure's money or words, as the button that opens its rates; else plain. -->
+{#snippet atFigure(at: GuessedFigure, pressable: boolean, content: Snippet)}
+  {#if pressable}<button
+      type="button"
+      tabindex="-1"
+      class="guessed"
+      data-guessed
+      onclick={(event) => openFix(event, at)}
+    >{@render content()}</button
+    >{:else}<span>{@render content()}</span>{/if}
 {/snippet}
 
-{#snippet change(moved: Change, mark: Mark | null, beforeMark: Mark | null)}
-  {@const guessedChange = guessed(mark) || guessed(beforeMark)}
-  {#if moved.cents > 0}<span
-      class:guessed={guessedChange}
-      data-guessed={guessedChange || undefined}
-    ><Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree.change[
-        moved.way
-      ]}</span
-    >{:else}<span class:guessed={guessedChange} data-guessed={guessedChange || undefined}
-    >{copy.reports.tree.change.same}</span>{/if}
+{#snippet figure(cents: number | null, mark: Mark | null, at: GuessedFigure)}
+  {#if cents === null}
+    {copy.reports.tree.dash}
+  {:else}
+    {#snippet amount()}<Money of={moneyOf(cents, currency)} />{/snippet}
+    {@render atFigure(at, guessed(mark), amount)}
+  {/if}
+{/snippet}
+
+{#snippet change(
+  moved: Change,
+  mark: Mark | null,
+  beforeMark: Mark | null,
+  at: GuessedFigure
+)}
+  {@const changeGuessed = guessed(mark) || guessed(beforeMark)}
+  {#snippet changeText()}
+    {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree
+        .change[moved.way]}{:else}{copy.reports.tree.change.same}{/if}
+  {/snippet}
+  {@render atFigure(at, changeGuessed, changeText)}
 {/snippet}
 
 <div class="tree" bind:clientWidth={width}>
@@ -111,11 +138,17 @@
           <span class:unsorted={line.holds === 'unsorted'}>{lineLabel(line)}</span>
         {/if}
       </span>
-      <span data-cell="shown">{@render figure(line.cents, line.mark)}</span>
+      <span data-cell="shown"
+        >{@render figure(line.cents, line.mark, { key: line.key, week: 'shown' })}</span
+      >
       {#if shown.cells.includes('before')}
-        <span data-cell="before">{@render figure(line.before, line.beforeMark)}</span>
+        <span data-cell="before"
+          >{@render figure(line.before, line.beforeMark, { key: line.key, week: 'before' })}</span
+        >
       {/if}
-      <span data-cell="change">{@render change(moved, line.mark, line.beforeMark)}</span>
+      <span data-cell="change"
+        >{@render change(moved, line.mark, line.beforeMark, { key: line.key, week: 'both' })}</span
+      >
     {/snippet}
   </Listbox>
   {#if rows.length === 0}
@@ -123,11 +156,17 @@
   {:else}
     <p class="total" style:grid-template-columns={shown.template}>
       <span>{copy.reports.tree.total}</span>
-      <span class="amount">{@render figure(sums.total, sums.mark)}</span>
+      <span class="amount"
+        >{@render figure(sums.total, sums.mark, { key: null, week: 'shown' })}</span
+      >
       {#if shown.cells.includes('before')}
-        <span class="amount">{@render figure(sums.before, sums.beforeMark)}</span>
+        <span class="amount"
+          >{@render figure(sums.before, sums.beforeMark, { key: null, week: 'before' })}</span
+        >
       {/if}
-      <span class="change">{@render change(sum, sums.mark, sums.beforeMark)}</span>
+      <span class="change"
+        >{@render change(sum, sums.mark, sums.beforeMark, { key: null, week: 'both' })}</span
+      >
     </p>
   {/if}
 </div>
@@ -153,6 +192,13 @@
 
   .guessed {
     text-decoration: underline;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: inherit;
   }
 
   [data-cell='shown'],

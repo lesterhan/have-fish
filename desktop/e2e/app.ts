@@ -7,6 +7,7 @@ import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { calendarDateAt } from '@have-fish/core/calendar-date'
 import electron from 'electron'
 import { chromium, type Locator, type Page } from 'playwright-core'
 import { onTestFinished } from 'vitest'
@@ -316,6 +317,13 @@ export async function writeDown(page: Page, amount: string, description: string)
 
 /** A day as the window shows it, today being today where this machine is. */
 export const shownDay = (date: string) => day(date, todayIn())
+
+/** The zone a dated e2e spend uses: the window's own, so `shownDay` reads the same day. */
+const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+/** The day `days` back from today, as the composer's date field takes it. */
+export const daysAgo = (days: number): string =>
+  calendarDateAt(Date.now() - days * 86_400_000, ZONE)
 
 /**
  * Spend rows as cells: the day, from the band above its first row; the description; the amount.

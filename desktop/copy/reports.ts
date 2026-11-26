@@ -2,6 +2,13 @@
 
 export const reports = {
   title: 'Spending',
+  /** The popover of an underlined figure's guessed days. */
+  guesses: {
+    label: 'The rates this amount guessed',
+    borrowed: (day: string, currency: string, rate: string, from: string) =>
+      `${day} · ${currency} · using ${rate} from ${from}`,
+    missing: (day: string, currency: string) => `${day} · ${currency} · no rate`,
+  },
   week: {
     label: 'The week shown',
     /** The buttons' words, read out; they show as arrows. */
