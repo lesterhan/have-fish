@@ -333,6 +333,7 @@ describe('a spend in another currency', () => {
         amount: '0.00',
         mark: 'missing',
         guess: { date: '2026-10-27', currency: 'JPY', from: null },
+        uncounted: { amount: '15.00', currency: 'JPY' },
       },
     ])
   })
@@ -383,6 +384,7 @@ describe('a spend in another currency', () => {
         amount: '0.00',
         mark: 'missing',
         guess: { date: '2026-10-27', currency: 'EUR', from: null },
+        uncounted: { amount: '15.00', currency: 'EUR' },
       },
     ])
 

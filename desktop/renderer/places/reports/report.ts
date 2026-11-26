@@ -4,7 +4,13 @@
 import { addDays, weekOf } from '@have-fish/core/calendar-date'
 import { cents, format } from '@have-fish/core/money'
 import { type Mark, weaker } from '@have-fish/core/rate-for'
-import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
+import {
+  type ComparedLine,
+  comparedAt,
+  isIn,
+  type Spent,
+  type Uncounted,
+} from '@have-fish/core/spending'
 import { copy } from '../../../copy'
 import type {
   Guess,
@@ -15,7 +21,7 @@ import type {
   Values,
   Wire,
 } from '../../../shared/commands'
-import { day } from '../../format'
+import { day, money } from '../../format'
 import type { Ask } from '../../ledger/query'
 import type { TreeSpot } from '../../parts/listbox'
 
@@ -27,13 +33,16 @@ export const thisWeek = (today: string): Week => weekOf(today)
 /** The week `by` weeks after `week`; before it, when negative. */
 export const weekAfter = (week: Week, by: number): Week => weekOf(addDays(week.start, by * 7))
 
-/** What the report sums, in cents, with each spend's rate's mark. */
+/** What the report sums, in cents, with each spend's rate's mark and what it couldn't count. */
 export const spentOf = (report: Values['report.spending']): Spent[] =>
   report.spent.map((s) => ({
     id: s.id,
     category: s.category,
     cents: cents(s.amount),
     mark: s.mark,
+    ...(s.uncounted === undefined
+      ? {}
+      : { uncounted: { currency: s.uncounted.currency, cents: cents(s.uncounted.amount) } }),
   }))
 
 /** How a line names itself. */
@@ -48,6 +57,34 @@ export const moneyOf = (cents: number, currency: string): Money => ({
   amount: format(cents),
   currency,
 })
+
+/** How a week's figure reads: what it counted, then each currency it couldn't, by code. */
+export type Figure = {
+  counted: Money | null
+  uncounted: { money: Money; plus: boolean }[]
+}
+
+/** A figure from its sum and what it couldn't count: no `0.00` when nothing was counted. */
+export function figureOf(cents: number, uncounted: readonly Uncounted[], currency: string): Figure {
+  const counted = cents === 0 && uncounted.length > 0 ? null : moneyOf(cents, currency)
+  return {
+    counted,
+    uncounted: uncounted.map((one, i) => ({
+      money: moneyOf(one.cents, one.currency),
+      plus: counted !== null || i > 0,
+    })),
+  }
+}
+
+/** A week's sum as the header says it, on one line: `36.20 + 1,500 JPY`. */
+export function sumText(cents: number, uncounted: readonly Uncounted[], currency: string): string {
+  const { counted, uncounted: lines } = figureOf(cents, uncounted, currency)
+  const parts = lines.map(({ money: one, plus }) => {
+    const said = money(one.amount, one.currency)
+    return plus ? [copy.reports.tree.plus, said].join(' ') : said
+  })
+  return [...(counted === null ? [] : [format(cents)]), ...parts].join(' ')
+}
 
 /** Whether an amount's rate was a guess: borrowed or missing. */
 export const guessed = (mark: Mark | null): boolean => mark === 'borrowed' || mark === 'missing'

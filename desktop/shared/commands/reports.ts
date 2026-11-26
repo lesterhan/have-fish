@@ -2,6 +2,7 @@
 
 import type { Mark } from '@have-fish/core/rate-for'
 import { z } from 'zod'
+import type { Money } from '../currency'
 import { date } from './wire'
 
 export const reportInputs = {
@@ -28,12 +29,15 @@ export type ReportedSpend = {
   mark: Mark
   /** Its day and currency when `mark` is borrowed or missing, and never else. */
   guess?: Guess
+  /** Its own amount when `mark` is missing, which `amount` couldn't count, and never else. */
+  uncounted?: Money
 }
 
 export interface ReportValues {
   /**
    * In the home currency, `currency`, oldest day first: each spend in another currency at the best
-   * rate there is, with its mark; one with none counts 0.00, marked `missing`.
+   * rate there is, with its mark; one with none counts 0.00, marked `missing`, and says its own
+   * amount.
    */
   'report.spending': { currency: string; spent: ReportedSpend[] }
 }

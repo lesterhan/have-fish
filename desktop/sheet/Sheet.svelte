@@ -2,7 +2,7 @@
   import { OPENING } from '@have-fish/core/own-accounts'
   import type { Mark } from '@have-fish/core/rate-for'
   import type { ShapeName } from '@have-fish/core/shapes'
-  import { comparedAt } from '@have-fish/core/spending'
+  import { comparedAt, type Uncounted } from '@have-fish/core/spending'
   import { copy } from '../copy'
   import Button from '../renderer/parts/Button.svelte'
   import Chip from '../renderer/parts/Chip.svelte'
@@ -115,11 +115,17 @@
 
   // The tree's fixed weeks: food open, one child with a dash this week, and a row each of more,
   // less and same.
-  const counted = (category: string, cents: number, mark: Mark = 'exact') => ({
+  const counted = (
+    category: string,
+    cents: number,
+    mark: Mark = 'exact',
+    uncounted?: Uncounted,
+  ) => ({
     id: `${category}-${cents}`,
     category,
     cents,
     mark,
+    ...(uncounted === undefined ? {} : { uncounted }),
   })
   const TREE_SHOWN = [
     counted('food:groceries', 5000),
@@ -127,6 +133,7 @@
     counted('food', 500),
     counted('transport', 3000, 'estimate'),
     counted('entertainment', 1000),
+    counted('entertainment', 0, 'missing', { currency: 'JPY', cents: 150000 }),
   ]
   const TREE_BEFORE = [
     counted('food:groceries', 4476),
@@ -264,7 +271,7 @@
   </section>
 
   <section aria-label="SpendingTree">
-    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same, a guess wavy and a fetched rate dashed</h2>
+    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same, a guess wavy, a fetched rate dashed, and yen it couldn't count under its figure</h2>
     <div class="frame"><SpendingTree
         rows={TREE_ROWS}
         sums={TREE_SUMS}

@@ -25,6 +25,7 @@ import {
   openSelected,
   PANE,
   pickPath,
+  reportSums,
   reportTree,
   rows,
   shownDay,
@@ -128,6 +129,10 @@ async function writeRate(popover: Locator, rate: string, currency?: string) {
 
 /** The popover's fields' labels, in the order they show. */
 const labelsOf = (popover: Locator) => popover.locator('label').allInnerTexts()
+
+/** Each of `found`'s texts, its white space read as one space. */
+const textsOf = (found: Locator) =>
+  found.evaluateAll((all) => all.map((one) => (one.textContent ?? '').replace(/\s+/g, ' ').trim()))
 
 /** How `figure` is underlined: its line, its style and its colour, as painted. */
 const underlineOf = (figure: Locator) =>
@@ -468,12 +473,14 @@ describe('a converted spend in Reports', () => {
     await goTo(page, 'Reports')
 
     const unsorted = treeRow(page, 'Unsorted')
-    await expect.poll(() => unsorted.locator('[data-cell=shown]').innerText()).toBe('36.20')
+    await expect
+      .poll(() => textsOf(unsorted.locator('[data-cell=shown]')))
+      .toEqual(['36.20 + 1,500 JPY'])
     await expect.poll(() => unsorted.locator('[data-cell=shown] [data-guessed]').count()).toBe(1)
     const foot = page.locator("p:has-text('All spending')")
     await expect
-      .poll(() => foot.locator('[data-guessed]').allTextContents())
-      .toEqual(['36.20', '36.20 more'])
+      .poll(() => textsOf(foot.locator('[data-guessed]')))
+      .toEqual(['36.20 + 1,500 JPY', '36.20 more'])
   })
 
   test('a guessed figure’s line is wavy, in the error’s colour', async () => {
@@ -516,8 +523,8 @@ describe('a converted spend in Reports', () => {
     await expect.poll(() => unsorted.locator('[data-cell=change] [data-guessed]').count()).toBe(1)
     const foot = page.locator("p:has-text('All spending')")
     await expect
-      .poll(() => foot.locator('[data-guessed]').allTextContents())
-      .toEqual(['0.00', '36.20 more'])
+      .poll(() => textsOf(foot.locator('[data-guessed]')))
+      .toEqual(['1,500 JPY', '36.20 more'])
   })
 
   test('a guess this week with nothing last week: the change reads same, and is underlined too', async () => {
@@ -530,8 +537,8 @@ describe('a converted spend in Reports', () => {
 
     const foot = page.locator("p:has-text('All spending')")
     await expect
-      .poll(() => foot.locator('[data-guessed]').allTextContents())
-      .toEqual(['0.00', copy.reports.tree.change.same])
+      .poll(() => textsOf(foot.locator('[data-guessed]')))
+      .toEqual(['1,500 JPY', copy.reports.tree.change.same])
   })
 
   test('the dinner alone: no cell of the tree is underlined', async () => {
@@ -544,8 +551,45 @@ describe('a converted spend in Reports', () => {
   test('the dinner and the yen from cash: no line reads “Not in these totals”', async () => {
     const page = await aDinnerInReports(today())
 
-    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
+    await expect
+      .poll(() => reportTree(page))
+      .toEqual(['Unsorted | 36.20 + 1,500 JPY | – | 36.20 more'])
     await expect.poll(() => page.getByText('Not in these totals').count()).toBe(0)
+  })
+
+  test('only the yen: its figure reads 1,500 JPY, with no 0.00', async () => {
+    const page = await aYenWeek()
+
+    const unsorted = treeRow(page, 'Unsorted')
+    await expect.poll(() => textsOf(unsorted.locator('[data-cell=shown]'))).toEqual(['1,500 JPY'])
+    await expect.poll(() => unsorted.locator('[data-uncounted]').count()).toBe(1)
+  })
+
+  test('a rate typed for the yen: the figure reads 49.85, with nothing under it', async () => {
+    const page = await aDinnerInReports(today())
+    const popover = await openFigure(page, 'shown')
+
+    await writeRate(popover, '0.0091')
+
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
+    await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 49.85 | – | 49.85 more'])
+    expect(await page.locator('[data-uncounted]').count()).toBe(0)
+  })
+
+  test('the header’s line says the yen it couldn’t count', async () => {
+    const page = await aDinnerInReports(today())
+
+    await expect
+      .poll(() => reportSums(page))
+      .toBe('Spent 36.20 + 1,500 JPY, against 0.00 last week')
+  })
+
+  test('the header’s line says the yen last week couldn’t count', async () => {
+    const page = await aDinnerInReports(daysAgo(7))
+
+    await expect.poll(() => reportSums(page)).toBe('Spent 36.20, against 1,500 JPY last week')
   })
 
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {

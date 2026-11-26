@@ -14,6 +14,7 @@ import {
   openSpend,
   pickPath,
   REPORT_TREE,
+  reportSums,
   reportTree,
   rows,
   spendCells,
@@ -75,9 +76,6 @@ const headings = (page: Page) =>
     return [...(over?.children ?? [])].map((h) => h.textContent?.trim() ?? '')
   }, REPORT_TREE)
 
-/** The header's quiet line: what the week came to against the week before. */
-const sums = (page: Page) => page.locator('main header p').innerText()
-
 /** The name cell of the row the tree has selected. */
 const selectedName = (page: Page) =>
   page.evaluate((list) => {
@@ -110,7 +108,7 @@ describe('see this week against last', () => {
         'Unsorted | 10.00 | – | 10.00 more',
       ])
     await expect.poll(() => total(page)).toEqual(['All spending', '100.00', '80.00', '20.00 more'])
-    await expect.poll(() => sums(page)).toBe('Spent 100.00, against 80.00 last week')
+    await expect.poll(() => reportSums(page)).toBe('Spent 100.00, against 80.00 last week')
   })
 
   test('a category opens and closes, its children a level under it', async () => {
@@ -178,7 +176,7 @@ describe('see this week against last', () => {
     await toReports(page)
 
     await expect.poll(() => reportTree(page)).toEqual(['expenses fun | – | 15.00 | 15.00 less'])
-    await expect.poll(() => sums(page)).toBe('Spent 0.00, against 15.00 last week')
+    await expect.poll(() => reportSums(page)).toBe('Spent 0.00, against 15.00 last week')
 
     await treeRow(page, 'expenses fun').click()
     await expect.poll(() => behind(page)).toEqual([])
@@ -279,7 +277,7 @@ describe('see this week against last', () => {
     await expect
       .poll(() => headings(page))
       .toEqual(['Where it went', 'That week', 'Week before', 'Change'])
-    await expect.poll(() => sums(page)).toBe('Spent 15.00, against 0.00 the week before')
+    await expect.poll(() => reportSums(page)).toBe('Spent 15.00, against 0.00 the week before')
 
     await page.click(`${WEEK} button[aria-label="The week before"]`)
     await expect.poll(() => reportTree(page)).toEqual([])

@@ -246,6 +246,7 @@ describe('undoing a rate', () => {
         amount: '0.00',
         mark: 'missing',
         guess: { date: '2026-11-05', currency: 'GBP', from: null },
+        uncounted: { amount: '4.20', currency: 'GBP' },
       },
     ])
   })
