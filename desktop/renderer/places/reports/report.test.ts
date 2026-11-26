@@ -52,15 +52,14 @@ describe('spentOf', () => {
       currency: 'CAD',
       spent: [{ id: 'a', category: 'food', amount: '4.50', mark: 'cost' }],
     }
-    const [one] = spentOf(report)
-    expect(one).toEqual({ id: 'a', category: 'food', cents: 450, mark: 'cost' })
-    expect(one).not.toHaveProperty('uncounted')
+    expect(spentOf(report)).toEqual([{ id: 'a', category: 'food', cents: 450, mark: 'cost' }])
   })
 
   test('a missing spend keeps its own money, in cents; a counted one has none', () => {
     const report: Values['report.spending'] = {
       currency: 'CAD',
       spent: [
+        { id: 'a', category: 'food', amount: '4.50', mark: 'cost' },
         {
           id: 'b',
           category: '',
@@ -70,15 +69,16 @@ describe('spentOf', () => {
         },
       ],
     }
-    expect(spentOf(report)).toEqual([
-      {
-        id: 'b',
-        category: '',
-        cents: 0,
-        mark: 'missing',
-        uncounted: { currency: 'JPY', cents: 150000 },
-      },
-    ])
+    const [counted, missing] = spentOf(report)
+    expect(counted).toEqual({ id: 'a', category: 'food', cents: 450, mark: 'cost' })
+    expect(counted).not.toHaveProperty('uncounted')
+    expect(missing).toEqual({
+      id: 'b',
+      category: '',
+      cents: 0,
+      mark: 'missing',
+      uncounted: { currency: 'JPY', cents: 150000 },
+    })
   })
 })
 
@@ -93,7 +93,7 @@ describe('figureOf', () => {
   test('part counted: the figure, then each currency it couldn’t, after a plus', () => {
     expect(figureOf(3620, [{ currency: 'JPY', cents: 150000 }], 'CAD')).toEqual({
       counted: { amount: '36.20', currency: 'CAD' },
-      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, plus: true }],
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' }],
     })
   })
 
@@ -110,8 +110,8 @@ describe('figureOf', () => {
     ).toEqual({
       counted: { amount: '36.20', currency: 'CAD' },
       uncounted: [
-        { money: { amount: '10.00', currency: 'EUR' }, plus: true },
-        { money: { amount: '1500.00', currency: 'JPY' }, plus: true },
+        { money: { amount: '10.00', currency: 'EUR' }, sign: 'plus' },
+        { money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' },
       ],
     })
   })
@@ -119,7 +119,7 @@ describe('figureOf', () => {
   test('nothing counted: no 0.00, and no plus before the first', () => {
     expect(figureOf(0, [{ currency: 'JPY', cents: 150000 }], 'CAD')).toEqual({
       counted: null,
-      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, plus: false }],
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: null }],
     })
   })
 
@@ -136,8 +136,8 @@ describe('figureOf', () => {
     ).toEqual({
       counted: null,
       uncounted: [
-        { money: { amount: '10.00', currency: 'EUR' }, plus: false },
-        { money: { amount: '1500.00', currency: 'JPY' }, plus: true },
+        { money: { amount: '10.00', currency: 'EUR' }, sign: null },
+        { money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' },
       ],
     })
   })
@@ -146,6 +146,20 @@ describe('figureOf', () => {
     expect(figureOf(0, [], 'CAD')).toEqual({
       counted: { amount: '0.00', currency: 'CAD' },
       uncounted: [],
+    })
+  })
+
+  test('a refund it couldn’t count: a minus in the plus’s place, and the amount without its sign', () => {
+    expect(figureOf(3620, [{ currency: 'JPY', cents: -150000 }], 'CAD')).toEqual({
+      counted: { amount: '36.20', currency: 'CAD' },
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'minus' }],
+    })
+  })
+
+  test('only a refund it couldn’t count: the amount alone, with its own minus', () => {
+    expect(figureOf(0, [{ currency: 'JPY', cents: -150000 }], 'CAD')).toEqual({
+      counted: null,
+      uncounted: [{ money: { amount: '-1500.00', currency: 'JPY' }, sign: null }],
     })
   })
 })
@@ -170,6 +184,10 @@ describe('sumText', () => {
 
   test('all counted: the sum as the header has always said it', () => {
     expect(sumText(123450, [], 'CAD')).toBe('1234.50')
+  })
+
+  test('a refund it couldn’t count reads after a minus', () => {
+    expect(sumText(3620, [{ currency: 'JPY', cents: -150000 }], 'CAD')).toBe('36.20 − 1,500 JPY')
   })
 })
 

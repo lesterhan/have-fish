@@ -575,7 +575,7 @@ describe('a converted spend in Reports', () => {
       .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
       .toBe(0)
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 49.85 | – | 49.85 more'])
-    expect(await page.locator('[data-uncounted]').count()).toBe(0)
+    await expect.poll(() => page.locator('[data-uncounted]').count()).toBe(0)
   })
 
   test('the header’s line says the yen it couldn’t count', async () => {
@@ -590,6 +590,37 @@ describe('a converted spend in Reports', () => {
     const page = await aDinnerInReports(daysAgo(7))
 
     await expect.poll(() => reportSums(page)).toBe('Spent 36.20, against 1,500 JPY last week')
+  })
+
+  test('a guess last week: the row’s Last week reads 1,500 JPY', async () => {
+    const page = await aDinnerInReports(daysAgo(7))
+
+    await expect
+      .poll(() => textsOf(treeRow(page, 'Unsorted').locator('[data-cell=before]')))
+      .toEqual(['1,500 JPY'])
+  })
+
+  test('what a figure couldn’t count sits on its own line, small and muted', async () => {
+    const page = await aDinnerInReports(today())
+
+    const cell = treeRow(page, 'Unsorted').locator('[data-cell=shown]')
+    const line = cell.locator('[data-uncounted]')
+    await expect.poll(() => line.count()).toBe(1)
+
+    const painted = await line.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        display: style.display,
+        size: Number.parseFloat(style.fontSize),
+        colour: style.color,
+      }
+    })
+    const cellSize = await cell.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).fontSize),
+    )
+    expect(painted.display).toBe('block')
+    expect(painted.size).toBeLessThan(cellSize)
+    expect(painted.colour).toBe(await paintOf(page, '--color-muted'))
   })
 
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {

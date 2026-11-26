@@ -55,7 +55,7 @@ export type ComparedLine = Omit<SpendingLine, 'cents' | 'mark'> & {
   mark: Mark | null
   /** The period before's, the same way. */
   beforeMark: Mark | null
-  /** The period before's, the same way. */
+  /** What the period before couldn't count, as `uncounted` is. */
   beforeUncounted: Uncounted[]
 }
 
@@ -66,7 +66,6 @@ export type Compared = {
   mark: Mark
   beforeMark: Mark
   uncounted: Uncounted[]
-  /** The period before's, the same way. */
   beforeUncounted: Uncounted[]
   lines: ComparedLine[]
 }

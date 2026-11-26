@@ -61,7 +61,7 @@ export const moneyOf = (cents: number, currency: string): Money => ({
 /** How a week's figure reads: what it counted, then each currency it couldn't, by code. */
 export type Figure = {
   counted: Money | null
-  uncounted: { money: Money; plus: boolean }[]
+  uncounted: { money: Money; sign: 'plus' | 'minus' | null }[]
 }
 
 /** A figure from its sum and what it couldn't count: no `0.00` when nothing was counted. */
@@ -70,8 +70,8 @@ export function figureOf(cents: number, uncounted: readonly Uncounted[], currenc
   return {
     counted,
     uncounted: uncounted.map((one, i) => ({
-      money: moneyOf(one.cents, one.currency),
-      plus: counted !== null || i > 0,
+      money: moneyOf(counted === null && i === 0 ? one.cents : Math.abs(one.cents), one.currency),
+      sign: counted === null && i === 0 ? null : one.cents < 0 ? 'minus' : 'plus',
     })),
   }
 }
@@ -79,9 +79,9 @@ export function figureOf(cents: number, uncounted: readonly Uncounted[], currenc
 /** A week's sum as the header says it, on one line: `36.20 + 1,500 JPY`. */
 export function sumText(cents: number, uncounted: readonly Uncounted[], currency: string): string {
   const { counted, uncounted: lines } = figureOf(cents, uncounted, currency)
-  const parts = lines.map(({ money: one, plus }) => {
+  const parts = lines.map(({ money: one, sign }) => {
     const said = money(one.amount, one.currency)
-    return plus ? [copy.reports.tree.plus, said].join(' ') : said
+    return sign === null ? said : [copy.reports.tree[sign], said].join(' ')
   })
   return [...(counted === null ? [] : [format(cents)]), ...parts].join(' ')
 }

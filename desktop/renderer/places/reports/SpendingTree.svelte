@@ -100,9 +100,9 @@
     {@const parts = figureOf(cents, uncounted, currency)}
     {#snippet amount()}
       {#if parts.counted !== null}<Money of={parts.counted} />{/if}
-      {#each parts.uncounted as { money, plus } (money.currency)}
+      {#each parts.uncounted as { money, sign } (money.currency)}
         {' '}<span class="uncounted" data-uncounted
-          >{#if plus}{copy.reports.tree.plus}{' '}{/if}<Money of={money} /></span
+          >{#if sign !== null}{copy.reports.tree[sign]}{' '}{/if}<Money of={money} /></span
         >
       {/each}
     {/snippet}

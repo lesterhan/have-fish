@@ -38,8 +38,10 @@ export const reports = {
     open: '▼',
     /** A week with nothing spent on it. */
     dash: '–',
-    /** `+`, before each uncounted amount under a figure, but not the first when nothing counted. */
+    /** `+`, before each uncounted amount above zero, all but the first when nothing counted. */
     plus: '+',
+    /** `−`, the same place, before a refund the week couldn't count: one below zero. */
+    minus: '−',
     change: { more: 'more', less: 'less', same: 'same' },
     total: 'All spending',
     empty: 'No spending in this week or the week before.',
