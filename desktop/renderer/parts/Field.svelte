@@ -59,6 +59,11 @@
     background: transparent;
   }
 
+  /* A select's open list is painted from its options' background, white when see-through. */
+  .field :global(option) {
+    background: var(--color-background);
+  }
+
   /* The control and what's beside it, such as an amount's currency. */
   .figures > :global(:not(label, p)) {
     font-family: var(--font-figures);
