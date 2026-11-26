@@ -446,12 +446,17 @@ describe('fixing the amounts of a converted spend', () => {
 })
 
 describe('a converted spend in Reports', () => {
-  test('the dinner: Unsorted counts the 36.20 it cost', async () => {
+  /** The dinner in Reports, wide enough for Last week, with ¥1,500 from cash on `yenOn` if set. */
+  async function aDinnerInReports(yenOn?: string): Promise<Page> {
     const page = await aDinner()
-    // Wide enough for the week before's column.
+    if (yenOn !== undefined) await yenFromCash(page, yenOn)
     await page.setViewportSize({ width: 1440, height: 900 })
-
     await goTo(page, 'Reports')
+    return page
+  }
+
+  test('the dinner: Unsorted counts the 36.20 it cost', async () => {
+    const page = await aDinnerInReports()
 
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
   })
@@ -485,41 +490,25 @@ describe('a converted spend in Reports', () => {
   })
 
   test('a guess last week: the change is wavy', async () => {
-    const page = await aDinner()
-    await yenFromCash(page, daysAgo(7))
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports(daysAgo(7))
 
     await expectWavy(page, treeRow(page, 'Unsorted').locator('[data-cell=change] [data-look]'))
   })
 
   test('a guess last week: This week has no line', async () => {
-    const page = await aDinner()
-    await yenFromCash(page, daysAgo(7))
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports(daysAgo(7))
 
     await expectNoLine(treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
   })
 
   test('the dinner alone: its figure has no line', async () => {
-    const page = await aDinner()
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports()
 
     await expectNoLine(treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
   })
 
   test('a guess last week: its Last week cell and the change are underlined, its This week is not', async () => {
-    const page = await aDinner()
-    await yenFromCash(page, daysAgo(7))
-    // Wide enough for the week before's column.
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports(daysAgo(7))
 
     const unsorted = treeRow(page, 'Unsorted')
     await expect.poll(() => unsorted.locator('[data-cell=before] [data-guessed]').count()).toBe(1)
@@ -546,23 +535,14 @@ describe('a converted spend in Reports', () => {
   })
 
   test('the dinner alone: no cell of the tree is underlined', async () => {
-    const page = await aDinner()
-    // Wide enough for the week before's column.
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports()
 
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
     await expect.poll(() => page.locator('[data-guessed]').count()).toBe(0)
   })
 
   test('the dinner and the yen from cash: no line reads “Not in these totals”', async () => {
-    const page = await aDinner()
-    await yenFromCash(page)
-    // Wide enough for the week before's column.
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    await goTo(page, 'Reports')
+    const page = await aDinnerInReports(today())
 
     await expect.poll(() => reportTree(page)).toEqual(['Unsorted | 36.20 | – | 36.20 more'])
     await expect.poll(() => page.getByText('Not in these totals').count()).toBe(0)
