@@ -125,7 +125,7 @@
     counted('food:groceries', 5000),
     counted('food:coffee', 450, 'borrowed'),
     counted('food', 500),
-    counted('transport', 3000),
+    counted('transport', 3000, 'estimate'),
     counted('entertainment', 1000),
   ]
   const TREE_BEFORE = [
@@ -264,7 +264,7 @@
   </section>
 
   <section aria-label="SpendingTree">
-    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same, and a guess underlined</h2>
+    <h2>SpendingTree: a week beside the one before; food open, a dash, and more, less and same, a guess wavy and a fetched rate dashed</h2>
     <div class="frame"><SpendingTree
         rows={TREE_ROWS}
         sums={TREE_SUMS}

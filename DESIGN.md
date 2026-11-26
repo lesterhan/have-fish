@@ -72,6 +72,10 @@ for amounts and dates, the code mono for account paths and a bank's own text.
   say the code.
 - **A row's sign reads without colour**: a spend has none, money in has `+` and the money-in
   colour, a transfer has ⇄ before it.
+- **A converted figure says how sure it is.** A guess, from a rate borrowed from another day or
+  none at all, has a wavy line in the error's colour, and opens the days behind it. One from a
+  fetched rate has a dashed line, muted. One from an exact, cost or typed rate has none. A row or
+  total takes the least sure of its spends, and a change the less sure of its two weeks.
 - **A day** reads `Thu 5 Nov`, with the year when it isn't this one (`Thu 5 Nov 2025`). A day band
   puts `Today ·` or `Yesterday ·` before it. A moment reads `Thu 5 Nov 2026, 12:40`.
 

@@ -129,6 +129,42 @@ async function writeRate(popover: Locator, rate: string, currency?: string) {
 /** The popover's fields' labels, in the order they show. */
 const labelsOf = (popover: Locator) => popover.locator('label').allInnerTexts()
 
+/** How `figure` is underlined: its line, its style and its colour, as painted. */
+const underlineOf = (figure: Locator) =>
+  figure.evaluate((element) => {
+    const painted = getComputedStyle(element)
+    return {
+      line: painted.textDecorationLine,
+      style: painted.textDecorationStyle,
+      colour: painted.textDecorationColor,
+    }
+  })
+
+/** The colour `token` paints, as getComputedStyle writes it. */
+async function paintOf(page: Page, token: string): Promise<string> {
+  return page.evaluate((name) => {
+    const span = document.createElement('span')
+    span.style.color = `var(${name})`
+    document.body.append(span)
+    const painted = getComputedStyle(span).color
+    span.remove()
+    return painted
+  }, token)
+}
+
+/** `figure` underlined wavy, in the error's colour. */
+async function expectWavy(page: Page, figure: Locator) {
+  const error = await paintOf(page, '--color-error')
+  await expect
+    .poll(() => underlineOf(figure))
+    .toEqual({ line: 'underline', style: 'wavy', colour: error })
+}
+
+/** `figure` with no line under it. */
+async function expectNoLine(figure: Locator) {
+  await expect.poll(async () => (await underlineOf(figure)).line).toBe('none')
+}
+
 /** A yen spend today, in Reports with the window wide enough for the week before's column. */
 async function aYenWeek(): Promise<Page> {
   const { page } = await launch(aHome())
@@ -435,6 +471,48 @@ describe('a converted spend in Reports', () => {
       .toEqual(['36.20', '36.20 more'])
   })
 
+  test('a guessed figure’s line is wavy, in the error’s colour', async () => {
+    const page = await aYenWeek()
+
+    await expectWavy(page, treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
+  })
+
+  test('the total’s guessed figure is wavy too', async () => {
+    const page = await aYenWeek()
+
+    const foot = page.locator("p:has-text('All spending')")
+    await expectWavy(page, foot.locator('[data-look]').first())
+  })
+
+  test('a guess last week: the change is wavy', async () => {
+    const page = await aDinner()
+    await yenFromCash(page, daysAgo(7))
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expectWavy(page, treeRow(page, 'Unsorted').locator('[data-cell=change] [data-look]'))
+  })
+
+  test('a guess last week: This week has no line', async () => {
+    const page = await aDinner()
+    await yenFromCash(page, daysAgo(7))
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expectNoLine(treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
+  })
+
+  test('the dinner alone: its figure has no line', async () => {
+    const page = await aDinner()
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expectNoLine(treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
+  })
+
   test('a guess last week: its Last week cell and the change are underlined, its This week is not', async () => {
     const page = await aDinner()
     await yenFromCash(page, daysAgo(7))
@@ -594,6 +672,18 @@ describe('fixing a guessed rate in Reports', () => {
     await expect
       .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
       .toBe(0)
+  })
+
+  test('a rate I typed: the figure has no line', async () => {
+    const page = await aYenWeek()
+    const popover = await openFigure(page, 'shown')
+
+    await writeRate(popover, '0.0091')
+
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
+    await expectNoLine(treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
   })
 
   test('Enter closes the popover, and the tree takes the cursor', async () => {
