@@ -37,7 +37,7 @@
     /** The keys moved the selection to another row. */
     onselect: (key: string) => void
     onkey: (event: KeyboardEvent) => boolean
-    /** An underlined figure clicked: its element, and which row and week it sums. */
+    /** A guessed figure clicked: its element, and which row and week it sums. */
     onguess: (anchor: HTMLElement, figure: GuessedFigure) => void
   }
   let { rows, sums, currency, thisWeek, selectedKey, onpick, onselect, onkey, onguess }: Props =

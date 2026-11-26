@@ -78,7 +78,7 @@
   let selectedId = $state<string | null>(null)
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
-  /** The popover of an underlined figure's guessed days; null when none is open. */
+  /** The popover of a guessed figure's lines; null when none is open. */
   let fixing = $state<{ anchor: HTMLElement; lines: Guess[] } | null>(null)
 
   let tree: SpendingTree
@@ -174,7 +174,7 @@
     opened = next
   }
 
-  /** An underlined figure clicked: the days behind its row and week, for the popover. */
+  /** A guessed figure clicked: the days behind its row and week, for the popover. */
   function openGuesses(anchor: HTMLElement, at: GuessedFigure) {
     fixing = { anchor, lines: guessesFor(at, report?.spent ?? [], earlier?.spent ?? [], rows) }
   }

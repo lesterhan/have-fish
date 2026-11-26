@@ -49,7 +49,7 @@ export const moneyOf = (cents: number, currency: string): Money => ({
   currency,
 })
 
-/** Whether an amount's rate was a guess, so it is underlined. */
+/** Whether an amount's rate was a guess: borrowed or missing. */
 export const guessed = (mark: Mark | null): boolean => mark === 'borrowed' || mark === 'missing'
 
 export type Look = 'guessed' | 'fetched' | 'plain'
@@ -62,7 +62,7 @@ export const lookOf = (mark: Mark | null): Look =>
 export const changeMarkOf = (mark: Mark | null, beforeMark: Mark | null): Mark | null =>
   mark === null ? beforeMark : beforeMark === null ? mark : weaker(mark, beforeMark)
 
-/** An underlined figure: its row by key (null for the total) and the week it sums. */
+/** A figure's place: its row by key (null for the total) and the week it sums. */
 export type GuessedFigure = { key: string | null; week: 'shown' | 'before' | 'both' }
 
 /** A guessed day's name among the popover's lines: its day and currency. */
@@ -95,7 +95,7 @@ export function guessesBehind(
 }
 
 /**
- * The guessed lines behind an underlined figure: its row's, or every row's for the total, in
+ * The guessed lines behind a guessed figure: its row's, or every row's for the total, in
  * its week.
  */
 export function guessesFor(
