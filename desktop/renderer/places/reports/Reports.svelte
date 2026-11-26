@@ -174,7 +174,7 @@
     opened = next
   }
 
-  /** A guessed figure clicked: the days behind its row and week, for the popover. */
+  /** A guessed figure clicked: the lines behind its row and week, for the popover. */
   function openGuesses(anchor: HTMLElement, at: GuessedFigure) {
     fixing = { anchor, lines: guessesFor(at, report?.spent ?? [], earlier?.spent ?? [], rows) }
   }

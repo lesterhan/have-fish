@@ -94,10 +94,7 @@ export function guessesBehind(
   return [...lines.values()]
 }
 
-/**
- * The guessed lines behind a guessed figure: its row's, or every row's for the total, in
- * its week.
- */
+/** The guessed lines behind a figure: its row's, or every row's for the total, in its week. */
 export function guessesFor(
   at: GuessedFigure,
   shown: readonly ReportedSpend[],
