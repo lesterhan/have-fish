@@ -85,8 +85,8 @@ export function guessesBehind(
 }
 
 /**
- * The guessed days an underlined figure sums: its row's, or every row's for the total, in its
- * week.
+ * The guessed lines behind an underlined figure: its row's, or every row's for the total, in
+ * its week.
  */
 export function guessesFor(
   at: GuessedFigure,

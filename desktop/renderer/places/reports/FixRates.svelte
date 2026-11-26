@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The days and currencies whose rate an amount guessed, each with a field for the rate I'd
+  // The lines whose rate an amount guessed, each with a field for the rate I'd
   // give it. Enter writes it and closes; the button writes every borrowed line at the figures
   // shown. Escape, or a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'

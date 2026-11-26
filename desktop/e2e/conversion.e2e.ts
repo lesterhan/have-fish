@@ -518,13 +518,13 @@ describe('fixing a guessed rate in Reports', () => {
     return page
   }
 
-  /** `read`'s figure's labels, once `write`'s took 0.0091 and `cleared` stopped guessing. */
-  async function labelsOnceWritten(
+  /** `read`'s figure, opened once `write`'s took 0.0091 and `cleared` stopped guessing. */
+  async function figureOnceWritten(
     page: Page,
     write: string,
     cleared: string,
     read: string,
-  ): Promise<string[]> {
+  ): Promise<Locator> {
     const popover = await openFigure(page, write)
     await writeRate(popover, '0.0091')
     await expect
@@ -532,9 +532,7 @@ describe('fixing a guessed rate in Reports', () => {
         treeRow(page, 'Unsorted').locator(`[data-cell=${cleared}] [data-guessed]`).count(),
       )
       .toBe(0)
-    const again = await openFigure(page, read)
-    await expect.poll(() => labelsOf(again)).not.toEqual([])
-    return labelsOf(again)
+    return openFigure(page, read)
   }
 
   test('a guessed week figure opens its days, in a dialog named for them', async () => {
@@ -570,21 +568,21 @@ describe('fixing a guessed rate in Reports', () => {
   test('the change writes its yen rate for last week’s day', async () => {
     const page = await aYenWeekAndTheOneBefore()
 
-    const labels = await labelsOnceWritten(page, 'change', 'before', 'shown')
+    const popover = await figureOnceWritten(page, 'change', 'before', 'shown')
 
-    expect(labels).toEqual([
-      `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`,
-    ])
+    await expect
+      .poll(() => labelsOf(popover))
+      .toEqual([`${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`])
   })
 
   test('this week’s figure writes today, and last week borrows it', async () => {
     const page = await aYenWeekAndTheOneBefore()
 
-    const labels = await labelsOnceWritten(page, 'shown', 'shown', 'before')
+    const popover = await figureOnceWritten(page, 'shown', 'shown', 'before')
 
-    expect(labels).toEqual([
-      `${shownDay(daysAgo(7))} · JPY · using 0.0091 from ${shownDay(today())}`,
-    ])
+    await expect
+      .poll(() => labelsOf(popover))
+      .toEqual([`${shownDay(daysAgo(7))} · JPY · using 0.0091 from ${shownDay(today())}`])
   })
 
   test('Enter writes the rate, and the figure stops being a guess', async () => {
@@ -610,19 +608,12 @@ describe('fixing a guessed rate in Reports', () => {
 
   test('a rate written for last week is borrowed by this week', async () => {
     const page = await aYenWeekAndTheOneBefore()
-    const lastWeek = await openFigure(page, 'before')
 
-    await writeRate(lastWeek, '0.0091')
-    await expect
-      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=before] [data-guessed]').count())
-      .toBe(0)
+    const popover = await figureOnceWritten(page, 'before', 'before', 'shown')
 
-    const popover = await openFigure(page, 'shown')
-    const label = `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`
-    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
     await expect
-      .poll(() => popover.getByRole('textbox', { name: label, exact: true }).count())
-      .toBe(1)
+      .poll(() => labelsOf(popover))
+      .toEqual([`${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`])
   })
 
   test('Ctrl+Z takes the rate out, and the figure is a guess again', async () => {
@@ -858,6 +849,13 @@ describe('using the nearest rates in Reports', () => {
   test('a line with no rate is left as it was', async () => {
     const page = await aBorrowedWeek('0.0091', [today()])
     const popover = await openFigure(page, 'shown')
+
+    await expect
+      .poll(() => labelsOf(popover))
+      .toEqual([
+        copy.reports.guesses.missing('EUR'),
+        `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`,
+      ])
 
     await nearestButton(popover).click()
     await expect.poll(() => popover.count()).toBe(0)
