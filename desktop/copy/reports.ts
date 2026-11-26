@@ -7,7 +7,7 @@ export const reports = {
     label: 'The rates this amount guessed',
     borrowed: (day: string, currency: string, rate: string, from: string) =>
       `${day} · ${currency} · using ${rate} from ${from}`,
-    missing: (day: string, currency: string) => `${day} · ${currency} · no rate`,
+    missing: (currency: string) => `${currency} · no rate on any day`,
     nearest: 'Use the nearest rates',
   },
   week: {

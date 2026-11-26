@@ -59,22 +59,29 @@ export type GuessedFigure = { key: string | null; week: 'shown' | 'before' | 'bo
 export const guessKey = (guess: Pick<Guess, 'date' | 'currency'>): string =>
   `${guess.date}-${guess.currency}`
 
+// A missing currency is one line, at its first day; a borrowed day and currency is one each.
+const lineKey = (guess: Guess): string => (guess.from === null ? guess.currency : guessKey(guess))
+
 /**
- * The guessed days behind `line` (every spend's for null), each day and currency once, by day
- * then currency.
+ * The guessed lines behind `line` (every spend's for null), by day then currency: a borrowed
+ * day and currency once each, and a currency with no rate once, at its first day.
  */
 export function guessesBehind(
   spent: readonly ReportedSpend[],
   line: Pick<ComparedLine, 'holds' | 'category'> | null,
 ): Guess[] {
-  const lines = new Map<string, Guess>()
+  const guesses: Guess[] = []
   for (const s of spent) {
     if (s.guess === undefined || (line !== null && !isIn(s, line))) continue
-    lines.set(guessKey(s.guess), s.guess)
+    guesses.push(s.guess)
   }
-  return [...lines.values()].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency),
-  )
+  guesses.sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency))
+  const lines = new Map<string, Guess>()
+  for (const guess of guesses) {
+    const key = lineKey(guess)
+    if (!lines.has(key)) lines.set(key, guess)
+  }
+  return [...lines.values()]
 }
 
 /**
@@ -92,10 +99,10 @@ export function guessesFor(
   return guessesBehind(spent, row)
 }
 
-/** What a guessed day's line says. */
+/** What a guessed line says: a borrowed day's, with its day; a missing currency's, with none. */
 export function guessLabel(guess: Guess, today: string): string {
   const { date, currency, from } = guess
-  if (from === null) return copy.reports.guesses.missing(day(date, today), currency)
+  if (from === null) return copy.reports.guesses.missing(currency)
   return copy.reports.guesses.borrowed(day(date, today), currency, from.rate, day(from.date, today))
 }
 
