@@ -7,10 +7,11 @@
   import type { Compared } from '@have-fish/core/spending'
   import {
     type Change,
+    changeMarkOf,
     changeOf,
-    guessed,
     type GuessedFigure,
     lineLabel,
+    lookOf,
     moneyOf,
     treeColumnsOf,
     type TreeRow,
@@ -36,7 +37,7 @@
     /** The keys moved the selection to another row. */
     onselect: (key: string) => void
     onkey: (event: KeyboardEvent) => boolean
-    /** An underlined figure clicked: its element, and which row and week it sums. */
+    /** A guessed figure clicked: its element, and which row and week it sums. */
     onguess: (anchor: HTMLElement, figure: GuessedFigure) => void
   }
   let { rows, sums, currency, thisWeek, selectedKey, onpick, onselect, onkey, onguess }: Props =
@@ -69,16 +70,18 @@
   }
 </script>
 
-<!-- A guessed figure's money or words, as the button that opens its rates; else plain. -->
-{#snippet atFigure(at: GuessedFigure, pressable: boolean, content: Snippet)}
-  {#if pressable}<button
+<!-- A figure, marked by how sure it is: a guess is the button that opens its days. -->
+{#snippet atFigure(at: GuessedFigure, mark: Mark | null, content: Snippet)}
+  {@const look = lookOf(mark)}
+  {#if look === 'guessed'}<button
       type="button"
       tabindex="-1"
       class="guessed"
       data-guessed
+      data-look={look}
       onclick={(event) => openFix(event, at)}
     >{@render content()}</button
-    >{:else}<span>{@render content()}</span>{/if}
+    >{:else}<span class:fetched={look === 'fetched'} data-look={look}>{@render content()}</span>{/if}
 {/snippet}
 
 {#snippet figure(cents: number | null, mark: Mark | null, at: GuessedFigure)}
@@ -86,7 +89,7 @@
     {copy.reports.tree.dash}
   {:else}
     {#snippet amount()}<Money of={moneyOf(cents, currency)} />{/snippet}
-    {@render atFigure(at, guessed(mark), amount)}
+    {@render atFigure(at, mark, amount)}
   {/if}
 {/snippet}
 
@@ -96,12 +99,12 @@
   beforeMark: Mark | null,
   at: GuessedFigure
 )}
-  {@const changeGuessed = guessed(mark) || guessed(beforeMark)}
+  {@const changeMark = changeMarkOf(mark, beforeMark)}
   {#snippet changeText()}
     {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree
         .change[moved.way]}{:else}{copy.reports.tree.change.same}{/if}
   {/snippet}
-  {@render atFigure(at, changeGuessed, changeText)}
+  {@render atFigure(at, changeMark, changeText)}
 {/snippet}
 
 <div class="tree" bind:clientWidth={width}>
@@ -191,7 +194,7 @@
   }
 
   .guessed {
-    text-decoration: underline;
+    text-decoration: underline wavy var(--color-error);
     padding: 0;
     border: 0;
     background: none;
@@ -199,6 +202,10 @@
     color: inherit;
     cursor: pointer;
     text-align: inherit;
+  }
+
+  .fetched {
+    text-decoration: underline dashed var(--color-muted);
   }
 
   [data-cell='shown'],

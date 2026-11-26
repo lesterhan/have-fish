@@ -3,7 +3,7 @@
 
 import { addDays, weekOf } from '@have-fish/core/calendar-date'
 import { cents, format } from '@have-fish/core/money'
-import type { Mark } from '@have-fish/core/rate-for'
+import { type Mark, weaker } from '@have-fish/core/rate-for'
 import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core/spending'
 import { copy } from '../../../copy'
 import type {
@@ -49,10 +49,20 @@ export const moneyOf = (cents: number, currency: string): Money => ({
   currency,
 })
 
-/** Whether an amount's rate was a guess, so it is underlined. */
+/** Whether an amount's rate was a guess: borrowed or missing. */
 export const guessed = (mark: Mark | null): boolean => mark === 'borrowed' || mark === 'missing'
 
-/** An underlined figure: its row by key (null for the total) and the week it sums. */
+export type Look = 'guessed' | 'fetched' | 'plain'
+
+/** How sure a figure looks: a guess if borrowed or missing, fetched if an estimate, else plain. */
+export const lookOf = (mark: Mark | null): Look =>
+  guessed(mark) ? 'guessed' : mark === 'estimate' ? 'fetched' : 'plain'
+
+/** The change's mark: the weaker of its two weeks', or the one week's that has one. */
+export const changeMarkOf = (mark: Mark | null, beforeMark: Mark | null): Mark | null =>
+  mark === null ? beforeMark : beforeMark === null ? mark : weaker(mark, beforeMark)
+
+/** A figure's place: its row by key (null for the total) and the week it sums. */
 export type GuessedFigure = { key: string | null; week: 'shown' | 'before' | 'both' }
 
 /** A guessed day's name among the popover's lines: its day and currency. */
@@ -84,10 +94,7 @@ export function guessesBehind(
   return [...lines.values()]
 }
 
-/**
- * The guessed lines behind an underlined figure: its row's, or every row's for the total, in
- * its week.
- */
+/** The guessed lines behind a figure: its row's, or every row's for the total, in its week. */
 export function guessesFor(
   at: GuessedFigure,
   shown: readonly ReportedSpend[],

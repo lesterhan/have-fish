@@ -2,7 +2,7 @@
 
 export const reports = {
   title: 'Spending',
-  /** The popover of an underlined figure's guessed days. */
+  /** The popover of a guessed figure's lines. */
   guesses: {
     label: 'The rates this amount guessed',
     borrowed: (day: string, currency: string, rate: string, from: string) =>
