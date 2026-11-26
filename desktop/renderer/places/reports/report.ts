@@ -69,10 +69,14 @@ export function figureOf(cents: number, uncounted: readonly Uncounted[], currenc
   const counted = cents === 0 && uncounted.length > 0 ? null : moneyOf(cents, currency)
   return {
     counted,
-    uncounted: uncounted.map((one, i) => ({
-      money: moneyOf(counted === null && i === 0 ? one.cents : Math.abs(one.cents), one.currency),
-      sign: counted === null && i === 0 ? null : one.cents < 0 ? 'minus' : 'plus',
-    })),
+    uncounted: uncounted.map((one, i) => {
+      // The first said alone keeps its own minus; any after a sign is said without one.
+      const alone = counted === null && i === 0
+      return {
+        money: moneyOf(alone ? one.cents : Math.abs(one.cents), one.currency),
+        sign: alone ? null : one.cents < 0 ? 'minus' : 'plus',
+      }
+    }),
   }
 }
 
