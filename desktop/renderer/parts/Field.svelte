@@ -59,6 +59,12 @@
     background: transparent;
   }
 
+  /* A select's open list is drawn apart from the page, and white under a see-through select,
+     dark mode too: its options carry the page's background, and the select's text. */
+  .field :global(option) {
+    background: var(--color-background);
+  }
+
   /* The control and what's beside it, such as an amount's currency. */
   .figures > :global(:not(label, p)) {
     font-family: var(--font-figures);

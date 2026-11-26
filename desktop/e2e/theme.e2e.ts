@@ -1,11 +1,11 @@
-// Choosing a theme from the View menu, and the settings file it lives in. Keys go through
-// xdotool, so the menu sees them as it would yours.
+// Choosing a theme from the View menu, the settings file it lives in, and the add form's
+// dropdowns painted in it. Keys go through xdotool, so the menu sees them as it would yours.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, settingsDirIn } from './app'
+import { ADD_ACCOUNT, ADDING, aHome, goTo, launch, settingsDirIn } from './app'
 
 /** The page's background, as painted. */
 const background = (page: Page) =>
@@ -15,7 +15,22 @@ const dark = (page: Page) => page.evaluate(() => matchMedia('(prefers-color-sche
 
 const settingsIn = (home: string) => join(settingsDirIn(home), 'settings.json')
 
+/** A home whose settings.json names `theme`. */
+function homeWithTheme(theme: string): string {
+  const home = aHome()
+  mkdirSync(settingsDirIn(home), { recursive: true })
+  writeFileSync(settingsIn(home), JSON.stringify({ theme }))
+  return home
+}
+
 const settle = (page: Page) => page.waitForTimeout(400)
+
+/** What the page is painted in, the same way. */
+const pagePaint = (page: Page) =>
+  page.evaluate(() => {
+    const { backgroundColor, color } = getComputedStyle(document.body)
+    return `${backgroundColor} ${color}`
+  })
 
 describe('the theme', () => {
   test('Graphite dark, chosen from the View menu, repaints the window and is kept', async () => {
@@ -42,12 +57,49 @@ describe('the theme', () => {
   })
 
   test('a settings file with a theme it does not know opens, following the system', async () => {
-    const home = aHome()
-    mkdirSync(settingsDirIn(home), { recursive: true })
-    writeFileSync(settingsIn(home), JSON.stringify({ theme: 'solarized' }))
-
-    const { page } = await launch(home)
+    const { page } = await launch(homeWithTheme('solarized'))
 
     expect(await dark(page)).toBe(false)
+  })
+})
+
+/** What each option of the add form's `select[name=<name>]` is painted in: background, text. */
+const optionPaint = (page: Page, name: string) =>
+  page.locator(`${ADDING} select[name=${name}] option`).evaluateAll((options) =>
+    options.map((o) => {
+      const { backgroundColor, color } = getComputedStyle(o)
+      return `${backgroundColor} ${color}`
+    }),
+  )
+
+describe("the add form's dropdowns", () => {
+  test('in Graphite dark each Kind and Currency option is painted as the page is', async () => {
+    const { page } = await launch(homeWithTheme('graphite-dark'))
+    expect(await dark(page)).toBe(true)
+    await goTo(page, 'Accounts')
+    await page.click(ADD_ACCOUNT)
+    await page.waitForSelector(`${ADDING} select[name=currency]`)
+
+    const paint = await pagePaint(page)
+    for (const name of ['kind', 'currency']) {
+      const options = await optionPaint(page, name)
+      expect(options.length, name).toBeGreaterThan(1)
+      expect(options, name).toEqual(options.map(() => paint))
+    }
+  })
+
+  test('in Graphite light each Kind and Currency option is painted as the page is', async () => {
+    const { page } = await launch(homeWithTheme('graphite-light'))
+    expect(await dark(page)).toBe(false)
+    await goTo(page, 'Accounts')
+    await page.click(ADD_ACCOUNT)
+    await page.waitForSelector(`${ADDING} select[name=currency]`)
+
+    const paint = await pagePaint(page)
+    for (const name of ['kind', 'currency']) {
+      const options = await optionPaint(page, name)
+      expect(options.length, name).toBeGreaterThan(1)
+      expect(options, name).toEqual(options.map(() => paint))
+    }
   })
 })
