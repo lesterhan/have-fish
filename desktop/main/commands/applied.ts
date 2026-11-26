@@ -10,13 +10,18 @@ import type Database from 'better-sqlite3'
 import type { BatchOutcome } from '../ledger/apply'
 import { liveAccountAt } from '../ledger/store'
 
-/** The id, once the batch is applied; a refusal without its place in the batch. */
-export function idOf(applied: BatchOutcome, id: string): Outcome<{ id: string }> {
+/** `value`, once the batch is applied; a refusal without its place in the batch. */
+export function outcomeOf<T>(applied: BatchOutcome, value: T): Outcome<T> {
   if (!applied.ok) {
     const { code, details } = applied.failure
     return { ok: false, failure: { code, details } as Failure }
   }
-  return { ok: true, value: { id } }
+  return { ok: true, value }
+}
+
+/** The id, once the batch is applied; a refusal without its place in the batch. */
+export function idOf(applied: BatchOutcome, id: string): Outcome<{ id: string }> {
+  return outcomeOf(applied, { id })
 }
 
 /** The live account at the path, or a new one the app makes, for the same batch. */

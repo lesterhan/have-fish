@@ -8,6 +8,7 @@ import { type ComparedLine, comparedAt, isIn, type Spent } from '@have-fish/core
 import { copy } from '../../../copy'
 import type {
   Guess,
+  InputOf,
   ListedTransaction,
   Money,
   ReportedSpend,
@@ -96,6 +97,13 @@ export function guessLabel(guess: Guess, today: string): string {
   const { date, currency, from } = guess
   if (from === null) return copy.reports.guesses.missing(day(date, today), currency)
   return copy.reports.guesses.borrowed(day(date, today), currency, from.rate, day(from.date, today))
+}
+
+/** The rates the popover's borrowed lines used, as rate.writeAll takes them, in order. */
+export function nearestOf(lines: readonly Guess[]): InputOf<'rate.writeAll'>['rates'] {
+  return lines.flatMap((line) =>
+    line.from === null ? [] : [{ date: line.date, currency: line.currency, rate: line.from.rate }],
+  )
 }
 
 /**

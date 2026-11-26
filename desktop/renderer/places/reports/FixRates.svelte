@@ -1,14 +1,16 @@
 <script lang="ts">
   // The days and currencies whose rate an amount guessed, each with a field for the rate I'd
-  // give it. Enter writes it and closes; Escape, or a click away, closes with nothing written.
+  // give it. Enter writes it and closes; the button writes every borrowed line at the figures
+  // shown. Escape, or a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
+  import Button from '../../parts/Button.svelte'
   import Field from '../../parts/Field.svelte'
   import { floating } from '../../parts/floating'
   import Popover from '../../parts/Popover.svelte'
-  import { guessKey, guessLabel } from './report'
+  import { guessKey, guessLabel, nearestOf } from './report'
 
   type Props = {
     /** Each day and currency the amount guessed, once, by day then currency. */
@@ -27,6 +29,9 @@
   let layer: HTMLElement | undefined
   // Set as it goes: a write's answer that comes back now has no popover to close.
   let gone = false
+
+  /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
+  const nearest = $derived(nearestOf(lines))
 
   // The first field takes the cursor, so Enter writes without a click.
   onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
@@ -51,6 +56,21 @@
     saving = false
     if (!written.ok) {
       error = { key, words: wordsFor(written) }
+      return
+    }
+    onclose(true)
+  }
+
+  /** The rates used here as typed rates, in one go: what the field holds isn't read. */
+  async function useNearest(): Promise<void> {
+    const first = nearest[0]
+    if (first === undefined || saving) return
+    saving = true
+    const written = await window.haveFish.invoke('rate.writeAll', { rates: nearest })
+    if (gone) return
+    saving = false
+    if (!written.ok) {
+      error = { key: guessKey(first), words: wordsFor(written) }
       return
     }
     onclose(true)
@@ -107,6 +127,11 @@
         </li>
       {/each}
     </ul>
+    {#if nearest.length > 0}
+      <div class="foot">
+        <Button onclick={useNearest}>{copy.reports.guesses.nearest}</Button>
+      </div>
+    {/if}
   </Popover>
 </div>
 
@@ -133,5 +158,9 @@
     padding: var(--space-2);
     overflow-y: auto;
     list-style: none;
+  }
+
+  .foot {
+    padding: var(--space-2);
   }
 </style>

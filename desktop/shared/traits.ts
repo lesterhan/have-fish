@@ -41,6 +41,7 @@ export const traits: TraitsTable = {
   'report.spending': { writes: false, reads: ALL_TYPES },
 
   'rate.write': { writes: true, reads: ALL_TYPES },
+  'rate.writeAll': { writes: true, reads: ALL_TYPES },
 
   'ledger.undo': { writes: true, reads: ALL_TYPES },
   'ledger.redo': { writes: true, reads: ALL_TYPES },

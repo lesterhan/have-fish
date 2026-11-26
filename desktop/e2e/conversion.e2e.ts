@@ -77,19 +77,65 @@ async function aDinner(): Promise<Page> {
 }
 
 /**
- * ¥1,500 from a cash wallet kept to JPY, no rate anywhere: unsorted, and worth nothing in CAD.
- * `on` is its day, today when left out; a second spend from the wallet passes `addWallet` false.
+ * `amount` from a cash wallet kept to `currency`, no rate anywhere. `on` is its day, today when
+ * left out; a second spend from the wallet passes `addWallet` false.
  */
-async function yenFromCash(page: Page, on = '', addWallet = true) {
+async function fromWallet(
+  page: Page,
+  wallet: string,
+  currency: string,
+  amount: string,
+  on = '',
+  addWallet = true,
+) {
   const before = (await rows(page)).length
-  if (addWallet) await addAccount(page, 'suica', 'cash', 'JPY')
+  if (addWallet) await addAccount(page, wallet, 'cash', currency)
   await openComposer(page)
-  await pickPath(page, `${WRITE} input[name=from]`, 'suica')
-  await page.fill(AMOUNT, '1500')
+  await pickPath(page, `${WRITE} input[name=from]`, wallet)
+  await page.fill(AMOUNT, amount)
   if (on !== '') await page.fill(`${WRITE} input[name=date]`, on)
   await page.press(AMOUNT, 'Enter')
   await page.keyboard.press('Escape')
   await expect.poll(() => rows(page)).toHaveLength(before + 1)
+}
+
+/**
+ * ¥1,500 from a cash wallet kept to JPY, no rate anywhere: unsorted, and worth nothing in CAD.
+ * `on` is its day, today when left out; a second spend from the wallet passes `addWallet` false.
+ */
+async function yenFromCash(page: Page, on = '', addWallet = true) {
+  await fromWallet(page, 'suica', 'JPY', '1500', on, addWallet)
+}
+
+/** The popover of the guessed rates behind a figure. */
+const guesses = (page: Page) => page.getByRole('dialog', { name: copy.reports.guesses.label })
+
+/** The Unsorted row's `cell` figure clicked, and the popover it opens. */
+async function openFigure(page: Page, cell: string): Promise<Locator> {
+  await treeRow(page, 'Unsorted').locator(`[data-cell=${cell}] [data-guessed]`).click()
+  return guesses(page)
+}
+
+/** The rate typed in the popover's field, or the field of `currency`, and Enter. */
+async function writeRate(popover: Locator, rate: string, currency?: string) {
+  const field =
+    currency === undefined
+      ? popover.getByRole('textbox')
+      : popover.getByRole('textbox', { name: new RegExp(` · ${currency} · `) })
+  await field.fill(rate)
+  await field.press('Enter')
+}
+
+/** The popover's fields' labels, in the order they show. */
+const labelsOf = (popover: Locator) => popover.locator('label').allInnerTexts()
+
+/** A yen spend today, in Reports with the window wide enough for the week before's column. */
+async function aYenWeek(): Promise<Page> {
+  const { page } = await launch(aHome())
+  await yenFromCash(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await goTo(page, 'Reports')
+  return page
 }
 
 describe('a yen spend my CAD card paid', () => {
@@ -461,15 +507,6 @@ describe('a converted spend in Reports', () => {
 })
 
 describe('fixing a guessed rate in Reports', () => {
-  /** A yen spend today, in Reports with the window wide enough for the week before's column. */
-  async function aYenWeek(): Promise<Page> {
-    const { page } = await launch(aHome())
-    await yenFromCash(page)
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await goTo(page, 'Reports')
-    return page
-  }
-
   /** A yen spend seven days back and one today, the wallet added once. */
   async function aYenWeekAndTheOneBefore(): Promise<Page> {
     const { page } = await launch(aHome())
@@ -480,25 +517,6 @@ describe('fixing a guessed rate in Reports', () => {
     await goTo(page, 'Reports')
     return page
   }
-
-  /** The popover of the guessed rates behind a figure. */
-  const guesses = (page: Page) => page.getByRole('dialog', { name: copy.reports.guesses.label })
-
-  /** The Unsorted row's `cell` figure clicked, and the popover it opens. */
-  async function openFigure(page: Page, cell: string): Promise<Locator> {
-    await treeRow(page, 'Unsorted').locator(`[data-cell=${cell}] [data-guessed]`).click()
-    return guesses(page)
-  }
-
-  /** The rate typed in the popover's field, and Enter. */
-  async function writeRate(popover: Locator, rate: string) {
-    const field = popover.getByRole('textbox')
-    await field.fill(rate)
-    await field.press('Enter')
-  }
-
-  /** The popover's fields' labels, in the order they show. */
-  const labelsOf = (popover: Locator) => popover.locator('label').allInnerTexts()
 
   test('a guessed week figure opens its days, in a dialog named for them', async () => {
     const page = await aYenWeek()
@@ -714,5 +732,147 @@ describe('fixing a guessed rate in Reports', () => {
     await row.locator('[data-cell=shown] [data-guessed]').click()
 
     await expect.poll(() => row.getAttribute('aria-selected')).toBe('false')
+  })
+})
+
+describe('using the nearest rates in Reports', () => {
+  /** The button that writes every borrowed line at the figures the popover showed. */
+  const nearestButton = (popover: Locator) =>
+    popover.getByRole('button', { name: copy.reports.guesses.nearest })
+
+  /** What the Unsorted row's shown cell reads. */
+  const shownText = (page: Page) =>
+    treeRow(page, 'Unsorted').locator('[data-cell=shown]').innerText()
+
+  /**
+   * Yen seven days back and today, `rate` typed for the one seven back: today's borrows it.
+   * `euros` are the days a 10 EUR spend from purse is written on, before Reports opens.
+   */
+  async function aBorrowedWeek(rate = '0.0091', euros: string[] = []): Promise<Page> {
+    const { page } = await launch(aHome())
+    await yenFromCash(page, daysAgo(7))
+    await yenFromCash(page, today(), false)
+    for (const [at, day] of euros.entries()) {
+      await fromWallet(page, 'purse', 'EUR', '10', day, at === 0)
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await goTo(page, 'Reports')
+    const lastWeek = await openFigure(page, 'before')
+    await writeRate(lastWeek, rate, 'JPY')
+    await expect.poll(() => lastWeek.count()).toBe(0)
+    return page
+  }
+
+  test('a borrowed week shows the button under its fields', async () => {
+    const page = await aBorrowedWeek()
+
+    const popover = await openFigure(page, 'shown')
+
+    await expect.poll(() => nearestButton(popover).count()).toBe(1)
+  })
+
+  test('a week with no rate anywhere has no button', async () => {
+    const page = await aYenWeek()
+
+    const popover = await openFigure(page, 'shown')
+
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+    expect(await nearestButton(popover).count()).toBe(0)
+  })
+
+  test('the button writes today’s rate, and the figure stops being a guess', async () => {
+    const page = await aBorrowedWeek()
+    const popover = await openFigure(page, 'shown')
+
+    await nearestButton(popover).click()
+
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
+  })
+
+  test('the button closes the popover', async () => {
+    const page = await aBorrowedWeek()
+    const popover = await openFigure(page, 'shown')
+
+    await nearestButton(popover).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('the tree takes the cursor once the button closes it', async () => {
+    const page = await aBorrowedWeek()
+    const popover = await openFigure(page, 'shown')
+
+    await nearestButton(popover).click()
+
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+  })
+
+  test('the button writes the figures the label showed, not the borrowed day’s whole rate', async () => {
+    const page = await aBorrowedWeek('0.0091234')
+    const popover = await openFigure(page, 'shown')
+    await expect
+      .poll(() => popover.getByRole('textbox', { name: /using 0\.009123 from/ }).count())
+      .toBe(1)
+
+    await nearestButton(popover).click()
+
+    await expect.poll(() => shownText(page)).toContain('13.68')
+  })
+
+  test('a rate typed in a field but not entered is not what the button writes', async () => {
+    const page = await aBorrowedWeek()
+    const popover = await openFigure(page, 'shown')
+    await popover.getByRole('textbox').fill('1.80')
+
+    await nearestButton(popover).click()
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
+
+    await expect.poll(() => shownText(page)).toContain('13.65')
+  })
+
+  test('a line with no rate is left as it was', async () => {
+    const page = await aBorrowedWeek('0.0091', [today()])
+    const popover = await openFigure(page, 'shown')
+
+    await nearestButton(popover).click()
+    await expect.poll(() => popover.count()).toBe(0)
+
+    // The EUR line keeps the cell underlined, so no count says the write landed: read the
+    // popover opened after the reload, and close it again inside the poll.
+    await expect
+      .poll(async () => {
+        const again = await openFigure(page, 'shown')
+        const labels = await labelsOf(again)
+        await page.keyboard.press('Escape')
+        return labels
+      })
+      .toEqual([`${shownDay(today())} · EUR · no rate`])
+  })
+
+  test('one undo takes every rate the button wrote', async () => {
+    const page = await aBorrowedWeek('0.0091', [daysAgo(7), today()])
+    const lastWeek = await openFigure(page, 'before')
+    await writeRate(lastWeek, '1.5', 'EUR')
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=before] [data-guessed]').count())
+      .toBe(0)
+
+    const popover = await openFigure(page, 'shown')
+    await nearestButton(popover).click()
+    await expect.poll(() => popover.count()).toBe(0)
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
+
+    await page.keyboard.press('Control+z')
+
+    const again = await openFigure(page, 'shown')
+    await expect
+      .poll(() => labelsOf(again))
+      .toEqual([expect.stringContaining('using'), expect.stringContaining('using')])
   })
 })

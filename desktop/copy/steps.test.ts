@@ -18,4 +18,12 @@ describe('the words for a step', () => {
       copy.steps.redo.writeRate({ action: 'writeRate', currency: 'GBP', date: '2026-11-05' }),
     ).toBe('Redo GBP rate for 2026-11-05')
   })
+
+  test('name a rate written in one go, by one', () => {
+    expect(copy.steps.said('undo', { action: 'writeAllRates', count: 1 })).toBe('Undo 1 rate')
+  })
+
+  test('count the rates a redo puts back', () => {
+    expect(copy.steps.said('redo', { action: 'writeAllRates', count: 3 })).toBe('Redo 3 rates')
+  })
 })
