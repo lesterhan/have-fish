@@ -1,7 +1,7 @@
 <script lang="ts">
-  // The lines whose rate an amount guessed, each with a field for the rate I'd
-  // give it. Enter writes it and closes; the button writes every borrowed line at the figures
-  // shown. Escape, or a click away, closes with nothing written.
+  // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
+  // writes it and closes; the button writes every borrowed line at the figures shown. Escape, or
+  // a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess } from '../../../shared/commands'
