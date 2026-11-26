@@ -264,16 +264,16 @@ describe('nearestOf', () => {
   })
 
   test('the lines keep the order they came in', () => {
-    const eur = { date: '2026-11-24', currency: 'EUR', from: { date: '2026-11-20', rate: '0.83' } }
     const jpy = {
       date: '2026-11-26',
       currency: 'JPY',
       from: { date: '2026-11-19', rate: '0.009123' },
     }
+    const eur = { date: '2026-11-24', currency: 'EUR', from: { date: '2026-11-20', rate: '0.83' } }
 
-    expect(nearestOf([eur, jpy])).toEqual([
-      { date: '2026-11-24', currency: 'EUR', rate: '0.83' },
+    expect(nearestOf([jpy, eur])).toEqual([
       { date: '2026-11-26', currency: 'JPY', rate: '0.009123' },
+      { date: '2026-11-24', currency: 'EUR', rate: '0.83' },
     ])
   })
 

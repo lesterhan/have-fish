@@ -1,10 +1,10 @@
-// Writing a rate I typed for a day, into the home currency.
+// Writing the rates I typed for a day, one or several as one step, into the home currency.
 
 import type { RateDoc } from '@have-fish/core/documents'
-import type { Failure, Outcome } from '@have-fish/core/outcome'
+import type { Outcome } from '@have-fish/core/outcome'
 import type { InputOf } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
-import { idOf } from '../../commands/applied'
+import { idOf, outcomeOf } from '../../commands/applied'
 import type { Context } from '../../context'
 import { rateId } from '../../ledger/rate-id'
 import { getDocument } from '../../ledger/store'
@@ -50,9 +50,5 @@ export function writeAllRates(
   const docs = input.rates.map((one) => rateDocOf(ctx, one, now))
   const { applied, changes } = applyKeeping(ctx, docs, now, docs)
   record(ctx, { action: 'writeAllRates', count: docs.length }, changes)
-  if (!applied.ok) {
-    const { code, details } = applied.failure
-    return { ok: false, failure: { code, details } as Failure }
-  }
-  return { ok: true, value: { ids: docs.map((doc) => doc.id) } }
+  return outcomeOf(applied, { ids: docs.map((doc) => doc.id) })
 }

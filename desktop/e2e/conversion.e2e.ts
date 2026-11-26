@@ -750,8 +750,8 @@ describe('using the nearest rates in Reports', () => {
    */
   async function aBorrowedWeek(rate = '0.0091', euros: string[] = []): Promise<Page> {
     const { page } = await launch(aHome())
-    await fromWallet(page, 'suica', 'JPY', '1500', daysAgo(7), true)
-    await fromWallet(page, 'suica', 'JPY', '1500', today(), false)
+    await yenFromCash(page, daysAgo(7))
+    await yenFromCash(page, today(), false)
     for (const [at, day] of euros.entries()) {
       await fromWallet(page, 'purse', 'EUR', '10', day, at === 0)
     }
@@ -827,6 +827,9 @@ describe('using the nearest rates in Reports', () => {
     await popover.getByRole('textbox').fill('1.80')
 
     await nearestButton(popover).click()
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
 
     await expect.poll(() => shownText(page)).toContain('13.65')
   })
@@ -838,8 +841,16 @@ describe('using the nearest rates in Reports', () => {
     await nearestButton(popover).click()
     await expect.poll(() => popover.count()).toBe(0)
 
-    const again = await openFigure(page, 'shown')
-    await expect.poll(() => labelsOf(again)).toEqual([`${shownDay(today())} · EUR · no rate`])
+    // The EUR line keeps the cell underlined, so no count says the write landed: read the
+    // popover opened after the reload, and close it again inside the poll.
+    await expect
+      .poll(async () => {
+        const again = await openFigure(page, 'shown')
+        const labels = await labelsOf(again)
+        await page.keyboard.press('Escape')
+        return labels
+      })
+      .toEqual([`${shownDay(today())} · EUR · no rate`])
   })
 
   test('one undo takes every rate the button wrote', async () => {
@@ -853,6 +864,9 @@ describe('using the nearest rates in Reports', () => {
     const popover = await openFigure(page, 'shown')
     await nearestButton(popover).click()
     await expect.poll(() => popover.count()).toBe(0)
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-guessed]').count())
+      .toBe(0)
 
     await page.keyboard.press('Control+z')
 
