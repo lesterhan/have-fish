@@ -346,6 +346,10 @@ export const rows = (page: Page) =>
     all.map((cells) => cells.join(' | ')),
   )
 
+/** The Ledger's selected row: its cells, and its hint while the list has the cursor. */
+export const selectedRow = (page: Page) =>
+  page.locator('ol[aria-label=Ledger] [role=option][aria-selected=true]')
+
 /** The Accounts list as text, one line per account: its cells joined. */
 export const accountLines = (page: Page) =>
   page

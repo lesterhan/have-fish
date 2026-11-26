@@ -4,6 +4,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
 import {
   ADD_ACCOUNT,
   aHome,
@@ -16,6 +17,7 @@ import {
   PANE,
   pickPath,
   rows,
+  selectedRow,
   WRITE,
 } from './app'
 
@@ -152,6 +154,15 @@ describe('a pick from a level is the path picked', () => {
     await page.keyboard.press('Enter')
 
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:tea')
+  })
+
+  test('the selected row’s hint offers refile on a spend', async () => {
+    const { page } = await launch(aHome())
+    await writeIn(page, '4', 'Coffee', 'food:coffee')
+
+    await page.locator(LIST).focus()
+
+    await expect.poll(() => selectedRow(page).innerText()).toContain(copy.spends.list.refile)
   })
 
   test("in the line's To", async () => {

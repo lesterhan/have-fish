@@ -12,7 +12,7 @@ export const HELD: Record<string, Size> = {
   'ledger/Composer.svelte': { lines: 292, props: 10, states: 16 },
   'ledger/PathPicker.svelte': { lines: 226, props: 16, states: 6 },
   'ledger/SpendCard.svelte': { lines: 162, props: 9, states: 2 },
-  'ledger/SpendList.svelte': { lines: 203, props: 23, states: 4 },
+  'ledger/SpendList.svelte': { lines: 200, props: 23, states: 4 },
   'parts/Chip.svelte': { lines: 40, props: 11, states: 0 },
   'parts/Listbox.svelte': { lines: 269, props: 28, states: 5 },
   'parts/Row.svelte': { lines: 56, props: 17, states: 0 },

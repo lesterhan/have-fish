@@ -18,7 +18,7 @@
   import Listbox from '../parts/Listbox.svelte'
   import Money from '../parts/Money.svelte'
   import Path from '../parts/Path.svelte'
-  import { columnsOf, daysOf, wayOf } from './row'
+  import { canRefile, columnsOf, daysOf, wayOf } from './row'
   import { windowKeyOf } from '../shortcuts'
 
   type Props = {
@@ -139,13 +139,10 @@
     return undefined
   }
 
-  /**
-   * R: the selected row's To becomes a path picker. Only a spend of one amount can move, never an
-   * exchange.
-   */
+  /** R: the selected row's To becomes a path picker, where its shape lets To move (`canRefile`). */
   export function refile(): boolean {
     const t = selected()
-    if (t === undefined || t.simple === null || t.shape === 'exchange' || onrefile === undefined) {
+    if (t === undefined || !canRefile(t.shape) || onrefile === undefined) {
       return false
     }
     refiling = t.id
@@ -238,8 +235,9 @@
       {#if day}<Band date={day.date} {today} net={nets?.get(day.date)} />{/if}
     {/snippet}
     {#snippet hint()}
+      {@const t = selected()}
       <Keys key={copy.spends.list.enter} />{copy.spends.list.details}
-      {#if onrefile && selected()?.simple != null}<Keys action="refile" />{copy
+      {#if onrefile && t !== undefined && canRefile(t.shape)}<Keys action="refile" />{copy
           .spends.list.refile}{/if}
     {/snippet}
     {#snippet row(t)}

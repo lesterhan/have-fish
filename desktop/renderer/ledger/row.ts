@@ -10,6 +10,12 @@ export function wayOf(shape: ShapeName): Way {
   return shape === 'transfer' || shape === 'exchange' ? 'between' : 'out'
 }
 
+/** The shapes whose To main moves: an exchange keeps its To, and a start or an other has none. */
+const REFILABLE: ReadonlySet<ShapeName> = new Set(['spend', 'transfer', 'income', 'converted'])
+
+/** Whether R can refile a row of this shape. */
+export const canRefile = (shape: ShapeName): boolean => REFILABLE.has(shape)
+
 /**
  * Each run of rows on one day, in order: the days of a list the window holds whole, such as a
  * report's spends. The ledger's list asks main for its days instead.
