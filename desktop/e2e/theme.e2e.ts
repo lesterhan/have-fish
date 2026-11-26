@@ -25,12 +25,21 @@ function homeWithTheme(theme: string): string {
 
 const settle = (page: Page) => page.waitForTimeout(400)
 
-/** What the page is painted in, the same way. */
+/** What the page is painted in: background, text. */
 const pagePaint = (page: Page) =>
   page.evaluate(() => {
     const { backgroundColor, color } = getComputedStyle(document.body)
     return `${backgroundColor} ${color}`
   })
+
+/** What each option of the add form's `select[name=<name>]` is painted in: background, text. */
+const optionPaint = (page: Page, name: string) =>
+  page.locator(`${ADDING} select[name=${name}] option`).evaluateAll((options) =>
+    options.map((o) => {
+      const { backgroundColor, color } = getComputedStyle(o)
+      return `${backgroundColor} ${color}`
+    }),
+  )
 
 describe('the theme', () => {
   test('Graphite dark, chosen from the View menu, repaints the window and is kept', async () => {
@@ -63,43 +72,35 @@ describe('the theme', () => {
   })
 })
 
-/** What each option of the add form's `select[name=<name>]` is painted in: background, text. */
-const optionPaint = (page: Page, name: string) =>
-  page.locator(`${ADDING} select[name=${name}] option`).evaluateAll((options) =>
-    options.map((o) => {
-      const { backgroundColor, color } = getComputedStyle(o)
-      return `${backgroundColor} ${color}`
-    }),
-  )
-
 describe("the add form's dropdowns", () => {
-  test('in Graphite dark each Kind and Currency option is painted as the page is', async () => {
-    const { page } = await launch(homeWithTheme('graphite-dark'))
-    expect(await dark(page)).toBe(true)
+  /** The add form open on Accounts, in a home whose settings.json names `theme`. */
+  async function addingIn(theme: string): Promise<Page> {
+    const { page } = await launch(homeWithTheme(theme))
     await goTo(page, 'Accounts')
     await page.click(ADD_ACCOUNT)
     await page.waitForSelector(`${ADDING} select[name=currency]`)
+    return page
+  }
 
+  /** Every option of Kind and Currency painted as the page is, and more than one of each. */
+  async function expectOptionsPaintedAsPage(page: Page) {
     const paint = await pagePaint(page)
     for (const name of ['kind', 'currency']) {
       const options = await optionPaint(page, name)
       expect(options.length, name).toBeGreaterThan(1)
       expect(options, name).toEqual(options.map(() => paint))
     }
+  }
+
+  test('in Graphite dark each Kind and Currency option is painted as the page is', async () => {
+    const page = await addingIn('graphite-dark')
+    expect(await dark(page)).toBe(true)
+    await expectOptionsPaintedAsPage(page)
   })
 
   test('in Graphite light each Kind and Currency option is painted as the page is', async () => {
-    const { page } = await launch(homeWithTheme('graphite-light'))
+    const page = await addingIn('graphite-light')
     expect(await dark(page)).toBe(false)
-    await goTo(page, 'Accounts')
-    await page.click(ADD_ACCOUNT)
-    await page.waitForSelector(`${ADDING} select[name=currency]`)
-
-    const paint = await pagePaint(page)
-    for (const name of ['kind', 'currency']) {
-      const options = await optionPaint(page, name)
-      expect(options.length, name).toBeGreaterThan(1)
-      expect(options, name).toEqual(options.map(() => paint))
-    }
+    await expectOptionsPaintedAsPage(page)
   })
 })

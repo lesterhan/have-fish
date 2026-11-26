@@ -59,8 +59,7 @@
     background: transparent;
   }
 
-  /* A select's open list is drawn apart from the page, and white under a see-through select,
-     dark mode too: its options carry the page's background, and the select's text. */
+  /* A select's open list is painted from its options' background, white when see-through. */
   .field :global(option) {
     background: var(--color-background);
   }
