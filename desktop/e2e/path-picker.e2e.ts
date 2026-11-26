@@ -4,7 +4,6 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { copy } from '../copy'
 import {
   ADD_ACCOUNT,
   aHome,
@@ -156,15 +155,6 @@ describe('a pick from a level is the path picked', () => {
     await expect.poll(() => row(page, 'Coffee').innerText()).toContain('food:tea')
   })
 
-  test('the selected row’s hint offers refile on a spend', async () => {
-    const { page } = await launch(aHome())
-    await writeIn(page, '4', 'Coffee', 'food:coffee')
-
-    await page.locator(LIST).focus()
-
-    await expect.poll(() => selectedRow(page).innerText()).toContain(copy.spends.list.refile)
-  })
-
   test("in the line's To", async () => {
     const { page } = await launch(aHome())
     await writeIn(page, '4', 'Coffee', 'food:coffee')
@@ -244,7 +234,7 @@ describe("a refile's list in the room the window has", () => {
   async function refileNearTheBottom(page: Page, key: 'Home' | 'End') {
     await page.focus(LIST)
     await page.keyboard.press(key)
-    const selected = page.locator(`${LIST} li[aria-selected=true]`)
+    const selected = selectedRow(page)
     const at = await selected.boundingBox()
     if (at === null) throw new Error('no spend is selected')
     const width = await page.evaluate(() => innerWidth)

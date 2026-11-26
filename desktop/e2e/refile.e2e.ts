@@ -3,7 +3,18 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, focusedIn, launch, offeredPaths, openComposer, pickPath, rows, WRITE } from './app'
+import { copy } from '../copy'
+import {
+  aHome,
+  focusedIn,
+  launch,
+  offeredPaths,
+  openComposer,
+  pickPath,
+  rows,
+  selectedRow,
+  WRITE,
+} from './app'
 
 const LIST = 'ol[aria-label=Ledger]'
 const OPTIONS = `${LIST} [role=listbox][aria-label="Your categories and accounts"]`
@@ -30,9 +41,9 @@ describe('refiling a spend from the list', () => {
     await writeIn(page, '4', 'Coffee', 'food:coffee')
 
     await page.locator(LIST).focus()
-    const selected = page.locator(`${LIST} li[aria-selected=true]`)
+    const selected = selectedRow(page)
     expect(await selected.innerText()).toContain('Coffee')
-    expect(await selected.innerText()).toContain('R')
+    await expect.poll(() => selected.innerText()).toContain(copy.spends.list.refile)
 
     await page.keyboard.press('r')
     await expect.poll(() => page.locator(REFILE).isVisible()).toBe(true)
@@ -69,7 +80,7 @@ describe('refiling a spend from the list', () => {
     await writeIn(page, '3', 'Bus', 'transport:transit')
     await writeIn(page, '4', 'Coffee', 'food:coffee')
     await page.locator(LIST).focus()
-    expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Coffee')
+    expect(await selectedRow(page).innerText()).toContain('Coffee')
 
     await page.keyboard.press('r')
     await expect.poll(() => page.locator(OPTIONS).isVisible()).toBe(true)
@@ -78,6 +89,6 @@ describe('refiling a spend from the list', () => {
     await expect.poll(() => focusedIn(page)).toBe('Ledger OL')
 
     await page.keyboard.press('ArrowDown')
-    expect(await page.locator(`${LIST} li[aria-selected=true]`).innerText()).toContain('Bus')
+    expect(await selectedRow(page).innerText()).toContain('Bus')
   })
 })
