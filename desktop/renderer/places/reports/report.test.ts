@@ -164,6 +164,53 @@ describe('guessesBehind', () => {
 
     expect(guessesBehind([trusted], null)).toEqual([])
   })
+
+  test('a currency with no rate is one line, at its first day', () => {
+    const spends = [reported('food', '2026-11-05', 'JPY'), reported('fun', '2026-11-07', 'JPY')]
+
+    expect(guessesBehind(spends, null)).toEqual([
+      { date: '2026-11-05', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('the missing line takes the first day, whatever the order given', () => {
+    const spends = [reported('fun', '2026-11-07', 'JPY'), reported('food', '2026-11-05', 'JPY')]
+
+    expect(guessesBehind(spends, null)).toEqual([
+      { date: '2026-11-05', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('each missing currency is its own line', () => {
+    const spends = [reported('food', '2026-11-05', 'JPY'), reported('fun', '2026-11-05', 'EUR')]
+
+    expect(guessesBehind(spends, null)).toEqual([
+      { date: '2026-11-05', currency: 'EUR', from: null },
+      { date: '2026-11-05', currency: 'JPY', from: null },
+    ])
+  })
+
+  test('a borrowed currency keeps a line a day', () => {
+    const spends = [
+      reported('food', '2026-11-05', 'GBP', GBP),
+      reported('fun', '2026-11-06', 'GBP', GBP),
+    ]
+
+    expect(guessesBehind(spends, null)).toEqual([
+      { date: '2026-11-05', currency: 'GBP', from: GBP },
+      { date: '2026-11-06', currency: 'GBP', from: GBP },
+    ])
+  })
+
+  test('the missing line sits at its first day among the others', () => {
+    const spends = [
+      reported('food', '2026-11-06', 'GBP', GBP),
+      reported('food', '2026-11-05', 'JPY'),
+      reported('fun', '2026-11-07', 'JPY'),
+    ]
+
+    expect(guessesBehind(spends, null).map(guessKey)).toEqual(['2026-11-05-JPY', '2026-11-06-GBP'])
+  })
 })
 
 describe('guessesFor', () => {
@@ -227,16 +274,22 @@ describe('guessLabel', () => {
     expect(guessLabel(guess, '2026-11-25')).toBe('Thu 5 Nov · GBP · using 1.71 from Mon 2 Nov')
   })
 
-  test('a missing day says there was no rate', () => {
+  test('a currency with no rate says so, with no day', () => {
     const guess = { date: '2026-11-05', currency: 'JPY', from: null }
 
-    expect(guessLabel(guess, '2026-11-25')).toBe('Thu 5 Nov · JPY · no rate')
+    expect(guessLabel(guess, '2026-11-25')).toBe('JPY · no rate on any day')
   })
 
   test('a day of another year says its year', () => {
-    const guess = { date: '2025-12-29', currency: 'JPY', from: null }
+    const guess = {
+      date: '2025-12-29',
+      currency: 'JPY',
+      from: { date: '2025-12-26', rate: '0.0091' },
+    }
 
-    expect(guessLabel(guess, '2026-01-02')).toBe('Mon 29 Dec 2025 · JPY · no rate')
+    expect(guessLabel(guess, '2026-01-02')).toBe(
+      'Mon 29 Dec 2025 · JPY · using 0.0091 from Fri 26 Dec 2025',
+    )
   })
 })
 

@@ -121,7 +121,7 @@ async function writeRate(popover: Locator, rate: string, currency?: string) {
   const field =
     currency === undefined
       ? popover.getByRole('textbox')
-      : popover.getByRole('textbox', { name: new RegExp(` · ${currency} · `) })
+      : popover.getByRole('textbox', { name: new RegExp(`(^| · )${currency} · `) })
   await field.fill(rate)
   await field.press('Enter')
 }
@@ -518,6 +518,23 @@ describe('fixing a guessed rate in Reports', () => {
     return page
   }
 
+  /** `read`'s figure, opened once `write`'s took 0.0091 and `cleared` stopped guessing. */
+  async function figureOnceWritten(
+    page: Page,
+    write: string,
+    cleared: string,
+    read: string,
+  ): Promise<Locator> {
+    const popover = await openFigure(page, write)
+    await writeRate(popover, '0.0091')
+    await expect
+      .poll(() =>
+        treeRow(page, 'Unsorted').locator(`[data-cell=${cleared}] [data-guessed]`).count(),
+      )
+      .toBe(0)
+    return openFigure(page, read)
+  }
+
   test('a guessed week figure opens its days, in a dialog named for them', async () => {
     const page = await aYenWeek()
 
@@ -525,7 +542,11 @@ describe('fixing a guessed rate in Reports', () => {
 
     await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
     await expect
-      .poll(() => popover.getByRole('textbox', { name: /· JPY · no rate$/ }).count())
+      .poll(() =>
+        popover
+          .getByRole('textbox', { name: copy.reports.guesses.missing('JPY'), exact: true })
+          .count(),
+      )
       .toBe(1)
   })
 
@@ -536,38 +557,32 @@ describe('fixing a guessed rate in Reports', () => {
     await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} INPUT`)
   })
 
-  test('last week’s figure lists last week’s guessed day', async () => {
-    const page = await aYenWeekAndTheOneBefore()
-
-    const popover = await openFigure(page, 'before')
-
-    const lastWeek = `${shownDay(daysAgo(7))} · JPY · no rate`
-    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
-    await expect
-      .poll(() => popover.getByRole('textbox', { name: lastWeek, exact: true }).count())
-      .toBe(1)
-  })
-
-  test('this week’s figure lists this week’s guessed day', async () => {
-    const page = await aYenWeekAndTheOneBefore()
-
-    const popover = await openFigure(page, 'shown')
-
-    const thisWeek = `${shownDay(today())} · JPY · no rate`
-    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
-    await expect
-      .poll(() => popover.getByRole('textbox', { name: thisWeek, exact: true }).count())
-      .toBe(1)
-  })
-
-  test('the change lists both weeks, last week’s first', async () => {
+  test('the change asks once for both weeks’ yen', async () => {
     const page = await aYenWeekAndTheOneBefore()
 
     const popover = await openFigure(page, 'change')
 
+    await expect.poll(() => labelsOf(popover)).toEqual([copy.reports.guesses.missing('JPY')])
+  })
+
+  test('the change writes its yen rate for last week’s day', async () => {
+    const page = await aYenWeekAndTheOneBefore()
+
+    const popover = await figureOnceWritten(page, 'change', 'before', 'shown')
+
     await expect
       .poll(() => labelsOf(popover))
-      .toEqual([`${shownDay(daysAgo(7))} · JPY · no rate`, `${shownDay(today())} · JPY · no rate`])
+      .toEqual([`${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`])
+  })
+
+  test('this week’s figure writes today, and last week borrows it', async () => {
+    const page = await aYenWeekAndTheOneBefore()
+
+    const popover = await figureOnceWritten(page, 'shown', 'shown', 'before')
+
+    await expect
+      .poll(() => labelsOf(popover))
+      .toEqual([`${shownDay(daysAgo(7))} · JPY · using 0.0091 from ${shownDay(today())}`])
   })
 
   test('Enter writes the rate, and the figure stops being a guess', async () => {
@@ -593,19 +608,12 @@ describe('fixing a guessed rate in Reports', () => {
 
   test('a rate written for last week is borrowed by this week', async () => {
     const page = await aYenWeekAndTheOneBefore()
-    const lastWeek = await openFigure(page, 'before')
 
-    await writeRate(lastWeek, '0.0091')
-    await expect
-      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=before] [data-guessed]').count())
-      .toBe(0)
+    const popover = await figureOnceWritten(page, 'before', 'before', 'shown')
 
-    const popover = await openFigure(page, 'shown')
-    const label = `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`
-    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
     await expect
-      .poll(() => popover.getByRole('textbox', { name: label, exact: true }).count())
-      .toBe(1)
+      .poll(() => labelsOf(popover))
+      .toEqual([`${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`])
   })
 
   test('Ctrl+Z takes the rate out, and the figure is a guess again', async () => {
@@ -720,7 +728,11 @@ describe('fixing a guessed rate in Reports', () => {
     const popover = guesses(page)
     await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
     await expect
-      .poll(() => popover.getByRole('textbox', { name: /· JPY · no rate$/ }).count())
+      .poll(() =>
+        popover
+          .getByRole('textbox', { name: copy.reports.guesses.missing('JPY'), exact: true })
+          .count(),
+      )
       .toBe(1)
   })
 
@@ -838,6 +850,13 @@ describe('using the nearest rates in Reports', () => {
     const page = await aBorrowedWeek('0.0091', [today()])
     const popover = await openFigure(page, 'shown')
 
+    await expect
+      .poll(() => labelsOf(popover))
+      .toEqual([
+        copy.reports.guesses.missing('EUR'),
+        `${shownDay(today())} · JPY · using 0.0091 from ${shownDay(daysAgo(7))}`,
+      ])
+
     await nearestButton(popover).click()
     await expect.poll(() => popover.count()).toBe(0)
 
@@ -850,7 +869,7 @@ describe('using the nearest rates in Reports', () => {
         await page.keyboard.press('Escape')
         return labels
       })
-      .toEqual([`${shownDay(today())} · EUR · no rate`])
+      .toEqual([copy.reports.guesses.missing('EUR')])
   })
 
   test('one undo takes every rate the button wrote', async () => {

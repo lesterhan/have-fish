@@ -1,7 +1,7 @@
 <script lang="ts">
-  // The days and currencies whose rate an amount guessed, each with a field for the rate I'd
-  // give it. Enter writes it and closes; the button writes every borrowed line at the figures
-  // shown. Escape, or a click away, closes with nothing written.
+  // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
+  // writes it and closes; the button writes every borrowed line at the figures shown. Escape, or
+  // a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess } from '../../../shared/commands'
@@ -13,7 +13,7 @@
   import { guessKey, guessLabel, nearestOf } from './report'
 
   type Props = {
-    /** Each day and currency the amount guessed, once, by day then currency. */
+    /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
     lines: Guess[]
     /** The figure clicked, which the popover hangs from. */
     anchor: HTMLElement
