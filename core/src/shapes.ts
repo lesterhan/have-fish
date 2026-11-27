@@ -12,11 +12,13 @@ export type ShapeLeg = { accountId: string; cents: number; currency: string }
  * account's opening balance; given what it cost in another currency, it goes through the
  * conversion account `via`, and `opening` is the cost. A converted spend pays a category in
  * another currency, an exchange moves money between accounts of mine into another, each through
- * the conversion account `via`. Anything else is `other`, with its one amount when it has one.
+ * the conversion account `via`. An awaiting spend is a converted one whose charge isn't known
+ * yet: `from` is its zero leg. Anything else is `other`, with its one amount when it has one.
  */
 export type Shape =
   | { shape: 'spend' | 'transfer' | 'income'; from: ShapeLeg; to: ShapeLeg }
   | { shape: 'converted' | 'exchange'; from: ShapeLeg; to: ShapeLeg; via: string }
+  | { shape: 'awaiting'; from: ShapeLeg; to: ShapeLeg; via: string }
   | { shape: 'start'; account: ShapeLeg; opening: ShapeLeg; via?: string }
   | { shape: 'other'; amount: Leg | null }
 
@@ -48,7 +50,8 @@ export function shapeOf(
 /**
  * Four legs: an account of mine paying in one currency, a category or an account of mine getting
  * another, and the conversion account taking each, in any order; or the opening account at one
- * end and an account of mine at the other: a start with its cost. Null for anything else.
+ * end and an account of mine at the other: a start with its cost. Its charge at zero, it is
+ * awaiting. Null for anything else.
  */
 function convertedOf(
   legs: readonly ShapeLeg[],
@@ -60,13 +63,18 @@ function convertedOf(
   if (through.length !== 2 || one === undefined || two === undefined) return null
   if (one.accountId !== two.accountId) return null
   const ends = legs.filter((l) => !through.includes(l))
-  const from = ends.find((l) => l.cents < 0)
+  const from = ends.find((l) => l.cents < 0) ?? ends.find((l) => l.cents === 0)
   const to = ends.find((l) => l.cents > 0)
   if (from === undefined || to === undefined || from.currency === to.currency) return null
   const takes = (end: ShapeLeg) =>
     through.some((l) => l.currency === end.currency && l.cents === -end.cents)
   if (!takes(from) || !takes(to)) return null
   const [out, into, via] = [kindOf(from.accountId), kindOf(to.accountId), one.accountId]
+  // A charge the bank hasn't posted yet waits at zero.
+  if (from.cents === 0)
+    return out !== undefined && isAddable(out) && into === 'category'
+      ? { shape: 'awaiting', from, to, via }
+      : null
   if (out === 'opening' && into !== undefined && isAddable(into))
     return { shape: 'start', account: to, opening: from, via }
   if (into === 'opening' && out !== undefined && isAddable(out))

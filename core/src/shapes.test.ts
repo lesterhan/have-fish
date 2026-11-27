@@ -162,6 +162,41 @@ describe('shapeOf', () => {
     })
   })
 
+  it('a yen spend a CAD card paid at no charge yet is awaiting, from its zero leg', () => {
+    const legs = [leg('f', 840000, 'JPY'), leg('x', -840000, 'JPY'), leg('x', 0), leg('v', 0)]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'awaiting',
+      from: leg('v', 0),
+      to: leg('f', 840000, 'JPY'),
+      via: 'x',
+    })
+  })
+
+  it('an awaiting spend reads the same whatever order its four legs are in', () => {
+    const legs = [leg('v', 0), leg('x', 0), leg('x', -840000, 'JPY'), leg('f', 840000, 'JPY')]
+    expect(shapeOf(legs, kindOf)).toEqual({
+      shape: 'awaiting',
+      from: leg('v', 0),
+      to: leg('f', 840000, 'JPY'),
+      via: 'x',
+    })
+  })
+
+  it('a zero charge to an account of mine is other: an awaiting spend goes to a category', () => {
+    const legs = [leg('w', 840000, 'JPY'), leg('x', -840000, 'JPY'), leg('x', 0), leg('v', 0)]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
+  it('a zero charge paid from an income source is other, not awaiting', () => {
+    const legs = [leg('f', 840000, 'JPY'), leg('x', -840000, 'JPY'), leg('x', 0), leg('i', 0)]
+    expect(shapeOf(legs, kindOf)).toEqual({ shape: 'other', amount: null })
+  })
+
+  it('an awaiting spend’s one amount is the yen it went to', () => {
+    const legs = [leg('f', 840000, 'JPY'), leg('x', -840000, 'JPY'), leg('x', 0), leg('v', 0)]
+    expect(amountOf(shapeOf(legs, kindOf))).toEqual({ cents: 840000, currency: 'JPY' })
+  })
+
   it('cash that holds any currency pays a converted spend too: read from the postings', () => {
     const legs = [
       leg('f', 400000, 'JPY'),
