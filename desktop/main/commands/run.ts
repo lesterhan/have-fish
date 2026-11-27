@@ -51,12 +51,12 @@ export function runCommand(
     return toWire(outcome)
   }
   const ran = run(ctx, command, name, input, log)
-  // Only a command whose traits say it waits answers a Promise; tsc holds its handler to it.
   if (command !== undefined && traits[command].waits === true) {
     return Promise.resolve(ran)
       .catch((e: unknown) => threw(command, e, log))
       .then(finish)
   }
+  // Only a command whose traits say it waits answers a Promise; tsc holds its handler to it.
   return finish(ran as Outcome<unknown>)
 }
 
@@ -85,7 +85,7 @@ function run(
   }
 }
 
-/** A handler that threw, or whose wait was refused: logged without its input. */
+/** A handler that threw, or whose wait was rejected: logged without its input. */
 function threw(command: CommandName, e: unknown, log: Log): Outcome<never> {
   log.error(`${command} threw`, e)
   return failure('UNEXPECTED')

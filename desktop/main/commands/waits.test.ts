@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { failure, type Outcome } from '@have-fish/core/outcome'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Changed } from '../../shared/commands'
 import { type Context, contextFor } from '../context'
 import { anAccount, NOW, tempLedger } from '../ledger/fixtures'
@@ -22,11 +22,13 @@ vi.mock('../../shared/traits', async (original) => {
 /** What a test makes one of the two waiting commands do. */
 type Handler = (ctx: Context, input: unknown) => Outcome<unknown> | Promise<Outcome<unknown>>
 
-const waiting = vi.hoisted(() => ({
-  handler: (() => {
+const waiting = vi.hoisted(() => {
+  /** What a test gets until it sets its own. */
+  const unset: Handler = () => {
     throw new Error('no handler')
-  }) as Handler,
-}))
+  }
+  return { unset, handler: unset }
+})
 
 vi.mock('./registry', async (original) => {
   const actual = await original<typeof import('./registry')>()
@@ -42,9 +44,16 @@ function setup() {
     time: { now: () => NOW, timeZone: () => 'UTC' },
   })
   const lines: string[] = []
+  const errorLines: string[] = []
   const errors: unknown[] = []
-  const log: Log = { info: (line) => lines.push(line), error: (_, e) => errors.push(e) }
-  return { ctx, log, lines, errors, announced }
+  const log: Log = {
+    info: (line) => lines.push(line),
+    error: (line, e) => {
+      errorLines.push(line)
+      errors.push(e)
+    },
+  }
+  return { ctx, log, lines, errorLines, errors, announced }
 }
 
 /** A wait a test ends. */
@@ -78,6 +87,10 @@ const rejects = async (): Promise<Outcome<unknown>> => {
 }
 
 describe('a command that waits', () => {
+  beforeEach(() => {
+    waiting.handler = waiting.unset
+  })
+
   test('a command that waits answers a Promise', () => {
     const { ctx, log } = setup()
     waiting.handler = answersId
@@ -117,6 +130,11 @@ describe('a command that waits', () => {
       ok: false,
       error: 'INPUT_MALFORMED',
     })
+  })
+
+  test('a malformed input to a waiting command answers a Promise', () => {
+    const { ctx, log } = setup()
+    expect(runCommand(ctx, 'account.start', { ...START, id: 'x' }, log)).toBeInstanceOf(Promise)
   })
 
   test("a waiting command's handler is never called for a malformed input", async () => {
@@ -162,10 +180,10 @@ describe('a command that waits', () => {
   })
 
   test("a rejected wait's log never holds the input", async () => {
-    const { ctx, log, lines } = setup()
+    const { ctx, log, lines, errorLines } = setup()
     waiting.handler = rejects
     await runCommand(ctx, 'account.start', { ...START, amount: '4242.17' }, log)
-    expect(lines.filter((line) => /4242/.test(line))).toEqual([])
+    expect([...lines, ...errorLines].filter((line) => /4242/.test(line))).toEqual([])
   })
 
   test("a waiting command's line is written once its wait is over", async () => {
