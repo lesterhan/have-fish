@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
-import { profileNamed, refuseIfOpen, seedInto, topUp } from './commands'
+import { asksHelp, profileNamed, refuseIfOpen, seedInto, seedsFirst, topUp } from './commands'
 import { checkLines, checkSandbox, journalLines, seedJournal } from './journal'
 import { PROFILES } from './profiles'
 import { record } from './record'
@@ -31,19 +31,20 @@ const HELP = `Seeded ledgers for trying the app by hand. Each lives in desktop/.
   bun run seed list                      the profiles, and what's seeded
   bun run try <profile>                  open the packaged app on it, seeding it first if need be
   bun run try journal <file>             open the packaged app on a journal, read afresh
+  bun run seed help, bun run try help    this; --help or -h after either does the same
   bun run scenes:record                  the scenes' fixtures, from fresh seeds (starter, year)
 
 Options:
   --today YYYY-MM-DD   the last day of the ledger (default: today)
   --seed <text>        another seed, for a different ledger of the same shape (default: 1)
-  --fresh              with try: seed it again first
+  --fresh              with try: seed it again first (a profile marked * always is)
   --dev                with try: the dev app (bun run dev) instead of the packaged one
   --no-sandbox         with try: pass Chromium's --no-sandbox, if it won't start without it
   --real               with seed: write the packaged app's own folder, if no ledger is there yet
 
-Profiles:
+Profiles (* starts fresh on every try: no ledger, no settings, as a first start):
 ${Object.entries(PROFILES)
-  .map(([name, p]) => `  ${name.padEnd(9)}${p.about}`)
+  .map(([name, p]) => `${p.fresh ? '* ' : '  '}${name.padEnd(9)}${p.about}`)
   .join('\n')}`
 
 type Args = { words: string[]; flags: Map<string, string | true> }
@@ -129,8 +130,8 @@ function appEnv(at: Where): NodeJS.ProcessEnv {
 
 function tryApp(args: Args, profile: string) {
   const at = sandbox(profile)
-  profileNamed(profile)
-  if (args.flags.has('--fresh') || readSeeded(at) === null) seed(args, profile)
+  const asked = { fresh: args.flags.has('--fresh'), seeded: readSeeded(at) !== null }
+  if (seedsFirst(profileNamed(profile), asked)) seed(args, profile)
   launch(args, at, profile)
 }
 
@@ -173,21 +174,18 @@ function launch(args: Args, at: Where, label: string) {
 
 function main(argv: string[]) {
   const [tool, ...rest] = argv
-  const args = parse(rest)
-  const [first, second, third] = args.words
-  if (tool === 'try') {
-    if (!first) throw new Error('try which profile?')
-    if (first === 'journal') return tryJournal(args, second)
-    return tryApp(args, first)
-  }
   if (tool === 'record') {
     record(['starter', 'year'], join(DESKTOP, 'scenes', 'fixtures'))
     return console.log('Recorded scenes/fixtures/starter.json and scenes/fixtures/year.json')
   }
+  if (asksHelp(rest)) return console.log(HELP)
+  const args = parse(rest)
+  const [first = '', second, third] = args.words
+  if (tool === 'try') {
+    if (first === 'journal') return tryJournal(args, second)
+    return tryApp(args, first)
+  }
   switch (first) {
-    case undefined:
-    case 'help':
-      return console.log(HELP)
     case 'list':
       return list()
     case 'top-up': {

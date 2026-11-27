@@ -110,6 +110,11 @@ export function prepare(where: Where) {
   }
 }
 
+/** Deletes the app's folders whole: its ledger, its settings and its install id. */
+export function removeApp(where: Where) {
+  for (const folder of [where.data, where.config]) rmSync(folder, { recursive: true, force: true })
+}
+
 /** Deletes the ledger file and its WAL, leaving the app's settings and install id. */
 export function removeLedger(where: Where) {
   for (const suffix of ['', '-wal', '-shm'])
