@@ -2,7 +2,7 @@
   import { comparedAt } from '@have-fish/core/spending'
   import { tick, untrack } from 'svelte'
   import { copy } from '../../../copy'
-  import type { Guess, ListedTransaction } from '../../../shared/commands'
+  import type { ListedTransaction } from '../../../shared/commands'
   import { todayIn } from '../../format'
   import Day from '../../parts/Day.svelte'
   import type { LedgerStore } from '../../ledger/ledger'
@@ -11,8 +11,9 @@
   import { query } from '../../ledger/query'
   import { wordsFor } from '../../ledger/refusals'
   import {
+    type Fixing,
     type GuessedFigure,
-    guessesFor,
+    fixingFor,
     spendsBehind,
     spentOf,
     sumText,
@@ -78,8 +79,8 @@
   let selectedId = $state<string | null>(null)
   /** The spend whose details I opened; they stay open while it's the one selected. */
   let openedId = $state<string | null>(null)
-  /** The popover of a guessed figure's lines; null when none is open. */
-  let fixing = $state<{ anchor: HTMLElement; lines: Guess[] } | null>(null)
+  /** A guessed figure's popover, or null; raw, so its days cross to main as plain objects. */
+  let fixing = $state.raw<(Fixing & { anchor: HTMLElement }) | null>(null)
 
   let tree: SpendingTree
   let list: SpendList
@@ -176,7 +177,7 @@
 
   /** A guessed figure clicked: the lines behind its row and week, for the popover. */
   function openGuesses(anchor: HTMLElement, at: GuessedFigure) {
-    fixing = { anchor, lines: guessesFor(at, report?.spent ?? [], earlier?.spent ?? [], rows) }
+    fixing = { anchor, ...fixingFor(at, report?.spent ?? [], earlier?.spent ?? [], rows) }
   }
 
   /** The popover closed, written or not: the tree takes the cursor back only when `back`. */
@@ -277,6 +278,7 @@
       <FixRates
         anchor={fixing.anchor}
         lines={fixing.lines}
+        days={fixing.days}
         today={todayIn()}
         onclose={closeGuesses}
       />

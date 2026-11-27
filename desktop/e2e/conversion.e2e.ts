@@ -2,9 +2,11 @@
 // the row reads the yen, the card says the dollars and the rate, and the card owes the dollars,
 // and Reports counts them.
 
-import { calendarDateAt } from '@have-fish/core/calendar-date'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { addDays, calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Locator, Page } from 'playwright-core'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, onTestFinished, test } from 'vitest'
 import { copy } from '../copy'
 import {
   accountLines,
@@ -170,13 +172,95 @@ async function expectNoLine(figure: Locator) {
   await expect.poll(async () => (await underlineOf(figure)).line).toBe('none')
 }
 
-/** A yen spend today, in Reports with the window wide enough for the week before's column. */
-async function aYenWeek(): Promise<Page> {
-  const { page } = await launch(aHome())
+/** `figure` underlined dashed, in the muted colour: an estimate. */
+async function expectDashed(page: Page, figure: Locator) {
+  const muted = await paintOf(page, '--color-muted')
+  await expect
+    .poll(() => underlineOf(figure))
+    .toEqual({ line: 'underline', style: 'dashed', colour: muted })
+}
+
+/** A yen spend today, in Reports wide enough for the week before; `env` reaches the app. */
+async function aYenWeek(env: Record<string, string> = {}): Promise<Page> {
+  const { page } = await launch(aHome(), env)
   await yenFromCash(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await goTo(page, 'Reports')
   return page
+}
+
+/** Yen seven days back and today, the wallet added once; `env` reaches the app. */
+async function aYenWeekAndTheOneBefore(env: Record<string, string> = {}): Promise<Page> {
+  const { page } = await launch(aHome(), env)
+  await yenFromCash(page, daysAgo(7))
+  // The line keeps the day it was last given, so today's is typed in full.
+  await yenFromCash(page, today(), false)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await goTo(page, 'Reports')
+  return page
+}
+
+/**
+ * Yen seven days back and today, `rate` typed for the one seven back: today's borrows it.
+ * `euros` are the days a 10 EUR spend from purse is written on, before Reports opens; `env`
+ * reaches the app.
+ */
+async function aBorrowedWeek(
+  rate = '0.0091',
+  euros: string[] = [],
+  env: Record<string, string> = {},
+): Promise<Page> {
+  const { page } = await launch(aHome(), env)
+  await yenFromCash(page, daysAgo(7))
+  await yenFromCash(page, today(), false)
+  for (const [at, day] of euros.entries()) {
+    await fromWallet(page, 'purse', 'EUR', '10', day, at === 0)
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await goTo(page, 'Reports')
+  const lastWeek = await openFigure(page, 'before')
+  await writeRate(lastWeek, rate, 'JPY')
+  await expect.poll(() => lastWeek.count()).toBe(0)
+  return page
+}
+
+/** frankfurter.dev's stand-in: `rate` CAD for one of any currency each day asked, or `status`. */
+async function aRateService(rate = '0.0091', status = 200) {
+  let asked = 0
+  const server = createServer((request, response) => {
+    asked += 1
+    const at = new URL(request.url ?? '', 'http://127.0.0.1')
+    if (status !== 200) {
+      // A failed request answers after a moment, as a network's failure does: the app's wait shows.
+      setTimeout(() => {
+        if (response.destroyed) return
+        response.writeHead(status)
+        response.end()
+      }, 150)
+      return
+    }
+    const base = at.searchParams.get('base') ?? ''
+    const quotes = at.searchParams.get('quotes') ?? ''
+    const from = at.searchParams.get('from') ?? ''
+    const to = at.searchParams.get('to') ?? ''
+    const rates = []
+    for (let day = from; day <= to; day = addDays(day, 1)) {
+      rates.push(`{"date":"${day}","base":"${base}","quote":"${quotes}","rate":${rate}}`)
+    }
+    response.writeHead(200, { 'content-type': 'application/json' })
+    response.end(`[${rates.join(',')}]`)
+  })
+  server.listen(0, '127.0.0.1')
+  await new Promise((resolve) => server.once('listening', resolve))
+  onTestFinished(
+    () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections()
+        server.close(() => resolve())
+      }),
+  )
+  const { port } = server.address() as AddressInfo
+  return { env: { HAVE_FISH_RATES_URL: `http://127.0.0.1:${port}/v2/rates` }, asked: () => asked }
 }
 
 describe('a yen spend my CAD card paid', () => {
@@ -640,17 +724,6 @@ describe('a converted spend in Reports', () => {
 })
 
 describe('fixing a guessed rate in Reports', () => {
-  /** A yen spend seven days back and one today, the wallet added once. */
-  async function aYenWeekAndTheOneBefore(): Promise<Page> {
-    const { page } = await launch(aHome())
-    await yenFromCash(page, daysAgo(7))
-    // The line keeps the day it was last given, so today's is typed in full.
-    await yenFromCash(page, today(), false)
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await goTo(page, 'Reports')
-    return page
-  }
-
   /** `read`'s figure, opened once `write`'s took 0.0091 and `cleared` stopped guessing. */
   async function figureOnceWritten(
     page: Page,
@@ -901,25 +974,6 @@ describe('using the nearest rates in Reports', () => {
   const shownText = (page: Page) =>
     treeRow(page, 'Unsorted').locator('[data-cell=shown]').innerText()
 
-  /**
-   * Yen seven days back and today, `rate` typed for the one seven back: today's borrows it.
-   * `euros` are the days a 10 EUR spend from purse is written on, before Reports opens.
-   */
-  async function aBorrowedWeek(rate = '0.0091', euros: string[] = []): Promise<Page> {
-    const { page } = await launch(aHome())
-    await yenFromCash(page, daysAgo(7))
-    await yenFromCash(page, today(), false)
-    for (const [at, day] of euros.entries()) {
-      await fromWallet(page, 'purse', 'EUR', '10', day, at === 0)
-    }
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await goTo(page, 'Reports')
-    const lastWeek = await openFigure(page, 'before')
-    await writeRate(lastWeek, rate, 'JPY')
-    await expect.poll(() => lastWeek.count()).toBe(0)
-    return page
-  }
-
   test('a borrowed week shows the button under its fields', async () => {
     const page = await aBorrowedWeek()
 
@@ -1038,5 +1092,217 @@ describe('using the nearest rates in Reports', () => {
     await expect
       .poll(() => labelsOf(again))
       .toEqual([expect.stringContaining('using'), expect.stringContaining('using')])
+  })
+})
+
+// A packaged build always asks frankfurter.dev, whatever HAVE_FISH_RATES_URL says.
+describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () => {
+  /** The Fetch rates summary, which opens what fetching sends. */
+  const fetchSummary = (popover: Locator) =>
+    popover.locator('summary', { hasText: copy.reports.fetch.open })
+
+  /** Allow this once. */
+  const allowButton = (popover: Locator) =>
+    popover.getByRole('button', { name: copy.reports.fetch.once })
+
+  /** Fetch rates, then Allow this once. */
+  async function allowOnce(popover: Locator) {
+    await fetchSummary(popover).click()
+    await allowButton(popover).click()
+  }
+
+  /** The Unsorted row's guessed figures in `cell`, each a button of its own. */
+  const guessedIn = (page: Page, cell: string) =>
+    treeRow(page, 'Unsorted').locator(`[data-cell=${cell}] [data-guessed]`)
+
+  test('a guessed figure offers Fetch rates', async () => {
+    const page = await aYenWeek()
+
+    const popover = await openFigure(page, 'shown')
+
+    await expect.poll(() => fetchSummary(popover).count()).toBe(1)
+  })
+
+  test('a figure that borrows a rate offers them too', async () => {
+    const page = await aBorrowedWeek()
+
+    const popover = await openFigure(page, 'shown')
+
+    await expect.poll(() => fetchSummary(popover).count()).toBe(1)
+  })
+
+  test('what fetching sends is folded until Fetch is clicked', async () => {
+    const page = await aYenWeek()
+
+    const popover = await openFigure(page, 'shown')
+
+    await expect.poll(() => allowButton(popover).count()).toBe(0)
+  })
+
+  test('Fetch says what is sent, and to whom', async () => {
+    const page = await aYenWeek()
+
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+
+    await expect.poll(() => popover.getByText(copy.reports.fetch.sends).count()).toBe(1)
+  })
+
+  test('opened, it offers Allow this once', async () => {
+    const page = await aYenWeek()
+
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+
+    await expect.poll(() => allowButton(popover).count()).toBe(1)
+  })
+
+  test('nothing is sent until I allow it, and then one request is', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+    await expect.poll(() => popover.getByText(copy.reports.fetch.sends).count()).toBe(1)
+    expect(service.asked()).toBe(0)
+
+    await allowButton(popover).click()
+
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+    expect(service.asked()).toBe(1)
+  })
+
+  test('Allow writes the day, and the figure stops guessing', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+
+    await allowOnce(await openFigure(page, 'shown'))
+
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+  })
+
+  test('the rate it fetched marks the figure an estimate', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+
+    await allowOnce(await openFigure(page, 'shown'))
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+
+    await expectDashed(page, treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
+  })
+
+  test('and the total that holds it', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+
+    await allowOnce(await openFigure(page, 'shown'))
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+
+    const foot = page.locator("p:has-text('All spending')")
+    await expectDashed(page, foot.locator('[data-look]').first())
+  })
+
+  test('a borrowed figure is written too', async () => {
+    const service = await aRateService()
+    const page = await aBorrowedWeek('0.0091', [], service.env)
+
+    await allowOnce(await openFigure(page, 'shown'))
+
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+  })
+
+  test('Allow closes the popover', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+
+    await allowOnce(popover)
+
+    await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('and the tree takes the cursor', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+
+    await allowOnce(await openFigure(page, 'shown'))
+
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+  })
+
+  test('a new popover asks again: once is once', async () => {
+    const service = await aRateService()
+    const page = await aYenWeekAndTheOneBefore(service.env)
+    await allowOnce(await openFigure(page, 'shown'))
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+
+    const lastWeek = await openFigure(page, 'before')
+    await expect.poll(() => allowButton(lastWeek).count()).toBe(0)
+    await fetchSummary(lastWeek).click()
+
+    await expect.poll(() => lastWeek.getByText(copy.reports.fetch.sends).count()).toBe(1)
+  })
+
+  test('a rate typed but not entered is not what a fetch uses', async () => {
+    const service = await aRateService('0.0091')
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await popover.getByRole('textbox').fill('1.80')
+
+    await allowOnce(popover)
+
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+    await expect
+      .poll(() => treeRow(page, 'Unsorted').locator('[data-cell=shown]').innerText())
+      .toContain('13.65')
+  })
+
+  test('Ctrl+Z takes the fetched rates back', async () => {
+    const service = await aRateService()
+    const page = await aYenWeek(service.env)
+    await allowOnce(await openFigure(page, 'shown'))
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(0)
+
+    await page.keyboard.press('Control+z')
+
+    await expect.poll(() => guessedIn(page, 'shown').count()).toBe(1)
+  })
+
+  test('a service that fails says so under the first field', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+
+    await allowOnce(popover)
+
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+  })
+
+  test('and the popover stays', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await allowOnce(popover)
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+
+    await expect.poll(() => popover.count()).toBe(1)
+  })
+
+  test('Escape closes it after a refusal, with Allow’s cursor back', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await allowOnce(popover)
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+
+    await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} BUTTON`)
+    await page.keyboard.press('Escape')
+
+    await expect.poll(() => popover.count()).toBe(0)
   })
 })

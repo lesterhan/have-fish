@@ -174,7 +174,7 @@ function checkAccount(doc: AccountDoc): Outcome<void> {
 }
 
 /** Plain digits with an optional point: `readRate` alone takes a sign and an exponent too. */
-const PLAIN_RATE = /^\d+(\.\d+)?$/
+export const PLAIN_RATE = /^\d+(\.\d+)?$/
 
 /*
  * A rate must:

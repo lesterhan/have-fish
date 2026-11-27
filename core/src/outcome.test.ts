@@ -56,6 +56,7 @@ test('every code takes the detail the table gives it', () => {
   failure('RATE_ID_MISMATCH', { id: '00000000-0000-4000-8000-000000000001' })
   failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' })
   failure('RATE_PUBLISHED_MISSING', { date: '2026-11-05' })
+  failure('RATES_NOT_FETCHED')
 })
 
 test('a code with detail refuses to compile without it', () => {

@@ -44,6 +44,8 @@ const TRAITS = {
 
   'rate.write': { writes: true, reads: ALL_TYPES },
   'rate.writeAll': { writes: true, reads: ALL_TYPES },
+  // It asks frankfurter.dev for the published rates, so it waits.
+  'rate.fetch': { writes: true, reads: ALL_TYPES, waits: true },
 
   'ledger.undo': { writes: true, reads: ALL_TYPES },
   'ledger.redo': { writes: true, reads: ALL_TYPES },

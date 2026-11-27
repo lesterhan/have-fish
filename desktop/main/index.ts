@@ -25,6 +25,7 @@ import { settingsIn } from './machine'
 import { menuTemplate } from './menu'
 import { appName, ledgerDir } from './paths'
 import { APP_URL, CSP, contentTypeOf, devServerFor, fileFor, isAppUrl } from './protocol'
+import { ratesFrom, ratesUrlFor } from './rate-source'
 import { typingFrom, undoItems } from './undo/menu'
 import { createWindow, denyPermissions } from './window'
 
@@ -83,6 +84,7 @@ if (!app.requestSingleInstanceLock()) {
       machine,
       showTheme,
       copy: (text) => clipboard.writeText(text),
+      rateSource: ratesFrom(ratesUrlFor(app.isPackaged, process.env)),
     })
     let typing: Typing = { undo: false, redo: false }
     // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.

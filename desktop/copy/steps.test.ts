@@ -26,4 +26,12 @@ describe('the words for a step', () => {
   test('count the rates a redo puts back', () => {
     expect(copy.steps.said('redo', { action: 'writeAllRates', count: 3 })).toBe('Redo 3 rates')
   })
+
+  test('name a rate fetched in one go, by one', () => {
+    expect(copy.steps.said('undo', { action: 'fetchRates', count: 1 })).toBe('Undo 1 fetched rate')
+  })
+
+  test('count the rates a fetch puts back', () => {
+    expect(copy.steps.said('redo', { action: 'fetchRates', count: 3 })).toBe('Redo 3 fetched rates')
+  })
 })

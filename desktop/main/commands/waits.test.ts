@@ -6,7 +6,7 @@ import { type Context, contextFor } from '../context'
 import { anAccount, NOW, tempLedger } from '../ledger/fixtures'
 import { type Log, runCommand } from './run'
 
-// No command on main waits, so these two are made to.
+// rate.fetch waits on the network, so these two are made to wait in its place.
 vi.mock('../../shared/traits', async (original) => {
   const actual = await original<typeof import('../../shared/traits')>()
   return {
