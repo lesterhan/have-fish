@@ -97,6 +97,8 @@
    */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
     if (!document.hasFocus()) return
+    // Allow disabled while it had the cursor blurs by itself: that is not a click away.
+    if (saving && event.target instanceof HTMLElement && event.target.matches(':disabled')) return
     const next = event.relatedTarget
     if (next instanceof Node && event.currentTarget.contains(next)) return
     onclose(next === null)
