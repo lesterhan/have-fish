@@ -8,7 +8,7 @@ import { contextFor, type Time } from '../../context'
 import { MANUAL, NOW, ok, SYSTEM, tempLedger } from '../../ledger/fixtures'
 import { rateId } from '../../ledger/rate-id'
 import { getDocument } from '../../ledger/store'
-import type { PublishedRate, RateAsk, RateSource } from '../../rate-source'
+import type { PublishedRate, RateAsk, RatePair, RateSource } from '../../rate-source'
 import { undoItems } from '../../undo/menu'
 import { redoLast, undoLast } from '../../undo/steps'
 import { addAccount } from '../accounts/accounts'
@@ -24,20 +24,34 @@ const refusal = (outcome: { ok: boolean; failure?: unknown }) =>
 /** A day and currency a fetch asks the published rate of. */
 const day = (date: string, currency = 'JPY') => ({ date, currency })
 
-function setup(book: Record<string, readonly PublishedRate[] | null> = {}) {
+function setup(
+  book: Record<string, readonly PublishedRate[] | null | 'unread'> = {},
+  ends: Record<string, string | null | 'refused'> = {},
+) {
   const ledger = tempLedger()
   let now = NOW
   const clock: Time = { now: () => now, timeZone: () => 'UTC' }
   const asks: RateAsk[] = []
+  const lastDays: RatePair[] = []
   let held: Promise<void> | null = null
-  /** What the stand-in published, by currency: null refuses, and a code it lacks has none. */
-  const rateSource: RateSource = async (ask) => {
-    asks.push(ask)
-    if (held !== null) await held
-    const rates = book[ask.from]
-    if (rates === undefined) return { ok: true, value: [] }
-    if (rates === null) return failure('RATES_NOT_FETCHED')
-    return { ok: true, value: [...rates] }
+  /** What the stand-in published, by currency: null and 'unread' refuse, a code it lacks has none. */
+  const rateSource: RateSource = {
+    async rates(ask) {
+      asks.push(ask)
+      if (held !== null) await held
+      const rates = book[ask.from]
+      if (rates === undefined) return { ok: true, value: [] }
+      if (rates === null) return failure('RATES_NOT_FETCHED')
+      if (rates === 'unread') return failure('RATES_UNREADABLE')
+      return { ok: true, value: rates.filter((one) => one.date >= ask.start && one.date <= ask.end) }
+    },
+    async lastDay(pair) {
+      lastDays.push(pair)
+      if (held !== null) await held
+      const end = ends[pair.from]
+      if (end === 'refused') return failure('RATES_NOT_FETCHED')
+      return { ok: true, value: end ?? null }
+    },
   }
   /** Holds the stand-in's answers until the function it returns is called. */
   const hold = () => {
@@ -73,7 +87,7 @@ function setup(book: Record<string, readonly PublishedRate[] | null> = {}) {
   const later = () => {
     now += HOUR
   }
-  return { ctx, stored, count, gbpSpend, week, later, asks, hold }
+  return { ctx, stored, count, gbpSpend, week, later, asks, lastDays, hold }
 }
 
 describe('writing a rate', () => {
@@ -698,7 +712,10 @@ describe('fetching rates', () => {
 
     expect(await fetchRates(ctx, { days: [day('2026-11-05')] })).toEqual({
       ok: true,
-      value: { ids: [] },
+      value: {
+        ids: [],
+        missed: [{ date: '2026-11-05', currency: 'JPY', why: 'none', offer: null }],
+      },
     })
     expect(count('rates')).toBe(0)
   })
@@ -876,37 +893,315 @@ describe('fetching rates', () => {
 const manyDays = (count: number) =>
   Array.from({ length: count }, (_, i) => day(addDays('2026-01-01', i)))
 
-describe('a fetch refused', () => {
-  test('one refused answer refuses the whole fetch', async () => {
+describe('a fetch that missed', () => {
+  test('a currency the service refused misses its day, and the other is written', async () => {
     const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
 
-    expect(await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })).toEqual(
-      failure('RATES_NOT_FETCHED'),
+    const { missed } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] }),
     )
+
+    expect(missed).toEqual([
+      { date: '2026-11-05', currency: 'GBP', why: 'RATES_NOT_FETCHED', offer: null },
+    ])
   })
 
-  test('and nothing is written, the answer that came good too', async () => {
+  test('and the day that came is written', async () => {
     const { ctx, count } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
 
-    await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })
+    const { ids } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] }),
+    )
+
+    expect(ids).toEqual([rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM })])
+    expect(count('rates')).toBe(1)
+  })
+
+  test.each([[null, 'RATES_NOT_FETCHED'], ['unread', 'RATES_UNREADABLE']] as const)(
+    'a refused ask misses its day, %s',
+    async (answer, why) => {
+      const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: answer })
+
+      const { missed } = ok(
+        await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] }),
+      )
+
+      expect(missed).toEqual([
+        { date: '2026-11-05', currency: 'GBP', why, offer: null },
+      ])
+    },
+  )
+
+  test('an answer the service never gave is ok, every day missed in the days’ order', async () => {
+    const { ctx } = setup({ GBP: null, JPY: null })
+
+    expect(await fetchRates(ctx, { days: [day('2026-11-05', 'GBP'), day('2026-11-05')] })).toEqual({
+      ok: true,
+      value: {
+        ids: [],
+        missed: [
+          { date: '2026-11-05', currency: 'GBP', why: 'RATES_NOT_FETCHED', offer: null },
+          { date: '2026-11-05', currency: 'JPY', why: 'RATES_NOT_FETCHED', offer: null },
+        ],
+      },
+    })
+  })
+
+  test('and nothing was written', async () => {
+    const { ctx, count } = setup({ GBP: null, JPY: null })
+
+    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP'), day('2026-11-05')] })
 
     expect(count('rates')).toBe(0)
   })
 
-  test('and no step is recorded', async () => {
-    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
+  test('a fetch that wrote nothing adds no step', async () => {
+    const { ctx } = setup({ GBP: null, JPY: null })
     ok(writeRate(ctx, { date: '2026-11-04', currency: 'GBP', rate: '1.72' }))
 
-    const fetched = await fetchRates(ctx, {
-      days: [day('2026-11-05'), day('2026-11-05', 'GBP')],
-    })
+    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP'), day('2026-11-05')] })
 
-    expect(fetched).toEqual(failure('RATES_NOT_FETCHED'))
     expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
       'Undo GBP rate for 2026-11-04',
     )
   })
 
+  test('missed lists the days in the order they came, across currencies', async () => {
+    const { ctx } = setup({ GBP: null, JPY: [] })
+
+    const { missed } = ok(
+      await fetchRates(ctx, {
+        days: [day('2026-11-05', 'GBP'), day('2026-11-03'), day('2026-11-03', 'GBP')],
+      }),
+    )
+
+    expect(missed.map((one) => `${one.date} ${one.currency}`)).toEqual([
+      '2026-11-05 GBP',
+      '2026-11-03 JPY',
+      '2026-11-03 GBP',
+    ])
+  })
+
+  test('a day takes only a rate published in the week before it', async () => {
+    const { ctx, stored } = setup({ JPY: [{ date: '2026-10-29', rate: '0.0089' }] })
+
+    const { ids, missed } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-01'), day('2026-11-20')] }),
+    )
+
+    const doc = stored(ids[0] as string)
+    expect([doc.date, doc.rate]).toEqual(['2026-11-01', '0.0089'])
+    expect(missed).toEqual([
+      { date: '2026-11-20', currency: 'JPY', why: 'none', offer: null },
+    ])
+  })
+
+  test('the last day is asked only for a currency with nothing in its week', async () => {
+    const { ctx, lastDays } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(lastDays).toEqual([])
+  })
+
+  test('a day the service has nothing for, before its last day, offers that last rate', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed).toEqual([
+      {
+        date: '2026-11-05',
+        currency: 'JPY',
+        why: 'none',
+        offer: { date: '2022-02-28', rate: '0.0091' },
+      },
+    ])
+  })
+
+  test('the offer is written by nothing', async () => {
+    const { ctx, count } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(count('rates')).toBe(0)
+  })
+
+  test('the last day, then the rate on it, are asked for the currency', async () => {
+    const { ctx, asks, lastDays } = setup(
+      { JPY: [{ date: '2022-02-28', rate: '0.0091' }] },
+      { JPY: '2022-02-28' },
+    )
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(lastDays).toEqual([{ from: 'JPY', to: 'CAD' }])
+    expect(asks.at(-1)).toEqual({
+      from: 'JPY',
+      to: 'CAD',
+      start: '2022-02-28',
+      end: '2022-02-28',
+    })
+  })
+
+  test('two days with nothing in their weeks share one last day and one rate', async () => {
+    const { ctx, asks, lastDays } = setup(
+      { JPY: [{ date: '2022-02-28', rate: '0.0091' }] },
+      { JPY: '2022-02-28' },
+    )
+
+    const { missed } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-03'), day('2026-11-05')] }),
+    )
+
+    expect(lastDays).toHaveLength(1)
+    expect(asks).toHaveLength(2)
+    expect(missed.map((one) => one.offer)).toEqual([
+      { date: '2022-02-28', rate: '0.0091' },
+      { date: '2022-02-28', rate: '0.0091' },
+    ])
+  })
+
+  test('an end eight days before the day is offered', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-10-28', rate: '0.0089' }] }, { JPY: '2026-10-28' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed[0]?.offer).toEqual({ date: '2026-10-28', rate: '0.0089' })
+  })
+
+  test('a currency with no last day is missed, with no offer', async () => {
+    const { ctx } = setup({ JPY: [] })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed).toEqual([{ date: '2026-11-05', currency: 'JPY', why: 'none', offer: null }])
+  })
+
+  test('and its week is the only ask', async () => {
+    const { ctx, asks } = setup({ JPY: [] })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(asks).toHaveLength(1)
+  })
+
+  test('an end after the day is no offer', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-20', rate: '0.0095' }] }, { JPY: '2026-11-20' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed).toEqual([{ date: '2026-11-05', currency: 'JPY', why: 'none', offer: null }])
+  })
+
+  test('an end after the day asks nothing more', async () => {
+    const { ctx, asks } = setup({ JPY: [] }, { JPY: '2026-11-20' })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(asks).toHaveLength(1)
+  })
+
+  test('a last day with no rate on it is no offer', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2022-02-25', rate: '0.0089' }] }, { JPY: '2022-02-28' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed).toEqual([{ date: '2026-11-05', currency: 'JPY', why: 'none', offer: null }])
+  })
+
+  test('a refused last day misses the day with its code', async () => {
+    const { ctx } = setup({ JPY: [] }, { JPY: 'refused' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(missed).toEqual([
+      { date: '2026-11-05', currency: 'JPY', why: 'RATES_NOT_FETCHED', offer: null },
+    ])
+  })
+
+  test('with last, the offer’s day is written at its rate, from the service', async () => {
+    const { ctx, stored } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-05')], last: true }))
+    const doc = stored(ids[0] as string)
+
+    expect({ date: doc.date, rate: doc.rate, published: doc.published, origin: doc.origin.source })
+      .toEqual({
+        date: '2026-11-05',
+        rate: '0.0091',
+        published: '2022-02-28',
+        origin: 'system',
+      })
+  })
+
+  test('and nothing is missed', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+
+    const { missed } = ok(await fetchRates(ctx, { days: [day('2026-11-05')], last: true }))
+
+    expect(missed).toEqual([])
+  })
+
+  test('with last, a day its week covered still takes that rate', async () => {
+    const { ctx, stored } = setup({ JPY: [{ date: '2026-11-04', rate: '0.0092' }] })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-05')], last: true }))
+    const doc = stored(ids[0] as string)
+
+    expect([doc.rate, doc.published]).toEqual(['0.0092', '2026-11-04'])
+  })
+
+  test('and no last day is asked for it', async () => {
+    const { ctx, lastDays } = setup({ JPY: [{ date: '2026-11-04', rate: '0.0092' }] })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')], last: true })
+
+    expect(lastDays).toEqual([])
+  })
+
+  test('one fetched rate is one step', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+    await fetchRates(ctx, { days: [day('2026-11-05')], last: true })
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
+      'Undo 1 fetched rate',
+    )
+  })
+
+  test('a rate fetched from an older day marks the week an estimate', async () => {
+    const { ctx, week } = setup({ JPY: [{ date: '2022-02-28', rate: '0.0091' }] }, { JPY: '2022-02-28' })
+    const wallet = ok(addAccount(ctx, { name: 'cash:jpy', kind: 'cash', currency: 'JPY' })).id
+    ok(
+      writeSpend(ctx, {
+        amount: '1500',
+        description: '',
+        to: { category: 'food' },
+        from: wallet,
+        date: '2026-11-05',
+      }),
+    )
+    expect(week().spent[0]?.mark).toBe('missing')
+
+    await fetchRates(ctx, { days: [day('2026-11-05')], last: true })
+
+    expect(week().spent[0]?.mark).toBe('estimate')
+  })
+
+  test('the schema takes last with the days', () => {
+    const last = { days: [day('2026-11-05')], last: true }
+
+    expect(rateInputs['rate.fetch'].safeParse(last).success).toBe(true)
+  })
+
+  test('the schema refuses last false', () => {
+    const notLast = { days: [day('2026-11-05')], last: false }
+
+    expect(rateInputs['rate.fetch'].safeParse(notLast).success).toBe(false)
+  })
+})
+
+describe('a fetch refused before anything is sent', () => {
   test('a code that is no currency is refused before anything is sent', async () => {
     const { ctx } = setup()
 
@@ -963,7 +1258,10 @@ describe('fetching through the edge', () => {
 
     expect(answer).toEqual({
       ok: true,
-      value: { ids: [rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM })] },
+      value: {
+        ids: [rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM })],
+        missed: [],
+      },
     })
   })
 
@@ -976,14 +1274,21 @@ describe('fetching through the edge', () => {
     expect([...info, ...error].filter((line) => /JPY|2026-11-05/.test(line))).toEqual([])
   })
 
-  test('a refused fetch logs its code, and no error', async () => {
+  test('a fetch that missed logs no day or currency', async () => {
     const { ctx } = setup({ JPY: null })
     const { log, info, error } = aLog()
 
     await runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
 
-    expect(info).toHaveLength(1)
-    expect(info[0] ?? '').toMatch(/ RATES_NOT_FETCHED$/)
+    expect([...info, ...error].filter((line) => /JPY|2026-11-05/.test(line))).toEqual([])
+  })
+
+  test('a fetch that missed logs no error', async () => {
+    const { ctx } = setup({ JPY: null })
+    const { log, error } = aLog()
+
+    await runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
+
     expect(error).toEqual([])
   })
 })

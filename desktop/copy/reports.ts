@@ -16,6 +16,15 @@ export const reports = {
     sends:
       "Fetching sends the currencies and days these amounts need, and your IP address, to frankfurter.dev, which serves the European Central Bank's daily rates.",
     once: 'Allow this once',
+    /** A day the service published nothing for, and one with no rate on or before it. */
+    none: (currency: string, days: string[]) =>
+      days.length === 1
+        ? `The service has no ${currency} rate for this day. Type it.`
+        : `The service has no ${currency} rate for ${or(days)}. Type them.`,
+    /** Its last rate before the missed days, which Use it fetches instead. */
+    older: (currency: string, days: string[], from: string, rate: string) =>
+      `The service has no ${currency} rate within a week of ${or(days)}. Its last, from ${from}, is ${rate}.`,
+    use: 'Use it',
   },
   week: {
     label: 'The week shown',
@@ -63,3 +72,7 @@ export const reports = {
   },
   card: { label: 'The spend picked' },
 }
+
+/** The days as one name: `a`, `a or b`, `a, b or c`. */
+const or = (days: string[]): string =>
+  days.length <= 1 ? (days[0] ?? '') : `${days.slice(0, -1).join(', ')} or ${days.at(-1)}`

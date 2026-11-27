@@ -16,6 +16,7 @@ import type {
   Guess,
   InputOf,
   ListedTransaction,
+  Missed,
   Money,
   ReportedSpend,
   Values,
@@ -144,7 +145,37 @@ export function guessesBehind(
 }
 
 /** A guessed figure's popover: its lines, and every guessed day and currency behind them. */
-export type Fixing = { lines: Guess[]; days: InputOf<'rate.fetch'>['days'] }
+export type Fixing = { lines: Guess[]; days: AskedDay[] }
+
+/** One day and currency a fetch asks for. */
+export type AskedDay = InputOf<'rate.fetch'>['days'][number]
+
+/** The days a guessed line stands for: a missing currency's every day, a borrowed one its own. */
+export function lineDays(line: Guess, days: readonly AskedDay[]): AskedDay[] {
+  if (line.from !== null) return [{ date: line.date, currency: line.currency }]
+  return days.filter((one) => one.currency === line.currency)
+}
+
+/** What a missed line says: its code, else its last rate before it, else that it has none. */
+export function missedWords(missed: readonly Missed[], today: string): string {
+  for (const one of missed) {
+    if (one.why === 'RATES_NOT_FETCHED' || one.why === 'RATES_UNREADABLE') {
+      return copy.errors.codes[one.why]
+    }
+  }
+  const first = missed[0]
+  if (first === undefined) return ''
+  const days = missed.map((one) => day(one.date, today))
+  const offers = missed.filter((one) => one.offer !== null)
+  const offer = offers[0]?.offer
+  if (offer === undefined || offer === null) return copy.reports.fetch.none(first.currency, days)
+  const named = offers.map((one) => day(one.date, today))
+  return copy.reports.fetch.older(first.currency, named, day(offer.date, today), offer.rate)
+}
+
+/** The missed days with an older rate, each once: what a line's Use it fetches. */
+export const offerOf = (missed: readonly Missed[]): AskedDay[] =>
+  missed.flatMap((one) => (one.offer === null ? [] : [{ date: one.date, currency: one.currency }]))
 
 /** The lines behind a guessed figure, and every day and currency it guessed, each once. */
 export function fixingFor(
@@ -155,7 +186,7 @@ export function fixingFor(
 ): Fixing {
   const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
   const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
-  const days = new Map<string, InputOf<'rate.fetch'>['days'][number]>()
+  const days = new Map<string, AskedDay>()
   for (const guess of guessesIn(spent, row)) {
     const one = { date: guess.date, currency: guess.currency }
     if (!days.has(guessKey(one))) days.set(guessKey(one), one)

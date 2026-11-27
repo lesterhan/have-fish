@@ -1,42 +1,46 @@
 <script lang="ts">
   // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
-  // writes it and closes; the button writes every borrowed line at the figures shown; Fetch
-  // says what fetching sends, and Allow this once fetches every guessed day behind the amount.
-  // Escape, or a click away, closes with nothing written.
+  // writes it and closes; the nearest button writes every borrowed line; Fetch says what fetching
+  // sends, and Allow this once fetches every guessed day behind the amount. A fetch that missed
+  // some keeps only those lines, each with its reason. Escape, or a click away, closes.
   import { onDestroy, onMount, tick } from 'svelte'
   import { copy } from '../../../copy'
-  import type { Guess, InputOf, Wire } from '../../../shared/commands'
+  import type { Guess, InputOf, Missed, Wire } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
   import Button from '../../parts/Button.svelte'
   import Field from '../../parts/Field.svelte'
   import Fold from '../../parts/Fold.svelte'
   import { floating } from '../../parts/floating'
   import Popover from '../../parts/Popover.svelte'
-  import { guessKey, guessLabel, nearestOf } from './report'
+  import { guessKey, guessLabel, lineDays, missedWords, nearestOf, offerOf } from './report'
 
   type Props = {
-    /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
     lines: Guess[]
-    /** Every guessed day and currency behind the amount, each once: what a fetch asks for. */
     days: InputOf<'rate.fetch'>['days']
-    /** The figure clicked, which the popover hangs from. */
     anchor: HTMLElement
-    /** Today, so a day of another year says its year. */
     today: string
-    /** Closed, written or not; `back` when the cursor goes back to the tree. */
     onclose: (back: boolean) => void
   }
   let { lines, days, anchor, today, onclose }: Props = $props()
 
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
-  let layer: HTMLElement | undefined
   let allow = $state<Button>()
-  // Set as it goes: a write's answer that comes back now has no popover to close.
+  let left = $state<Missed[] | null>(null)
+  let layer: HTMLElement | undefined
   let gone = false
 
-  /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
   const nearest = $derived(nearestOf(lines))
+
+  function missedOf(line: Guess): Missed[] {
+    const mine = lineDays(line, days).map(guessKey)
+    return (left ?? []).filter((one) => mine.includes(guessKey(one)))
+  }
+
+  const shown = $derived(left === null ? lines : lines.filter((one) => missedOf(one).length > 0))
+
+  const toAsk = (): InputOf<'rate.fetch'>['days'] =>
+    left === null ? days : left.map((one) => ({ date: one.date, currency: one.currency }))
 
   // The first field takes the cursor, so Enter writes without a click.
   onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
@@ -44,18 +48,32 @@
     gone = true
   })
 
-  /** Sends one write: refused, its words go under `key`'s field; else the popover closes. */
-  async function send(key: string, call: () => Promise<Wire<unknown>>): Promise<void> {
-    if (saving) return
+  /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
+  async function send<T>(
+    key: string,
+    call: () => Promise<Wire<T>>,
+    rest?: (value: T) => Missed[],
+  ): Promise<boolean> {
+    if (saving) return false
     saving = true
     const answered = await call()
-    if (gone) return
-    saving = false
+    if (gone) return false
     if (!answered.ok) {
+      saving = false
       error = { key, words: wordsFor(answered) }
-      return
+      return true
     }
-    onclose(true)
+    const kept = rest === undefined ? [] : rest(answered.value)
+    if (kept.length === 0) {
+      saving = false
+      onclose(true)
+      return false
+    }
+    left = kept
+    await tick()
+    layer?.querySelector<HTMLInputElement>('input')?.focus()
+    saving = false
+    return false
   }
 
   /** Enter in a field: the rate typed there is written for that day and currency. */
@@ -84,11 +102,29 @@
   async function fetchOnce(): Promise<void> {
     const first = lines[0]
     if (first === undefined) return
-    await send(guessKey(first), () => window.haveFish.invoke('rate.fetch', { days }))
-    if (gone) return
-    // Disabled while it waited, Allow lost the cursor: a refusal gives it back, so Esc closes.
+    const refused = await send(
+      guessKey(first),
+      () => window.haveFish.invoke('rate.fetch', { days: toAsk() }),
+      (value) => value.missed,
+    )
+    if (gone || !refused) return
     await tick()
     allow?.focus()
+  }
+
+  /** Use it under a line: the last rate before its days, fetched as the service published it. */
+  async function useOffer(line: Guess): Promise<void> {
+    const offered = offerOf(missedOf(line))
+    if (offered.length === 0) return
+    const rest = (value: { missed: Missed[] }): Missed[] => [
+      ...(left ?? []).filter((one) => !offered.some((day) => guessKey(day) === guessKey(one))),
+      ...value.missed,
+    ]
+    await send(
+      guessKey(line),
+      () => window.haveFish.invoke('rate.fetch', { days: offered, last: true }),
+      rest,
+    )
   }
 
   /** Escape anywhere in it closes it, written or not. */
@@ -102,8 +138,8 @@
    */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
     if (!document.hasFocus()) return
-    // Allow disabled while it had the cursor blurs by itself: that is not a click away.
-    if (saving && event.target instanceof HTMLElement && event.target.matches(':disabled')) return
+    // An answer may take a control away, or disable the one with the cursor: not a click away.
+    if (saving) return
     const next = event.relatedTarget
     if (next instanceof Node && event.currentTarget.contains(next)) return
     onclose(next === null)
@@ -123,13 +159,15 @@
   <Popover>
     <div class="body">
       <ul>
-        {#each lines as line (guessKey(line))}
+        {#each shown as line (guessKey(line))}
           {@const key = guessKey(line)}
+          {@const missed = missedOf(line)}
+          {@const words = missed.length === 0 ? null : missedWords(missed, today)}
           <li>
             <Field
               id={`guess-${key}`}
               label={guessLabel(line, today)}
-              error={error?.key === key ? error.words : null}
+              error={error?.key === key ? error.words : words}
               figures
             >
               {#snippet children(describedby)}
@@ -142,6 +180,11 @@
                 />
               {/snippet}
             </Field>
+            {#if offerOf(missed).length > 0}
+              <Button onclick={() => useOffer(line)} disabled={saving}
+                >{copy.reports.fetch.use}</Button
+              >
+            {/if}
           </li>
         {/each}
       </ul>
@@ -187,6 +230,11 @@
     margin: 0;
     padding: var(--space-2);
     list-style: none;
+  }
+
+  li {
+    display: grid;
+    gap: var(--space-1);
   }
 
   .foot {

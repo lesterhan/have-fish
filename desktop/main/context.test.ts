@@ -89,6 +89,7 @@ describe('contextFor, apply and flush', () => {
 
 describe('a context given no rate source', () => {
   const ask = { from: 'JPY', to: 'CAD', start: '2026-11-01', end: '2026-11-05' }
+  const pair = { from: 'JPY', to: 'CAD' }
 
   test('rejects the ask', async () => {
     vi.stubGlobal('fetch', vi.fn())
@@ -97,7 +98,8 @@ describe('a context given no rate source', () => {
     })
     const ctx = contextFor({ ledger: tempLedger(), announce: () => {} })
 
-    await expect(ctx.rateSource(ask)).rejects.toThrow()
+    await expect(ctx.rateSource.rates(ask)).rejects.toThrow()
+    await expect(ctx.rateSource.lastDay(pair)).rejects.toThrow()
   })
 
   test('sends nothing with it', async () => {
@@ -108,7 +110,8 @@ describe('a context given no rate source', () => {
     })
     const ctx = contextFor({ ledger: tempLedger(), announce: () => {} })
 
-    await expect(ctx.rateSource(ask)).rejects.toThrow()
+    await expect(ctx.rateSource.rates(ask)).rejects.toThrow()
+    await expect(ctx.rateSource.lastDay(pair)).rejects.toThrow()
     expect(fetched).not.toHaveBeenCalled()
   })
 })

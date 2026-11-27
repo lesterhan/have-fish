@@ -52,7 +52,8 @@ const codes: { [C in FailureCode]: string } = {
   LEDGER_UNREADABLE: "Your ledger can't be read.",
 
   // Fetching published rates.
-  RATES_NOT_FETCHED: "The rates couldn't be fetched. Check your connection, or type them.",
+  RATES_NOT_FETCHED: "The app couldn't reach the rate service. Try again later, or type it.",
+  RATES_UNREADABLE: "The rate service's answer couldn't be read. Type it.",
 
   // Only a bug reaches these.
   COMMAND_UNKNOWN: TRY_AGAIN,

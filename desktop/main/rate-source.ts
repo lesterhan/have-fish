@@ -15,34 +15,78 @@ export function ratesUrlFor(isPackaged: boolean, env: Record<string, string | un
   return isPackaged ? RATES_URL : env.HAVE_FISH_RATES_URL || RATES_URL
 }
 
+/** One currency into another. */
+export type RatePair = { from: string; to: string }
+
 /** What a fetch asks for: one currency's rates into another, over a span of days. */
-export type RateAsk = { from: string; to: string; start: string; end: string }
+export type RateAsk = RatePair & { start: string; end: string }
 
 /** A day the service published a rate, and the rate as its text was sent. */
 export type PublishedRate = { date: string; rate: string }
 
-/** Each day the service published a rate from `from` to `to`; none for one it doesn't quote. */
-export type RateSource = (ask: RateAsk) => Promise<Outcome<PublishedRate[]>>
+/** The service: each day's published rates over a span, and the last day it published a pair. */
+export type RateSource = {
+  rates(ask: RateAsk): Promise<Outcome<PublishedRate[]>>
+  lastDay(pair: RatePair): Promise<Outcome<string | null>>
+}
 
 /** Asks the service; answers a refusal, never a rejection, and logs nothing. */
 export function ratesFrom(url: string, timeoutMs = 10_000): RateSource {
-  return async (ask) => {
-    try {
-      const at = new URL(url)
-      at.searchParams.set('base', ask.from)
-      at.searchParams.set('quotes', ask.to)
-      at.searchParams.set('from', ask.start)
-      at.searchParams.set('to', ask.end)
-      at.searchParams.set('providers', 'ecb')
-      const answer = await fetch(at, { signal: AbortSignal.timeout(timeoutMs) })
-      if (answer.status === 422) return { ok: true, value: [] }
-      if (!answer.ok) return failure('RATES_NOT_FETCHED')
-      const rates = ratesIn(await answer.text(), ask)
-      return rates === null ? failure('RATES_NOT_FETCHED') : { ok: true, value: rates }
-    } catch {
-      // The error can name the URL, which holds the days and codes: none of it is kept.
-      return failure('RATES_NOT_FETCHED')
-    }
+  return {
+    async rates(ask) {
+      const at = urlAt(url, '', {
+        base: ask.from,
+        quotes: ask.to,
+        from: ask.start,
+        to: ask.end,
+        providers: 'ecb',
+      })
+      if (at === null) return failure('RATES_NOT_FETCHED')
+      const answer = await request(at, (text) => ratesIn(text, ask), [422], timeoutMs)
+      return answer.ok ? { ok: true, value: answer.value ?? [] } : answer
+    },
+    lastDay(pair) {
+      const at = urlAt(url, 'coverage', {
+        base: pair.from,
+        quotes: pair.to,
+        providers: 'ecb',
+      })
+      if (at === null) return Promise.resolve(failure('RATES_NOT_FETCHED'))
+      return request(at, lastDayIn, [404, 422], timeoutMs)
+    },
+  }
+}
+
+/** `path` under the service at `url` with `search`, or null where `url` is no address. */
+function urlAt(url: string, path: string, search: Record<string, string>): URL | null {
+  try {
+    const at = new URL(path, url)
+    for (const [key, value] of Object.entries(search)) at.searchParams.set(key, value)
+    return at
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Asks `at` and reads its answer: a status in `none` is no answer, `null`; another failed one, a
+ * timeout or a throw is a refusal; and a text `read` can't read is a different one.
+ */
+async function request<T>(
+  at: URL,
+  read: (text: string) => T | null,
+  none: readonly number[],
+  timeoutMs: number,
+): Promise<Outcome<T | null>> {
+  try {
+    const answer = await fetch(at, { signal: AbortSignal.timeout(timeoutMs) })
+    if (none.includes(answer.status)) return { ok: true, value: null }
+    if (!answer.ok) return failure('RATES_NOT_FETCHED')
+    const value = read(await answer.text())
+    return value === null ? failure('RATES_UNREADABLE') : { ok: true, value }
+  } catch {
+    // The error can name the URL, which holds the days and codes: none of it is kept.
+    return failure('RATES_NOT_FETCHED')
   }
 }
 
@@ -62,9 +106,8 @@ const ANSWER = z.array(
 
 /** The rates in the service's answer, or null where it isn't one for `ask` the ledger takes. */
 function ratesIn(text: string, ask: RateAsk): PublishedRate[] | null {
-  const parsed = parseKeeping(text, (_key, value, context) =>
-    typeof value === 'number' ? context.source : value,
-  )
+  const parsed = dataOf(text)
+  if (parsed === null) return null
   const answer = ANSWER.safeParse(parsed)
   if (!answer.success) return null
   const rates: PublishedRate[] = []
@@ -75,4 +118,23 @@ function ratesIn(text: string, ask: RateAsk): PublishedRate[] | null {
     rates.push({ date: entry.date, rate: entry.rate })
   }
   return rates
+}
+
+/** The coverage's last day, or null where it isn't one the calendar has. */
+const COVERAGE = z.object({ end_date: z.string() })
+
+function lastDayIn(text: string): string | null {
+  const answer = COVERAGE.safeParse(dataOf(text))
+  return answer.success && isCalendarDate(answer.data.end_date) ? answer.data.end_date : null
+}
+
+/** The text as data, its numbers kept as their own text, or null where it isn't an answer. */
+function dataOf(text: string): unknown {
+  try {
+    return parseKeeping(text, (_key, value, context) =>
+      typeof value === 'number' ? context.source : value,
+    )
+  } catch {
+    return null
+  }
 }
