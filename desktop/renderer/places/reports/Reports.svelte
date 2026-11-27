@@ -1,6 +1,5 @@
 <script lang="ts">
   import { comparedAt } from '@have-fish/core/spending'
-  import { format } from '@have-fish/core/money'
   import { tick, untrack } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess, ListedTransaction } from '../../../shared/commands'
@@ -16,6 +15,7 @@
     guessesFor,
     spendsBehind,
     spentOf,
+    sumText,
     thisWeek,
     treeKey,
     treeRows,
@@ -111,8 +111,8 @@
     report === null || earlier === null
       ? ''
       : (isThisWeek ? copy.reports.sum.thisWeek : copy.reports.sum.another)(
-          format(sums.total),
-          format(sums.before),
+          sumText(sums.total, sums.uncounted, report.currency),
+          sumText(sums.before, sums.beforeUncounted, report.currency),
         ),
   )
 

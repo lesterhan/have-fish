@@ -3,8 +3,17 @@
 
 import { type Mark, weaker } from './rate-for'
 
-/** One spend's money in one category, and its rate's mark; `''` is unsorted. */
-export type Spent = { id: string; category: string; cents: number; mark: Mark }
+/** Money a report couldn't count in its currency, in that money's own cents. */
+export type Uncounted = { currency: string; cents: number }
+
+/** A spend's money in a category, its rate's mark, and what it couldn't count; `''` is unsorted. */
+export type Spent = {
+  id: string
+  category: string
+  cents: number
+  mark: Mark
+  uncounted?: Uncounted
+}
 
 export type SpendingLine = {
   /** Names the line among the level's, for picking it. */
@@ -21,12 +30,20 @@ export type SpendingLine = {
   cents: number
   /** The weakest mark of the spends in it. */
   mark: Mark
+  /** What its spends couldn't count, a currency each by code; none that comes to zero. */
+  uncounted: Uncounted[]
   /** Whether it has categories under it with money in them, so the tree can open it. */
   opens: boolean
 }
 
 /** One level of the breakdown: `''` is the top, else a category's name. */
-export type Level = { total: number; mark: Mark; lines: SpendingLine[] }
+export type Level = {
+  total: number
+  mark: Mark
+  /** What its spends couldn't count, a currency each by code; none that comes to zero. */
+  uncounted: Uncounted[]
+  lines: SpendingLine[]
+}
 
 /** A level's line with the period before beside it: a sum, or null when nothing went to it. */
 export type ComparedLine = Omit<SpendingLine, 'cents' | 'mark'> & {
@@ -38,6 +55,8 @@ export type ComparedLine = Omit<SpendingLine, 'cents' | 'mark'> & {
   mark: Mark | null
   /** The period before's, the same way. */
   beforeMark: Mark | null
+  /** What the period before couldn't count, as `uncounted` is. */
+  beforeUncounted: Uncounted[]
 }
 
 /** One level beside the period before: both sums, and each line's two. */
@@ -46,6 +65,8 @@ export type Compared = {
   before: number
   mark: Mark
   beforeMark: Mark
+  uncounted: Uncounted[]
+  beforeUncounted: Uncounted[]
   lines: ComparedLine[]
 }
 
@@ -58,36 +79,47 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
   const children = new Map<string, Child>()
   let own = 0
   let ownMark: Mark = 'exact'
+  let ownUncounted: Uncounted[] = []
   let hasOwn = false
   for (const s of spent) {
     if (!isUnder(s, level) || (level === '' && s.category === '')) continue
     if (s.category === level) {
       own += s.cents
       ownMark = weaker(ownMark, s.mark)
+      ownUncounted = plus(ownUncounted, s.uncounted)
       hasOwn = true
       continue
     }
     const rest = s.category.slice(level === '' ? 0 : level.length + 1)
     const [next = ''] = rest.split(':')
     const category = level === '' ? next : `${level}:${next}`
-    const child: Child = children.get(category) ?? { cents: 0, mark: 'exact', opens: false }
+    const child: Child = children.get(category) ?? {
+      cents: 0,
+      mark: 'exact',
+      uncounted: [],
+      opens: false,
+    }
     child.cents += s.cents
     child.mark = weaker(child.mark, s.mark)
+    child.uncounted = plus(child.uncounted, s.uncounted)
     child.opens ||= s.category !== category
     children.set(category, child)
   }
 
   // Their order is `comparedAt`'s: this level's lines are worked out once, then sorted with the
   // week before beside them.
-  const lines: SpendingLine[] = [...children].map(([category, { cents, mark, opens }]) => ({
-    key: `category:${category}`,
-    holds: 'category' as const,
-    category,
-    label: labelOf(category),
-    cents,
-    mark,
-    opens,
-  }))
+  const lines: SpendingLine[] = [...children].map(
+    ([category, { cents, mark, uncounted, opens }]) => ({
+      key: `category:${category}`,
+      holds: 'category' as const,
+      category,
+      label: labelOf(category),
+      cents,
+      mark,
+      uncounted,
+      opens,
+    }),
+  )
   if (hasOwn) {
     lines.push({
       key: `own:${level}`,
@@ -96,6 +128,7 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
       label: labelOf(level),
       cents: own,
       mark: ownMark,
+      uncounted: ownUncounted,
       opens: false,
     })
   }
@@ -109,20 +142,35 @@ export function spendingAt(spent: readonly Spent[], level: string): Level {
       label: '',
       cents,
       mark: weakest(unsorted.map((s) => s.mark)),
+      uncounted: unsorted.reduce<Uncounted[]>((so, s) => plus(so, s.uncounted), []),
       opens: false,
     })
   }
 
   const total = lines.reduce((sum, l) => sum + l.cents, 0)
-  return { total, mark: weakest(lines.map((l) => l.mark)), lines }
+  return {
+    total,
+    mark: weakest(lines.map((l) => l.mark)),
+    uncounted: lines.reduce<Uncounted[]>((so, l) => l.uncounted.reduce(plus, so), []),
+    lines,
+  }
 }
 
 /** A category's line as `spendingAt` sums it. */
-type Child = { cents: number; mark: Mark; opens: boolean }
+type Child = { cents: number; mark: Mark; uncounted: Uncounted[]; opens: boolean }
 
 /** The weakest of `marks`; `exact` with none, the one every mark is weaker than. */
 const weakest = (marks: readonly Mark[]): Mark =>
   marks.reduce<Mark>((so, mark) => weaker(so, mark), 'exact')
+
+/** `so` with `one` added to its currency's, kept by code; a currency at zero goes. */
+const plus = (so: readonly Uncounted[], one: Uncounted | undefined): Uncounted[] => {
+  if (one === undefined) return [...so]
+  const cents = (so.find((held) => held.currency === one.currency)?.cents ?? 0) + one.cents
+  const kept = so.filter((held) => held.currency !== one.currency)
+  if (cents !== 0) kept.push({ currency: one.currency, cents })
+  return kept.sort((a, b) => (a.currency < b.currency ? -1 : 1))
+}
 
 /**
  * The same level beside the period before: each line's two sums, this period's biggest first,
@@ -137,7 +185,12 @@ export function comparedAt(
   const now = spendingAt(shown, level)
   const then = spendingAt(before, level)
   const lines = new Map<string, ComparedLine>()
-  const add = (at: Level, sum: 'cents' | 'before', mark: 'mark' | 'beforeMark') => {
+  const add = (
+    at: Level,
+    sum: 'cents' | 'before',
+    mark: 'mark' | 'beforeMark',
+    left: 'uncounted' | 'beforeUncounted',
+  ) => {
     for (const line of at.lines) {
       const kept = lines.get(line.key) ?? {
         ...line,
@@ -145,21 +198,26 @@ export function comparedAt(
         before: null,
         mark: null,
         beforeMark: null,
+        uncounted: [],
+        beforeUncounted: [],
       }
       kept[sum] = line.cents
       kept[mark] = line.mark
+      kept[left] = line.uncounted
       kept.opens ||= line.opens
       lines.set(line.key, kept)
     }
   }
-  add(now, 'cents', 'mark')
-  add(then, 'before', 'beforeMark')
+  add(now, 'cents', 'mark', 'uncounted')
+  add(then, 'before', 'beforeMark', 'beforeUncounted')
   const all = [...lines.values()]
   return {
     total: now.total,
     before: then.total,
     mark: now.mark,
     beforeMark: then.mark,
+    uncounted: now.uncounted,
+    beforeUncounted: then.uncounted,
     lines: [
       ...all.filter((l) => l.holds === 'category').sort(biggerFirst),
       ...all.filter((l) => l.holds === 'own'),

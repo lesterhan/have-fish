@@ -9,14 +9,21 @@ import {
   type SpendingLine,
   type Spent,
   spendingAt,
+  type Uncounted,
 } from './spending'
 
 let n = 0
-const spent = (category: string, cents: number, mark: Mark = 'exact'): Spent => ({
+const spent = (
+  category: string,
+  cents: number,
+  mark: Mark = 'exact',
+  uncounted?: Uncounted,
+): Spent => ({
   id: `s${++n}`,
   category,
   cents,
   mark,
+  ...(uncounted === undefined ? {} : { uncounted }),
 })
 
 /** Each line as `key mark`: the line's own, never the level's. */
@@ -36,7 +43,7 @@ const compared = (l: ComparedLine) =>
 
 describe('spendingAt', () => {
   test('nothing spent: no lines and a total of zero', () => {
-    expect(spendingAt([], '')).toEqual({ total: 0, mark: 'exact', lines: [] })
+    expect(spendingAt([], '')).toEqual({ total: 0, mark: 'exact', uncounted: [], lines: [] })
   })
 
   test('a line carries no share: the bars went with the list they drew', () => {
@@ -132,6 +139,89 @@ describe('spendingAt', () => {
     expect(marks(level)).toEqual(['category:food exact', 'unsorted cost'])
     expect(level.mark).toBe('cost')
   })
+
+  test('a spend with no rate adds its own money to what the line couldn’t count', () => {
+    const level = spendingAt(
+      [spent('food', 1000), spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 })],
+      '',
+    )
+    expect(level.lines.map(({ cents, mark, uncounted }) => ({ cents, mark, uncounted }))).toEqual([
+      { cents: 1000, mark: 'missing', uncounted: [{ currency: 'JPY', cents: 150000 }] },
+    ])
+  })
+
+  test('a line whose spends all counted has nothing uncounted', () => {
+    const [food] = spendingAt([spent('food', 1000)], '').lines
+    expect(food?.uncounted).toEqual([])
+  })
+
+  test('one currency is summed once, from every spend under the line', () => {
+    const [food] = spendingAt(
+      [
+        spent('food:coffee', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+        spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+      ],
+      '',
+    ).lines
+    expect(food?.uncounted).toEqual([{ currency: 'JPY', cents: 300000 }])
+  })
+
+  test('currencies are kept by code, whatever order the spends came in', () => {
+    const [food] = spendingAt(
+      [
+        spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+        spent('food', 0, 'missing', { currency: 'EUR', cents: 1000 }),
+      ],
+      '',
+    ).lines
+    expect(food?.uncounted).toEqual([
+      { currency: 'EUR', cents: 1000 },
+      { currency: 'JPY', cents: 150000 },
+    ])
+  })
+
+  test('a currency that comes to zero goes', () => {
+    const [food] = spendingAt(
+      [
+        spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+        spent('food', 0, 'missing', { currency: 'JPY', cents: -150000 }),
+      ],
+      '',
+    ).lines
+    expect(food?.uncounted).toEqual([])
+  })
+
+  test('a level’s own line and the unsorted line each say their own', () => {
+    const atFood = spendingAt(
+      [
+        spent('food:coffee', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+        spent('food', 0, 'missing', { currency: 'EUR', cents: 1000 }),
+      ],
+      'food',
+    )
+    expect(atFood.lines.find((l) => l.holds === 'category')?.uncounted).toEqual([
+      { currency: 'JPY', cents: 150000 },
+    ])
+    expect(atFood.lines.find((l) => l.holds === 'own')?.uncounted).toEqual([
+      { currency: 'EUR', cents: 1000 },
+    ])
+
+    const atTop = spendingAt([spent('', 0, 'missing', { currency: 'JPY', cents: 150000 })], '')
+    expect(atTop.lines.find((l) => l.holds === 'unsorted')?.uncounted).toEqual([
+      { currency: 'JPY', cents: 150000 },
+    ])
+  })
+
+  test('the level sums what every line couldn’t count', () => {
+    const level = spendingAt(
+      [
+        spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+        spent('', 0, 'missing', { currency: 'JPY', cents: 150000 }),
+      ],
+      '',
+    )
+    expect(level.uncounted).toEqual([{ currency: 'JPY', cents: 300000 }])
+  })
 })
 
 describe('comparedAt', () => {
@@ -141,6 +231,8 @@ describe('comparedAt', () => {
       before: 0,
       mark: 'exact',
       beforeMark: 'exact',
+      uncounted: [],
+      beforeUncounted: [],
       lines: [],
     })
   })
@@ -228,6 +320,35 @@ describe('comparedAt', () => {
   test('a tie goes by name without regard to case', () => {
     const at = comparedAt([spent('Fun', 500), spent('food', 500)], [], '')
     expect(at.lines.map((l) => l.label)).toEqual(['food', 'Fun'])
+  })
+
+  test('each week says what it couldn’t count, a line’s and the level’s', () => {
+    const at = comparedAt(
+      [spent('food', 0, 'missing', { currency: 'JPY', cents: 150000 })],
+      [spent('food', 0, 'missing', { currency: 'EUR', cents: 1000 })],
+      '',
+    )
+    expect(
+      at.lines.map(({ uncounted, beforeUncounted }) => ({ uncounted, beforeUncounted })),
+    ).toEqual([
+      {
+        uncounted: [{ currency: 'JPY', cents: 150000 }],
+        beforeUncounted: [{ currency: 'EUR', cents: 1000 }],
+      },
+    ])
+    expect([at.uncounted, at.beforeUncounted]).toEqual([
+      [{ currency: 'JPY', cents: 150000 }],
+      [{ currency: 'EUR', cents: 1000 }],
+    ])
+  })
+
+  test('a line only the week before has: nothing uncounted this week', () => {
+    const at = comparedAt([], [spent('fun', 0, 'missing', { currency: 'JPY', cents: 150000 })], '')
+    const fun = at.lines.find((l) => l.category === 'fun')
+    expect([fun?.uncounted, fun?.beforeUncounted]).toEqual([
+      [],
+      [{ currency: 'JPY', cents: 150000 }],
+    ])
   })
 })
 

@@ -13,7 +13,7 @@ import { type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
 import { and, between, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { Guess, InputOf, Values } from '../../../shared/commands'
-import { HOME_CURRENCY } from '../../../shared/currency'
+import { HOME_CURRENCY, type Money } from '../../../shared/currency'
 import { perConnection } from '../../db/prepared'
 import { accounts, postings, rates, transactions } from '../../db/schema'
 import { rateOf } from '../../ledger/rows'
@@ -85,6 +85,8 @@ type Amount = {
   mark: Mark
   /** Why the rate is a guess: for a borrowed or missing one, and no other. */
   guess?: Guess
+  /** Its own amount, for a missing one, and no other. */
+  uncounted?: Money
 }
 
 /** The reading in hand for a connection, and the write count it was made at. */
@@ -122,7 +124,12 @@ export function spendingIn(
     // A spend with no rate at all adds nothing to the sums it is in.
     if (rate.mark === 'missing') {
       const guess = { date: leg.date, currency: leg.currency, from: null }
-      return { amount: format(0), mark: rate.mark, guess }
+      return {
+        amount: format(0),
+        mark: rate.mark,
+        guess,
+        uncounted: { amount: format(leg.cents), currency: leg.currency },
+      }
     }
     const amount = format(convert(leg.cents, rate.rate))
     if (rate.mark === 'borrowed') {

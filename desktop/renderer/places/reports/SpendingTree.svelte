@@ -4,11 +4,12 @@
   // what the week came to against the week before.
   import { copy } from '../../../copy'
   import type { Mark } from '@have-fish/core/rate-for'
-  import type { Compared } from '@have-fish/core/spending'
+  import type { Compared, Uncounted } from '@have-fish/core/spending'
   import {
     type Change,
     changeMarkOf,
     changeOf,
+    figureOf,
     type GuessedFigure,
     lineLabel,
     lookOf,
@@ -26,8 +27,11 @@
   type Props = {
     /** The tree's rows, the ones under an open category straight after it. */
     rows: TreeRow[]
-    /** This week's sums and the week before's, in cents, each with its mark. */
-    sums: Pick<Compared, 'total' | 'before' | 'mark' | 'beforeMark'>
+    /** Both weeks' sums in cents, each with its mark and what it couldn't count. */
+    sums: Pick<
+      Compared,
+      'total' | 'before' | 'mark' | 'beforeMark' | 'uncounted' | 'beforeUncounted'
+    >
     currency: string
     /** This week's headings, or another week's. */
     thisWeek: boolean
@@ -84,11 +88,24 @@
     >{:else}<span class:fetched={look === 'fetched'} data-look={look}>{@render content()}</span>{/if}
 {/snippet}
 
-{#snippet figure(cents: number | null, mark: Mark | null, at: GuessedFigure)}
+{#snippet figure(
+  cents: number | null,
+  mark: Mark | null,
+  uncounted: readonly Uncounted[],
+  at: GuessedFigure
+)}
   {#if cents === null}
     {copy.reports.tree.dash}
   {:else}
-    {#snippet amount()}<Money of={moneyOf(cents, currency)} />{/snippet}
+    {@const parts = figureOf(cents, uncounted, currency)}
+    {#snippet amount()}
+      {#if parts.counted !== null}<Money of={parts.counted} />{/if}
+      {#each parts.uncounted as { money, sign } (money.currency)}
+        {' '}<span class="uncounted" data-uncounted
+          >{#if sign !== null}{copy.reports.tree[sign]}{' '}{/if}<Money of={money} /></span
+        >
+      {/each}
+    {/snippet}
     {@render atFigure(at, mark, amount)}
   {/if}
 {/snippet}
@@ -142,11 +159,17 @@
         {/if}
       </span>
       <span data-cell="shown"
-        >{@render figure(line.cents, line.mark, { key: line.key, week: 'shown' })}</span
+        >{@render figure(line.cents, line.mark, line.uncounted, {
+          key: line.key,
+          week: 'shown',
+        })}</span
       >
       {#if shown.cells.includes('before')}
         <span data-cell="before"
-          >{@render figure(line.before, line.beforeMark, { key: line.key, week: 'before' })}</span
+          >{@render figure(line.before, line.beforeMark, line.beforeUncounted, {
+            key: line.key,
+            week: 'before',
+          })}</span
         >
       {/if}
       <span data-cell="change"
@@ -160,11 +183,17 @@
     <p class="total" style:grid-template-columns={shown.template}>
       <span>{copy.reports.tree.total}</span>
       <span class="amount"
-        >{@render figure(sums.total, sums.mark, { key: null, week: 'shown' })}</span
+        >{@render figure(sums.total, sums.mark, sums.uncounted, {
+          key: null,
+          week: 'shown',
+        })}</span
       >
       {#if shown.cells.includes('before')}
         <span class="amount"
-          >{@render figure(sums.before, sums.beforeMark, { key: null, week: 'before' })}</span
+          >{@render figure(sums.before, sums.beforeMark, sums.beforeUncounted, {
+            key: null,
+            week: 'before',
+          })}</span
         >
       {/if}
       <span class="change"
@@ -206,6 +235,12 @@
 
   .fetched {
     text-decoration: underline dashed var(--color-muted);
+  }
+
+  .uncounted {
+    display: block;
+    font-size: var(--text-small);
+    color: var(--color-muted);
   }
 
   [data-cell='shown'],
