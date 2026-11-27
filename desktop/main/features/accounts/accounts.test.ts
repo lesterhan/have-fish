@@ -364,8 +364,13 @@ describe('what waits for its charge on each account', () => {
       .all(...params)
       .map((row) => row.detail)
 
-    // Only the accounts it starts from is read whole: the ledger's own tables are all seeks.
-    expect(plan.filter((line) => line.startsWith('SCAN') && line !== 'SCAN accounts')).toEqual([])
+    expect(plan).toEqual([
+      'SCAN accounts',
+      'SEARCH zero_leg USING INDEX postings_account_balance (accountId=? AND currency=? AND amountCents=?)',
+      'SEARCH transactions USING INDEX sqlite_autoindex_transactions_1 (id=?)',
+      'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+      'SEARCH leg_account USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+    ])
   })
 })
 
