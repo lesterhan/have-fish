@@ -186,7 +186,7 @@ screen that needs it, not copied until a third copy forces it out.
 | `Band` | A day, or a root of accounts by its `Path`, with what its rows come to, saying its code on Accounts; frosted while rows pass under | The ledger, the batch, Accounts, Reports |
 | `Card` | Attached to its row and lifted with it: the list's full width, a space below the row above, radius 9px, the accent ring; a foot band for where it came from and the actions | The ledger, Reports' spends |
 | `Field` | Its label (and a keycap), the control (an input, a select, or what it says as an output), and under it what was typed means or why it was refused; in figures for an amount or a day | The card, Accounts' pane |
-| `Fold` | A question folded away, its summary asking it; opened, the field that answers it; closed again, it wasn't asked | Accounts' pane, the guessed rates' popover |
+| `Fold` | A question folded away, its summary asking it; opened, what answers it (a field, or words and a button); closed again, it wasn't asked | Accounts' pane, the guessed rates' popover |
 | `Pane` | Beside its list, a rule at its start, a heading and what's selected; below the narrow width it slides over the list with a way back | Accounts |
 | `Tabs` | A place's views across its top: the chosen one a folder open onto the work, capped in the accent laid over the background (70% in light, 60% in dark, 3:1 on it); the others muted, the band under the pointer; ← → move and choose, Home and End; the place's title heard, not shown | Accounts |
 | `Chip` | Rest, hover, focus, changing (it becomes its own editor), just saved (an accent flash, a tick), locked | The card's sentence |

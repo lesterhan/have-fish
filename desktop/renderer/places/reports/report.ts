@@ -143,29 +143,6 @@ export function guessesBehind(
   return [...lines.values()]
 }
 
-/** The spends behind a figure, in its week, and its row: null for the total's. */
-function behind(
-  at: GuessedFigure,
-  shown: readonly ReportedSpend[],
-  before: readonly ReportedSpend[],
-  rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
-) {
-  const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
-  const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
-  return { spent, row }
-}
-
-/** The guessed lines behind a figure: its row's, or every row's for the total, in its week. */
-export function guessesFor(
-  at: GuessedFigure,
-  shown: readonly ReportedSpend[],
-  before: readonly ReportedSpend[],
-  rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
-): Guess[] {
-  const { spent, row } = behind(at, shown, before, rows)
-  return guessesBehind(spent, row)
-}
-
 /** A guessed figure's popover: its lines, and every guessed day and currency behind them. */
 export type Fixing = { lines: Guess[]; days: InputOf<'rate.fetch'>['days'] }
 
@@ -176,7 +153,8 @@ export function fixingFor(
   before: readonly ReportedSpend[],
   rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
 ): Fixing {
-  const { spent, row } = behind(at, shown, before, rows)
+  const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
+  const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
   const days = new Map<string, InputOf<'rate.fetch'>['days'][number]>()
   for (const guess of guessesIn(spent, row)) {
     const one = { date: guess.date, currency: guess.currency }

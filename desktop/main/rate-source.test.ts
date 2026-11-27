@@ -4,7 +4,7 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { failure } from '@have-fish/core/outcome'
-import { describe, expect, onTestFinished, test } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { RATES_URL, ratesFrom, ratesUrlFor } from './rate-source'
 
 /** One currency's rates into another, over a span of days. */
@@ -144,6 +144,38 @@ describe('asking the service', () => {
     )
 
     expect(await ratesFrom(service.url)(JAPAN)).toEqual(failure('RATES_NOT_FETCHED'))
+  })
+
+  test('an answer for another quote is a refusal', async () => {
+    const service = await aService(
+      200,
+      '[{"date":"2026-11-20","base":"JPY","quote":"EUR","rate":0.0055}]',
+    )
+
+    expect(await ratesFrom(service.url)(JAPAN)).toEqual(failure('RATES_NOT_FETCHED'))
+  })
+
+  test('a failed request logs nothing, whatever the failure', async () => {
+    const spies = [
+      vi.spyOn(console, 'error'),
+      vi.spyOn(console, 'warn'),
+      vi.spyOn(console, 'log'),
+      vi.spyOn(console, 'info'),
+    ]
+    onTestFinished(() => {
+      for (const spy of spies) spy.mockRestore()
+    })
+    const gone = await aService(200, '[]')
+    const failed = await aService(500, '')
+    const slow = await aService(200, null)
+    await gone.close()
+
+    await ratesFrom(gone.url)(JAPAN)
+    await ratesFrom(failed.url)(JAPAN)
+    await ratesFrom(slow.url, 50)(JAPAN)
+    await ratesFrom('not a url')(JAPAN)
+
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled()
   })
 
   test('a day the calendar lacks in the answer is a refusal', async () => {

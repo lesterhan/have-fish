@@ -601,15 +601,11 @@ describe('writing several rates', () => {
 function aLog() {
   const info: string[] = []
   const error: string[] = []
-  const thrown: unknown[] = []
   const log: Log = {
     info: (line) => info.push(line),
-    error: (line, e) => {
-      error.push(line)
-      thrown.push(e)
-    },
+    error: (line) => error.push(line),
   }
-  return { log, info, error, thrown }
+  return { log, info, error }
 }
 
 describe('fetching rates', () => {
@@ -898,11 +894,14 @@ describe('a fetch refused', () => {
   })
 
   test('and no step is recorded', async () => {
-    const { ctx } = setup({ GBP: null })
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
     ok(writeRate(ctx, { date: '2026-11-04', currency: 'GBP', rate: '1.72' }))
 
-    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP')] })
+    const fetched = await fetchRates(ctx, {
+      days: [day('2026-11-05'), day('2026-11-05', 'GBP')],
+    })
 
+    expect(fetched).toEqual(failure('RATES_NOT_FETCHED'))
     expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
       'Undo GBP rate for 2026-11-04',
     )

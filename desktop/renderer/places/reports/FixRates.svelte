@@ -5,7 +5,7 @@
   // Escape, or a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
-  import type { Guess, InputOf } from '../../../shared/commands'
+  import type { Guess, InputOf, Wire } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
   import Button from '../../parts/Button.svelte'
   import Field from '../../parts/Field.svelte'
@@ -43,56 +43,47 @@
     gone = true
   })
 
+  /** Sends one write: refused, its words go under `key`'s field; else the popover closes. */
+  async function send(key: string, call: () => Promise<Wire<unknown>>): Promise<void> {
+    if (saving) return
+    saving = true
+    const answered = await call()
+    if (gone) return
+    saving = false
+    if (!answered.ok) {
+      error = { key, words: wordsFor(answered) }
+      return
+    }
+    onclose(true)
+  }
+
   /** Enter in a field: the rate typed there is written for that day and currency. */
   async function write(
     line: Guess,
     event: KeyboardEvent & { currentTarget: HTMLInputElement },
   ): Promise<void> {
-    if (event.key !== 'Enter' || saving) return
-    const key = guessKey(line)
-    saving = true
-    const written = await window.haveFish.invoke('rate.write', {
-      date: line.date,
-      currency: line.currency,
-      rate: event.currentTarget.value,
-    })
-    if (gone) return
-    saving = false
-    if (!written.ok) {
-      error = { key, words: wordsFor(written) }
-      return
-    }
-    onclose(true)
+    if (event.key !== 'Enter') return
+    await send(guessKey(line), () =>
+      window.haveFish.invoke('rate.write', {
+        date: line.date,
+        currency: line.currency,
+        rate: event.currentTarget.value,
+      }),
+    )
   }
 
   /** The rates used here as typed rates, in one go: what the field holds isn't read. */
   async function useNearest(): Promise<void> {
     const first = nearest[0]
-    if (first === undefined || saving) return
-    saving = true
-    const written = await window.haveFish.invoke('rate.writeAll', { rates: nearest })
-    if (gone) return
-    saving = false
-    if (!written.ok) {
-      error = { key: guessKey(first), words: wordsFor(written) }
-      return
-    }
-    onclose(true)
+    if (first === undefined) return
+    await send(guessKey(first), () => window.haveFish.invoke('rate.writeAll', { rates: nearest }))
   }
 
   /** Allow this once: the published rate for every guessed day behind the amount, fetched now. */
   async function fetchOnce(): Promise<void> {
     const first = lines[0]
-    if (first === undefined || saving) return
-    saving = true
-    const fetched = await window.haveFish.invoke('rate.fetch', { days })
-    if (gone) return
-    saving = false
-    if (!fetched.ok) {
-      error = { key: guessKey(first), words: wordsFor(fetched) }
-      return
-    }
-    onclose(true)
+    if (first === undefined) return
+    await send(guessKey(first), () => window.haveFish.invoke('rate.fetch', { days }))
   }
 
   /** Escape anywhere in it closes it, written or not. */
@@ -153,7 +144,7 @@
         {/if}
         <Fold summary={copy.reports.fetch.open}>
           <p>{copy.reports.fetch.sends}</p>
-          <Button onclick={fetchOnce}>{copy.reports.fetch.once}</Button>
+          <Button onclick={fetchOnce} disabled={saving}>{copy.reports.fetch.once}</Button>
         </Fold>
       </div>
     </div>
