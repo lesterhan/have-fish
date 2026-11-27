@@ -12,6 +12,8 @@ export type Traits = {
    * than a write moves outside the ledger, as a spend moves the account used last.
    */
   reads: readonly DocumentTypeName[]
+  /** Its handler waits, on the network: it answers a Promise. Left out, it doesn't. */
+  waits?: true
 }
 
 /** Every type of document: core's `DOCUMENT_TYPES` is a value, so this can't import it. */
@@ -19,7 +21,7 @@ export const ALL_TYPES: readonly DocumentTypeName[] = ['transaction', 'account',
 
 export type TraitsTable = { [N in CommandName]: Traits }
 
-export const traits: TraitsTable = {
+const TRAITS = {
   'spend.write': { writes: true, reads: ALL_TYPES },
   'spend.edit': { writes: true, reads: ALL_TYPES },
   'spend.remove': { writes: true, reads: ALL_TYPES },
@@ -53,4 +55,10 @@ export const traits: TraitsTable = {
   'settings.density.set': { writes: false, reads: [] },
 
   'clipboard.copy': { writes: false, reads: [] },
-}
+} satisfies TraitsTable
+
+/** Every command's traits, as main and the window read them at run time. */
+export const traits: TraitsTable = TRAITS
+
+/** Whether `N`'s traits say it waits, as tsc reads them. */
+export type Waits<N extends CommandName> = (typeof TRAITS)[N] extends { waits: true } ? true : false
