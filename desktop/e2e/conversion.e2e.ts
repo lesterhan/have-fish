@@ -79,6 +79,20 @@ async function aDinner(): Promise<Page> {
   return page
 }
 
+/** 8,400 JPY from visa, its charge left to wait for the statement. */
+async function aWaitingLunch(): Promise<Page> {
+  const page = await withVisa()
+  await fromVisa(page, '8400 jpy')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('Lunch')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
+  await page.waitForSelector(WRITE, { state: 'detached' })
+  await expect.poll(() => rows(page)).toHaveLength(1)
+  return page
+}
+
 /**
  * `amount` from a cash wallet kept to `currency`, no rate anywhere. `on` is its day, today when
  * left out; a second spend from the wallet passes `addWallet` false.
@@ -371,16 +385,90 @@ describe('a yen spend my CAD card paid', () => {
     await expect.poll(() => page.locator(CHARGED).isVisible()).toBe(true)
     expect(await page.inputValue(CHARGED)).toBe('')
   })
+})
 
-  test('Enter with the charge empty: nothing is saved, and the part says not an amount', async () => {
+describe('a yen spend my CAD card paid, before the bank says', () => {
+  test('8400 jpy from visa: the charged part says the charge awaits the statement', async () => {
     const page = await withVisa()
-    await fromVisa(page, '4000 jpy')
 
-    await page.keyboard.press('Enter')
+    await fromVisa(page, '8400 jpy')
 
-    await expect.poll(() => page.getAttribute(CHARGED, 'aria-invalid')).toBe('true')
-    await expect.poll(() => page.locator(`${WRITE} [role=alert]`).innerText()).toBe('not an amount')
-    expect(await rows(page)).toEqual([])
+    await expect.poll(() => page.getAttribute(CHARGED, 'placeholder')).toBe('awaiting statement')
+  })
+
+  test('its charge left empty, Enter: the row reads 8,400 JPY', async () => {
+    const page = await aWaitingLunch()
+
+    expect(await rows(page)).toEqual([`${shownDay(today())} | Lunch | 8,400 JPY`])
+  })
+
+  test('on Accounts, visa ends with 8,400 JPY awaiting the statement, its balance as it was', async () => {
+    const page = await aWaitingLunch()
+
+    await goTo(page, 'Accounts')
+
+    await expect
+      .poll(() => accountLines(page))
+      .toEqual(['visa | 0.00 CAD · −8,400 JPY awaiting statement'])
+  })
+
+  test('its card says the charge awaits the statement, with no rate', async () => {
+    const page = await aWaitingLunch()
+
+    await openSelected(page)
+
+    await expect.poll(() => convertedLine(page)).toBe('with awaiting statement')
+    expect(await page.locator(`${PANE} [aria-label="Rate"]`).count()).toBe(0)
+  })
+
+  test('the charged chip, 76.30 and Enter: visa owes 76.30, and nothing waits', async () => {
+    const page = await aWaitingLunch()
+    await openSelected(page)
+    await openChip(page, 'charged')
+    await page.fill(CHARGED_FIELD, '76.30')
+    await page.press(CHARGED_FIELD, 'Enter')
+    await expect.poll(() => page.locator(CHARGED_FIELD).count()).toBe(0)
+
+    await goTo(page, 'Accounts')
+
+    await expect.poll(() => accountLines(page)).toEqual(['visa | owed 76.30 CAD'])
+  })
+
+  test('after 76.30, the card reads the card’s 76.30 CAD and its rate', async () => {
+    const page = await aWaitingLunch()
+    await openSelected(page)
+    await openChip(page, 'charged')
+    await page.fill(CHARGED_FIELD, '76.30')
+    await page.press(CHARGED_FIELD, 'Enter')
+
+    await expect.poll(() => convertedLine(page)).toContain('76.30 CAD')
+    expect(await convertedLine(page)).toContain('converted at 1 CAD = 110.1 JPY')
+  })
+
+  test('after 76.30, Ctrl+Z on the list: the chip says the charge awaits again', async () => {
+    const page = await aWaitingLunch()
+    await openSelected(page)
+    await openChip(page, 'charged')
+    await page.fill(CHARGED_FIELD, '76.30')
+    await page.press(CHARGED_FIELD, 'Enter')
+    await expect.poll(() => page.locator(CHARGED_FIELD).count()).toBe(0)
+
+    await page.locator('ol[aria-label=Ledger]').focus()
+    await page.keyboard.press('Control+z')
+
+    await expect.poll(() => convertedLine(page)).toContain('with awaiting statement')
+  })
+
+  test('the charged chip, abc and Enter: the chip says not an amount', async () => {
+    const page = await aWaitingLunch()
+    await openSelected(page)
+    await openChip(page, 'charged')
+    await page.fill(CHARGED_FIELD, 'abc')
+    await page.press(CHARGED_FIELD, 'Enter')
+
+    await expect
+      .poll(() => page.locator(`${PANE} [role=alert]`).innerText())
+      .toBe(copy.errors.codes.CHARGED_INVALID)
   })
 })
 

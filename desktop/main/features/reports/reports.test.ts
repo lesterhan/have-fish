@@ -242,6 +242,52 @@ describe('a yen dinner my card was charged for', () => {
   })
 })
 
+describe('a spend waiting for its charge', () => {
+  test('its yen counts at the day’s typed rate, marked mine', () => {
+    const { ctx, account, rate, week } = setup()
+    const visa = account('visa', 'card', 'CAD')
+    const { id } = ok(
+      writeSpend(ctx, {
+        amount: '8400',
+        currency: 'JPY',
+        description: 'Lunch',
+        from: visa.id,
+        to: { category: 'food' },
+        date: '2026-10-29',
+      }),
+    )
+    rate({ date: '2026-10-29', from: 'CAD', to: 'JPY', rate: '110' })
+
+    expect(week().spent).toEqual([{ id, category: 'food', amount: '76.36', mark: 'mine' }])
+  })
+
+  test('with no rate on any day: 0.00, marked missing, never 0.00 exact', () => {
+    const { ctx, account, week } = setup()
+    const visa = account('visa', 'card', 'CAD')
+    const { id } = ok(
+      writeSpend(ctx, {
+        amount: '8400',
+        currency: 'JPY',
+        description: 'Lunch',
+        from: visa.id,
+        to: { category: 'food' },
+        date: '2026-10-29',
+      }),
+    )
+
+    expect(week().spent).toEqual([
+      {
+        id,
+        category: 'food',
+        amount: '0.00',
+        mark: 'missing',
+        guess: { date: '2026-10-29', currency: 'JPY', from: null },
+        uncounted: { amount: '8400.00', currency: 'JPY' },
+      },
+    ])
+  })
+})
+
 describe('a spend in another currency', () => {
   test('the week’s exchange prices it: 200.00 CAD into 150.00 EUR makes 15.00 EUR cost 20.00', () => {
     const { account, exchange, spend, week } = setup()

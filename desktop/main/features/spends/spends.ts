@@ -24,7 +24,7 @@ import { applyKeeping, type Change, record } from '../../undo/steps'
  * with any account it needs. It's in the currency typed, else the one the account paying is kept
  * to, else the one the account it goes to is kept to, else the home currency. Paid from an
  * account kept to another currency into a category, it goes through the conversion account, from
- * what the account was charged.
+ * what the account was charged, or at zero while the charge is left empty.
  * Into an account of mine kept to another currency, or within one account that holds any, it
  * exchanges through the conversion account, from what arrived.
  */
@@ -85,7 +85,9 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   let legs: ShapeLeg[]
   let conversion: AccountDoc[] = []
   if (converting) {
-    const charged = chargedOf(input.charged, keptTo)
+    const charged: Outcome<number> = waits(input.charged)
+      ? { ok: true, value: 0 }
+      : chargedOf(input.charged, keptTo)
     if (!charged.ok) return charged
     const via = accountFor(ctx.ledger.db, CONVERSION, made)
     const paid = { accountId: from.value.id, cents: -charged.value, currency: keptTo }
@@ -212,7 +214,7 @@ function edit(
   ) {
     return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
   }
-  const fx = shape.shape === 'converted' ? shape : null
+  const fx = shape.shape === 'converted' || shape.shape === 'awaiting' ? shape : null
   const currency = input.currency ?? simple.currency
   const keepsCharge = fx !== null && currency !== fx.from.currency
   if (!keepsCharge && input.charged !== undefined) {
@@ -366,6 +368,9 @@ function chargedOf(typed: string | undefined, currency: string): Outcome<number>
   }
   return cents
 }
+
+/** A charge left empty: the spend waits for the one the bank posts. */
+const waits = (typed: string | undefined) => typed === undefined || typed.trim() === ''
 
 /** What arrived, as typed: in its code, else its account's lock, and never the one sent. */
 function arrivedOf(

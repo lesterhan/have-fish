@@ -19,7 +19,10 @@ export type Changable = Exclude<Part, 'from'>
 export type Values = {
   description: string
   amount: string
-  /** What the account paying was charged, its code left out; null when nothing converted. */
+  /**
+   * What the account paying was charged, its code left out: empty while it waits; null when
+   * nothing converted.
+   */
   charged: string | null
   to: string | null
   date: string
@@ -33,7 +36,11 @@ export function savedValues(t: ListedTransaction): Values | null {
         description: t.description,
         amount: asTyped(t.simple.amount, t.simple.currency),
         charged:
-          t.charged === undefined ? null : figureAsTyped(t.charged.amount, t.charged.currency),
+          t.charged === undefined
+            ? null
+            : t.shape === 'awaiting'
+              ? ''
+              : figureAsTyped(t.charged.amount, t.charged.currency),
         to: t.to,
         date: t.date,
       }

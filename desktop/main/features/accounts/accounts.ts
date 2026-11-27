@@ -15,9 +15,9 @@ import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { CONVERSION, OPENING } from '@have-fish/core/own-accounts'
-import { legsOf, type ShapeLeg } from '@have-fish/core/shapes'
+import { legsOf, type ShapeLeg, shapeOf } from '@have-fish/core/shapes'
 import type Database from 'better-sqlite3'
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { alias } from 'drizzle-orm/sqlite-core'
 import { copy } from '../../../copy'
@@ -222,6 +222,39 @@ export const balancesQuery = (orm: BetterSQLite3Database) =>
 
 const openingLeg = alias(postings, 'opening_leg')
 const openingAccount = alias(accounts, 'opening_account')
+const zeroLeg = alias(postings, 'zero_leg')
+const legAccount = alias(accounts, 'leg_account')
+
+/** Each live transaction with a zero leg on an account kept to a currency, and all of its legs. */
+export const awaitingQuery = (orm: BetterSQLite3Database) =>
+  orm
+    .select({
+      payer: accounts.id,
+      transactionId: transactions.id,
+      accountId: postings.accountId,
+      cents: postings.amountCents,
+      currency: postings.currency,
+      kind: legAccount.kind,
+    })
+    .from(accounts)
+    .crossJoin(zeroLeg)
+    .crossJoin(transactions)
+    .crossJoin(postings)
+    .crossJoin(legAccount)
+    .where(
+      and(
+        isNull(accounts.deletedAt),
+        inArray(accounts.kind, [...ADDABLE_KINDS]),
+        isNotNull(accounts.currency),
+        eq(zeroLeg.accountId, accounts.id),
+        eq(zeroLeg.currency, accounts.currency),
+        eq(zeroLeg.amountCents, 0),
+        eq(transactions.id, zeroLeg.transactionId),
+        isNull(transactions.deletedAt),
+        eq(postings.transactionId, transactions.id),
+        eq(legAccount.id, postings.accountId),
+      ),
+    )
 
 const statements = perConnection((orm) => ({
   addable: orm
@@ -264,6 +297,7 @@ const statements = perConnection((orm) => ({
     .orderBy(transactions.date, transactions.originCreatedAt, transactions.id)
     .prepare(),
   balances: balancesQuery(orm).prepare(),
+  awaiting: awaitingQuery(orm).prepare(),
 }))
 
 /** Each account's balance by id, in currency order, leaving out what sums to zero. */
@@ -286,6 +320,29 @@ type Start = {
   opening: { cents: number; currency: string }
 }
 
+/** What waits for its charge on each account, by id: each awaiting spend's `to`, below zero. */
+function awaitingOf(db: Database.Database): Map<string, Money[]> {
+  const sums = new Map<string, Map<string, number>>()
+  for (const rows of Map.groupBy(statements(db).awaiting.all(), (r) => r.transactionId).values()) {
+    const kinds = new Map(rows.map((r) => [r.accountId, r.kind]))
+    const shape = shapeOf(rows, (accountId) => kinds.get(accountId))
+    if (shape.shape !== 'awaiting') continue
+    const payer = rows[0]?.payer
+    if (payer === undefined || shape.from.accountId !== payer) continue
+    const held = sums.get(payer) ?? new Map<string, number>()
+    held.set(shape.to.currency, (held.get(shape.to.currency) ?? 0) - shape.to.cents)
+    sums.set(payer, held)
+  }
+  return new Map(
+    [...sums].map(([payer, held]) => [
+      payer,
+      [...held]
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([currency, cents]) => ({ amount: format(cents), currency })),
+    ]),
+  )
+}
+
 /** Each account's starting balance, by id: the oldest, if sync ever brings two. */
 function startsOf(db: Database.Database): Map<string, Start> {
   const found = new Map<string, Start>()
@@ -304,6 +361,7 @@ function startsOf(db: Database.Database): Map<string, Start> {
 export function listAccounts(db: Database.Database): ListedAccount[] {
   const starts = startsOf(db)
   const balances = balancesOf(db)
+  const waitingOn = awaitingOf(db)
   return statements(db)
     .addable.all()
     .map(({ id, path, kind, currency }) => {
@@ -333,6 +391,7 @@ export function listAccounts(db: Database.Database): ListedAccount[] {
             }
           : null,
         balance: balances.get(id) ?? [],
+        awaiting: waitingOn.get(id) ?? [],
       }
     })
     .sort((a, b) => byName.compare(a.name, b.name) || (a.id < b.id ? -1 : 1))

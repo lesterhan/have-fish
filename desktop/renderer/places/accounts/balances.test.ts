@@ -17,6 +17,7 @@ const account = (fields: Partial<ListedAccount>): ListedAccount => ({
   currency: null,
   start: null,
   balance: [],
+  awaiting: [],
   ...fields,
 })
 
@@ -127,6 +128,45 @@ describe('the columns of an account row', () => {
     expect(wide.cells).toEqual(['name', 'kind', 'balance'])
     expect(wide.template.split(' ')).toHaveLength(3)
     expect(accountColumnsOf(329).template).toBe('minmax(0,1fr) minmax(7rem,auto)')
+  })
+})
+
+describe('what waits on an account', () => {
+  const waiting = [{ amount: '-8400.00', currency: 'JPY' }]
+
+  test('a row says what waits on the account itself, never on a parent', () => {
+    const rows = accountRows([
+      account({ id: 'v', name: 'visa', kind: 'card', awaiting: waiting }),
+      account({ id: 'l', name: 'car:loan', kind: 'loan', balance: [cad('-9390.00')] }),
+    ])
+
+    expect(rows.map((r) => [r.key, r.awaiting])).toEqual([
+      ['liabilities:car', []],
+      ['liabilities:car:loan', []],
+      ['liabilities:visa', waiting],
+    ])
+  })
+
+  test('a band’s total is what the accounts hold, never what waits', () => {
+    const card = account({
+      id: 'v',
+      name: 'visa',
+      kind: 'card',
+      balance: [cad('-1218.00')],
+      awaiting: waiting,
+    })
+    const loan = account({
+      id: 'l',
+      name: 'car-loan',
+      kind: 'loan',
+      balance: [cad('-9390.00')],
+    })
+
+    const [withWaiting] = accountGroups(accountRows([card, loan]))
+    const [held] = accountGroups(accountRows([{ ...card, awaiting: [] }, loan]))
+
+    expect(said(withWaiting?.total ?? [])).toBe('owed 10,608.00')
+    expect(said(withWaiting?.total ?? [])).toBe(said(held?.total ?? []))
   })
 })
 

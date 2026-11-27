@@ -319,12 +319,18 @@
               />{transaction.charged?.currency}
             </span>
           {/snippet}
-          <Money of={transaction.charged} code />
+          {#if transaction.shape === 'awaiting'}
+            {copy.spends.card.awaiting}
+          {:else}
+            <Money of={transaction.charged} code />
+          {/if}
         </Chip>
-        <span class="lead">{words.sentence.convertedAt}</span>
-        <Chip label={words.chip.rate} figures locked>
-          {rateText(transaction.charged, transaction.simple)}
-        </Chip>
+        {#if transaction.shape !== 'awaiting'}
+          <span class="lead">{words.sentence.convertedAt}</span>
+          <Chip label={words.chip.rate} figures locked>
+            {rateText(transaction.charged, transaction.simple)}
+          </Chip>
+        {/if}
       </p>
     {/if}
   {:else}

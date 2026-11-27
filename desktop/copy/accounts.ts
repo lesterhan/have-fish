@@ -23,6 +23,8 @@ export const accounts = {
   /** A card's or a loan's balance, as what I owe on it; first, so the amounts line up. */
   /** Before what I owe on an account: shown above zero. */
   owed: 'owed',
+  /** After what waits on an account for what the bank will charge it. */
+  awaiting: 'awaiting statement',
   /** In place of a currency, for an account that can hold any. */
   anyCurrency: 'Any currency',
   pane: {

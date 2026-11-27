@@ -51,6 +51,14 @@ describe('the load after a change, at ten years', { timeout: 120_000 }, () => {
       ],
       // Each account's balance: the one index that covers it, whole.
       ['SCAN postings USING COVERING INDEX postings_account_balance'],
+      // What waits for its charge: each account kept to a currency, then its zero legs by index.
+      [
+        'SCAN accounts',
+        'SEARCH zero_leg USING INDEX postings_account_balance (accountId=? AND currency=? AND amountCents=?)',
+        'SEARCH transactions USING INDEX sqlite_autoindex_transactions_1 (id=?)',
+        'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+        'SEARCH leg_account USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+      ],
       // The accounts I have: a few dozen rows.
       ['SCAN accounts'],
       // spend.assumedFrom: the wallet, by its path.
