@@ -231,8 +231,12 @@ async function aRateService(rate = '0.0091', status = 200) {
     asked += 1
     const at = new URL(request.url ?? '', 'http://127.0.0.1')
     if (status !== 200) {
-      response.writeHead(status)
-      response.end()
+      // A failed request answers after a moment, as a network's failure does: the app's wait shows.
+      setTimeout(() => {
+        if (response.destroyed) return
+        response.writeHead(status)
+        response.end()
+      }, 150)
       return
     }
     const base = at.searchParams.get('base') ?? ''
@@ -1285,5 +1289,20 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
       .toBe(copy.errors.codes.RATES_NOT_FETCHED)
 
     await expect.poll(() => popover.count()).toBe(1)
+  })
+
+  test('Escape closes it after a refusal, with Allow’s cursor back', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await allowOnce(popover)
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+
+    await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} BUTTON`)
+    await page.keyboard.press('Escape')
+
+    await expect.poll(() => popover.count()).toBe(0)
   })
 })

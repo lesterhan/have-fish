@@ -3,7 +3,7 @@
   // writes it and closes; the button writes every borrowed line at the figures shown; Fetch
   // says what fetching sends, and Allow this once fetches every guessed day behind the amount.
   // Escape, or a click away, closes with nothing written.
-  import { onDestroy, onMount } from 'svelte'
+  import { onDestroy, onMount, tick } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess, InputOf, Wire } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
@@ -31,6 +31,7 @@
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
   let layer: HTMLElement | undefined
+  let allow = $state<Button>()
   // Set as it goes: a write's answer that comes back now has no popover to close.
   let gone = false
 
@@ -84,6 +85,10 @@
     const first = lines[0]
     if (first === undefined) return
     await send(guessKey(first), () => window.haveFish.invoke('rate.fetch', { days }))
+    if (gone) return
+    // Disabled while it waited, Allow lost the cursor: a refusal gives it back, so Esc closes.
+    await tick()
+    allow?.focus()
   }
 
   /** Escape anywhere in it closes it, written or not. */
@@ -146,7 +151,9 @@
         {/if}
         <Fold summary={copy.reports.fetch.open}>
           <p>{copy.reports.fetch.sends}</p>
-          <Button onclick={fetchOnce} disabled={saving}>{copy.reports.fetch.once}</Button>
+          <Button bind:this={allow} onclick={fetchOnce} disabled={saving}
+            >{copy.reports.fetch.once}</Button
+          >
         </Fold>
       </div>
     </div>
