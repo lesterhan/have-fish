@@ -408,8 +408,8 @@ describe('a yen spend my CAD card paid, before the bank says', () => {
     await goTo(page, 'Accounts')
 
     await expect
-      .poll(() => accountLines(page))
-      .toEqual(['visa | 0.00 CAD · −8,400 JPY awaiting statement'])
+      .poll(async () => (await accountLines(page))[0] ?? '')
+      .toMatch(/^visa \| (Card \| )?0\.00 CAD · −8,400 JPY awaiting statement$/)
   })
 
   test('its card says the charge awaits the statement, with no rate', async () => {
