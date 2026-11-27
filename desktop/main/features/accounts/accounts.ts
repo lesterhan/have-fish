@@ -225,9 +225,9 @@ const openingAccount = alias(accounts, 'opening_account')
 const zeroLeg = alias(postings, 'zero_leg')
 const legAccount = alias(accounts, 'leg_account')
 
-// Each live transaction with a zero leg on an account kept to a currency, and all of its legs.
-// CROSS JOIN pins the order, from the account out, as `starts` does (see #608).
+/** Each live transaction with a zero leg on an account kept to a currency, and all of its legs. */
 export const awaitingQuery = (orm: BetterSQLite3Database) =>
+  // CROSS JOIN pins the order, from the account out, as `starts` does (see #608).
   orm
     .select({
       payer: accounts.id,

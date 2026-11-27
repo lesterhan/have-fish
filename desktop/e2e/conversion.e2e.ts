@@ -40,6 +40,8 @@ const AMOUNT = `${WRITE} input[name=amount]`
 const CHARGED = `${WRITE} input[name=charged]`
 /** The charged chip's field, open in the card. */
 const CHARGED_FIELD = `${PANE} input[name=charged]`
+/** Long enough for a saved chip's flash to end: its tick sits in the line until then. */
+const PAST_FLASH = { timeout: 5_000 }
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
 const today = () => calendarDateAt(Date.now(), ZONE)
@@ -446,7 +448,7 @@ describe('a yen spend my CAD card paid, before the bank says', () => {
     await change(page, 'charged', '76.30')
 
     await expect
-      .poll(() => convertedLine(page), { timeout: 5_000 })
+      .poll(() => convertedLine(page), PAST_FLASH)
       .toBe('with 76.30 CAD converted at 1 CAD = 110.1 JPY')
   })
 
@@ -458,7 +460,7 @@ describe('a yen spend my CAD card paid, before the bank says', () => {
     await page.locator('ol[aria-label=Ledger]').focus()
     await page.keyboard.press('Control+z')
 
-    await expect.poll(() => convertedLine(page), { timeout: 5_000 }).toBe('with awaiting statement')
+    await expect.poll(() => convertedLine(page), PAST_FLASH).toBe('with awaiting statement')
   })
 
   test('the charged chip, abc and Enter: the waiting chip says why', async () => {
