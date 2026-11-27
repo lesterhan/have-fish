@@ -1778,25 +1778,24 @@ describe('a yen spend a card kept to CAD paid', () => {
   })
 
   describe('a charge left to wait', () => {
-    /** ¥8,400 from visa to food, its charge left for the statement; its id. */
-    function waitingLunch(ctx: Context, visa: string): string {
-      const { charged: _, ...uncharged } = DINNER
+    /** ¥8,400 from visa to food, its charge `charged` or left for the statement; its id. */
+    function waitingLunch(ctx: Context, visa: string, charged?: string): string {
       return ok(
         writeSpend(ctx, {
-          ...uncharged,
           amount: '8400',
+          currency: 'JPY',
           description: 'Lunch',
           from: visa,
           to: { category: 'food' },
+          ...(charged === undefined ? {} : { charged }),
         }),
       ).id
     }
 
     test('a charge left empty waits: the yen at zero in CAD, through the conversion account', () => {
       const { ledger, ctx, visa } = withVisa()
-      const { charged: _, ...uncharged } = DINNER
 
-      const { id } = ok(writeSpend(ctx, { ...uncharged, amount: '8400', from: visa.id }))
+      const id = waitingLunch(ctx, visa.id)
 
       expect(postingLines(ledger, id)).toEqual([
         'food 8400.00 JPY',
@@ -1809,7 +1808,7 @@ describe('a yen spend a card kept to CAD paid', () => {
     test.each(['', '   '])('a charge of %j waits, on the same four postings', (charged) => {
       const { ledger, ctx, visa } = withVisa()
 
-      const { id } = ok(writeSpend(ctx, { ...DINNER, amount: '8400', charged, from: visa.id }))
+      const id = waitingLunch(ctx, visa.id, charged)
 
       expect(postingLines(ledger, id)).toEqual([
         'food 8400.00 JPY',
@@ -1821,9 +1820,8 @@ describe('a yen spend a card kept to CAD paid', () => {
 
     test('a waiting spend makes the conversion account in its batch, as the app', () => {
       const { ledger, ctx, visa } = withVisa()
-      const { charged: _, ...uncharged } = DINNER
 
-      ok(writeSpend(ctx, { ...uncharged, amount: '8400', from: visa.id }))
+      waitingLunch(ctx, visa.id)
 
       expect(accountAt(ledger, 'equity:conversion')).toMatchObject({
         kind: 'conversion',

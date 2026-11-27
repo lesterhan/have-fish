@@ -85,6 +85,25 @@ function setup() {
   return { ledger, ctx, spend, week, lines, account, exchange, rate }
 }
 
+/** A ledger with a card kept to `currency`, and ¥`amount` dinners from it, charged `charged`. */
+function withCard(name = 'visa', currency = 'CAD', charged = '36.20', amount = '4000') {
+  const made = setup()
+  const card = ok(addAccount(made.ctx, { name, kind: 'card', currency })).id
+  const dinner = (category = '', date = '2026-10-28') =>
+    ok(
+      writeSpend(made.ctx, {
+        amount,
+        currency: 'JPY',
+        charged,
+        description: 'Dinner',
+        to: { category },
+        from: card,
+        date,
+      }),
+    ).id
+  return { ...made, dinner }
+}
+
 describe('spendingIn', () => {
   test('nothing written: nothing spent, in the home currency', () => {
     const { week } = setup()
@@ -179,25 +198,6 @@ describe('spendingIn', () => {
 })
 
 describe('a yen dinner my card was charged for', () => {
-  /** A ledger with a card kept to `currency`, and ¥4,000 dinners from it, charged `charged`. */
-  function withCard(name = 'visa', currency = 'CAD', charged = '36.20') {
-    const made = setup()
-    const card = ok(addAccount(made.ctx, { name, kind: 'card', currency })).id
-    const dinner = (category = '', date = '2026-10-28') =>
-      ok(
-        writeSpend(made.ctx, {
-          amount: '4000',
-          currency: 'JPY',
-          charged,
-          description: 'Dinner',
-          to: { category },
-          from: card,
-          date,
-        }),
-      ).id
-    return { ...made, dinner }
-  }
-
   test('charged 36.20 CAD, to no category: unsorted counts the 36.20', () => {
     const { dinner, week } = withCard()
     const id = dinner()
@@ -244,36 +244,16 @@ describe('a yen dinner my card was charged for', () => {
 
 describe('a spend waiting for its charge', () => {
   test('its yen counts at the day’s typed rate, marked mine', () => {
-    const { ctx, account, rate, week } = setup()
-    const visa = account('visa', 'card', 'CAD')
-    const { id } = ok(
-      writeSpend(ctx, {
-        amount: '8400',
-        currency: 'JPY',
-        description: 'Lunch',
-        from: visa.id,
-        to: { category: 'food' },
-        date: '2026-10-29',
-      }),
-    )
+    const { rate, week, dinner } = withCard('visa', 'CAD', '', '8400')
+    const id = dinner('food', '2026-10-29')
     rate({ date: '2026-10-29', from: 'CAD', to: 'JPY', rate: '110' })
 
     expect(week().spent).toEqual([{ id, category: 'food', amount: '76.36', mark: 'mine' }])
   })
 
   test('with no rate on any day: 0.00, marked missing, never 0.00 exact', () => {
-    const { ctx, account, week } = setup()
-    const visa = account('visa', 'card', 'CAD')
-    const { id } = ok(
-      writeSpend(ctx, {
-        amount: '8400',
-        currency: 'JPY',
-        description: 'Lunch',
-        from: visa.id,
-        to: { category: 'food' },
-        date: '2026-10-29',
-      }),
-    )
+    const { week, dinner } = withCard('visa', 'CAD', '', '8400')
+    const id = dinner('food', '2026-10-29')
 
     expect(week().spent).toEqual([
       {

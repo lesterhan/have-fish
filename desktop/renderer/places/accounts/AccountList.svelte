@@ -84,7 +84,11 @@
             of={money}
             code
             column
-          />{/each}{#each r.awaiting as money (money.currency)}{' · '}<Money of={money} code column />{` ${copy.accounts.awaiting}`}{/each}</span
+          />{/each}{#each r.awaiting as money (money.currency)}{' · '}<Money
+            of={money}
+            code
+            column
+          />{` ${copy.accounts.awaiting}`}{/each}</span
       >
     {/snippet}
   </Listbox>

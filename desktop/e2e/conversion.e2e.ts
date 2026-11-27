@@ -93,6 +93,14 @@ async function aWaitingLunch(): Promise<Page> {
   return page
 }
 
+/** The selected spend's card open, `part`'s chip opened, `typed` in its field, and Enter. */
+async function change(page: Page, part: string, typed: string) {
+  await openSelected(page)
+  await openChip(page, part)
+  await page.fill(`${PANE} input[name=${part}]`, typed)
+  await page.press(`${PANE} input[name=${part}]`, 'Enter')
+}
+
 /**
  * `amount` from a cash wallet kept to `currency`, no rate anywhere. `on` is its day, today when
  * left out; a second spend from the wallet passes `addWallet` false.
@@ -423,10 +431,8 @@ describe('a yen spend my CAD card paid, before the bank says', () => {
 
   test('the charged chip, 76.30 and Enter: visa owes 76.30, and nothing waits', async () => {
     const page = await aWaitingLunch()
-    await openSelected(page)
-    await openChip(page, 'charged')
-    await page.fill(CHARGED_FIELD, '76.30')
-    await page.press(CHARGED_FIELD, 'Enter')
+
+    await change(page, 'charged', '76.30')
     await expect.poll(() => page.locator(CHARGED_FIELD).count()).toBe(0)
 
     await goTo(page, 'Accounts')
@@ -436,51 +442,52 @@ describe('a yen spend my CAD card paid, before the bank says', () => {
 
   test('after 76.30, the card reads the card’s 76.30 CAD and its rate', async () => {
     const page = await aWaitingLunch()
-    await openSelected(page)
-    await openChip(page, 'charged')
-    await page.fill(CHARGED_FIELD, '76.30')
-    await page.press(CHARGED_FIELD, 'Enter')
 
-    await expect.poll(() => convertedLine(page)).toContain('76.30 CAD')
-    expect(await convertedLine(page)).toContain('converted at 1 CAD = 110.1 JPY')
+    await change(page, 'charged', '76.30')
+
+    await expect
+      .poll(() => convertedLine(page), { timeout: 5_000 })
+      .toBe('with 76.30 CAD converted at 1 CAD = 110.1 JPY')
   })
 
   test('after 76.30, Ctrl+Z on the list: the chip says the charge awaits again', async () => {
     const page = await aWaitingLunch()
-    await openSelected(page)
-    await openChip(page, 'charged')
-    await page.fill(CHARGED_FIELD, '76.30')
-    await page.press(CHARGED_FIELD, 'Enter')
+    await change(page, 'charged', '76.30')
     await expect.poll(() => page.locator(CHARGED_FIELD).count()).toBe(0)
 
     await page.locator('ol[aria-label=Ledger]').focus()
     await page.keyboard.press('Control+z')
 
-    await expect.poll(() => convertedLine(page)).toContain('with awaiting statement')
+    await expect.poll(() => convertedLine(page), { timeout: 5_000 }).toBe('with awaiting statement')
   })
 
-  test('the charged chip, abc and Enter: the chip says not an amount', async () => {
+  test('the charged chip, abc and Enter: the waiting chip says why', async () => {
     const page = await aWaitingLunch()
-    await openSelected(page)
-    await openChip(page, 'charged')
-    await page.fill(CHARGED_FIELD, 'abc')
-    await page.press(CHARGED_FIELD, 'Enter')
+
+    await change(page, 'charged', 'abc')
 
     await expect
       .poll(() => page.locator(`${PANE} [role=alert]`).innerText())
       .toBe(copy.errors.codes.CHARGED_INVALID)
   })
+
+  test('the charged part abc and Enter: nothing is saved, and the part says not an amount', async () => {
+    const page = await withVisa()
+
+    await fromVisa(page, '8400 jpy')
+    await page.keyboard.press('Tab')
+    await page.keyboard.type('abc')
+    await page.keyboard.press('Enter')
+
+    await expect.poll(() => page.getAttribute(CHARGED, 'aria-invalid')).toBe('true')
+    await expect
+      .poll(() => page.locator(`${WRITE} [role=alert]`).innerText())
+      .toBe(copy.spends.composer.refused.amount)
+    expect(await rows(page)).toEqual([])
+  })
 })
 
 describe('fixing the amounts of a converted spend', () => {
-  /** The dinner's card open, `part`'s chip opened, `typed` in its field, and Enter. */
-  async function change(page: Page, part: string, typed: string) {
-    await openSelected(page)
-    await openChip(page, part)
-    await page.fill(`${PANE} input[name=${part}]`, typed)
-    await page.press(`${PANE} input[name=${part}]`, 'Enter')
-  }
-
   test('the amount chip, 4500 jpy and Enter: the row reads 4,500 JPY', async () => {
     const page = await aDinner()
 
