@@ -606,9 +606,9 @@ describe('missedWords', () => {
   })
 
   test('several days with no rate at all name each of them', () => {
-    expect(
-      missedWords([missed('JPY', '2026-11-03'), missed('JPY', '2026-11-05')], TODAY),
-    ).toBe('The service has no JPY rate for Tue 3 Nov or Thu 5 Nov. Type them.')
+    expect(missedWords([missed('JPY', '2026-11-03'), missed('JPY', '2026-11-05')], TODAY)).toBe(
+      'The service has no JPY rate for Tue 3 Nov or Thu 5 Nov. Type them.',
+    )
   })
 
   test('an older rate is named with its day and figure', () => {
@@ -647,10 +647,7 @@ describe('missedWords', () => {
 
 describe('offerOf', () => {
   test('the missed days with an older rate, and no other', () => {
-    const days = [
-      missed('JPY', '2026-11-03', 'none', { ...OFFER }),
-      missed('JPY', '2026-11-05'),
-    ]
+    const days = [missed('JPY', '2026-11-03', 'none', { ...OFFER }), missed('JPY', '2026-11-05')]
 
     expect(offerOf(days)).toEqual([{ date: '2026-11-03', currency: 'JPY' }])
   })

@@ -1521,9 +1521,7 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
 
     await expect
       .poll(() => popover.getByRole('alert').innerText())
-      .toBe(
-        copy.reports.fetch.older('JPY', [shownDay(today())], 'Mon 28 Feb 2022', '0.0091'),
-      )
+      .toBe(copy.reports.fetch.older('JPY', [shownDay(today())], 'Mon 28 Feb 2022', '0.0091'))
   })
 
   test('and a Use it button under it', async () => {

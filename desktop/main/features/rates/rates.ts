@@ -3,7 +3,7 @@
 import { addDays, isCalendarDate } from '@have-fish/core/calendar-date'
 import { isValidCurrency } from '@have-fish/core/currencies'
 import type { RateDoc } from '@have-fish/core/documents'
-import { failure, type FailureCode, type Outcome } from '@have-fish/core/outcome'
+import { type FailureCode, failure, type Outcome } from '@have-fish/core/outcome'
 import type { InputOf, Missed } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 import { idOf, outcomeOf } from '../../commands/applied'
@@ -137,7 +137,8 @@ export async function fetchRates(
     const last = lastOf.get(code)
     const end = last !== undefined && 'end' in last ? last.end : null
     if (end === null) continue
-    if (none.some((one) => one.currency === code && end < addDays(one.date, -7))) ends.set(code, end)
+    if (none.some((one) => one.currency === code && end < addDays(one.date, -7)))
+      ends.set(code, end)
   }
   const offers = new Map<string, { date: string; rate: string } | { why: Missed['why'] }>()
   await Promise.all(
