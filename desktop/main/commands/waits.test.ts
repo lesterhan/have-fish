@@ -23,7 +23,7 @@ vi.mock('../../shared/traits', async (original) => {
 type Handler = (ctx: Context, input: unknown) => Outcome<unknown> | Promise<Outcome<unknown>>
 
 const waiting = vi.hoisted(() => ({
-  handler: ((_ctx: Context, _input: unknown) => {
+  handler: (() => {
     throw new Error('no handler')
   }) as Handler,
 }))
@@ -58,22 +58,35 @@ const PAGE = { from: 0, limit: 100 }
 const pathsIn = (ctx: Context) =>
   ctx.ledger.db.prepare('SELECT path FROM accounts ORDER BY path').pluck().all()
 
+/** Answers an account's id once the wait is over. */
+const answersId = async (): Promise<Outcome<unknown>> => {
+  await Promise.resolve()
+  return { ok: true, value: { id: null } }
+}
+
+/** Applies two accounts after a wait, which one command may not do. */
+const appliesTwice = async (ctx: Context): Promise<Outcome<unknown>> => {
+  await Promise.resolve()
+  ctx.apply([anAccount()], ctx.now())
+  ctx.apply([anAccount({ path: 'assets:bank', kind: 'bank' })], ctx.now())
+  return { ok: true, value: { id: null } }
+}
+
+/** A wait that is rejected. */
+const rejects = async (): Promise<Outcome<unknown>> => {
+  throw new Error('lost')
+}
+
 describe('a command that waits', () => {
   test('a command that waits answers a Promise', () => {
     const { ctx, log } = setup()
-    waiting.handler = async () => {
-      await Promise.resolve()
-      return { ok: true, value: { id: null } }
-    }
+    waiting.handler = answersId
     expect(runCommand(ctx, 'account.start', START, log)).toBeInstanceOf(Promise)
   })
 
   test("a waiting command's value crosses as ok", async () => {
     const { ctx, log } = setup()
-    waiting.handler = async () => {
-      await Promise.resolve()
-      return { ok: true, value: { id: null } }
-    }
+    waiting.handler = answersId
     expect(await runCommand(ctx, 'account.start', START, log)).toEqual({
       ok: true,
       value: { id: null },
@@ -119,9 +132,7 @@ describe('a command that waits', () => {
 
   test('a rejected wait answers UNEXPECTED', async () => {
     const { ctx, log } = setup()
-    waiting.handler = async () => {
-      throw new Error('lost')
-    }
+    waiting.handler = rejects
     expect(await runCommand(ctx, 'account.start', START, log)).toEqual({
       ok: false,
       error: 'UNEXPECTED',
@@ -131,9 +142,7 @@ describe('a command that waits', () => {
 
   test("a rejected wait's error is logged, and its line says UNEXPECTED", async () => {
     const { ctx, log, lines, errors } = setup()
-    waiting.handler = async () => {
-      throw new Error('lost')
-    }
+    waiting.handler = rejects
     await runCommand(ctx, 'account.start', START, log)
     expect(errors).toEqual([new Error('lost')])
     expect(lines[0]).toMatch(/^account\.start \d+ms UNEXPECTED$/)
@@ -154,9 +163,7 @@ describe('a command that waits', () => {
 
   test("a rejected wait's log never holds the input", async () => {
     const { ctx, log, lines } = setup()
-    waiting.handler = async () => {
-      throw new Error('lost')
-    }
+    waiting.handler = rejects
     await runCommand(ctx, 'account.start', { ...START, amount: '4242.17' }, log)
     expect(lines.filter((line) => /4242/.test(line))).toEqual([])
   })
@@ -190,12 +197,7 @@ describe('a command that waits', () => {
 
   test('a second apply across a wait is refused as UNEXPECTED', async () => {
     const { ctx, log, errors } = setup()
-    waiting.handler = async (ctx) => {
-      await Promise.resolve()
-      ctx.apply([anAccount()], ctx.now())
-      ctx.apply([anAccount({ path: 'assets:bank', kind: 'bank' })], ctx.now())
-      return { ok: true, value: { id: null } }
-    }
+    waiting.handler = appliesTwice
     expect(await runCommand(ctx, 'account.start', START, log)).toEqual({
       ok: false,
       error: 'UNEXPECTED',
@@ -205,12 +207,7 @@ describe('a command that waits', () => {
 
   test("a waiting command's first batch stays, and its second is never written", async () => {
     const { ctx, log } = setup()
-    waiting.handler = async (ctx) => {
-      await Promise.resolve()
-      ctx.apply([anAccount()], ctx.now())
-      ctx.apply([anAccount({ path: 'assets:bank', kind: 'bank' })], ctx.now())
-      return { ok: true, value: { id: null } }
-    }
+    waiting.handler = appliesTwice
     await runCommand(ctx, 'account.start', START, log)
     expect(pathsIn(ctx)).toEqual(['assets:cash'])
   })
