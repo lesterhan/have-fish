@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { minorUnits } from '@have-fish/core/currencies'
@@ -7,7 +15,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { balancesQuery } from '../../main/features/accounts/accounts'
 import type { Shape } from './book'
-import { seedInto, topUp } from './commands'
+import { asksHelp, profileNamed, seedInto, seedsFirst, topUp } from './commands'
 import { money, SHAPES } from './guide'
 import { CASH, WISE_HOLDS, wise } from './moves'
 import { PROFILES } from './profiles'
@@ -242,6 +250,93 @@ describe('the other profiles', () => {
     expect(n).toBeGreaterThan(45_000)
     expect(n).toBeLessThan(55_000)
   })
+})
+
+/** A settings file in `where`'s app folder, as the app leaves one. */
+function settingsIn(where: Where): string {
+  mkdirSync(where.config, { recursive: true })
+  const file = join(where.config, 'settings.json')
+  writeFileSync(file, '{"theme":"dark"}')
+  return file
+}
+
+describe('a profile that starts fresh', () => {
+  test('empty does, and no other', () => {
+    const fresh = Object.entries(PROFILES).filter(([, p]) => p.fresh)
+    expect(fresh.map(([name]) => name)).toEqual(['empty'])
+  })
+
+  test('its seed leaves no settings and no install id', () => {
+    const where = aSandbox('empty')
+    const settings = settingsIn(where)
+    writeFileSync(join(where.config, 'install-id'), 'an old one')
+
+    seedInto(where, 'empty', at)
+
+    expect(existsSync(settings)).toBe(false)
+    expect(existsSync(join(where.config, 'install-id'))).toBe(false)
+  })
+
+  test('and no ledger the app made last time', () => {
+    const where = aSandbox('empty')
+    mkdirSync(where.data, { recursive: true })
+    writeFileSync(ledgerPath(where), 'the last try')
+
+    seedInto(where, 'empty', at)
+
+    expect(existsSync(ledgerPath(where))).toBe(false)
+  })
+
+  test('another profile keeps its settings', () => {
+    const where = aSandbox('starter')
+    const settings = settingsIn(where)
+
+    seedInto(where, 'starter', at)
+
+    expect(readFileSync(settings, 'utf8')).toBe('{"theme":"dark"}')
+  })
+
+  test("the real folder keeps the app's own settings", () => {
+    const home = mkdtempSync(join(tmpdir(), 'havefish-real-'))
+    onTestFinished(() => rmSync(home, { recursive: true, force: true }))
+    // Its notes go under the temp folder, not desktop/.sandbox/real.
+    const real = {
+      ...realFolders({ XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config') }),
+      root: join(home, 'notes'),
+    }
+    const settings = settingsIn(real)
+
+    seedInto(real, 'empty', at)
+
+    expect(readFileSync(settings, 'utf8')).toBe('{"theme":"dark"}')
+  })
+})
+
+describe('when try seeds first', () => {
+  test.each([
+    ['a fresh profile, seeded before', 'empty', false, true, true],
+    ['another, seeded before', 'year', false, true, false],
+    ['another, seeded before, with --fresh', 'year', true, true, true],
+    ['another, never seeded', 'year', false, false, true],
+  ])('%s', (_, name, fresh, seeded, seeds) => {
+    expect(seedsFirst(profileNamed(name), { fresh, seeded })).toBe(seeds)
+  })
+})
+
+describe('asking for help', () => {
+  test.each([[[]], [['help']], [['--help']], [['-h']], [['year', '--help']], [['empty', '-h']]])(
+    '%j is help',
+    (argv) => {
+      expect(asksHelp(argv)).toBe(true)
+    },
+  )
+
+  test.each([[['year']], [['journal', 'help']], [['year', '--fresh']], [['helpful']]])(
+    '%j is not',
+    (argv) => {
+      expect(asksHelp(argv)).toBe(false)
+    },
+  )
 })
 
 describe('safety', () => {

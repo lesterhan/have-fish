@@ -14,6 +14,8 @@ export type Profile = {
   grows: boolean
   /** False when there's no ledger file to write: the app makes its own. */
   ledger: boolean
+  /** Whether `try` seeds it again each time, the app's settings and install id gone too. */
+  fresh: boolean
   /** Builds it, from `start` when a top-up names the first seed's, else its own. */
   build(options: BookOptions, start?: string): Built
 }
@@ -33,18 +35,21 @@ export const PROFILES: Record<string, Profile> = {
     about: 'A year of life ending today: bills, pay, trips, a move. About 1,300 transactions.',
     grows: true,
     ledger: true,
+    fresh: false,
     build: lifeOf(1, 1.3),
   },
   decade: {
     about: 'Ten years at the performance budget: about 50,000 transactions.',
     grows: true,
     ledger: true,
+    fresh: false,
     build: lifeOf(10, 6.8),
   },
   edge: {
     about: 'Only the odd cases, about 70, each named for what it tests.',
     grows: false,
     ledger: true,
+    fresh: false,
     build(options) {
       const book = new Book(options)
       edges(book, options.today)
@@ -55,6 +60,7 @@ export const PROFILES: Record<string, Profile> = {
     about: 'Every account with its starting balance, and nothing spent yet.',
     grows: false,
     ledger: true,
+    fresh: false,
     build(options) {
       const book = new Book(options)
       openAccounts(book, options.today)
@@ -65,6 +71,7 @@ export const PROFILES: Record<string, Profile> = {
     about: 'No ledger at all: the app makes one on its first start.',
     grows: false,
     ledger: false,
+    fresh: true,
     build: () => null,
   },
 }

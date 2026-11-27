@@ -1,12 +1,13 @@
 // What the command line does, as functions the tests can call too.
 
 import { renderGuide, renderTags } from './guide'
-import { PROFILES } from './profiles'
+import { PROFILES, type Profile } from './profiles'
 import {
   hasLedger,
   open,
   prepare,
   readSeeded,
+  removeApp,
   removeLedger,
   runningApp,
   type Seeded,
@@ -33,6 +34,16 @@ export function profileNamed(name: string) {
   return profile
 }
 
+/** Whether `try` seeds before it opens the app: a fresh profile always does. */
+export function seedsFirst(profile: Profile, asked: { fresh: boolean; seeded: boolean }): boolean {
+  return profile.fresh || asked.fresh || !asked.seeded
+}
+
+/** Whether the words after `seed` or `try` ask for the help: none, `help`, `--help` or `-h`. */
+export function asksHelp(argv: readonly string[]): boolean {
+  return argv.length === 0 || argv[0] === 'help' || argv.includes('--help') || argv.includes('-h')
+}
+
 export function refuseIfOpen(where: Where) {
   const pid = runningApp(where)
   if (pid !== null) throw new Error(`the app (pid ${pid}) has this ledger open: quit it first`)
@@ -46,6 +57,8 @@ export function seedInto(where: Where, name: string, options: SeedOptions): Repo
   if (where.real && hasLedger(where)) {
     throw new Error('there is already a ledger in the real folder: move it away first')
   }
+  // A fresh profile starts as a first start would; the real folder's settings are never touched.
+  if (profile.fresh && !where.real) removeApp(where)
   prepare(where)
   removeLedger(where)
   const nowMs = options.nowMs ?? Date.now()
