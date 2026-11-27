@@ -1,28 +1,51 @@
 import { addDays } from '@have-fish/core/calendar-date'
 import type { RateDoc } from '@have-fish/core/documents'
+import { failure } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
 import { rateInputs } from '../../../shared/commands'
+import { type Log, runCommand } from '../../commands/run'
 import { contextFor, type Time } from '../../context'
-import { MANUAL, NOW, ok, tempLedger } from '../../ledger/fixtures'
+import { MANUAL, NOW, ok, SYSTEM, tempLedger } from '../../ledger/fixtures'
 import { rateId } from '../../ledger/rate-id'
 import { getDocument } from '../../ledger/store'
+import type { PublishedRate, RateAsk, RateSource } from '../../rate-source'
 import { undoItems } from '../../undo/menu'
 import { redoLast, undoLast } from '../../undo/steps'
 import { addAccount } from '../accounts/accounts'
 import { spendingIn } from '../reports/reports'
 import { writeSpend } from '../spends/spends'
-import { writeAllRates, writeRate } from './rates'
+import { fetchRates, writeAllRates, writeRate } from './rates'
 
 const HOUR = 3_600_000
 
 const refusal = (outcome: { ok: boolean; failure?: unknown }) =>
   outcome.ok ? null : outcome.failure
 
-function setup() {
+/** A day and currency a fetch asks the published rate of. */
+const day = (date: string, currency = 'JPY') => ({ date, currency })
+
+function setup(book: Record<string, readonly PublishedRate[] | null> = {}) {
   const ledger = tempLedger()
   let now = NOW
   const clock: Time = { now: () => now, timeZone: () => 'UTC' }
-  const ctx = contextFor({ ledger, announce: () => {}, time: clock })
+  const asks: RateAsk[] = []
+  let held: Promise<void> | null = null
+  /** What the stand-in published, by currency: null refuses, and a code it lacks has none. */
+  const rateSource: RateSource = async (ask) => {
+    asks.push(ask)
+    if (held !== null) await held
+    const rates = book[ask.from]
+    if (rates === undefined) return { ok: true, value: [] }
+    if (rates === null) return failure('RATES_NOT_FETCHED')
+    return { ok: true, value: [...rates] }
+  }
+  /** Holds the stand-in's answers until the function it returns is called. */
+  const hold = () => {
+    const gate = Promise.withResolvers<void>()
+    held = gate.promise
+    return () => gate.resolve()
+  }
+  const ctx = contextFor({ ledger, announce: () => {}, time: clock, rateSource })
   /** The rate document stored under `id`, as the ledger holds it. */
   const stored = (id: string) => {
     const found = getDocument(ledger.db, 'rate', id)
@@ -50,7 +73,7 @@ function setup() {
   const later = () => {
     now += HOUR
   }
-  return { ctx, stored, count, gbpSpend, week, later }
+  return { ctx, stored, count, gbpSpend, week, later, asks, hold }
 }
 
 describe('writing a rate', () => {
@@ -571,5 +594,397 @@ describe('writing several rates', () => {
     )
 
     expect(undoLast(ctx)).toEqual({ ok: true, value: { spends: [], accounts: [] } })
+  })
+})
+
+/** The edge's log, its lines kept as main writes them. */
+function aLog() {
+  const info: string[] = []
+  const error: string[] = []
+  const thrown: unknown[] = []
+  const log: Log = {
+    info: (line) => info.push(line),
+    error: (line, e) => {
+      error.push(line)
+      thrown.push(e)
+    },
+  }
+  return { log, info, error, thrown }
+}
+
+describe('fetching rates', () => {
+  test('writes the rate the service published, on the day asked, into the home currency', async () => {
+    const { ctx, stored } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+    const id = ids[0] as string
+
+    expect(stored(id)).toEqual<RateDoc>({
+      type: 'rate',
+      id,
+      date: '2026-11-05',
+      from: 'JPY',
+      to: 'CAD',
+      rate: '0.0091',
+      published: '2026-11-05',
+      deletedAt: null,
+      origin: { source: 'system', createdAt: NOW, deviceId: ctx.ledger.meta.deviceId },
+    })
+  })
+
+  test("takes the fetched id from the rate's source, day and pair", async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-05')] }))
+
+    expect(ids[0]).toBe(rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM }))
+  })
+
+  test('asks one range, from a week before the earliest day to the latest', async () => {
+    const { ctx, asks } = setup({ JPY: [] })
+
+    await fetchRates(ctx, { days: [day('2026-11-07'), day('2026-11-05')] })
+
+    expect(asks).toEqual([{ from: 'JPY', to: 'CAD', start: '2026-10-29', end: '2026-11-07' }])
+  })
+
+  test('asks once for each currency, a week before its own first day', async () => {
+    const { ctx, asks } = setup({ JPY: [], GBP: [] })
+
+    await fetchRates(ctx, {
+      days: [day('2026-11-05'), day('2026-11-06', 'GBP'), day('2026-11-06')],
+    })
+
+    expect(asks).toEqual([
+      { from: 'JPY', to: 'CAD', start: '2026-10-29', end: '2026-11-06' },
+      { from: 'GBP', to: 'CAD', start: '2026-10-30', end: '2026-11-06' },
+    ])
+  })
+
+  test('a day the service published nothing for takes the last rate before it', async () => {
+    const { ctx, stored } = setup({
+      JPY: [
+        { date: '2026-11-06', rate: '0.0090' },
+        { date: '2026-11-09', rate: '0.0092' },
+      ],
+    })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-07')] }))
+    const doc = stored(ids[0] as string)
+
+    expect({ date: doc.date, published: doc.published, rate: doc.rate }).toEqual({
+      date: '2026-11-07',
+      published: '2026-11-06',
+      rate: '0.0090',
+    })
+  })
+
+  test('the latest published day on or before the one asked, whatever order it came in', async () => {
+    const { ctx, stored } = setup({
+      JPY: [
+        { date: '2026-11-04', rate: '0.0090' },
+        { date: '2026-11-05', rate: '0.0091' },
+        { date: '2026-11-03', rate: '0.0089' },
+      ],
+    })
+
+    const { ids } = ok(await fetchRates(ctx, { days: [day('2026-11-06')] }))
+    const doc = stored(ids[0] as string)
+
+    expect({ published: doc.published, rate: doc.rate }).toEqual({
+      published: '2026-11-05',
+      rate: '0.0091',
+    })
+  })
+
+  test('a day with nothing published on or before it gets no rate and writes nothing', async () => {
+    const { ctx, count } = setup({ JPY: [{ date: '2026-11-06', rate: '0.0092' }] })
+
+    expect(await fetchRates(ctx, { days: [day('2026-11-05')] })).toEqual({
+      ok: true,
+      value: { ids: [] },
+    })
+    expect(count('rates')).toBe(0)
+  })
+
+  test('a fetch that got nothing records no step', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-06', rate: '0.0092' }] })
+
+    await fetchRates(ctx, { days: [day('2026-11-05')] })
+
+    expect(ctx.history.nextUndo()).toBeUndefined()
+  })
+
+  test('a currency the service does not quote is left as it was, and the others are written', async () => {
+    const { ctx, count } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+
+    const { ids } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'NTD')] }),
+    )
+
+    expect(ids).toEqual([rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM })])
+    expect(count('rates')).toBe(1)
+  })
+
+  test('answers the ids in the order the days came', async () => {
+    const { ctx } = setup({
+      JPY: [
+        { date: '2026-11-05', rate: '0.0091' },
+        { date: '2026-11-06', rate: '0.0092' },
+      ],
+      GBP: [{ date: '2026-11-05', rate: '1.71' }],
+    })
+
+    const { ids } = ok(
+      await fetchRates(ctx, {
+        days: [day('2026-11-05'), day('2026-11-05', 'GBP'), day('2026-11-06')],
+      }),
+    )
+
+    expect(ids).toEqual([
+      rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM }),
+      rateId({ date: '2026-11-05', from: 'GBP', to: 'CAD', origin: SYSTEM }),
+      rateId({ date: '2026-11-06', from: 'JPY', to: 'CAD', origin: SYSTEM }),
+    ])
+  })
+
+  test('leaves the rate I typed for that day as it was', async () => {
+    const { ctx, stored } = setup({ GBP: [{ date: '2026-11-05', rate: '1.80' }] })
+    const { id } = ok(writeRate(ctx, { date: '2026-11-05', currency: 'GBP', rate: '1.72' }))
+    const before = stored(id)
+
+    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP')] })
+
+    expect(stored(id)).toEqual(before)
+  })
+
+  test("a fetched rate marks the week's spend an estimate", async () => {
+    const { ctx, gbpSpend, week } = setup({ GBP: [{ date: '2026-11-05', rate: '1.80' }] })
+    gbpSpend()
+    expect(week().spent[0]?.mark).toBe('missing')
+
+    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP')] })
+
+    expect(week().spent[0]?.mark).toBe('estimate')
+  })
+
+  test('one undo takes every rate the fetch wrote', async () => {
+    const { ctx, stored } = setup({
+      JPY: [{ date: '2026-11-05', rate: '0.0091' }],
+      GBP: [{ date: '2026-11-05', rate: '1.71' }],
+    })
+    const { ids } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] }),
+    )
+
+    undoLast(ctx)
+
+    for (const id of ids) expect(stored(id).deletedAt).not.toBeNull()
+  })
+
+  test('one redo puts them back', async () => {
+    const { ctx, stored } = setup({
+      JPY: [{ date: '2026-11-05', rate: '0.0091' }],
+      GBP: [{ date: '2026-11-05', rate: '1.71' }],
+    })
+    const { ids } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] }),
+    )
+    undoLast(ctx)
+
+    redoLast(ctx)
+
+    for (const id of ids) expect(stored(id).deletedAt).toBeNull()
+  })
+
+  test('one step names how many rates it fetched', async () => {
+    const { ctx } = setup({
+      JPY: [{ date: '2026-11-05', rate: '0.0091' }],
+      GBP: [{ date: '2026-11-05', rate: '1.71' }],
+    })
+    await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
+      'Undo 2 fetched rates',
+    )
+  })
+
+  test("a fetch again after an undo keeps the tombstone's origin", async () => {
+    const book: Record<string, readonly PublishedRate[] | null> = {
+      JPY: [{ date: '2026-11-05', rate: '0.0091' }],
+    }
+    const { ctx, stored, later } = setup(book)
+    const first = ok(await fetchRates(ctx, { days: [day('2026-11-05')] })).ids[0] as string
+    undoLast(ctx)
+    later()
+    book.JPY = [{ date: '2026-11-05', rate: '0.0093' }]
+
+    const again = ok(await fetchRates(ctx, { days: [day('2026-11-05')] })).ids[0] as string
+
+    expect(again).toBe(first)
+    expect(stored(again)).toMatchObject({
+      rate: '0.0093',
+      deletedAt: null,
+      origin: { createdAt: NOW },
+    })
+  })
+
+  test('an undo of fetched rates leaves the window where it is', async () => {
+    const { ctx } = setup({
+      JPY: [{ date: '2026-11-05', rate: '0.0091' }],
+      GBP: [{ date: '2026-11-05', rate: '1.71' }],
+    })
+    await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })
+
+    expect(undoLast(ctx)).toEqual({ ok: true, value: { spends: [], accounts: [] } })
+  })
+
+  test('nothing is written until the last wait is over', async () => {
+    const { ctx, count, hold } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+    const release = hold()
+
+    const fetching = fetchRates(ctx, { days: [day('2026-11-05')] })
+    expect(count('rates')).toBe(0)
+    release()
+    await fetching
+
+    expect(count('rates')).toBe(1)
+  })
+
+  test('the schema refuses a day and currency twice', () => {
+    const twice = { days: [day('2026-11-05'), day('2026-11-05')] }
+
+    expect(rateInputs['rate.fetch'].safeParse(twice).success).toBe(false)
+  })
+
+  test('the schema takes two days of one currency', () => {
+    const days = { days: [day('2026-11-05'), day('2026-11-06')] }
+
+    expect(rateInputs['rate.fetch'].safeParse(days).success).toBe(true)
+  })
+
+  test('the schema refuses no days', () => {
+    expect(rateInputs['rate.fetch'].safeParse({ days: [] }).success).toBe(false)
+  })
+
+  test('the schema takes 200 days', () => {
+    expect(rateInputs['rate.fetch'].safeParse({ days: manyDays(200) }).success).toBe(true)
+  })
+
+  test('the schema refuses 201 days', () => {
+    expect(rateInputs['rate.fetch'].safeParse({ days: manyDays(201) }).success).toBe(false)
+  })
+})
+
+/** `count` days of JPY, from 1 January 2026, each once. */
+const manyDays = (count: number) =>
+  Array.from({ length: count }, (_, i) => day(addDays('2026-01-01', i)))
+
+describe('a fetch refused', () => {
+  test('one refused answer refuses the whole fetch', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
+
+    expect(await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })).toEqual(
+      failure('RATES_NOT_FETCHED'),
+    )
+  })
+
+  test('and nothing is written, the answer that came good too', async () => {
+    const { ctx, count } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }], GBP: null })
+
+    await fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })
+
+    expect(count('rates')).toBe(0)
+  })
+
+  test('and no step is recorded', async () => {
+    const { ctx } = setup({ GBP: null })
+    ok(writeRate(ctx, { date: '2026-11-04', currency: 'GBP', rate: '1.72' }))
+
+    await fetchRates(ctx, { days: [day('2026-11-05', 'GBP')] })
+
+    expect(undoItems(ctx.history, { undo: false, redo: false }).undo.label).toBe(
+      'Undo GBP rate for 2026-11-04',
+    )
+  })
+
+  test('a code that is no currency is refused before anything is sent', async () => {
+    const { ctx } = setup()
+
+    expect(await fetchRates(ctx, { days: [day('2026-11-05', 'XYZ')] })).toEqual(
+      failure('UNSUPPORTED_CURRENCY', { currency: 'XYZ' }),
+    )
+  })
+
+  test('the home currency is refused', async () => {
+    const { ctx } = setup()
+
+    expect(await fetchRates(ctx, { days: [day('2026-11-05', 'CAD')] })).toEqual(
+      failure('RATE_SAME_CURRENCY', { currency: 'CAD' }),
+    )
+  })
+
+  test('a day that is no day is refused', async () => {
+    const { ctx } = setup()
+
+    expect(await fetchRates(ctx, { days: [day('2026-02-30')] })).toEqual(
+      failure('DATE_INVALID', { date: '2026-02-30' }),
+    )
+  })
+
+  test.each([
+    ['XYZ', '2026-11-05'],
+    ['CAD', '2026-11-05'],
+    ['JPY', '2026-02-30'],
+  ])('%s on %s is never sent', async (currency, date) => {
+    const { ctx, asks } = setup({ [currency]: [] })
+
+    await fetchRates(ctx, { days: [day(date, currency)] })
+
+    expect(asks).toEqual([])
+  })
+})
+
+describe('fetching through the edge', () => {
+  test('rate.fetch answers a Promise', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+    const { log } = aLog()
+
+    const answer = runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
+
+    expect(answer).toBeInstanceOf(Promise)
+    await answer
+  })
+
+  test('and the rate it fetched crosses as ok', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+    const { log } = aLog()
+
+    const answer = await runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
+
+    expect(answer).toEqual({
+      ok: true,
+      value: { ids: [rateId({ date: '2026-11-05', from: 'JPY', to: 'CAD', origin: SYSTEM })] },
+    })
+  })
+
+  test('its log line holds no day or currency', async () => {
+    const { ctx } = setup({ JPY: [{ date: '2026-11-05', rate: '0.0091' }] })
+    const { log, info, error } = aLog()
+
+    await runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
+
+    expect([...info, ...error].filter((line) => /JPY|2026-11-05/.test(line))).toEqual([])
+  })
+
+  test('a refused fetch logs its code, and no error', async () => {
+    const { ctx } = setup({ JPY: null })
+    const { log, info, error } = aLog()
+
+    await runCommand(ctx, 'rate.fetch', { days: [day('2026-11-05')] }, log)
+
+    expect(info).toHaveLength(1)
+    expect(info[0] ?? '').toMatch(/ RATES_NOT_FETCHED$/)
+    expect(error).toEqual([])
   })
 })

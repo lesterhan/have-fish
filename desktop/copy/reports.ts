@@ -10,6 +10,13 @@ export const reports = {
     missing: (currency: string) => `${currency} · no rate on any day`,
     nearest: 'Use the nearest rates',
   },
+  /** Fetching the published rates, in the guessed figure's popover. */
+  fetch: {
+    open: 'Fetch rates ⚡',
+    sends:
+      "Fetching sends the currencies and days these amounts need, and your IP address, to frankfurter.dev, which serves the European Central Bank's daily rates.",
+    once: 'Allow this once',
+  },
   week: {
     label: 'The week shown',
     /** The buttons' words, read out; they show as arrows. */

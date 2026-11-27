@@ -1,10 +1,11 @@
-// What a command runs against: the open ledger, the time, and the one way it writes.
+// What a command runs against: the open ledger, the time, the one way it writes and fetches.
 
 import type { Changed } from '../shared/commands'
 import type { ThemeChoice } from '../shared/theme/theme'
 import type { Ledger } from './db/ledger'
 import { applyLocal, type BatchOutcome, type Written } from './ledger/apply'
 import { forgetful, type Machine } from './machine'
+import type { RateSource } from './rate-source'
 import { History } from './undo/history'
 import type { Step } from './undo/steps'
 
@@ -34,9 +35,14 @@ export type Context = Time & {
   showTheme(choice: ThemeChoice): void
   /** Writes text to the system clipboard. Electron's, so tests pass their own. */
   copy(text: string): void
+  /** Asks for published rates: frankfurter.dev's in the app; tests pass their own. */
+  rateSource: RateSource
 }
 
-/** What a context is made of. Left out, the time is the system's and the rest do nothing. */
+/**
+ * What a context is made of. Left out, the time is the system's, a fetch sends nothing and
+ * rejects, and the rest do nothing.
+ */
 export type ContextParts = {
   ledger: Ledger
   /** Tells the window what changed. */
@@ -45,7 +51,12 @@ export type ContextParts = {
   machine?: Machine
   showTheme?(choice: ThemeChoice): void
   copy?(text: string): void
+  /** Asks for published rates; left out, nothing is sent. */
+  rateSource?: RateSource
 }
+
+/** A source that sends nothing and rejects: a context's when it is given none. */
+const sendsNothing: RateSource = () => Promise.reject(new Error('this context fetches no rates'))
 
 export function contextFor({
   ledger,
@@ -54,6 +65,7 @@ export function contextFor({
   machine = forgetful(),
   showTheme = () => {},
   copy = () => {},
+  rateSource = sendsNothing,
 }: ContextParts): Context {
   let written: Written[] = []
   return {
@@ -75,6 +87,7 @@ export function contextFor({
     machine,
     showTheme,
     copy,
+    rateSource,
   }
 }
 

@@ -1,13 +1,15 @@
 <script lang="ts">
   // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
-  // writes it and closes; the button writes every borrowed line at the figures shown. Escape, or
-  // a click away, closes with nothing written.
+  // writes it and closes; the button writes every borrowed line at the figures shown; Fetch
+  // says what fetching sends, and Allow this once fetches every guessed day behind the amount.
+  // Escape, or a click away, closes with nothing written.
   import { onDestroy, onMount } from 'svelte'
   import { copy } from '../../../copy'
-  import type { Guess } from '../../../shared/commands'
+  import type { Guess, InputOf } from '../../../shared/commands'
   import { wordsFor } from '../../ledger/refusals'
   import Button from '../../parts/Button.svelte'
   import Field from '../../parts/Field.svelte'
+  import Fold from '../../parts/Fold.svelte'
   import { floating } from '../../parts/floating'
   import Popover from '../../parts/Popover.svelte'
   import { guessKey, guessLabel, nearestOf } from './report'
@@ -15,6 +17,8 @@
   type Props = {
     /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
     lines: Guess[]
+    /** Every guessed day and currency behind the amount, each once: what a fetch asks for. */
+    days: InputOf<'rate.fetch'>['days']
     /** The figure clicked, which the popover hangs from. */
     anchor: HTMLElement
     /** Today, so a day of another year says its year. */
@@ -22,7 +26,7 @@
     /** Closed, written or not; `back` when the cursor goes back to the tree. */
     onclose: (back: boolean) => void
   }
-  let { lines, anchor, today, onclose }: Props = $props()
+  let { lines, days, anchor, today, onclose }: Props = $props()
 
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
@@ -76,6 +80,21 @@
     onclose(true)
   }
 
+  /** Allow this once: the published rate for every guessed day behind the amount, fetched now. */
+  async function fetchOnce(): Promise<void> {
+    const first = lines[0]
+    if (first === undefined || saving) return
+    saving = true
+    const fetched = await window.haveFish.invoke('rate.fetch', { days })
+    if (gone) return
+    saving = false
+    if (!fetched.ok) {
+      error = { key: guessKey(first), words: wordsFor(fetched) }
+      return
+    }
+    onclose(true)
+  }
+
   /** Escape anywhere in it closes it, written or not. */
   function keydown(event: KeyboardEvent) {
     if (event.key === 'Escape') onclose(true)
@@ -104,34 +123,40 @@
   onfocusout={focusout}
 >
   <Popover>
-    <ul>
-      {#each lines as line (guessKey(line))}
-        {@const key = guessKey(line)}
-        <li>
-          <Field
-            id={`guess-${key}`}
-            label={guessLabel(line, today)}
-            error={error?.key === key ? error.words : null}
-            figures
-          >
-            {#snippet children(describedby)}
-              <input
-                id={`guess-${key}`}
-                aria-describedby={describedby}
-                autocomplete="off"
-                spellcheck="false"
-                onkeydown={(event) => write(line, event)}
-              />
-            {/snippet}
-          </Field>
-        </li>
-      {/each}
-    </ul>
-    {#if nearest.length > 0}
+    <div class="body">
+      <ul>
+        {#each lines as line (guessKey(line))}
+          {@const key = guessKey(line)}
+          <li>
+            <Field
+              id={`guess-${key}`}
+              label={guessLabel(line, today)}
+              error={error?.key === key ? error.words : null}
+              figures
+            >
+              {#snippet children(describedby)}
+                <input
+                  id={`guess-${key}`}
+                  aria-describedby={describedby}
+                  autocomplete="off"
+                  spellcheck="false"
+                  onkeydown={(event) => write(line, event)}
+                />
+              {/snippet}
+            </Field>
+          </li>
+        {/each}
+      </ul>
       <div class="foot">
-        <Button onclick={useNearest}>{copy.reports.guesses.nearest}</Button>
+        {#if nearest.length > 0}
+          <Button onclick={useNearest}>{copy.reports.guesses.nearest}</Button>
+        {/if}
+        <Fold summary={copy.reports.fetch.open}>
+          <p>{copy.reports.fetch.sends}</p>
+          <Button onclick={fetchOnce}>{copy.reports.fetch.once}</Button>
+        </Fold>
       </div>
-    {/if}
+    </div>
   </Popover>
 </div>
 
@@ -151,16 +176,26 @@
     max-height: min(14rem, var(--room, 14rem));
   }
 
+  .body {
+    overflow-y: auto;
+    min-block-size: 0;
+  }
+
   ul {
     display: grid;
     gap: var(--space-2);
     margin: 0;
     padding: var(--space-2);
-    overflow-y: auto;
     list-style: none;
   }
 
   .foot {
+    display: grid;
+    gap: var(--space-2);
     padding: var(--space-2);
+  }
+
+  p {
+    margin: 0;
   }
 </style>

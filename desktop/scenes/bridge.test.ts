@@ -223,6 +223,7 @@ describe('writes', () => {
     'account.cost',
     'rate.write',
     'rate.writeAll',
+    'rate.fetch',
     'ledger.undo',
     'ledger.redo',
   ] as const

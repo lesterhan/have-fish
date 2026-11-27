@@ -18,7 +18,7 @@ export const HELD: Record<string, Size> = {
   'parts/Row.svelte': { lines: 56, props: 17, states: 0 },
   'places/accounts/AccountPane.svelte': { lines: 150, props: 10, states: 10 },
   'places/accounts/AccountsTab.svelte': { lines: 162, props: 3, states: 5 },
-  'places/reports/Reports.svelte': { lines: 238, props: 3, states: 9 },
+  'places/reports/Reports.svelte': { lines: 239, props: 3, states: 9 },
   'places/spends/Spends.svelte': { lines: 250, props: 4, states: 9 },
   'shell/App.svelte': { lines: 221, props: 0, states: 2 },
 }

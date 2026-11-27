@@ -28,7 +28,22 @@ describe('a handler map', () => {
     expect(waiting).toBeTypeOf('function')
   })
 
-  it('no command on main waits', () => {
-    expectTypeOf<{ [N in CommandName]: Waits<N> }>().toEqualTypeOf<Record<CommandName, false>>()
+  it('only rate.fetch waits', () => {
+    expectTypeOf<{ [N in CommandName]: Waits<N> }>().toEqualTypeOf<{
+      [N in CommandName]: N extends 'rate.fetch' ? true : false
+    }>()
+  })
+
+  it('a handler that answers at once is a compile error for a command that waits', () => {
+    const handler = () => failure('UNEXPECTED')
+    // @ts-expect-error: `rate.fetch` waits, so its handler answers a Promise.
+    const answering: HandlersFor<'rate.fetch'>['rate.fetch'] = handler
+    expect(answering).toBeTypeOf('function')
+  })
+
+  it('a handler that waits compiles for a command whose traits say so', () => {
+    const handler = async () => failure('RATES_NOT_FETCHED')
+    const waiting: HandlersFor<'rate.fetch'>['rate.fetch'] = handler
+    expect(waiting).toBeTypeOf('function')
   })
 })

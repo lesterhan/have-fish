@@ -14,6 +14,7 @@ import {
   changeMarkOf,
   changeOf,
   figureOf,
+  fixingFor,
   guessed,
   guessesBehind,
   guessesFor,
@@ -405,6 +406,86 @@ describe('guessesFor', () => {
       { date: '2026-10-29', currency: 'GBP', from: GBP },
       { date: '2026-11-06', currency: 'JPY', from: null },
     ])
+  })
+})
+
+describe('fixingFor', () => {
+  const ROWS = [
+    { key: 'category:food', holds: 'category', category: 'food' },
+    { key: 'category:fun', holds: 'category', category: 'fun' },
+  ] as const
+  const GBP = { date: '2026-11-02', rate: '1.71' }
+  const shown = [
+    reported('food:coffee', '2026-11-05', 'GBP', GBP),
+    reported('fun', '2026-11-06', 'JPY'),
+  ]
+
+  test('the lines are the ones guessesFor gives', () => {
+    const at = { key: 'category:food', week: 'shown' } as const
+
+    expect(fixingFor(at, shown, [], ROWS).lines).toEqual(guessesFor(at, shown, [], ROWS))
+  })
+
+  test('the days are only the row’s, not another row’s', () => {
+    expect(fixingFor({ key: 'category:food', week: 'shown' }, shown, [], ROWS).days).toEqual([
+      { date: '2026-11-05', currency: 'GBP' },
+    ])
+  })
+
+  test('a missing currency is every day it was missing on, where the lines show one', () => {
+    const spent = [reported('fun', '2026-11-05', 'JPY'), reported('fun', '2026-11-07', 'JPY')]
+
+    const fixing = fixingFor({ key: null, week: 'shown' }, spent, [], ROWS)
+
+    expect(fixing.days).toEqual([
+      { date: '2026-11-05', currency: 'JPY' },
+      { date: '2026-11-07', currency: 'JPY' },
+    ])
+    expect(fixing.lines).toEqual([{ date: '2026-11-05', currency: 'JPY', from: null }])
+  })
+
+  test('a borrowed day and currency twice is asked once', () => {
+    const spent = [
+      reported('food:coffee', '2026-11-05', 'GBP', GBP),
+      reported('food', '2026-11-05', 'GBP', GBP),
+    ]
+
+    expect(fixingFor({ key: null, week: 'shown' }, spent, [], ROWS).days).toEqual([
+      { date: '2026-11-05', currency: 'GBP' },
+    ])
+  })
+
+  test('the days go by day, then by currency within the day', () => {
+    const spent = [
+      reported('fun', '2026-11-06', 'GBP', GBP),
+      reported('fun', '2026-11-05', 'JPY'),
+      reported('fun', '2026-11-05', 'EUR'),
+    ]
+
+    expect(fixingFor({ key: null, week: 'shown' }, spent, [], ROWS).days).toEqual([
+      { date: '2026-11-05', currency: 'EUR' },
+      { date: '2026-11-05', currency: 'JPY' },
+      { date: '2026-11-06', currency: 'GBP' },
+    ])
+  })
+
+  test('the change’s days take both weeks, the earlier first', () => {
+    const thisWeek = [reported('fun', '2026-11-06', 'JPY')]
+    const lastWeek = [reported('food:coffee', '2026-10-29', 'GBP', GBP)]
+
+    expect(fixingFor({ key: null, week: 'both' }, thisWeek, lastWeek, ROWS).days).toEqual([
+      { date: '2026-10-29', currency: 'GBP' },
+      { date: '2026-11-06', currency: 'JPY' },
+    ])
+  })
+
+  test('a week that trusted every rate asks for no day', () => {
+    const trusted: ReportedSpend[] = [
+      { id: 'r-mine', category: 'food', amount: '7.22', mark: 'mine' },
+      { id: 'r-exact', category: 'fun', amount: '4.00', mark: 'exact' },
+    ]
+
+    expect(fixingFor({ key: null, week: 'shown' }, trusted, [], ROWS).days).toEqual([])
   })
 })
 

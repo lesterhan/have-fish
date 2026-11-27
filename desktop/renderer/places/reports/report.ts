@@ -113,11 +113,8 @@ export const guessKey = (guess: Pick<Guess, 'date' | 'currency'>): string =>
 // A missing currency is one line, at its first day; a borrowed day and currency is one each.
 const lineKey = (guess: Guess): string => (guess.from === null ? guess.currency : guessKey(guess))
 
-/**
- * The guessed lines behind `line` (every spend's for null), by day then currency: a borrowed
- * day and currency once each, and a currency with no rate once, at its first day.
- */
-export function guessesBehind(
+/** The guessed spends' guesses behind `line` (every spend's for null), by day then currency. */
+function guessesIn(
   spent: readonly ReportedSpend[],
   line: Pick<ComparedLine, 'holds' | 'category'> | null,
 ): Guess[] {
@@ -127,12 +124,35 @@ export function guessesBehind(
     guesses.push(s.guess)
   }
   guesses.sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency))
+  return guesses
+}
+
+/**
+ * The guessed lines behind `line` (every spend's for null), by day then currency: a borrowed
+ * day and currency once each, and a currency with no rate once, at its first day.
+ */
+export function guessesBehind(
+  spent: readonly ReportedSpend[],
+  line: Pick<ComparedLine, 'holds' | 'category'> | null,
+): Guess[] {
   const lines = new Map<string, Guess>()
-  for (const guess of guesses) {
+  for (const guess of guessesIn(spent, line)) {
     const key = lineKey(guess)
     if (!lines.has(key)) lines.set(key, guess)
   }
   return [...lines.values()]
+}
+
+/** The spends behind a figure, in its week, and its row: null for the total's. */
+function behind(
+  at: GuessedFigure,
+  shown: readonly ReportedSpend[],
+  before: readonly ReportedSpend[],
+  rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
+) {
+  const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
+  const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
+  return { spent, row }
 }
 
 /** The guessed lines behind a figure: its row's, or every row's for the total, in its week. */
@@ -142,9 +162,27 @@ export function guessesFor(
   before: readonly ReportedSpend[],
   rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
 ): Guess[] {
-  const row = at.key === null ? null : (rows.find((r) => r.key === at.key) ?? null)
-  const spent = at.week === 'before' ? before : at.week === 'both' ? [...shown, ...before] : shown
+  const { spent, row } = behind(at, shown, before, rows)
   return guessesBehind(spent, row)
+}
+
+/** A guessed figure's popover: its lines, and every guessed day and currency behind them. */
+export type Fixing = { lines: Guess[]; days: InputOf<'rate.fetch'>['days'] }
+
+/** The lines behind a guessed figure, and every day and currency it guessed, each once. */
+export function fixingFor(
+  at: GuessedFigure,
+  shown: readonly ReportedSpend[],
+  before: readonly ReportedSpend[],
+  rows: readonly Pick<TreeRow, 'key' | 'holds' | 'category'>[],
+): Fixing {
+  const { spent, row } = behind(at, shown, before, rows)
+  const days = new Map<string, InputOf<'rate.fetch'>['days'][number]>()
+  for (const guess of guessesIn(spent, row)) {
+    const one = { date: guess.date, currency: guess.currency }
+    if (!days.has(guessKey(one))) days.set(guessKey(one), one)
+  }
+  return { lines: guessesBehind(spent, row), days: [...days.values()] }
 }
 
 /** What a guessed line says: a borrowed day's, with its day; a missing currency's, with none. */

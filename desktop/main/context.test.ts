@@ -1,5 +1,5 @@
 import type { Version } from '@have-fish/core/version'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import type { Changed } from '../shared/commands'
 import { changesOf, contextFor } from './context'
 import type { Written } from './ledger/apply'
@@ -84,5 +84,31 @@ describe('contextFor, apply and flush', () => {
         { type: 'transaction', id: spend.id },
       ],
     ])
+  })
+})
+
+describe('a context given no rate source', () => {
+  const ask = { from: 'JPY', to: 'CAD', start: '2026-11-01', end: '2026-11-05' }
+
+  test('rejects the ask', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+    })
+    const ctx = contextFor({ ledger: tempLedger(), announce: () => {} })
+
+    await expect(ctx.rateSource(ask)).rejects.toThrow()
+  })
+
+  test('sends nothing with it', async () => {
+    const fetched = vi.fn()
+    vi.stubGlobal('fetch', fetched)
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+    })
+    const ctx = contextFor({ ledger: tempLedger(), announce: () => {} })
+
+    await expect(ctx.rateSource(ask)).rejects.toThrow()
+    expect(fetched).not.toHaveBeenCalled()
   })
 })

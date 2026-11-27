@@ -51,6 +51,9 @@ const codes: { [C in FailureCode]: string } = {
   LEDGER_TOO_NEW: 'Your ledger was saved by a newer version of have-fish.',
   LEDGER_UNREADABLE: "Your ledger can't be read.",
 
+  // Fetching published rates.
+  RATES_NOT_FETCHED: "The rates couldn't be fetched. Check your connection, or type them.",
+
   // Only a bug reaches these.
   COMMAND_UNKNOWN: TRY_AGAIN,
   INPUT_MALFORMED: TRY_AGAIN,
