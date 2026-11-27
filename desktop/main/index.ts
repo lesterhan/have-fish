@@ -151,12 +151,12 @@ function serveRenderer(root: string): void {
 
 /** Runs each command from the window, then shows the menu again: its Undo may name a new step. */
 function handleCommands(ctx: Context, showMenu: () => void): void {
-  ipcMain.handle(COMMAND, (event, name: unknown, input: unknown) => {
+  ipcMain.handle(COMMAND, async (event, name: unknown, input: unknown) => {
     // Only the app's own page; anything else that reached IPC gets nothing.
     if (!isAppUrl(event.senderFrame?.url ?? '', devServer)) {
       throw new Error('commands are for the app’s own window')
     }
-    const ran = runCommand(ctx, name, input, log)
+    const ran = await runCommand(ctx, name, input, log)
     showMenu()
     return ran
   })

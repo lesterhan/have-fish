@@ -4,10 +4,15 @@
 import type { Outcome } from '@have-fish/core/outcome'
 import type { z } from 'zod'
 import type { CommandName, inputs, Values } from '../../shared/commands'
+import type { Waits } from '../../shared/traits'
 import type { Context } from '../context'
 
 export type HandlersFor<Ns extends CommandName> = {
-  [N in Ns]: (ctx: Context, input: z.output<(typeof inputs)[N]>) => Outcome<Values[N]>
+  // A command whose traits say it waits answers a Promise; every other, an Outcome.
+  [N in Ns]: (
+    ctx: Context,
+    input: z.output<(typeof inputs)[N]>,
+  ) => Waits<N> extends true ? Promise<Outcome<Values[N]>> : Outcome<Values[N]>
 }
 
 /** Every command's handler: a command without one fails to compile. */
