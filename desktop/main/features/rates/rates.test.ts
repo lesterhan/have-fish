@@ -34,7 +34,7 @@ function setup(
   const asks: RateAsk[] = []
   const lastDays: RatePair[] = []
   let held: Promise<void> | null = null
-  /** What the stand-in published, by currency: null and 'unread' refuse, a code it lacks has none. */
+  /** What it published, by currency: null and 'unread' refuse, a code it lacks has none. */
   const rateSource: RateSource = {
     async rates(ask) {
       asks.push(ask)
