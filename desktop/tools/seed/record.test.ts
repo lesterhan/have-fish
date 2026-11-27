@@ -20,6 +20,8 @@ function asker(ledger: Ledger) {
   const ctx: Context = contextFor({ ledger, announce: () => {} })
   return <N extends CommandName>(name: N, input: InputOf<N>): Values[N] => {
     const answered = runCommand(ctx, name, input, quiet)
+    // A scene records what answers at once; a command that waits has no place in one.
+    if (answered instanceof Promise) throw new Error(`${name} waits`)
     if (!answered.ok) throw new Error(`${name} refused: ${JSON.stringify(answered)}`)
     return answered.value
   }

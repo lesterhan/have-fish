@@ -11,8 +11,9 @@ core (the rest of `main/`). The window reaches main only through a command, whic
    need goes into the core, named for what it is, as `commands/applied.ts` did.
 3. **Its handler**: `main/features/<feature>/commands.ts`. A new feature's map is spread into
    `registry.ts`, and its schemas into `shared/commands/index.ts`.
-4. **Its line in `shared/traits.ts`**: whether it writes to the ledger, and the types of
-   document its answer reads. When its `reads` leaves a type out, a sample in `reads.test.ts`.
+4. **Its line in `shared/traits.ts`**: whether it writes to the ledger, the types of document
+   its answer reads, and `waits: true` if its handler waits on the network. When its `reads`
+   leaves a type out, a sample in `reads.test.ts`.
 5. **A new failure code**: in `core/src/outcome.ts`, with its words in `copy/errors.ts`.
 6. **Its caller** in the window, with any words in `copy/`.
 
@@ -26,6 +27,10 @@ core (the rest of `main/`). The window reaches main only through a command, whic
 - A command that says it writes nothing and applies is refused as `UNEXPECTED`: `writes.test.ts`.
 - A command that writes applies once; a second apply throws, and it answers `UNEXPECTED`:
   `once.test.ts`.
+- A command that waits answers once its wait is over, parsed, refused, rejected as `UNEXPECTED`,
+  logged and applied once as any other: `waits.test.ts`.
+- A handler that waits applies after its last wait, so another command can't announce its change
+  half-way: review.
 - A change of a type a command's `reads` leaves out leaves its answer the same: `reads.test.ts`.
 - Every command has a caller in the window, unless it's main's own: `callers.test.ts`.
 - `registry.ts` and `shared/commands/index.ts` only assemble: `registry.test.ts`, `index.test.ts`.
