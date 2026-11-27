@@ -39,6 +39,7 @@ function aFixture(): Fixture {
       currency: 'CAD',
       start: null,
       balance: [{ amount: '100.00', currency: 'CAD' }],
+      awaiting: [],
     },
     {
       id: 'acc-visa',
@@ -47,6 +48,7 @@ function aFixture(): Fixture {
       currency: 'CAD',
       start: null,
       balance: [{ amount: '-40.00', currency: 'CAD' }],
+      awaiting: [],
     },
     {
       id: 'acc-wallet',
@@ -55,6 +57,7 @@ function aFixture(): Fixture {
       currency: null,
       start: null,
       balance: [],
+      awaiting: [],
     },
   ]
   const paths: ListedPath[] = [

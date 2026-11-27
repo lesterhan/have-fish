@@ -2,7 +2,7 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../../shared/commands'
-import { contextFor, type Time } from '../../context'
+import { type Context, contextFor, type Time } from '../../context'
 import type { Ledger } from '../../db/ledger'
 import { applyLocal } from '../../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../../ledger/fixtures'
@@ -11,7 +11,14 @@ import { undoItems } from '../../undo/menu'
 import { redoLast, undoLast } from '../../undo/steps'
 import { editSpend, removeSpend, writeSpend } from '../spends/spends'
 import { listTransactions } from '../spends/transactions'
-import { addAccount, balancesQuery, costStart, listAccounts, startAccount } from './accounts'
+import {
+  addAccount,
+  awaitingQuery,
+  balancesQuery,
+  costStart,
+  listAccounts,
+  startAccount,
+} from './accounts'
 
 function setup() {
   const ledger = tempLedger()
@@ -168,7 +175,7 @@ describe('listAccounts', () => {
   })
 })
 
-const LISTED = { id: expect.any(String), start: null, balance: [] }
+const LISTED = { id: expect.any(String), start: null, balance: [], awaiting: [] }
 const cad = (amount: string) => ({ amount, currency: 'CAD' })
 
 describe('an account’s balance', () => {
@@ -259,6 +266,111 @@ describe('an account’s balance', () => {
     ok(applyLocal(ledger, [tombstoneOf(stored.doc)], NOW))
 
     expect(balances().chequing).toEqual([])
+  })
+})
+
+describe('what waits for its charge on each account', () => {
+  /** A spend from `visa` in `currency`, its charge left for the statement; its id. */
+  function waitingLunch(ctx: Context, visa: string, amount: string, currency = 'JPY'): string {
+    return ok(
+      writeSpend(ctx, {
+        amount,
+        currency,
+        description: 'Lunch',
+        from: visa,
+        to: { category: 'food' },
+      }),
+    ).id
+  }
+
+  /** What the account at `id` says waits, and what its own postings sum to. */
+  function said(ledger: Ledger, id: string) {
+    const account = listAccounts(ledger.db).find((a) => a.id === id)
+    return { awaiting: account?.awaiting, balance: account?.balance }
+  }
+
+  test('a waiting spend waits on the card, apart from what it owes', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+
+    waitingLunch(ctx, visa, '8400')
+
+    expect(said(ledger, visa)).toEqual({
+      awaiting: [{ amount: '-8400.00', currency: 'JPY' }],
+      balance: [],
+    })
+  })
+
+  test('two currencies waiting: each below zero, in currency order', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+
+    waitingLunch(ctx, visa, '8400', 'JPY')
+    waitingLunch(ctx, visa, '20', 'EUR')
+
+    expect(said(ledger, visa).awaiting).toEqual([
+      { amount: '-20.00', currency: 'EUR' },
+      { amount: '-8400.00', currency: 'JPY' },
+    ])
+  })
+
+  test('two waiting spends in one currency sum', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+
+    waitingLunch(ctx, visa, '8400')
+    waitingLunch(ctx, visa, '1600')
+
+    expect(said(ledger, visa).awaiting).toEqual([{ amount: '-10000.00', currency: 'JPY' }])
+  })
+
+  test('a waiting spend given its charge leaves the card’s balance', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+    const id = waitingLunch(ctx, visa, '8400')
+
+    ok(editSpend(ctx, { id, amount: '8400', description: 'Lunch', charged: '76.30' }))
+
+    expect(said(ledger, visa)).toEqual({ awaiting: [], balance: [cad('-76.30')] })
+  })
+
+  test('a waiting spend taken out leaves nothing waiting', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+    const id = waitingLunch(ctx, visa, '8400')
+
+    ok(removeSpend(ctx, { id }))
+
+    expect(said(ledger, visa).awaiting).toEqual([])
+  })
+
+  test('only the account that paid has anything waiting', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+    const cash = ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: null })).id
+    const chequing = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' })).id
+
+    waitingLunch(ctx, visa, '8400')
+
+    expect(said(ledger, cash).awaiting).toEqual([])
+    expect(said(ledger, chequing).awaiting).toEqual([])
+  })
+
+  test('the awaiting query seeks: no posting or transaction is read whole', () => {
+    const { ledger } = setup()
+    const { sql, params } = awaitingQuery(drizzle(ledger.db)).toSQL()
+    const plan = ledger.db
+      .prepare<unknown[], { detail: string }>(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...params)
+      .map((row) => row.detail)
+
+    expect(plan).toEqual([
+      'SCAN accounts',
+      'SEARCH zero_leg USING INDEX postings_account_balance (accountId=? AND currency=? AND amountCents=?)',
+      'SEARCH transactions USING INDEX sqlite_autoindex_transactions_1 (id=?)',
+      'SEARCH postings USING INDEX sqlite_autoindex_postings_1 (transactionId=?)',
+      'SEARCH leg_account USING INDEX sqlite_autoindex_accounts_1 (id=?)',
+    ])
   })
 })
 

@@ -186,6 +186,17 @@ describe('what a currency cost me', () => {
     expect(pools(moved).get('EUR')).toEqual(pools(EXAMPLE).get('EUR'))
   })
 
+  it('an awaiting spend moves nothing: the yen reads as with no transaction at all', () => {
+    const waiting = tx(
+      '2026-05-03',
+      leg('f', 840000, 'JPY'),
+      leg('x', -840000, 'JPY'),
+      leg('x', 0, 'CAD'),
+      leg('v', 0, 'CAD'),
+    )
+    expect(pools([waiting])).toEqual(pools([]))
+  })
+
   it("a spend listed before its day's exchange takes the rate after it", () => {
     const spendFirst = [spend('2026-05-01', 10000), ...ONE]
     expect(day(pools(spendFirst), 'EUR', '2026-05-01')).toEqual({

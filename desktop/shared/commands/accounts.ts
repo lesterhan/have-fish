@@ -40,6 +40,8 @@ export type ListedAccount = {
    * below zero. None that sum to zero; empty for nothing in it.
    */
   balance: Money[]
+  /** What its spends waiting for their charge cost, by code, below zero; empty for none. */
+  awaiting: Money[]
 }
 
 export interface AccountValues {

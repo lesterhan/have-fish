@@ -16,6 +16,8 @@ export type AccountRow = {
   depth: number
   /** What's in it, by currency, for `Money`; owed where it's what I owe. */
   balance: Balance[]
+  /** What waits for its charge on the account itself; never rolled into a parent. */
+  awaiting: Money[]
   totals: readonly Total[]
 }
 
@@ -73,6 +75,7 @@ export function accountRows(accounts: readonly ListedAccount[]): AccountRow[] {
       label: row.label,
       depth: row.depth,
       balance: balanceOf(row.totals, row.root, account?.currency ?? HOME_CURRENCY),
+      awaiting: account?.awaiting ?? [],
       totals: row.totals,
     }
   })

@@ -18,6 +18,7 @@ describe('which rows R can refile', () => {
     for (const shape of ['spend', 'transfer', 'income', 'converted'] as const) {
       expect(canRefile(shape), shape).toBe(true)
     }
+    expect(canRefile('awaiting')).toBe(true)
   })
 
   test('an exchange keeps its To', () => {

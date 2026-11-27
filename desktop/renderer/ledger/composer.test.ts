@@ -32,6 +32,7 @@ const VISA_LISTED: ListedAccount = {
   currency: 'CAD',
   start: null,
   balance: [],
+  awaiting: [],
 }
 
 /** Cash, which holds any currency. */
@@ -42,6 +43,7 @@ const CASH_LISTED: ListedAccount = {
   currency: null,
   start: null,
   balance: [],
+  awaiting: [],
 }
 
 const FOOD = { category: 'food' }

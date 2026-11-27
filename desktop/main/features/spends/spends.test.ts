@@ -4,7 +4,7 @@ import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
-import { contextFor, type Time } from '../../context'
+import { type Context, contextFor, type Time } from '../../context'
 import { loadClock } from '../../db/clock'
 import type { Ledger } from '../../db/ledger'
 import { applyLocal } from '../../ledger/apply'
@@ -1591,21 +1591,6 @@ describe('a spend in the currency typed', () => {
       failure: { code: 'AMOUNT_TOO_PRECISE', details: { amount: '1500.50', currency: 'JPY' } },
     })
   })
-
-  test('an account kept to CAD takes yen only with what it was charged, and nothing is saved or remembered without it', () => {
-    const { ledger, ctx } = setup()
-    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
-    const last = ctx.machine.lastFrom()
-
-    expect(
-      writeSpend(ctx, { amount: '1500', currency: 'JPY', description: 'Ramen', from: visa.id }),
-    ).toEqual({
-      ok: false,
-      failure: { code: 'CHARGED_INVALID', details: { charged: '' } },
-    })
-    expect(listTransactions(ledger.db)).toEqual([])
-    expect(ctx.machine.lastFrom()).toBe(last)
-  })
 })
 
 describe('a yen spend a card kept to CAD paid', () => {
@@ -1683,35 +1668,24 @@ describe('a yen spend a card kept to CAD paid', () => {
     expect(ctx.machine.lastFrom()).toBe(visa.id)
   })
 
-  test('with no charge, nothing is saved, the conversion account included', () => {
-    const { ledger, ctx, visa } = withVisa()
-    const { charged: _, ...uncharged } = DINNER
-    const accounts = count(ledger, 'accounts')
-
-    expect(writeSpend(ctx, { ...uncharged, from: visa.id })).toEqual({
-      ok: false,
-      failure: { code: 'CHARGED_INVALID', details: { charged: '' } },
-    })
-    expect(listTransactions(ledger.db)).toEqual([])
-    expect(count(ledger, 'accounts')).toBe(accounts)
-  })
-
   test('a charge that is not an amount is refused', () => {
-    const { ctx, visa } = withVisa()
+    const { ledger, ctx, visa } = withVisa()
 
     expect(writeSpend(ctx, { ...DINNER, charged: 'abc', from: visa.id })).toEqual({
       ok: false,
       failure: { code: 'CHARGED_INVALID', details: { charged: 'abc' } },
     })
+    expect(listTransactions(ledger.db)).toEqual([])
   })
 
   test('a charge of nothing is refused', () => {
-    const { ctx, visa } = withVisa()
+    const { ledger, ctx, visa } = withVisa()
 
     expect(writeSpend(ctx, { ...DINNER, charged: '0', from: visa.id })).toEqual({
       ok: false,
       failure: { code: 'CHARGED_INVALID', details: { charged: '0' } },
     })
+    expect(listTransactions(ledger.db)).toEqual([])
   })
 
   test('a charge is checked in the card’s currency: a yen card has no cents', () => {
@@ -1801,6 +1775,160 @@ describe('a yen spend a card kept to CAD paid', () => {
     ok(writeSpend(ctx, { amount: '36.20', description: 'Dinner', from: visa.id }))
 
     expect(listTransactions(ledger.db)[0]).not.toHaveProperty('charged')
+  })
+
+  describe('a charge left to wait', () => {
+    /** ¥8,400 from visa to food, its charge `charged` or left for the statement; its id. */
+    function waitingLunch(ctx: Context, visa: string, charged?: string): string {
+      return ok(
+        writeSpend(ctx, {
+          amount: '8400',
+          currency: 'JPY',
+          description: 'Lunch',
+          from: visa,
+          to: { category: 'food' },
+          ...(charged === undefined ? {} : { charged }),
+        }),
+      ).id
+    }
+
+    test('a charge left empty waits: the yen at zero in CAD, through the conversion account', () => {
+      const { ledger, ctx, visa } = withVisa()
+
+      const id = waitingLunch(ctx, visa.id)
+
+      expect(postingLines(ledger, id)).toEqual([
+        'food 8400.00 JPY',
+        'conversion -8400.00 JPY',
+        'conversion 0.00 CAD',
+        'visa 0.00 CAD',
+      ])
+    })
+
+    test.each(['', '   '])('a charge of %j waits, on the same four postings', (charged) => {
+      const { ledger, ctx, visa } = withVisa()
+
+      const id = waitingLunch(ctx, visa.id, charged)
+
+      expect(postingLines(ledger, id)).toEqual([
+        'food 8400.00 JPY',
+        'conversion -8400.00 JPY',
+        'conversion 0.00 CAD',
+        'visa 0.00 CAD',
+      ])
+    })
+
+    test('a waiting spend makes the conversion account in its batch, as the app', () => {
+      const { ledger, ctx, visa } = withVisa()
+
+      waitingLunch(ctx, visa.id)
+
+      expect(accountAt(ledger, 'equity:conversion')).toMatchObject({
+        kind: 'conversion',
+        currency: null,
+        origin: { source: 'system' },
+      })
+    })
+
+    test('a waiting spend remembers the card that paid, for the next line', () => {
+      const { ctx, visa } = withVisa()
+
+      waitingLunch(ctx, visa.id)
+
+      expect(ctx.machine.lastFrom()).toBe(visa.id)
+    })
+
+    test('a waiting spend lists the yen it was, with its zero CAD charge', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+
+      const [row] = listTransactions(ledger.db)
+      expect(row?.id).toBe(id)
+      expect(row).toMatchObject({
+        shape: 'awaiting',
+        simple: { amount: '8400.00', currency: 'JPY' },
+        charged: { amount: '0.00', currency: 'CAD' },
+        from: 'visa',
+        to: 'food',
+      })
+    })
+
+    test('the charge fills the four postings, each in its place', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+
+      ok(editSpend(ctx, { id, amount: '8400', description: 'Lunch', charged: '76.30' }))
+
+      expect(postingLines(ledger, id)).toEqual([
+        'food 8400.00 JPY',
+        'conversion -8400.00 JPY',
+        'conversion 76.30 CAD',
+        'visa -76.30 CAD',
+      ])
+    })
+
+    test('a waiting spend saved as it was keeps its version and adds no step', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+      const before = getDocument(ledger.db, 'transaction', id)
+      const step = ctx.history.nextUndo()
+
+      expect(editSpend(ctx, { id, amount: '8400', description: 'Lunch' })).toEqual({
+        ok: true,
+        value: { id },
+      })
+
+      expect(getDocument(ledger.db, 'transaction', id)?.version).toEqual(before?.version)
+      expect(ctx.history.nextUndo()).toBe(step)
+    })
+
+    test('a new yen amount keeps it waiting: the CAD pair stays at zero', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+
+      ok(editSpend(ctx, { id, amount: '9000', description: 'Lunch' }))
+
+      expect(postingLines(ledger, id)).toEqual([
+        'food 9000.00 JPY',
+        'conversion -9000.00 JPY',
+        'conversion 0.00 CAD',
+        'visa 0.00 CAD',
+      ])
+    })
+
+    test('an amount in the card’s own currency makes it a plain spend again', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+
+      ok(editSpend(ctx, { id, amount: '20', currency: 'CAD', description: 'Lunch' }))
+
+      expect(postingLines(ledger, id)).toEqual(['food 20.00 CAD', 'visa -20.00 CAD'])
+    })
+
+    test('a waiting spend can’t be refiled onto an account of mine', () => {
+      const { ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+      const cash = ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: null }))
+
+      expect(
+        editSpend(ctx, { id, amount: '8400', description: 'Lunch', to: { account: cash.id } }),
+      ).toEqual({ ok: false, failure: { code: 'TRANSACTION_NOT_SIMPLE', details: { id } } })
+    })
+
+    test('undo takes the charge back to waiting', () => {
+      const { ledger, ctx, visa } = withVisa()
+      const id = waitingLunch(ctx, visa.id)
+      ok(editSpend(ctx, { id, amount: '8400', description: 'Lunch', charged: '76.30' }))
+
+      ok(undoLast(ctx))
+
+      expect(postingLines(ledger, id)).toEqual([
+        'food 8400.00 JPY',
+        'conversion -8400.00 JPY',
+        'conversion 0.00 CAD',
+        'visa 0.00 CAD',
+      ])
+    })
   })
 
   /** The dinner, written from visa, and its document as it was just after. */

@@ -17,7 +17,7 @@ export const spends = {
       from: 'from',
       date: 'date',
       amount: 'amount',
-      charged: 'charged',
+      charged: 'awaiting statement',
       description: 'description',
       to: 'to',
       arrived: 'arrived',
@@ -130,6 +130,8 @@ export const spends = {
     esc: 'Esc',
     remove: 'Remove',
     notSimple: "This one moves more than one amount, so it can't be changed here yet.",
+    /** The charged chip's words while the bank hasn't said what it cost. */
+    awaiting: 'awaiting statement',
     /** Where it came from, when, and on which computer. */
     origin: {
       manual: (when: string, place: string): OriginPart[] => [

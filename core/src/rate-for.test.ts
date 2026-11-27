@@ -11,6 +11,7 @@ import { type ShapeLeg, shapeOf } from './shapes'
 const KINDS: Record<string, AccountKind> = {
   c: 'bank',
   w: 'bank',
+  v: 'card',
   x: 'conversion',
   f: 'category',
 }
@@ -361,6 +362,25 @@ describe('a converted spend’s own rate', () => {
       leg('w', -10000, 'EUR'),
     ]
     expect(ownRate(shapeOf(legs, kindOf), 'CAD')).toBeNull()
+  })
+
+  it('an awaiting spend gives no own rate, where the same one charged gives it', () => {
+    const waiting = [
+      leg('f', 840000, 'JPY'),
+      leg('x', -840000, 'JPY'),
+      leg('x', 0, 'CAD'),
+      leg('v', 0, 'CAD'),
+    ]
+    const charged = [
+      leg('f', 840000, 'JPY'),
+      leg('x', -840000, 'JPY'),
+      leg('x', 7630, 'CAD'),
+      leg('v', -7630, 'CAD'),
+    ]
+
+    expect(shapeOf(waiting, kindOf)).toMatchObject({ shape: 'awaiting' })
+    expect(ownRate(shapeOf(waiting, kindOf), 'CAD')).toBeNull()
+    expect(ownRate(shapeOf(charged, kindOf), 'CAD')).not.toBeNull()
   })
 
   it('a spend gives no own rate', () => {

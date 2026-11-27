@@ -174,6 +174,25 @@ describe('a spend paid in another currency', () => {
   })
 })
 
+describe('a spend waiting for its charge', () => {
+  /** ¥8,400 for lunch, from a card kept to CAD, waiting for what the bank posts. */
+  const WAITING = listed({
+    description: 'Lunch',
+    shape: 'awaiting',
+    amounts: [{ amount: '8400.00', currency: 'JPY' }],
+    simple: { amount: '8400.00', currency: 'JPY' },
+    charged: { amount: '0.00', currency: 'CAD' },
+  })
+
+  test('its charge starts empty, not at the zero the ledger holds', () => {
+    expect(values(WAITING).charged).toBe('')
+  })
+
+  test('Enter on its empty charge sends nothing', () => {
+    expect(changeOf(WAITING, values(WAITING), 'charged', '', toOf)).toBeNull()
+  })
+})
+
 describe('a spend paid from more than one account', () => {
   const split = listed({
     simple: null,
