@@ -364,7 +364,8 @@ describe('what waits for its charge on each account', () => {
       .all(...params)
       .map((row) => row.detail)
 
-    expect(plan.filter((line) => /^SCAN (postings|transactions)/.test(line))).toEqual([])
+    // Only the accounts it starts from is read whole: the ledger's own tables are all seeks.
+    expect(plan.filter((line) => line.startsWith('SCAN') && line !== 'SCAN accounts')).toEqual([])
   })
 })
 
