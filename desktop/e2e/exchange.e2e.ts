@@ -5,6 +5,7 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
 import {
   accountLines,
   addAccount,
@@ -19,6 +20,7 @@ import {
   pickPath,
   reportTree,
   rows,
+  selectedRow,
   shownDay,
   WRITE,
 } from './app'
@@ -216,6 +218,16 @@ describe('an exchange refused or taken back', () => {
     )
 
     expect(await page.locator(`${LEDGER} ${TO_PICKER}`).count()).toBe(0)
+  })
+
+  test('the hint on its row offers Enter and details, and no refile', async () => {
+    const page = await anExchange()
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(WRITE, { state: 'detached' })
+    await page.locator(LEDGER).focus()
+
+    await expect.poll(() => selectedRow(page).innerText()).toContain(copy.spends.list.details)
+    expect(await selectedRow(page).innerText()).not.toContain(copy.spends.list.refile)
   })
 
   test('Reports leaves it out: the tree has no category', async () => {

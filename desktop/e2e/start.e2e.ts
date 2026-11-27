@@ -2,9 +2,20 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { ADD_ACCOUNT, aHome, focusedName, launch, rows, shownDay, writeDown } from './app'
+import { copy } from '../copy'
+import {
+  ADD_ACCOUNT,
+  aHome,
+  focusedName,
+  launch,
+  rows,
+  selectedRow,
+  shownDay,
+  writeDown,
+} from './app'
 
 const NAV = 'nav[aria-label=Places]'
+const LEDGER = 'ol[aria-label=Ledger]'
 const LIST = 'ol[aria-label=Accounts]'
 const ACCOUNT = 'section[aria-label="The account"]'
 const ADDING = `${ACCOUNT} form[aria-label="Add an account"]`
@@ -57,6 +68,19 @@ describe('a starting balance, said when adding', () => {
     await expect
       .poll(() => rows(page))
       .toEqual([`${shownDay(today())} | Starting balance | 1,234.56`])
+  })
+
+  test('its row in the Ledger offers Enter and details, and no refile', async () => {
+    const { page } = await launch(aHome())
+    await toAccounts(page)
+    await add(page, 'chequing', 'bank', '1,234.56')
+    await expect.poll(() => started(page)).toContain('Started with 1,234.56 CAD')
+
+    await page.click(`${NAV} button:has-text("Ledger")`)
+    await page.locator(LEDGER).focus()
+
+    await expect.poll(() => selectedRow(page).innerText()).toContain(copy.spends.list.details)
+    expect(await selectedRow(page).innerText()).not.toContain(copy.spends.list.refile)
   })
 
   test('on a card or a loan, it asks what I owe, and shows it as owed', async () => {

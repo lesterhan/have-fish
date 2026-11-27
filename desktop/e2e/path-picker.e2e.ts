@@ -16,6 +16,7 @@ import {
   PANE,
   pickPath,
   rows,
+  selectedRow,
   WRITE,
 } from './app'
 
@@ -233,7 +234,7 @@ describe("a refile's list in the room the window has", () => {
   async function refileNearTheBottom(page: Page, key: 'Home' | 'End') {
     await page.focus(LIST)
     await page.keyboard.press(key)
-    const selected = page.locator(`${LIST} li[aria-selected=true]`)
+    const selected = selectedRow(page)
     const at = await selected.boundingBox()
     if (at === null) throw new Error('no spend is selected')
     const width = await page.evaluate(() => innerWidth)

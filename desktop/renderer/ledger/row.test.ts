@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { columnsOf, daysOf, NARROW_LIST, wayOf } from './row'
+import { canRefile, columnsOf, daysOf, NARROW_LIST, wayOf } from './row'
 
 describe('which way a row’s money went', () => {
   test('income is in; a transfer is between; a spend, a start or an other is out', () => {
@@ -10,6 +10,22 @@ describe('which way a row’s money went', () => {
 
   test('an exchange is between, as it moves between accounts of mine', () => {
     expect(wayOf('exchange')).toBe('between')
+  })
+})
+
+describe('which rows R can refile', () => {
+  test('a spend, a transfer, income or a converted spend can be refiled', () => {
+    for (const shape of ['spend', 'transfer', 'income', 'converted'] as const) {
+      expect(canRefile(shape), shape).toBe(true)
+    }
+  })
+
+  test('an exchange keeps its To', () => {
+    expect(canRefile('exchange')).toBe(false)
+  })
+
+  test('a start or an other has no To to move', () => {
+    for (const shape of ['start', 'other'] as const) expect(canRefile(shape), shape).toBe(false)
   })
 })
 
