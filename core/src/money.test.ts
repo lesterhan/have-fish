@@ -209,6 +209,11 @@ describe('format', () => {
     expect(() => format(Number.NaN)).toThrow(RangeError)
     expect(() => format(2 ** 53)).toThrow(RangeError)
   })
+
+  it('names the fault, never the cents, in a thrown message', () => {
+    expect(() => format(452107.5)).toThrow(/^cents are not a whole number$/)
+    expect(() => format(2 ** 53)).toThrow(/^cents are not a whole number$/)
+  })
 })
 
 describe('arithmetic', () => {
@@ -251,5 +256,10 @@ describe('cents', () => {
 
   it('throws on something that is not an amount', () => {
     expect(() => cents('abc')).toThrow(RangeError)
+  })
+
+  it('names the fault, never the amount, in a thrown message', () => {
+    expect(() => cents('4521.07 CAD')).toThrow(/^not an amount$/)
+    expect(() => cents('')).toThrow(/^not an amount$/)
   })
 })

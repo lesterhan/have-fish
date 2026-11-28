@@ -1,6 +1,6 @@
 // Money in a document: a decimal string with two places, like `-12.50`. Amounts come in and
 // go out as those strings; the arithmetic in between happens in integer cents.
-//
+// A thrown message names the fault, never the value: main logs what a command throws.
 
 /**
  * One cent past the largest amount a posting can carry (`9999999999.99`), in cents. It is the
@@ -78,7 +78,7 @@ export function splitCode(typed: string): { amount: string; currency?: string } 
 
 /** Cents as the canonical two-place string: `-1235` is `'-12.35'`, `0` is `'0.00'`. */
 export function format(cents: number): string {
-  if (!Number.isSafeInteger(cents)) throw new RangeError(`not a whole number of cents: ${cents}`)
+  if (!Number.isSafeInteger(cents)) throw new RangeError('cents are not a whole number')
   const digits = String(Math.abs(cents)).padStart(3, '0')
   const sign = cents < 0 ? '-' : ''
   return `${sign}${digits.slice(0, -2)}.${digits.slice(-2)}`
@@ -90,7 +90,7 @@ export function format(cents: number): string {
 /** An accepted amount in cents, for sums kept as numbers. Throws on one that isn't an amount. */
 export function cents(amount: string): number {
   const value = parse(amount)
-  if (value === null) throw new RangeError(`not an amount: ${JSON.stringify(amount)}`)
+  if (value === null) throw new RangeError('not an amount')
   return value
 }
 
