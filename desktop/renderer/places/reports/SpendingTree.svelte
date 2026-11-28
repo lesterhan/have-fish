@@ -6,9 +6,11 @@
   import type { Mark } from '@have-fish/core/rate-for'
   import type { Compared, Uncounted } from '@have-fish/core/spending'
   import {
-    type Change,
+    type ChangeFigure,
+    changeFigureOf,
     changeMarkOf,
     changeOf,
+    type Figure,
     figureOf,
     type GuessedFigure,
     lineLabel,
@@ -61,7 +63,9 @@
       : []),
     { name: names.change, end: true },
   ])
-  const sum = $derived(changeOf(sums.total, sums.before))
+  const sum = $derived(
+    changeFigureOf(changeOf(sums.total, sums.before), sums.uncounted, sums.beforeUncounted),
+  )
 
   export function focus() {
     listbox.focus()
@@ -88,6 +92,15 @@
     >{:else}<span class:fetched={look === 'fetched'} data-look={look}>{@render content()}</span>{/if}
 {/snippet}
 
+<!-- What a figure couldn't count, a line each under it, small and quiet. -->
+{#snippet under(lines: Figure['uncounted'])}
+  {#each lines as { money, sign } (money.currency)}
+    {' '}<span class="uncounted" data-uncounted
+      >{#if sign !== null}{copy.reports.tree[sign]}{' '}{/if}<Money of={money} /></span
+    >
+  {/each}
+{/snippet}
+
 {#snippet figure(
   cents: number | null,
   mark: Mark | null,
@@ -100,26 +113,25 @@
     {@const parts = figureOf(cents, uncounted, currency)}
     {#snippet amount()}
       {#if parts.counted !== null}<Money of={parts.counted} />{/if}
-      {#each parts.uncounted as { money, sign } (money.currency)}
-        {' '}<span class="uncounted" data-uncounted
-          >{#if sign !== null}{copy.reports.tree[sign]}{' '}{/if}<Money of={money} /></span
-        >
-      {/each}
+      {@render under(parts.uncounted)}
     {/snippet}
     {@render atFigure(at, mark, amount)}
   {/if}
 {/snippet}
 
 {#snippet change(
-  moved: Change,
+  moved: ChangeFigure,
   mark: Mark | null,
   beforeMark: Mark | null,
   at: GuessedFigure
 )}
   {@const changeMark = changeMarkOf(mark, beforeMark)}
   {#snippet changeText()}
-    {#if moved.cents > 0}<Money of={moneyOf(moved.cents, currency)} />{' '}{copy.reports.tree
-        .change[moved.way]}{:else}{copy.reports.tree.change.same}{/if}
+    {#if moved.counted !== null}
+      {#if moved.counted.cents > 0}<Money of={moneyOf(moved.counted.cents, currency)} />{' '}{copy
+          .reports.tree.change[moved.counted.way]}{:else}{copy.reports.tree.change.same}{/if}
+    {/if}
+    {@render under(moved.uncounted)}
   {/snippet}
   {@render atFigure(at, changeMark, changeText)}
 {/snippet}
@@ -140,7 +152,11 @@
     {onkey}
   >
     {#snippet row(line)}
-      {@const moved = changeOf(line.cents, line.before)}
+      {@const moved = changeFigureOf(
+        changeOf(line.cents, line.before),
+        line.uncounted,
+        line.beforeUncounted,
+      )}
       <span
         data-cell="name"
         style:padding-inline-start="calc({line.level - 1} * var(--space-4))"

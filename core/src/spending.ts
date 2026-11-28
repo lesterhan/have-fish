@@ -172,6 +172,10 @@ const plus = (so: readonly Uncounted[], one: Uncounted | undefined): Uncounted[]
   return kept.sort((a, b) => (a.currency < b.currency ? -1 : 1))
 }
 
+/** `now` less `then`, a currency each by code; one that nets to zero goes. */
+export const netOf = (now: readonly Uncounted[], then: readonly Uncounted[]): Uncounted[] =>
+  then.reduce<Uncounted[]>((so, one) => plus(so, { ...one, cents: -one.cents }), [...now])
+
 /**
  * The same level beside the period before: each line's two sums, this period's biggest first,
  * then the one before's, then by name; what went to the level's own category and what's unsorted

@@ -14,6 +14,7 @@ import type {
 import { type Ask, query } from '../../ledger/query'
 import {
   askingLines,
+  changeFigureOf,
   changeMarkOf,
   changeOf,
   daysToAsk,
@@ -848,6 +849,115 @@ describe('changeOf', () => {
 
   test('the same either side says so, with nothing to add', () => {
     expect(changeOf(500, 500)).toEqual({ cents: 0, way: 'same' })
+  })
+})
+
+describe('changeFigureOf', () => {
+  test('part counted: the figure, then what this week couldn’t count, after a plus', () => {
+    expect(changeFigureOf(changeOf(3620, 2255), [{ currency: 'JPY', cents: 150000 }], [])).toEqual({
+      counted: { cents: 1365, way: 'more' },
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' }],
+    })
+  })
+
+  test('yen only last week: a minus before it', () => {
+    expect(changeFigureOf(changeOf(3620, 2255), [], [{ currency: 'JPY', cents: 150000 }])).toEqual({
+      counted: { cents: 1365, way: 'more' },
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'minus' }],
+    })
+  })
+
+  test('a week that spent less: a plus before what it couldn’t count', () => {
+    expect(changeFigureOf(changeOf(2255, 3620), [{ currency: 'JPY', cents: 150000 }], [])).toEqual({
+      counted: { cents: 1365, way: 'less' },
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' }],
+    })
+  })
+
+  test('one currency both weeks: the difference, after a plus', () => {
+    expect(
+      changeFigureOf(
+        changeOf(3620, 2255),
+        [{ currency: 'JPY', cents: 150000 }],
+        [{ currency: 'JPY', cents: 100000 }],
+      ),
+    ).toEqual({
+      counted: { cents: 1365, way: 'more' },
+      uncounted: [{ money: { amount: '500.00', currency: 'JPY' }, sign: 'plus' }],
+    })
+  })
+
+  test('two currencies: each by code, the one last week had first', () => {
+    expect(
+      changeFigureOf(
+        changeOf(3620, 2255),
+        [{ currency: 'JPY', cents: 150000 }],
+        [{ currency: 'EUR', cents: 1000 }],
+      ),
+    ).toEqual({
+      counted: { cents: 1365, way: 'more' },
+      uncounted: [
+        { money: { amount: '10.00', currency: 'EUR' }, sign: 'minus' },
+        { money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' },
+      ],
+    })
+  })
+
+  test('nothing counted moved: the signed line alone, no same', () => {
+    expect(changeFigureOf(changeOf(0, null), [{ currency: 'JPY', cents: 150000 }], [])).toEqual({
+      counted: null,
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' }],
+    })
+  })
+
+  test('nothing counted moved and two currencies: the first keeps its sign', () => {
+    expect(
+      changeFigureOf(
+        changeOf(0, 0),
+        [{ currency: 'JPY', cents: 150000 }],
+        [{ currency: 'EUR', cents: 1000 }],
+      ),
+    ).toEqual({
+      counted: null,
+      uncounted: [
+        { money: { amount: '10.00', currency: 'EUR' }, sign: 'minus' },
+        { money: { amount: '1500.00', currency: 'JPY' }, sign: 'plus' },
+      ],
+    })
+  })
+
+  test('nothing this week and yen last week: the signed line alone', () => {
+    expect(changeFigureOf(changeOf(null, 0), [], [{ currency: 'JPY', cents: 150000 }])).toEqual({
+      counted: null,
+      uncounted: [{ money: { amount: '1500.00', currency: 'JPY' }, sign: 'minus' }],
+    })
+  })
+
+  test('the same yen both weeks nets to nothing: the counted change alone', () => {
+    expect(
+      changeFigureOf(
+        changeOf(0, 0),
+        [{ currency: 'JPY', cents: 150000 }],
+        [{ currency: 'JPY', cents: 150000 }],
+      ),
+    ).toEqual({ counted: { cents: 0, way: 'same' }, uncounted: [] })
+  })
+
+  test('a currency that nets to zero leaves no line', () => {
+    expect(
+      changeFigureOf(
+        changeOf(3620, 2255),
+        [{ currency: 'JPY', cents: 150000 }],
+        [{ currency: 'JPY', cents: 150000 }],
+      ),
+    ).toEqual({ counted: { cents: 1365, way: 'more' }, uncounted: [] })
+  })
+
+  test('nothing uncounted either week: the change as it was', () => {
+    expect(changeFigureOf(changeOf(500, 500), [], [])).toEqual({
+      counted: { cents: 0, way: 'same' },
+      uncounted: [],
+    })
   })
 })
 
