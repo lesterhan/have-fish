@@ -251,12 +251,12 @@ describe('netOf', () => {
   })
 
   test('each currency its own line, the two by code', () => {
-    expect(
-      netOf([{ currency: 'JPY', cents: 150000 }], [{ currency: 'EUR', cents: 1000 }]),
-    ).toEqual([
-      { currency: 'EUR', cents: -1000 },
-      { currency: 'JPY', cents: 150000 },
-    ])
+    expect(netOf([{ currency: 'JPY', cents: 150000 }], [{ currency: 'EUR', cents: 1000 }])).toEqual(
+      [
+        { currency: 'EUR', cents: -1000 },
+        { currency: 'JPY', cents: 150000 },
+      ],
+    )
   })
 
   test('nothing either week: nothing', () => {

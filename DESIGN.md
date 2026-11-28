@@ -78,7 +78,8 @@ for amounts and dates, the code mono for account paths and a bank's own text.
   total takes the least sure of its spends, and a change the less sure of its two weeks.
 - **What a figure couldn't count goes under it**, a line per currency by code, small and
   quiet: `36.20`, then `+ 1,500 JPY`. A figure with nothing counted reads that alone, never
-  `0.00`.
+  `0.00`. The change nets each currency between the weeks and signs it: `13.65 more`, then
+  `− 1,500 JPY` for yen only last week; with nothing counted moved, the signed line alone.
 - **A day** reads `Thu 5 Nov`, with the year when it isn't this one (`Thu 5 Nov 2025`). A day band
   puts `Today ·` or `Yesterday ·` before it. A moment reads `Thu 5 Nov 2026, 12:40`.
 

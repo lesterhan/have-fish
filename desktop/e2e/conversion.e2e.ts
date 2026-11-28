@@ -676,6 +676,27 @@ describe('a converted spend in Reports', () => {
     return page
   }
 
+  /** `cell`'s line of what it couldn't count: on its own line, smaller than the cell, muted. */
+  async function expectQuietLine(page: Page, cell: Locator) {
+    const line = cell.locator('[data-uncounted]')
+    await expect.poll(() => line.count()).toBe(1)
+
+    const painted = await line.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        display: style.display,
+        size: Number.parseFloat(style.fontSize),
+        colour: style.color,
+      }
+    })
+    const cellSize = await cell.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).fontSize),
+    )
+    expect(painted.display).toBe('block')
+    expect(painted.size).toBeLessThan(cellSize)
+    expect(painted.colour).toBe(await paintOf(page, '--color-muted'))
+  }
+
   test('the dinner: Unsorted counts the 36.20 it cost', async () => {
     const page = await aDinnerInReports()
 
@@ -696,7 +717,7 @@ describe('a converted spend in Reports', () => {
     const foot = page.locator("p:has-text('All spending')")
     await expect
       .poll(() => textsOf(foot.locator('[data-guessed]')))
-      .toEqual(['36.20 + 1,500 JPY', '36.20 more'])
+      .toEqual(['36.20 + 1,500 JPY', '36.20 more + 1,500 JPY'])
   })
 
   test('a guessed figure’s line is wavy, in the error’s colour', async () => {
@@ -740,10 +761,10 @@ describe('a converted spend in Reports', () => {
     const foot = page.locator("p:has-text('All spending')")
     await expect
       .poll(() => textsOf(foot.locator('[data-guessed]')))
-      .toEqual(['1,500 JPY', '36.20 more'])
+      .toEqual(['1,500 JPY', '36.20 more − 1,500 JPY'])
   })
 
-  test('a guess this week with nothing last week: the change reads same, and is underlined too', async () => {
+  test('a guess this week with nothing last week: the change reads + 1,500 JPY, and is underlined too', async () => {
     const { page } = await launch(aHome())
     await yenFromCash(page)
     // Wide enough for the week before's column.
@@ -754,7 +775,7 @@ describe('a converted spend in Reports', () => {
     const foot = page.locator("p:has-text('All spending')")
     await expect
       .poll(() => textsOf(foot.locator('[data-guessed]')))
-      .toEqual(['1,500 JPY', copy.reports.tree.change.same])
+      .toEqual(['1,500 JPY', '+ 1,500 JPY'])
   })
 
   test('the dinner alone: no cell of the tree is underlined', async () => {
@@ -769,7 +790,7 @@ describe('a converted spend in Reports', () => {
 
     await expect
       .poll(() => reportTree(page))
-      .toEqual(['Unsorted | 36.20 + 1,500 JPY | – | 36.20 more'])
+      .toEqual(['Unsorted | 36.20 + 1,500 JPY | – | 36.20 more + 1,500 JPY'])
     await expect.poll(() => page.getByText('Not in these totals').count()).toBe(0)
   })
 
@@ -778,7 +799,20 @@ describe('a converted spend in Reports', () => {
 
     const unsorted = treeRow(page, 'Unsorted')
     await expect.poll(() => textsOf(unsorted.locator('[data-cell=shown]'))).toEqual(['1,500 JPY'])
-    await expect.poll(() => unsorted.locator('[data-uncounted]').count()).toBe(1)
+    await expect.poll(() => unsorted.locator('[data-cell=shown] [data-uncounted]').count()).toBe(1)
+  })
+
+  test('a thousand yen last week and 1,500 this week: the change nets to + 500 JPY', async () => {
+    const { page } = await launch(aHome())
+    await fromWallet(page, 'suica', 'JPY', '1000', daysAgo(7))
+    await yenFromCash(page, today(), false)
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    await goTo(page, 'Reports')
+
+    await expect
+      .poll(() => reportTree(page))
+      .toEqual(['Unsorted | 1,500 JPY | 1,000 JPY | + 500 JPY'])
   })
 
   test('a rate typed for the yen: the figure reads 49.85, with nothing under it', async () => {
@@ -820,23 +854,13 @@ describe('a converted spend in Reports', () => {
     const page = await aDinnerInReports(today())
 
     const cell = treeRow(page, 'Unsorted').locator('[data-cell=shown]')
-    const line = cell.locator('[data-uncounted]')
-    await expect.poll(() => line.count()).toBe(1)
+    await expectQuietLine(page, cell)
+  })
 
-    const painted = await line.evaluate((element) => {
-      const style = getComputedStyle(element)
-      return {
-        display: style.display,
-        size: Number.parseFloat(style.fontSize),
-        colour: style.color,
-      }
-    })
-    const cellSize = await cell.evaluate((element) =>
-      Number.parseFloat(getComputedStyle(element).fontSize),
-    )
-    expect(painted.display).toBe('block')
-    expect(painted.size).toBeLessThan(cellSize)
-    expect(painted.colour).toBe(await paintOf(page, '--color-muted'))
+  test('the change’s uncounted line sits under it, small and muted, as the weeks’ do', async () => {
+    const page = await aDinnerInReports(today())
+
+    await expectQuietLine(page, treeRow(page, 'Unsorted').locator('[data-cell=change]'))
   })
 
   test('the Unsorted row picked: the list beside reads Dinner at 4,000 JPY', async () => {
@@ -901,6 +925,14 @@ describe('fixing a guessed rate in Reports', () => {
     const popover = await openFigure(page, 'change')
 
     await expect.poll(() => labelsOf(popover)).toEqual([copy.reports.guesses.missing('JPY')])
+  })
+
+  test('the same yen both weeks: the change reads same, and is underlined', async () => {
+    const page = await aYenWeekAndTheOneBefore()
+
+    await expect
+      .poll(() => textsOf(treeRow(page, 'Unsorted').locator('[data-cell=change] [data-guessed]')))
+      .toEqual([copy.reports.tree.change.same])
   })
 
   test('the change writes its yen rate for last week’s day', async () => {
