@@ -17,8 +17,6 @@ type Killed = {
   signal: NodeJS.Signals | null
   told: number[]
   walBytes: number
-  /** `saved` was longer just before the kill than at its first line: the writer was writing. */
-  grew: boolean
   ledger: Ledger
 }
 
@@ -33,6 +31,15 @@ function killGroup(pid: number): void {
     process.kill(-pid, 'SIGKILL')
   } catch (e) {
     if (!(e instanceof Error && 'code' in e && e.code === 'ESRCH')) throw e
+  }
+}
+
+/** Waits until `saved` holds `lines` told batches, or throws `why` after 20 s. */
+async function untilTold(saved: string, lines: number, why: string): Promise<void> {
+  const started = Date.now()
+  while (!(existsSync(saved) && readFileSync(saved, 'utf8').split('\n').length > lines)) {
+    if (Date.now() - started > 20_000) throw new Error(why)
+    await setTimeout(5)
   }
 }
 
@@ -51,21 +58,16 @@ async function killOne(writer: string, dir: string): Promise<Killed> {
   )
   const saved = join(dir, 'saved')
   try {
-    const started = Date.now()
-    while (!(existsSync(saved) && readFileSync(saved, 'utf8').includes('\n'))) {
-      if (Date.now() - started > 20_000) throw new Error('the writer told no batch')
-      await setTimeout(5)
-    }
-    const first = statSync(saved).size
-    await setTimeout(100 + Math.random() * 400)
-    const grew = statSync(saved).size > first
+    await untilTold(saved, 1, 'the writer told no batch')
+    await untilTold(saved, 2, 'the writer told no second batch')
+    await setTimeout(Math.random() * 400)
     killGroup(pid)
     const signal = await exited
     const text = readFileSync(saved, 'utf8')
     const told = text.slice(0, text.lastIndexOf('\n')).split('\n').map(Number)
     const walBytes = statSync(join(dir, 'ledger.sqlite-wal')).size
     const ledger = ok(openLedger({ dir, installId: INSTALL, now: Date.now() }))
-    return { signal, told, walBytes, grew, ledger }
+    return { signal, told, walBytes, ledger }
   } finally {
     if (running(child)) killGroup(pid)
   }
@@ -115,11 +117,10 @@ afterAll(async () => {
 describe('a ledger whose writer is killed mid-write', () => {
   it('each writer was killed by SIGKILL while writing, with a batch told and frames in the WAL', () => {
     expect(killed).toHaveLength(KILLS)
-    for (const { signal, told, walBytes, grew } of killed) {
+    for (const { signal, told, walBytes } of killed) {
       expect(signal).toBe('SIGKILL')
-      expect(told).not.toEqual([])
+      expect(told.length).toBeGreaterThan(1)
       expect(walBytes).toBeGreaterThan(0)
-      expect(grew).toBe(true)
     }
   })
 
