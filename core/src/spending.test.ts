@@ -6,6 +6,7 @@ import {
   isIn,
   isUnder,
   type Level,
+  netOf,
   type SpendingLine,
   type Spent,
   spendingAt,
@@ -221,6 +222,45 @@ describe('spendingAt', () => {
       '',
     )
     expect(level.uncounted).toEqual([{ currency: 'JPY', cents: 300000 }])
+  })
+})
+
+describe('netOf', () => {
+  test('this week alone: its currency as it came', () => {
+    expect(netOf([{ currency: 'JPY', cents: 150000 }], [])).toEqual([
+      { currency: 'JPY', cents: 150000 },
+    ])
+  })
+
+  test('last week alone: the same amount below zero', () => {
+    expect(netOf([], [{ currency: 'JPY', cents: 150000 }])).toEqual([
+      { currency: 'JPY', cents: -150000 },
+    ])
+  })
+
+  test('one currency both weeks: the difference', () => {
+    expect(
+      netOf([{ currency: 'JPY', cents: 150000 }], [{ currency: 'JPY', cents: 100000 }]),
+    ).toEqual([{ currency: 'JPY', cents: 50000 }])
+  })
+
+  test('a currency the same both weeks goes', () => {
+    expect(
+      netOf([{ currency: 'JPY', cents: 150000 }], [{ currency: 'JPY', cents: 150000 }]),
+    ).toEqual([])
+  })
+
+  test('each currency its own line, the two by code', () => {
+    expect(
+      netOf([{ currency: 'JPY', cents: 150000 }], [{ currency: 'EUR', cents: 1000 }]),
+    ).toEqual([
+      { currency: 'EUR', cents: -1000 },
+      { currency: 'JPY', cents: 150000 },
+    ])
+  })
+
+  test('nothing either week: nothing', () => {
+    expect(netOf([], [])).toEqual([])
   })
 })
 
