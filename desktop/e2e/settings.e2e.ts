@@ -53,17 +53,15 @@ describe('Settings, this computer’s own', () => {
     const named = page.getByRole('button', { name: copy.settings.title, exact: true })
 
     await expect.poll(() => named.count()).toBe(1)
-    await expect
-      .poll(() => page.locator(`${NAV} button`).nth(3).and(named).count())
-      .toBe(1)
+    await expect.poll(() => page.locator(`${NAV} button`).nth(3).and(named).count()).toBe(1)
   })
 
   test('that button’s keycap reads Ctrl+,', async () => {
     const { page } = await launch(aHome())
 
-    await expect.poll(() => page.locator(`${NAV} button`).nth(3).locator('kbd').innerText()).toBe(
-      'Ctrl+,',
-    )
+    await expect
+      .poll(() => page.locator(`${NAV} button`).nth(3).locator('kbd').innerText())
+      .toBe('Ctrl+,')
   })
 
   test('Ctrl+comma goes to Settings from the ledger', async () => {
