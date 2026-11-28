@@ -222,8 +222,11 @@ describe('the last day it published', () => {
     })
   })
 
-  test.each([404, 422])('a %s on the coverage is no last day', async (status) => {
-    const service = await aService(status, '{"status":422,"message":"invalid currency"}')
+  test.each([
+    [404, '{"status":404,"message":"not found"}'],
+    [422, '{"status":422,"message":"invalid currency: NTD"}'],
+  ])('a %s on the coverage is no last day', async (status, body) => {
+    const service = await aService(status, body)
 
     expect(await ratesFrom(service.url).lastDay(PAIR)).toEqual({ ok: true, value: null })
   })

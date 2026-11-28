@@ -156,6 +156,31 @@ export function lineDays(line: Guess, days: readonly AskedDay[]): AskedDay[] {
   return days.filter((one) => one.currency === line.currency)
 }
 
+/** The missed days one line has, from what a fetch left: none before one has answered. */
+export function missedOn(
+  line: Guess,
+  left: readonly Missed[] | null,
+  days: readonly AskedDay[],
+): Missed[] {
+  const mine = lineDays(line, days).map(guessKey)
+  return (left ?? []).filter((one) => mine.includes(guessKey(one)))
+}
+
+/** The days a try again asks: every guessed day at first, then only what missed. */
+export function daysToAsk(left: readonly Missed[] | null, days: readonly AskedDay[]): AskedDay[] {
+  return left === null ? [...days] : left.map((one) => ({ date: one.date, currency: one.currency }))
+}
+
+/** What Use it leaves: every missed day it didn't write, then what its answer missed. */
+export function leftAfterOffer(
+  left: readonly Missed[],
+  offered: readonly AskedDay[],
+  missed: readonly Missed[],
+): Missed[] {
+  const done = new Set(offered.map(guessKey))
+  return [...left.filter((one) => !done.has(guessKey(one))), ...missed]
+}
+
 /** What a missed line says: its code, else its last rate before it, else that it has none. */
 export function missedWords(missed: readonly Missed[], today: string): string {
   for (const one of missed) {

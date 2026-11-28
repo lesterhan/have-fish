@@ -45,13 +45,13 @@ export function ratesFrom(url: string, timeoutMs = 10_000): RateSource {
       const answer = await request(at, (text) => ratesIn(text, ask), [422], timeoutMs)
       return answer.ok ? { ok: true, value: answer.value ?? [] } : answer
     },
-    lastDay(pair) {
+    async lastDay(pair) {
       const at = urlAt(url, 'coverage', {
         base: pair.from,
         quotes: pair.to,
         providers: 'ecb',
       })
-      if (at === null) return Promise.resolve(failure('RATES_NOT_FETCHED'))
+      if (at === null) return failure('RATES_NOT_FETCHED')
       return request(at, lastDayIn, [404, 422], timeoutMs)
     },
   }
@@ -106,9 +106,7 @@ const ANSWER = z.array(
 
 /** The rates in the service's answer, or null where it isn't one for `ask` the ledger takes. */
 function ratesIn(text: string, ask: RateAsk): PublishedRate[] | null {
-  const parsed = dataOf(text)
-  if (parsed === null) return null
-  const answer = ANSWER.safeParse(parsed)
+  const answer = ANSWER.safeParse(dataOf(text))
   if (!answer.success) return null
   const rates: PublishedRate[] = []
   for (const entry of answer.data) {
@@ -120,9 +118,9 @@ function ratesIn(text: string, ask: RateAsk): PublishedRate[] | null {
   return rates
 }
 
-/** The coverage's last day, or null where it isn't one the calendar has. */
 const COVERAGE = z.object({ end_date: z.string() })
 
+/** The coverage's last day, or null where it isn't one the calendar has. */
 function lastDayIn(text: string): string | null {
   const answer = COVERAGE.safeParse(dataOf(text))
   return answer.success && isCalendarDate(answer.data.end_date) ? answer.data.end_date : null

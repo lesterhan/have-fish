@@ -34,11 +34,16 @@ function setup(
   const asks: RateAsk[] = []
   const lastDays: RatePair[] = []
   let held: Promise<void> | null = null
+  let heldFor: 'rates' | 'lastDay' | null = null
+  /** Waits for the hold, where it holds this kind of ask: every kind with none, as on main. */
+  const heldHere = async (kind: 'rates' | 'lastDay') => {
+    if (held !== null && (heldFor === null || heldFor === kind)) await held
+  }
   /** What it published, by currency: null and 'unread' refuse, a code it lacks has none. */
   const rateSource: RateSource = {
     async rates(ask) {
       asks.push(ask)
-      if (held !== null) await held
+      await heldHere('rates')
       const rates = book[ask.from]
       if (rates === undefined) return { ok: true, value: [] }
       if (rates === null) return failure('RATES_NOT_FETCHED')
@@ -50,16 +55,17 @@ function setup(
     },
     async lastDay(pair) {
       lastDays.push(pair)
-      if (held !== null) await held
+      await heldHere('lastDay')
       const end = ends[pair.from]
       if (end === 'refused') return failure('RATES_NOT_FETCHED')
       return { ok: true, value: end ?? null }
     },
   }
-  /** Holds the stand-in's answers until the function it returns is called. */
-  const hold = () => {
+  /** Holds the stand-in's answers until the function it returns is called: `which` kind, or all. */
+  const hold = (which?: 'rates' | 'lastDay') => {
     const gate = Promise.withResolvers<void>()
     held = gate.promise
+    heldFor = which ?? null
     return () => gate.resolve()
   }
   const ctx = contextFor({ ledger, announce: () => {}, time: clock, rateSource })
@@ -1196,6 +1202,43 @@ describe('a fetch that missed', () => {
     await fetchRates(ctx, { days: [day('2026-11-05')], last: true })
 
     expect(week().spent[0]?.mark).toBe('estimate')
+  })
+
+  test('with last, two missed days of a currency are both written', async () => {
+    const { ctx, stored } = setup(
+      { JPY: [{ date: '2022-02-28', rate: '0.0091' }] },
+      { JPY: '2022-02-28' },
+    )
+
+    const { ids } = ok(
+      await fetchRates(ctx, { days: [day('2026-11-03'), day('2026-11-05')], last: true }),
+    )
+
+    expect(
+      ids.map((id) => {
+        const doc = stored(id)
+        return [doc.date, doc.rate, doc.published]
+      }),
+    ).toEqual([
+      ['2026-11-03', '0.0091', '2022-02-28'],
+      ['2026-11-05', '0.0091', '2022-02-28'],
+    ])
+  })
+
+  test('nothing is written until the last day has answered', async () => {
+    const { ctx, count, hold, lastDays } = setup(
+      { JPY: [{ date: '2026-11-05', rate: '0.0091' }] },
+      { GBP: '2022-02-28' },
+    )
+    const release = hold('lastDay')
+
+    const fetching = fetchRates(ctx, { days: [day('2026-11-05'), day('2026-11-05', 'GBP')] })
+    await expect.poll(() => lastDays.length).toBe(1)
+    expect(count('rates')).toBe(0)
+
+    release()
+    ok(await fetching)
+    expect(count('rates')).toBe(1)
   })
 
   test('the schema takes last with the days', () => {

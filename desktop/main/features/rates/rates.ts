@@ -65,9 +65,7 @@ export function writeAllRates(
   return outcomeOf(applied, { ids: docs.map((doc) => doc.id) })
 }
 
-/**
- * Each day's published rate, as one step: a day that got none says why in missed.
- */
+/** Each day's published rate, as one step: a day that got none says why in missed. */
 export async function fetchRates(
   ctx: Context,
   input: InputOf<'rate.fetch'>,
@@ -112,17 +110,17 @@ export async function fetchRates(
     else refused.set(code, whyOf(answer.failure.code))
   }
 
-  // The rate each day takes from the week before it, and every day that got none, in its order.
+  // The rate each day takes from the week before it, and every day that came with none, in order.
   const taken = new Map<string, PublishedRate>()
   const none: { date: string; currency: string }[] = []
-  for (const one of input.days) {
-    const rate = latestOn(published.get(one.currency) ?? [], one.date, addDays(one.date, -7))
-    if (rate === undefined) none.push(one)
-    else taken.set(`${one.date} ${one.currency}`, rate)
+  for (const day of input.days) {
+    const rate = latestOn(published.get(day.currency) ?? [], day.date, addDays(day.date, -7))
+    if (rate !== undefined) taken.set(`${day.date} ${day.currency}`, rate)
+    else if (published.has(day.currency)) none.push(day)
   }
 
   // The last day each currency with a missed day published: one ask, after every rates ask.
-  const asking = [...new Set(none.map((one) => one.currency))].filter((code) => !refused.has(code))
+  const asking = [...new Set(none.map((day) => day.currency))]
   const lastOf = new Map<string, { end: string | null } | { why: Missed['why'] }>()
   await Promise.all(
     asking.map(async (code) => {
@@ -131,13 +129,13 @@ export async function fetchRates(
     }),
   )
 
-  // A currency whose last day is before a missed day's week: one more ask, for the rate on it.
+  // The rate on a last day that is before a missed day's week: one more ask for that currency.
   const ends = new Map<string, string>()
   for (const code of asking) {
     const last = lastOf.get(code)
     const end = last !== undefined && 'end' in last ? last.end : null
     if (end === null) continue
-    if (none.some((one) => one.currency === code && end < addDays(one.date, -7)))
+    if (none.some((day) => day.currency === code && end < addDays(day.date, -7)))
       ends.set(code, end)
   }
   const offers = new Map<string, { date: string; rate: string } | { why: Missed['why'] }>()
@@ -153,37 +151,43 @@ export async function fetchRates(
     }),
   )
 
+  // What each currency can fall back to, worked out once: its refusal or last day, and its offer.
+  const fallback = new Map<string, Fallback>()
+  for (const code of spans.keys()) {
+    const why = refused.get(code)
+    const last = lastOf.get(code)
+    const offer = offers.get(code)
+    fallback.set(code, {
+      end: last !== undefined && 'end' in last ? last.end : null,
+      why: why ?? (last !== undefined && 'why' in last ? last.why : 'none'),
+      offer: offer !== undefined && 'date' in offer ? offer : null,
+      offerWhy: offer !== undefined && 'why' in offer && offer.why !== 'none' ? offer.why : null,
+    })
+  }
+
   // Read and written after the last wait, so another command can't announce half-way.
   const now = ctx.now()
   const docs: RateDoc[] = []
   const missed: Missed[] = []
-  for (const one of input.days) {
-    const rate = taken.get(`${one.date} ${one.currency}`)
+  for (const day of input.days) {
+    const rate = taken.get(`${day.date} ${day.currency}`)
     if (rate !== undefined) {
-      const line = { date: one.date, currency: one.currency, rate: rate.rate }
+      const line = { date: day.date, currency: day.currency, rate: rate.rate }
       docs.push(rateDocOf(ctx, line, now, rate.date))
       continue
     }
-    const last = lastOf.get(one.currency)
-    const end = last !== undefined && 'end' in last ? last.end : null
-    const besideEnd = end !== null && end < addDays(one.date, -7)
-    const offer = offers.get(one.currency)
-    if (input.last === true && besideEnd && offer !== undefined && 'date' in offer) {
-      const line = { date: one.date, currency: one.currency, rate: offer.rate }
-      docs.push(rateDocOf(ctx, line, now, offer.date))
+    const back = fallback.get(day.currency) ?? NOTHING
+    const besideEnd = back.end !== null && back.end < addDays(day.date, -7)
+    if (input.last === true && besideEnd && back.offer !== null) {
+      const line = { date: day.date, currency: day.currency, rate: back.offer.rate }
+      docs.push(rateDocOf(ctx, line, now, back.offer.date))
       continue
     }
-    const refusedHere = refused.get(one.currency)
-    const offerWhy = besideEnd && offer !== undefined && 'why' in offer ? offer.why : undefined
-    const lastWhy = last !== undefined && 'why' in last ? last.why : 'none'
     missed.push({
-      date: one.date,
-      currency: one.currency,
-      why: refusedHere ?? offerWhy ?? lastWhy,
-      offer:
-        besideEnd && offer !== undefined && 'date' in offer
-          ? { date: offer.date, rate: offer.rate }
-          : null,
+      date: day.date,
+      currency: day.currency,
+      why: besideEnd && back.offerWhy !== null ? back.offerWhy : back.why,
+      offer: besideEnd ? back.offer : null,
     })
   }
   if (docs.length === 0) return { ok: true, value: { ids: [], missed } }
@@ -191,6 +195,21 @@ export async function fetchRates(
   record(ctx, { action: 'fetchRates', count: docs.length }, changes)
   return outcomeOf(applied, { ids: docs.map((doc) => doc.id), missed })
 }
+
+/** What a currency with a missed day falls back to: a refusal, or its last day and the rate on it. */
+type Fallback = {
+  /** The last day the service published, or null. */
+  end: string | null
+  /** Why there is no last day, or 'none' when there is one. */
+  why: Missed['why']
+  /** The rate on the last day, where the ask for it found one. */
+  offer: { date: string; rate: string } | null
+  /** Why the ask for the last day's rate gave none, where it refused. */
+  offerWhy: Missed['why'] | null
+}
+
+/** A currency no day could ask about: nothing published, and no refusal to say. */
+const NOTHING: Fallback = { end: null, why: 'none', offer: null, offerWhy: null }
 
 /** The code a day records when the service didn't answer it: the two a source gives. */
 const whyOf = (code: FailureCode): Missed['why'] =>

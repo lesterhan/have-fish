@@ -223,6 +223,9 @@ export const focusedIn = (page: Page) =>
     return `${where?.getAttribute('aria-label')} ${el?.getAttribute('name') ?? el?.tagName}`
   })
 
+/** The id of the element with the cursor: which field, where one field of a dialog can't say. */
+export const focusedId = (page: Page) => page.evaluate(() => document.activeElement?.id ?? '')
+
 /** The tab holding the cursor, by its words; null when the cursor is on no tab. */
 export const focusedTab = (page: Page) =>
   page.evaluate(() => {

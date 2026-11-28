@@ -19,10 +19,9 @@ export const rateInputs = {
   'rate.write': aRate,
   /** Several rates I typed, written as one step: each day and currency once. */
   'rate.writeAll': z.strictObject({ rates: z.array(aRate).min(1).max(100).refine(eachOnce) }),
-  /** Every published rate for each day and currency, fetched as one step: each day once. */
+  /** Each day's published rate, as one step; last: a day with none in its week takes the last. */
   'rate.fetch': z.strictObject({
     days: z.array(aDay).min(1).max(200).refine(eachOnce),
-    /** A day with none in its week takes the last published before it. */
     last: z.literal(true).optional(),
   }),
 }
@@ -41,7 +40,7 @@ export interface RateValues {
   'rate.write': { id: string }
   /** Each rate document, in the order the rates were given. */
   'rate.writeAll': { ids: string[] }
-  /** Each rate document fetched, in the order its days came; a day with none published has none. */
+  /** Each rate fetched, then each day that got none, both in the order the days came. */
   'rate.fetch': { ids: string[]; missed: Missed[] }
 }
 

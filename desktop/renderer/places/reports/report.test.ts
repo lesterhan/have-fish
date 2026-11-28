@@ -15,6 +15,7 @@ import { type Ask, query } from '../../ledger/query'
 import {
   changeMarkOf,
   changeOf,
+  daysToAsk,
   figureOf,
   fixingFor,
   guessed,
@@ -22,9 +23,11 @@ import {
   guessKey,
   guessLabel,
   idsWanted,
+  leftAfterOffer,
   lineDays,
   lineLabel,
   lookOf,
+  missedOn,
   missedWords,
   nearestOf,
   offerOf,
@@ -650,6 +653,75 @@ describe('offerOf', () => {
     const days = [missed('JPY', '2026-11-03', 'none', { ...OFFER }), missed('JPY', '2026-11-05')]
 
     expect(offerOf(days)).toEqual([{ date: '2026-11-03', currency: 'JPY' }])
+  })
+
+  test('two days with the same offer are both offered', () => {
+    const days = [
+      missed('JPY', '2026-11-03', 'none', { ...OFFER }),
+      missed('JPY', '2026-11-05', 'none', { ...OFFER }),
+    ]
+
+    expect(offerOf(days)).toEqual([
+      { date: '2026-11-03', currency: 'JPY' },
+      { date: '2026-11-05', currency: 'JPY' },
+    ])
+  })
+})
+
+describe('missedOn', () => {
+  const JPY_MISSED = missed('JPY', '2026-11-05')
+  const EUR_MISSED = missed('EUR', '2026-11-05')
+
+  test('a line takes only its own currency’s days', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: null }
+
+    expect(missedOn(line, [JPY_MISSED, EUR_MISSED], askedDays)).toEqual([JPY_MISSED])
+  })
+
+  test('a borrowed line takes its own day, with nothing missed elsewhere', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: { ...OFFER } }
+
+    expect(missedOn(line, [EUR_MISSED], askedDays)).toEqual([])
+  })
+
+  test('before a fetch it takes nothing', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: null }
+
+    expect(missedOn(line, null, askedDays)).toEqual([])
+  })
+})
+
+describe('daysToAsk', () => {
+  test('before a fetch, every day behind the figure', () => {
+    expect(daysToAsk(null, askedDays)).toEqual(askedDays)
+  })
+
+  test('after one, only the days it missed', () => {
+    const left = [missed('JPY', '2026-11-05'), missed('GBP', '2026-11-04')]
+
+    expect(daysToAsk(left, askedDays)).toEqual([
+      { date: '2026-11-05', currency: 'JPY' },
+      { date: '2026-11-04', currency: 'GBP' },
+    ])
+  })
+})
+
+describe('leftAfterOffer', () => {
+  const JPY_MISSED = missed('JPY', '2026-11-05', 'none', { ...OFFER })
+  const EUR_MISSED = missed('EUR', '2026-11-05', 'RATES_NOT_FETCHED')
+
+  test('takes the days it wrote out, and keeps the rest', () => {
+    expect(
+      leftAfterOffer([JPY_MISSED, EUR_MISSED], [{ date: '2026-11-05', currency: 'JPY' }], []),
+    ).toEqual([EUR_MISSED])
+  })
+
+  test('adds what its answer missed, after what it had', () => {
+    const again = missed('JPY', '2026-11-06', 'RATES_UNREADABLE')
+
+    expect(
+      leftAfterOffer([JPY_MISSED], [{ date: '2026-11-05', currency: 'JPY' }], [again]),
+    ).toEqual([again])
   })
 })
 

@@ -12,13 +12,18 @@
   import Fold from '../../parts/Fold.svelte'
   import { floating } from '../../parts/floating'
   import Popover from '../../parts/Popover.svelte'
-  import { guessKey, guessLabel, lineDays, missedWords, nearestOf, offerOf } from './report'
-
+  import { guessKey, guessLabel, missedWords, nearestOf, offerOf } from './report'
+  import { daysToAsk, leftAfterOffer, missedOn } from './report'
   type Props = {
+    /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
     lines: Guess[]
+    /** Every guessed day and currency behind the amount, each once: what a fetch asks for. */
     days: InputOf<'rate.fetch'>['days']
+    /** The figure clicked, which the popover hangs from. */
     anchor: HTMLElement
+    /** Today, so a day of another year says its year. */
     today: string
+    /** Closed, written or not; `back` when the cursor goes back to the tree. */
     onclose: (back: boolean) => void
   }
   let { lines, days, anchor, today, onclose }: Props = $props()
@@ -26,24 +31,26 @@
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
   let allow = $state<Button>()
+  /** Every day a fetch missed, each once, or null before one has answered. */
   let left = $state<Missed[] | null>(null)
   let layer: HTMLElement | undefined
+  // Set as it goes: a write's answer that comes back now has no popover to close.
   let gone = false
 
-  const nearest = $derived(nearestOf(lines))
+  /** The lines still asking: every one before a fetch, then only those a fetch missed. */
+  const shown = $derived(
+    left === null ? lines : lines.filter((one) => missedOn(one, left, days).length > 0),
+  )
 
-  function missedOf(line: Guess): Missed[] {
-    const mine = lineDays(line, days).map(guessKey)
-    return (left ?? []).filter((one) => mine.includes(guessKey(one)))
-  }
-
-  const shown = $derived(left === null ? lines : lines.filter((one) => missedOf(one).length > 0))
-
-  const toAsk = (): InputOf<'rate.fetch'>['days'] =>
-    left === null ? days : left.map((one) => ({ date: one.date, currency: one.currency }))
+  /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
+  const nearest = $derived(nearestOf(shown))
 
   // The first field takes the cursor, so Enter writes without a click.
-  onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
+  onMount(() => {
+    layer?.querySelector<HTMLInputElement>('input')?.focus()
+    document.addEventListener('pointerdown', pointerdown, true)
+    return () => document.removeEventListener('pointerdown', pointerdown, true)
+  })
   onDestroy(() => {
     gone = true
   })
@@ -63,6 +70,7 @@
       error = { key, words: wordsFor(answered) }
       return true
     }
+    error = null
     const kept = rest === undefined ? [] : rest(answered.value)
     if (kept.length === 0) {
       saving = false
@@ -77,17 +85,11 @@
   }
 
   /** Enter in a field: the rate typed there is written for that day and currency. */
-  async function write(
-    line: Guess,
-    event: KeyboardEvent & { currentTarget: HTMLInputElement },
-  ): Promise<void> {
+  async function write(line: Guess, event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter') return
+    const rate = event.currentTarget.value
     await send(guessKey(line), () =>
-      window.haveFish.invoke('rate.write', {
-        date: line.date,
-        currency: line.currency,
-        rate: event.currentTarget.value,
-      }),
+      window.haveFish.invoke('rate.write', { date: line.date, currency: line.currency, rate }),
     )
   }
 
@@ -100,30 +102,27 @@
 
   /** Allow this once: the published rate for every guessed day behind the amount, fetched now. */
   async function fetchOnce(): Promise<void> {
-    const first = lines[0]
+    const first = shown[0]
     if (first === undefined) return
     const refused = await send(
       guessKey(first),
-      () => window.haveFish.invoke('rate.fetch', { days: toAsk() }),
+      () => window.haveFish.invoke('rate.fetch', { days: daysToAsk(left, days) }),
       (value) => value.missed,
     )
     if (gone || !refused) return
+    // Disabled while it waited, Allow lost the cursor: a refusal gives it back, so Esc closes.
     await tick()
     allow?.focus()
   }
 
   /** Use it under a line: the last rate before its days, fetched as the service published it. */
   async function useOffer(line: Guess): Promise<void> {
-    const offered = offerOf(missedOf(line))
+    const offered = offerOf(missedOn(line, left, days))
     if (offered.length === 0) return
-    const rest = (value: { missed: Missed[] }): Missed[] => [
-      ...(left ?? []).filter((one) => !offered.some((day) => guessKey(day) === guessKey(one))),
-      ...value.missed,
-    ]
     await send(
       guessKey(line),
       () => window.haveFish.invoke('rate.fetch', { days: offered, last: true }),
-      rest,
+      (value) => leftAfterOffer(left ?? [], offered, value.missed),
     )
   }
 
@@ -138,11 +137,17 @@
    */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
     if (!document.hasFocus()) return
-    // An answer may take a control away, or disable the one with the cursor: not a click away.
-    if (saving) return
     const next = event.relatedTarget
     if (next instanceof Node && event.currentTarget.contains(next)) return
+    // The answer may take the control away, or leave the one with the cursor disabled: not a click.
+    if (event.target instanceof HTMLElement && !event.target.isConnected) return
+    if (event.target instanceof HTMLElement && event.target.matches(':disabled')) return
     onclose(next === null)
+  }
+
+  /** A click outside while a write waits closes it: the disabled control's blur is no focusout. */
+  function pointerdown(event: PointerEvent) {
+    if (saving && !(event.target instanceof Node && layer?.contains(event.target))) onclose(false)
   }
 </script>
 
@@ -161,7 +166,7 @@
       <ul>
         {#each shown as line (guessKey(line))}
           {@const key = guessKey(line)}
-          {@const missed = missedOf(line)}
+          {@const missed = missedOn(line, left, days)}
           {@const words = missed.length === 0 ? null : missedWords(missed, today)}
           <li>
             <Field
