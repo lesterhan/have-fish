@@ -57,7 +57,7 @@
   /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
   const nearest = $derived(nearestOf(shown))
 
-  // The first field takes the cursor, so Enter writes without a click; then whether a fetch may ask.
+  // The first field takes the cursor, so Enter writes without a click; then if a fetch may ask.
   onMount(() => {
     layer?.querySelector<HTMLInputElement>('input')?.focus()
     void askLookUp()
@@ -66,7 +66,7 @@
     gone = true
   })
 
-  /** Asks main whether this computer looks rates up; until it answers the Fold shows, never a fetch. */
+  /** Asks main whether this computer looks rates up; the Fold shows until it answers. */
   async function askLookUp(): Promise<void> {
     const asked = await window.haveFish.invoke('settings.rates.get', {})
     if (gone) return

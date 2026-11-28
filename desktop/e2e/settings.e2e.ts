@@ -1,5 +1,5 @@
-// Reports-27's acceptance: this computer's switch that looks rates up, in the built app. The keys
-// go through xdotool, as the menu's do, and the settings file is settings.json under the home.
+// This computer's switch that looks rates up, driven in the built app: the Places nav, the keys
+// through xdotool as the menu's are, and settings.json under a throwaway home.
 
 import { cpSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
