@@ -1269,37 +1269,23 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   const fetchButton = (popover: Locator) =>
     popover.getByRole('button', { name: copy.reports.fetch.open })
 
-  /** The switch turned on in Settings, then back to Reports. */
-  async function lookUpOn(page: Page) {
+  /** The switch set as `on` says, in Settings, then back to Reports: the one place it is set. */
+  async function switchRates(page: Page, on: boolean) {
     await goTo(page, 'Settings')
-    const on = page.getByRole('switch', { name: copy.settings.rates })
-    await on.click()
-    await expect.poll(() => on.isChecked()).toBe(true)
+    const rates = page.getByRole('switch', { name: copy.settings.rates })
+    await rates.click()
+    await expect.poll(() => rates.isChecked()).toBe(on)
     await goTo(page, 'Reports')
   }
 
   /**
-   * The service started with `by`, the switch on and the shown figure opened: the page, the popover
-   * it opens for the tests to poll, and the service, so a test can read `asked`.
+   * The service started with `by`, the switch set through `ons` in turn, and the shown figure
+   * opened: the page, the popover it opens for tests to poll, and the service, to read `asked`.
    */
-  async function lookedUp(by: Answers = {}) {
+  async function aSwitchedWeek(ons: boolean[], by: Answers = {}) {
     const service = await aRateService('0.0091', 200, by)
     const page = await aYenWeek(service.env)
-    await lookUpOn(page)
-    const popover = await openFigure(page, 'shown')
-    return { page, popover, service }
-  }
-
-  /** A service with its defaults, the switch turned on and off again, the shown figure opened. */
-  async function turnedOff() {
-    const service = await aRateService()
-    const page = await aYenWeek(service.env)
-    await lookUpOn(page)
-    await goTo(page, 'Settings')
-    const off = page.getByRole('switch', { name: copy.settings.rates })
-    await off.click()
-    await expect.poll(() => off.isChecked()).toBe(false)
-    await goTo(page, 'Reports')
+    for (const on of ons) await switchRates(page, on)
     const popover = await openFigure(page, 'shown')
     return { page, popover, service }
   }
@@ -1697,19 +1683,19 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   })
 
   test('with the switch on, the figure offers the Fetch rates button', async () => {
-    const { popover } = await lookedUp()
+    const { popover } = await aSwitchedWeek([true])
 
     await expect.poll(() => fetchButton(popover).count()).toBe(1)
   })
 
   test('and no section to open', async () => {
-    const { popover } = await lookedUp()
+    const { popover } = await aSwitchedWeek([true])
 
     await expect.poll(() => fetchSummary(popover).count()).toBe(0)
   })
 
   test('the button fetches, and the figure stops guessing', async () => {
-    const { page, popover } = await lookedUp()
+    const { page, popover } = await aSwitchedWeek([true])
 
     await fetchButton(popover).click()
 
@@ -1717,7 +1703,7 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   })
 
   test('the button asks the service once', async () => {
-    const { page, popover, service } = await lookedUp()
+    const { page, popover, service } = await aSwitchedWeek([true])
 
     await fetchButton(popover).click()
 
@@ -1726,7 +1712,7 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   })
 
   test('a fetch that missed says why on the line', async () => {
-    const { popover } = await lookedUp({ JPY: { status: 500 } })
+    const { popover } = await aSwitchedWeek([true], { JPY: { status: 500 } })
 
     await fetchButton(popover).click()
 
@@ -1736,13 +1722,13 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   })
 
   test('the switch off again, the figure offers the section', async () => {
-    const { popover } = await turnedOff()
+    const { popover } = await aSwitchedWeek([true, false])
 
     await expect.poll(() => fetchSummary(popover).count()).toBe(1)
   })
 
   test('and opening the section sends nothing', async () => {
-    const { popover, service } = await turnedOff()
+    const { popover, service } = await aSwitchedWeek([true, false])
 
     await fetchSummary(popover).click()
 

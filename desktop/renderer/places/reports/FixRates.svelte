@@ -1,8 +1,9 @@
 <script lang="ts">
   // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
-  // writes it and closes; the nearest button writes every borrowed line; Fetch says what fetching
-  // sends, and Allow this once fetches every guessed day behind the amount. A fetch that missed
-  // some keeps only those lines, each with its reason. Escape, or a click away, closes.
+  // writes it and closes; the nearest button writes every borrowed line. With this computer
+  // looking rates up, Fetch rates ⚡ fetches every guessed day behind the amount at once; otherwise
+  // Fetch says what fetching sends, and Allow this once fetches them. A fetch that missed some
+  // keeps only those lines, each with its reason. Escape, or a click away, closes.
   import { onDestroy, onMount, tick } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess, InputOf, Missed, Wire } from '../../../shared/commands'

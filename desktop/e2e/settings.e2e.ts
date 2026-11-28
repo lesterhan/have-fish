@@ -27,8 +27,8 @@ const keptIn = (home: string) => {
 
 /** What the switch is described by, read out: the note under it. */
 const descriptionOf = (page: Page) =>
-  page.evaluate(() => {
-    const id = document.querySelector('input[role=switch]')?.getAttribute('aria-describedby') ?? ''
+  theSwitch(page).evaluate((switchEl) => {
+    const id = switchEl.getAttribute('aria-describedby') ?? ''
     return id
       .split(' ')
       .map((one) => document.getElementById(one)?.textContent?.trim() ?? '')

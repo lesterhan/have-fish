@@ -34,7 +34,7 @@
     })
     if (!asked.ok) {
       error = wordsFor(asked)
-      event.currentTarget.checked = lookUp
+      if (box !== undefined) box.checked = lookUp
       return
     }
     error = null
@@ -86,7 +86,6 @@
   main {
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
     align-content: start;
     gap: var(--space-4);
     padding: var(--space-4);
@@ -99,5 +98,12 @@
   .top {
     display: grid;
     gap: var(--space-3);
+  }
+
+  /* NARROW in narrow.ts. */
+  @media (max-width: 44rem) {
+    main {
+      padding: var(--space-3);
+    }
   }
 </style>

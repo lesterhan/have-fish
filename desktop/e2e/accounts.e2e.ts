@@ -67,7 +67,7 @@ async function chooseCurrencies(page: Page) {
 }
 
 describe('the places', () => {
-  test('Ledger, Accounts and Reports down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
+  test('The places down the left, Settings last; Ctrl+2 and Ctrl+1 go between them', async () => {
     const { page, press } = await launch(aHome())
     expect(await page.locator(`${NAV} button`).allInnerTexts()).toEqual([
       expect.stringMatching(/^Ledger\s+Ctrl\+1$/),
