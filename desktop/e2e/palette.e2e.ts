@@ -49,6 +49,7 @@ describe('do anything from Ctrl+K', () => {
       'Actions: Remove spend Delete',
     ])
     expect(all).toContain('Go to: Reports Ctrl+3')
+    expect(all).toContain('Go to: Settings Ctrl+,')
     expect(all).toContain('Settings: Follow the system')
     // The window behind is blurred and dimmed.
     const behind = await page

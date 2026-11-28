@@ -383,8 +383,8 @@ export const reportTree = (page: Page) =>
     )
   }, REPORT_TREE)
 
-/** Reports' header line: what went out against the week before. */
-export const reportSums = (page: Page) => page.locator('main header p').innerText()
+/** Reports' header line: what went out against the week before. The place showing is the main. */
+export const reportSums = (page: Page) => page.getByRole('main').locator('header p').innerText()
 
 /** The tree's row whose name contains `name`, as a person reads it. */
 export const treeRow = (page: Page, name: string) =>

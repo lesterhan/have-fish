@@ -73,6 +73,7 @@ describe('the places', () => {
       expect.stringMatching(/^Ledger\s+Ctrl\+1$/),
       expect.stringMatching(/^Accounts\s+Ctrl\+2$/),
       expect.stringMatching(/^Reports\s+Ctrl\+3$/),
+      expect.stringMatching(/^Settings\s+Ctrl\+,$/),
     ])
     expect(await current(page)).toMatch(/^Ledger/)
 
