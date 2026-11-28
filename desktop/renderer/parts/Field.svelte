@@ -48,7 +48,8 @@
     margin-inline-start: var(--space-1);
   }
 
-  .field :global(input),
+  /* A checkbox stands in for a switch until one is built: it keeps the browser's own box. */
+  .field :global(input:not([type='checkbox'])),
   .field :global(select) {
     min-width: 0;
     font: inherit;

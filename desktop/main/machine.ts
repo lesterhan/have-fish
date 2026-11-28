@@ -19,6 +19,9 @@ export type Machine = {
   /** How tightly this machine sets the ledger; `regular` until one is chosen, or an unknown one. */
   density(): Density
   chooseDensity(density: Density): void
+  /** Whether this machine looks rates up online without asking; off until it is turned on. */
+  lookUpRates(): boolean
+  chooseLookUpRates(on: boolean): void
 }
 
 /** For tests, and for a run that can't keep a file: remembered until the app quits. */
@@ -26,6 +29,7 @@ export function forgetful(): Machine {
   let last: string | null = null
   let theme: ThemeChoice = 'system'
   let density: Density = 'regular'
+  let lookUp = false
   return {
     lastFrom: () => last,
     usedFrom: (id) => {
@@ -38,6 +42,10 @@ export function forgetful(): Machine {
     density: () => density,
     chooseDensity: (chosen) => {
       density = chosen
+    },
+    lookUpRates: () => lookUp,
+    chooseLookUpRates: (on) => {
+      lookUp = on
     },
   }
 }
@@ -72,6 +80,10 @@ export function settingsIn(configDir: string): Machine {
     density: () => densityOf(saved.density),
     chooseDensity(density) {
       if (saved.density !== density) keep({ ...saved, density })
+    },
+    lookUpRates: () => saved.lookUpRates === true,
+    chooseLookUpRates(on) {
+      if (saved.lookUpRates !== on) keep({ ...saved, lookUpRates: on })
     },
   }
 }

@@ -214,6 +214,13 @@ describe('settings and the clipboard', () => {
       value: null,
     })
   })
+
+  test('no scene looks rates up', async () => {
+    await expect(replayBridge(aFixture()).invoke('settings.rates.get', {})).resolves.toEqual({
+      ok: true,
+      value: { on: false },
+    })
+  })
 })
 
 describe('writes', () => {
@@ -229,6 +236,7 @@ describe('writes', () => {
     'rate.fetch',
     'ledger.undo',
     'ledger.redo',
+    'settings.rates.set',
   ] as const
 
   test.each(WRITES)('%s is refused as unknown, and the fixture is as it was', async (name) => {

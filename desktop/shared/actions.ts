@@ -64,6 +64,7 @@ export const ACTIONS = [
   { id: 'showLedger', menu: 'view', accelerator: 'CmdOrCtrl+1', grouped: 'apart' },
   { id: 'showAccounts', menu: 'view', accelerator: 'CmdOrCtrl+2' },
   { id: 'showReports', menu: 'view', accelerator: 'CmdOrCtrl+3' },
+  { id: 'showSettings', menu: 'view', accelerator: 'CmdOrCtrl+,' },
 
   // `=`, not Electron's default `Plus`, which needs Shift on most keyboards.
   { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn', grouped: 'apart' },

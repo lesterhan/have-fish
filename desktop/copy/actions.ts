@@ -21,6 +21,7 @@ const labels: { [A in ActionId]: string } = {
   showLedger: 'Ledger',
   showAccounts: 'Accounts',
   showReports: 'Reports',
+  showSettings: 'Settings',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   resetZoom: 'Actual size',

@@ -141,6 +141,58 @@ describe('the density', () => {
   })
 })
 
+describe('the rates', () => {
+  test('an empty folder looks no rates up', () => {
+    expect(settingsIn(aDir()).lookUpRates()).toBe(false)
+  })
+
+  test('looking them up is there after the app starts again', () => {
+    const dir = aDir()
+    settingsIn(dir).chooseLookUpRates(true)
+
+    expect(settingsIn(dir).lookUpRates()).toBe(true)
+  })
+
+  test('turning them off again is kept', () => {
+    const dir = aDir()
+    settingsIn(dir).chooseLookUpRates(true)
+    settingsIn(dir).chooseLookUpRates(false)
+
+    expect(settingsIn(dir).lookUpRates()).toBe(false)
+  })
+
+  test('a file holding anything but true looks no rates up', () => {
+    const dir = aDir()
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ lookUpRates: 'yes' }))
+
+    expect(settingsIn(dir).lookUpRates()).toBe(false)
+  })
+
+  test('what it cannot read is kept when the file is written', () => {
+    const dir = aDir()
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, 'settings.json')
+    writeFileSync(file, JSON.stringify({ lookUpRates: 'yes' }))
+
+    settingsIn(dir).chooseTheme('graphite-dark')
+
+    expect(JSON.parse(readFileSync(file, 'utf8')).lookUpRates).toBe('yes')
+  })
+
+  test('looking them up keeps the theme', () => {
+    const dir = aDir()
+    settingsIn(dir).chooseTheme('graphite-dark')
+
+    settingsIn(dir).chooseLookUpRates(true)
+
+    expect(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'))).toEqual({
+      theme: 'graphite-dark',
+      lookUpRates: true,
+    })
+  })
+})
+
 describe('forgetful', () => {
   test('remembers until it is gone', () => {
     const machine = forgetful()
@@ -150,5 +202,13 @@ describe('forgetful', () => {
     expect(machine.theme()).toBe('graphite-dark')
     machine.chooseDensity('large')
     expect(machine.density()).toBe('large')
+  })
+
+  test('looks no rates up until it is told to', () => {
+    const machine = forgetful()
+
+    expect(machine.lookUpRates()).toBe(false)
+    machine.chooseLookUpRates(true)
+    expect(machine.lookUpRates()).toBe(true)
   })
 })

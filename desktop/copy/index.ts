@@ -18,6 +18,7 @@ import { dialogs } from './dialogs'
 import { errors } from './errors'
 import { palette } from './palette'
 import { reports } from './reports'
+import { settings } from './settings'
 import { spends } from './spends'
 
 export type { OriginPart } from './spends'
@@ -32,6 +33,7 @@ export const copy = {
   errors,
   palette,
   reports,
+  settings,
   spends,
   steps,
 } as const

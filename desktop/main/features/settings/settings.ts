@@ -1,4 +1,4 @@
-// The machine's own settings, chosen from the menu. None of them touch the ledger.
+// The machine's own settings, chosen from the menu or Settings. None of them touch the ledger.
 
 import type { Outcome } from '@have-fish/core/outcome'
 import type { Density } from '../../../shared/density'
@@ -27,4 +27,15 @@ export function setDensity(
 ): Outcome<{ density: Density }> {
   ctx.machine.chooseDensity(density)
   return { ok: true, value: { density } }
+}
+
+/** Whether this machine looks rates up online: the window reads it where a fetch is asked. */
+export function getLookUp(ctx: Context): Outcome<{ on: boolean }> {
+  return { ok: true, value: { on: ctx.machine.lookUpRates() } }
+}
+
+/** Remembers whether this machine looks rates up online. */
+export function setLookUp(ctx: Context, { on }: { on: boolean }): Outcome<{ on: boolean }> {
+  ctx.machine.chooseLookUpRates(on)
+  return { ok: true, value: { on } }
 }

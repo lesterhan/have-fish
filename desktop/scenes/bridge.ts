@@ -33,6 +33,7 @@ const ANSWERED = [
   'ledger.steps',
   'settings.density.get',
   'settings.density.set',
+  'settings.rates.get',
   'settings.theme.set',
   'clipboard.copy',
 ] as const satisfies readonly CommandName[]
@@ -51,6 +52,7 @@ const REFUSED = [
   'rate.fetch',
   'ledger.undo',
   'ledger.redo',
+  'settings.rates.set',
 ] as const satisfies readonly CommandName[]
 type Refused = (typeof REFUSED)[number]
 
@@ -97,6 +99,7 @@ export function replayBridge(
       return { ok: true, value: { density: next } }
     },
     'settings.theme.set': ({ theme }) => ({ ok: true, value: { theme } }),
+    'settings.rates.get': () => ({ ok: true, value: { on: false } }),
     'clipboard.copy': () => ({ ok: true, value: null }),
   }
 

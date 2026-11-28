@@ -1,8 +1,9 @@
 <script lang="ts">
   // The lines whose rate an amount guessed, each with a field for the rate I'd give it. Enter
-  // writes it and closes; the nearest button writes every borrowed line; Fetch says what fetching
-  // sends, and Allow this once fetches every guessed day behind the amount. A fetch that missed
-  // some keeps only those lines, each with its reason. Escape, or a click away, closes.
+  // writes it and closes; the nearest button writes every borrowed line. With this computer
+  // looking rates up, Fetch rates ⚡ fetches every guessed day behind the amount at once; otherwise
+  // Fetch says what fetching sends, and Allow this once fetches them. A fetch that missed some
+  // keeps only those lines, each with its reason. Escape, or a click away, closes.
   import { onDestroy, onMount, tick } from 'svelte'
   import { copy } from '../../../copy'
   import type { Guess, InputOf, Missed, Wire } from '../../../shared/commands'
@@ -43,6 +44,8 @@
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
   let allow = $state<Button>()
+  /** Whether this computer's switch lets a fetch look rates up: off until main says it is on. */
+  let lookUp = $state(false)
   /** Every day a fetch missed, each once, or null before one has answered. */
   let left = $state<Missed[] | null>(null)
   let layer: HTMLElement | undefined
@@ -55,11 +58,21 @@
   /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
   const nearest = $derived(nearestOf(shown))
 
-  // The first field takes the cursor, so Enter writes without a click.
-  onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
+  // The first field takes the cursor, so Enter writes without a click; then if a fetch may ask.
+  onMount(() => {
+    layer?.querySelector<HTMLInputElement>('input')?.focus()
+    void askLookUp()
+  })
   onDestroy(() => {
     gone = true
   })
+
+  /** Asks main whether this computer looks rates up; the Fold shows until it answers. */
+  async function askLookUp(): Promise<void> {
+    const asked = await window.haveFish.invoke('settings.rates.get', {})
+    if (gone) return
+    lookUp = asked.ok && asked.value.on
+  }
 
   /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
   async function send<T>(
@@ -173,12 +186,18 @@
         {#if nearest.length > 0}
           <Button onclick={useNearest}>{copy.reports.guesses.nearest}</Button>
         {/if}
-        <Fold summary={copy.reports.fetch.open}>
-          <p>{copy.reports.fetch.sends}</p>
+        {#if lookUp}
           <Button bind:this={allow} onclick={fetchOnce} disabled={saving}
-            >{copy.reports.fetch.once}</Button
+            >{copy.reports.fetch.open}</Button
           >
-        </Fold>
+        {:else}
+          <Fold summary={copy.reports.fetch.open}>
+            <p>{copy.reports.fetch.sends}</p>
+            <Button bind:this={allow} onclick={fetchOnce} disabled={saving}
+              >{copy.reports.fetch.once}</Button
+            >
+          </Fold>
+        {/if}
       </div>
     </div>
   </Popover>

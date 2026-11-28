@@ -12,6 +12,7 @@ describe('runAction', () => {
     showLedger: vi.fn(),
     showAccounts: vi.fn(),
     showReports: vi.fn(),
+    showSettings: vi.fn(),
     addAccount: vi.fn(),
     densityCompact: vi.fn(),
     densityRegular: vi.fn(),
