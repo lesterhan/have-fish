@@ -817,7 +817,7 @@ describe('a converted spend in Reports', () => {
 
   test('a rate typed for the yen: the figure reads 49.85, with nothing under it', async () => {
     const page = await aDinnerInReports(today())
-    const popover = await openFigure(page, 'shown')
+    const popover = await openFigure(page, 'change')
 
     await writeRate(popover, '0.0091')
 

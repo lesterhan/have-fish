@@ -330,13 +330,13 @@ export type ChangeFigure = {
 
 /** A change and both weeks' uncounted: no `same` when only what it couldn't count moved. */
 export function changeFigureOf(
-  moved: Change,
+  counted: Change,
   uncounted: readonly Uncounted[],
   beforeUncounted: readonly Uncounted[],
 ): ChangeFigure {
   const net = netOf(uncounted, beforeUncounted)
   return {
-    counted: moved.cents === 0 && net.length > 0 ? null : moved,
+    counted: counted.cents === 0 && net.length > 0 ? null : counted,
     uncounted: net.map((one) => ({
       money: moneyOf(Math.abs(one.cents), one.currency),
       sign: one.cents < 0 ? 'minus' : 'plus',
