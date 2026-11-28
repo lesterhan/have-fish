@@ -180,35 +180,6 @@ export function askingLines(
   return left === null ? [...lines] : lines.filter((one) => missedOn(one, left, days).length > 0)
 }
 
-/** Where a click lands: in the popover, on a control outside it, or on nothing. */
-export type Click = 'in' | 'control' | 'nothing'
-
-/** Where a click at `target` lands, `layer` being the popover's. */
-export function clickOf(target: EventTarget | null, layer: Node | null): Click {
-  if (target instanceof Node && layer?.contains(target) === true) return 'in'
-  const control =
-    target instanceof Element && target.closest('button, input, select, textarea, a, [tabindex]')
-  return control === null || control === false ? 'nothing' : 'control'
-}
-
-/** What a blur out of the popover means: stay, close back to the tree, or close where it went. */
-export type Leaving = 'stay' | 'back' | 'away'
-
-/**
- * What a cursor leaving `layer` means, with `target` what had it and `next` where it went: stay
- * while it went into the popover, or while an answer took the control away or disabled it.
- */
-export function leaveOf(
-  target: EventTarget | null,
-  next: EventTarget | null,
-  layer: Node,
-): Leaving {
-  if (next instanceof Node && layer.contains(next)) return 'stay'
-  if (target instanceof Node && !target.isConnected) return 'stay'
-  if (target instanceof HTMLElement && target.matches(':disabled')) return 'stay'
-  return next === null ? 'back' : 'away'
-}
-
 /** A line's rate as I typed it, as rate.write takes it. */
 export function rateOf(line: Guess, rate: string): InputOf<'rate.write'> {
   return { date: line.date, currency: line.currency, rate }

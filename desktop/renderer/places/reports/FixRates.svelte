@@ -14,11 +14,9 @@
   import Popover from '../../parts/Popover.svelte'
   import {
     askingLines,
-    clickOf,
     daysToAsk,
     guessKey,
     guessLabel,
-    leaveOf,
     leftAfterOffer,
     missedOn,
     missedWords,
@@ -26,6 +24,7 @@
     offerOf,
     rateOf,
   } from './report'
+  import { dismiss } from './dismiss'
 
   type Props = {
     /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
@@ -58,7 +57,9 @@
 
   // The first field takes the cursor, so Enter writes without a click.
   onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
-  onDestroy(() => { gone = true })
+  onDestroy(() => {
+    gone = true
+  })
 
   /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
   async function send<T>(
@@ -125,32 +126,7 @@
       (value) => leftAfterOffer(left ?? [], offered, value.missed),
     )
   }
-
-  /** Escape anywhere in it closes it, written or not. */
-  function keydown(event: KeyboardEvent) { if (event.key === 'Escape') onclose(true) }
-
-  /**
-   * The cursor left it: a click on another control keeps the cursor there, one on nothing gives
-   * the tree the cursor, and a window that lost it keeps the popover as it was.
-   */
-  function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
-    if (!document.hasFocus()) return
-    const leaving = leaveOf(event.target, event.relatedTarget, event.currentTarget)
-    if (leaving !== 'stay') onclose(leaving === 'back')
-  }
-
-  /** A click outside while a write waits closes it, with the cursor where main puts it. */
-  function pointerdown(event: PointerEvent) {
-    if (!saving) return
-    const click = clickOf(event.target, layer ?? null)
-    if (click === 'in') return
-    // Nothing takes the cursor: the click mustn't put it on the page after the tree has it.
-    if (click === 'nothing') event.preventDefault()
-    onclose(click === 'nothing')
-  }
 </script>
-
-<svelte:window onpointerdown={pointerdown} />
 
 <div
   class="layer"
@@ -159,8 +135,7 @@
   tabindex="-1"
   bind:this={layer}
   use:floating={anchor}
-  onkeydown={keydown}
-  onfocusout={focusout}
+  use:dismiss={{ waiting: () => saving, onclose }}
 >
   <Popover>
     <div class="body">
