@@ -18,6 +18,7 @@ describe('the palette’s actions', () => {
       'goTo: Ledger',
       'goTo: Accounts',
       'goTo: Reports',
+      'goTo: Settings',
       'settings: Compact',
       'settings: Regular',
       'settings: Comfortable',

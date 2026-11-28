@@ -2,7 +2,13 @@
 
 export const app = {
   name: 'have-fish',
-  places: { label: 'Places', ledger: 'Ledger', accounts: 'Accounts', reports: 'Reports' },
+  places: {
+    label: 'Places',
+    ledger: 'Ledger',
+    accounts: 'Accounts',
+    reports: 'Reports',
+    settings: 'Settings',
+  },
   /** What stopped something, under a place's header or its tabs. */
   notice: { dismiss: 'Dismiss' },
   /** Where something is still to come, said the same way everywhere. */

@@ -3,7 +3,7 @@
 import type { KeyedActionId, WindowActionId } from '../../shared/actions'
 import type { Moved } from '../../shared/commands'
 
-export const PLACES = ['ledger', 'accounts', 'reports'] as const
+export const PLACES = ['ledger', 'accounts', 'reports', 'settings'] as const
 export type Place = (typeof PLACES)[number]
 
 /** What App asks of every place. */
@@ -30,6 +30,7 @@ export const SHOW = {
   ledger: 'showLedger',
   accounts: 'showAccounts',
   reports: 'showReports',
+  settings: 'showSettings',
 } as const satisfies Record<Place, WindowActionId & KeyedActionId>
 
 /** The places that list spends: Remove, Refile and Show postings act there and nowhere else. */

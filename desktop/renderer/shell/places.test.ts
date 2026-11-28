@@ -35,6 +35,7 @@ describe('SHOW', () => {
       'CmdOrCtrl+1',
       'CmdOrCtrl+2',
       'CmdOrCtrl+3',
+      'CmdOrCtrl+,',
     ])
   })
 })
@@ -51,8 +52,14 @@ describe('showHandlers', () => {
     const handlers = showHandlers((p) => went.push(p))
     handlers.showAccounts()
     handlers.showReports()
+    handlers.showSettings()
     handlers.showLedger()
-    expect(went).toEqual(['accounts', 'reports', 'ledger'])
-    expect(Object.keys(handlers)).toEqual(['showLedger', 'showAccounts', 'showReports'])
+    expect(went).toEqual(['accounts', 'reports', 'settings', 'ledger'])
+    expect(Object.keys(handlers)).toEqual([
+      'showLedger',
+      'showAccounts',
+      'showReports',
+      'showSettings',
+    ])
   })
 })
