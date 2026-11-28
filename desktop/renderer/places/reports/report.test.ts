@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/commands'
 import { type Ask, query } from '../../ledger/query'
 import {
+  askingLines,
   changeMarkOf,
   changeOf,
   daysToAsk,
@@ -31,6 +32,7 @@ import {
   missedWords,
   nearestOf,
   offerOf,
+  rateOf,
   spendsBehind,
   spentOf,
   sumText,
@@ -703,6 +705,29 @@ describe('daysToAsk', () => {
       { date: '2026-11-05', currency: 'JPY' },
       { date: '2026-11-04', currency: 'GBP' },
     ])
+  })
+})
+
+describe('askingLines', () => {
+  const JPY = { date: '2026-11-03', currency: 'JPY', from: null }
+  const GBP = { date: '2026-11-04', currency: 'GBP', from: { ...OFFER } }
+
+  test('before a fetch, every line', () => {
+    expect(askingLines([JPY, GBP], null, askedDays)).toEqual([JPY, GBP])
+  })
+
+  test('after one, only the lines it missed', () => {
+    expect(askingLines([JPY, GBP], [missed('JPY', '2026-11-03')], askedDays)).toEqual([JPY])
+  })
+})
+
+describe('rateOf', () => {
+  test('the line’s day and currency, with the rate I typed', () => {
+    expect(rateOf({ date: '2026-11-05', currency: 'JPY', from: null }, '0.0091')).toEqual({
+      date: '2026-11-05',
+      currency: 'JPY',
+      rate: '0.0091',
+    })
   })
 })
 

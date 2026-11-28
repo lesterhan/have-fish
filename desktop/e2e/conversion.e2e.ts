@@ -1641,4 +1641,19 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
 
     await expect.poll(() => popover.count()).toBe(0)
   })
+
+  test('a click on nothing while a fetch waits gives the tree the cursor', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+    await allowButton(popover).click()
+
+    // The total is no control: a click there gives the tree the cursor, as a click away does on main.
+    await page.getByText(copy.reports.tree.total, { exact: true }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+  })
 })

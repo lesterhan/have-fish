@@ -119,51 +119,15 @@ export async function fetchRates(
     else if (published.has(day.currency)) none.push(day)
   }
 
-  // The last day each currency with a missed day published: one ask, after every rates ask.
+  // What each currency with a missed day falls back to: one ask, after every rates ask.
   const asking = [...new Set(none.map((day) => day.currency))]
-  const lastOf = new Map<string, { end: string | null } | { why: Missed['why'] }>()
+  const fallback = new Map<string, Fallback>()
   await Promise.all(
     asking.map(async (code) => {
-      const answer = await ctx.rateSource.lastDay({ from: code, to: HOME_CURRENCY })
-      lastOf.set(code, answer.ok ? { end: answer.value } : { why: whyOf(answer.failure.code) })
+      const missed = none.filter((day) => day.currency === code)
+      fallback.set(code, await fallbackOf(ctx, code, missed))
     }),
   )
-
-  // The rate on a last day that is before a missed day's week: one more ask for that currency.
-  const ends = new Map<string, string>()
-  for (const code of asking) {
-    const last = lastOf.get(code)
-    const end = last !== undefined && 'end' in last ? last.end : null
-    if (end === null) continue
-    if (none.some((day) => day.currency === code && end < addDays(day.date, -7)))
-      ends.set(code, end)
-  }
-  const offers = new Map<string, { date: string; rate: string } | { why: Missed['why'] }>()
-  await Promise.all(
-    [...ends.entries()].map(async ([code, end]) => {
-      const answer = await ctx.rateSource.rates({ from: code, to: HOME_CURRENCY, start: end, end })
-      if (!answer.ok) {
-        offers.set(code, { why: whyOf(answer.failure.code) })
-        return
-      }
-      const onEnd = answer.value.find((one) => one.date === end)
-      offers.set(code, onEnd === undefined ? { why: 'none' } : { date: end, rate: onEnd.rate })
-    }),
-  )
-
-  // What each currency can fall back to, worked out once: its refusal or last day, and its offer.
-  const fallback = new Map<string, Fallback>()
-  for (const code of spans.keys()) {
-    const why = refused.get(code)
-    const last = lastOf.get(code)
-    const offer = offers.get(code)
-    fallback.set(code, {
-      end: last !== undefined && 'end' in last ? last.end : null,
-      why: why ?? (last !== undefined && 'why' in last ? last.why : 'none'),
-      offer: offer !== undefined && 'date' in offer ? offer : null,
-      offerWhy: offer !== undefined && 'why' in offer && offer.why !== 'none' ? offer.why : null,
-    })
-  }
 
   // Read and written after the last wait, so another command can't announce half-way.
   const now = ctx.now()
@@ -174,6 +138,11 @@ export async function fetchRates(
     if (rate !== undefined) {
       const line = { date: day.date, currency: day.currency, rate: rate.rate }
       docs.push(rateDocOf(ctx, line, now, rate.date))
+      continue
+    }
+    const why = refused.get(day.currency)
+    if (why !== undefined) {
+      missed.push({ date: day.date, currency: day.currency, why, offer: null })
       continue
     }
     const back = fallback.get(day.currency) ?? NOTHING
@@ -208,8 +177,35 @@ type Fallback = {
   offerWhy: Missed['why'] | null
 }
 
-/** A currency no day could ask about: nothing published, and no refusal to say. */
+/** What a currency with no missed day falls back to: nothing published, and nothing to say. */
 const NOTHING: Fallback = { end: null, why: 'none', offer: null, offerWhy: null }
+
+/**
+ * What a currency with a missed day falls back to: the last day it published, asked once, and the
+ * rate on it where that day is before one of the missed days' week.
+ */
+async function fallbackOf(
+  ctx: Context,
+  code: string,
+  missed: readonly { date: string; currency: string }[],
+): Promise<Fallback> {
+  const last = await ctx.rateSource.lastDay({ from: code, to: HOME_CURRENCY })
+  if (!last.ok) {
+    return { end: null, why: whyOf(last.failure.code), offer: null, offerWhy: null }
+  }
+  const end = last.value
+  if (end === null) return NOTHING
+  if (!missed.some((day) => end < addDays(day.date, -7))) {
+    return { end, why: 'none', offer: null, offerWhy: null }
+  }
+  const answer = await ctx.rateSource.rates({ from: code, to: HOME_CURRENCY, start: end, end })
+  if (!answer.ok) {
+    return { end, why: 'none', offer: null, offerWhy: whyOf(answer.failure.code) }
+  }
+  const onEnd = answer.value.find((one) => one.date === end)
+  const offer = onEnd === undefined ? null : { date: end, rate: onEnd.rate }
+  return { end, why: 'none', offer, offerWhy: null }
+}
 
 /** The code a day records when the service didn't answer it: the two a source gives. */
 const whyOf = (code: FailureCode): Missed['why'] =>

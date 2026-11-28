@@ -12,8 +12,21 @@
   import Fold from '../../parts/Fold.svelte'
   import { floating } from '../../parts/floating'
   import Popover from '../../parts/Popover.svelte'
-  import { guessKey, guessLabel, missedWords, nearestOf, offerOf } from './report'
-  import { daysToAsk, leftAfterOffer, missedOn } from './report'
+  import {
+    askingLines,
+    clickOf,
+    daysToAsk,
+    guessKey,
+    guessLabel,
+    leaveOf,
+    leftAfterOffer,
+    missedOn,
+    missedWords,
+    nearestOf,
+    offerOf,
+    rateOf,
+  } from './report'
+
   type Props = {
     /** The lines the amount guessed: a borrowed day and currency once, a missing currency once. */
     lines: Guess[]
@@ -38,86 +51,71 @@
   let gone = false
 
   /** The lines still asking: every one before a fetch, then only those a fetch missed. */
-  const shown = $derived(
-    left === null ? lines : lines.filter((one) => missedOn(one, left, days).length > 0),
-  )
+  const shown = $derived(askingLines(lines, left, days))
 
   /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
   const nearest = $derived(nearestOf(shown))
 
   // The first field takes the cursor, so Enter writes without a click.
-  onMount(() => {
-    layer?.querySelector<HTMLInputElement>('input')?.focus()
-    document.addEventListener('pointerdown', pointerdown, true)
-    return () => document.removeEventListener('pointerdown', pointerdown, true)
-  })
-  onDestroy(() => {
-    gone = true
-  })
-
-  /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
-  async function send<T>(
+  onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
+  onDestroy(() => { gone = true })
+  /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */  async function send<T>(
     key: string,
     call: () => Promise<Wire<T>>,
     rest?: (value: T) => Missed[],
-  ): Promise<boolean> {
-    if (saving) return false
+  ): Promise<void> {
+    if (saving) return
     saving = true
     const answered = await call()
-    if (gone) return false
+    if (gone) return
     if (!answered.ok) {
       saving = false
       error = { key, words: wordsFor(answered) }
-      return true
+      // Disabled while it waited, Allow lost the cursor: a refusal gives it back, so Esc closes.
+      if (rest !== undefined) {
+        await tick()
+        allow?.focus()
+      }
+      return
     }
     error = null
     const kept = rest === undefined ? [] : rest(answered.value)
     if (kept.length === 0) {
       saving = false
       onclose(true)
-      return false
+      return
     }
     left = kept
     await tick()
     layer?.querySelector<HTMLInputElement>('input')?.focus()
     saving = false
-    return false
   }
 
   /** Enter in a field: the rate typed there is written for that day and currency. */
   async function write(line: Guess, event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter') return
     const rate = event.currentTarget.value
-    await send(guessKey(line), () =>
-      window.haveFish.invoke('rate.write', { date: line.date, currency: line.currency, rate }),
-    )
+    await send(guessKey(line), () => window.haveFish.invoke('rate.write', rateOf(line, rate)))
   }
 
   /** The rates used here as typed rates, in one go: what the field holds isn't read. */
   async function useNearest(): Promise<void> {
-    const first = nearest[0]
+    const [first] = nearest
     if (first === undefined) return
     await send(guessKey(first), () => window.haveFish.invoke('rate.writeAll', { rates: nearest }))
   }
 
   /** Allow this once: the published rate for every guessed day behind the amount, fetched now. */
   async function fetchOnce(): Promise<void> {
-    const first = shown[0]
+    const [first] = shown
     if (first === undefined) return
-    const refused = await send(
-      guessKey(first),
-      () => window.haveFish.invoke('rate.fetch', { days: daysToAsk(left, days) }),
-      (value) => value.missed,
-    )
-    if (gone || !refused) return
-    // Disabled while it waited, Allow lost the cursor: a refusal gives it back, so Esc closes.
-    await tick()
-    allow?.focus()
+    const ask = { days: daysToAsk(left, days) }
+    await send(guessKey(first), () => window.haveFish.invoke('rate.fetch', ask), (v) => v.missed)
   }
 
   /** Use it under a line: the last rate before its days, fetched as the service published it. */
-  async function useOffer(line: Guess): Promise<void> {
-    const offered = offerOf(missedOn(line, left, days))
+  async function useOffer(line: Guess, missed: readonly Missed[]): Promise<void> {
+    const offered = offerOf(missed)
     if (offered.length === 0) return
     await send(
       guessKey(line),
@@ -127,9 +125,7 @@
   }
 
   /** Escape anywhere in it closes it, written or not. */
-  function keydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') onclose(true)
-  }
+  function keydown(event: KeyboardEvent) { if (event.key === 'Escape') onclose(true) }
 
   /**
    * The cursor left it: a click on another control keeps the cursor there, one on nothing gives
@@ -137,19 +133,22 @@
    */
   function focusout(event: FocusEvent & { currentTarget: HTMLElement }) {
     if (!document.hasFocus()) return
-    const next = event.relatedTarget
-    if (next instanceof Node && event.currentTarget.contains(next)) return
-    // The answer may take the control away, or leave the one with the cursor disabled: not a click.
-    if (event.target instanceof HTMLElement && !event.target.isConnected) return
-    if (event.target instanceof HTMLElement && event.target.matches(':disabled')) return
-    onclose(next === null)
+    const leaving = leaveOf(event.target, event.relatedTarget, event.currentTarget)
+    if (leaving !== 'stay') onclose(leaving === 'back')
   }
 
-  /** A click outside while a write waits closes it: the disabled control's blur is no focusout. */
+  /** A click outside while a write waits closes it, with the cursor where main puts it. */
   function pointerdown(event: PointerEvent) {
-    if (saving && !(event.target instanceof Node && layer?.contains(event.target))) onclose(false)
+    if (!saving) return
+    const click = clickOf(event.target, layer ?? null)
+    if (click === 'in') return
+    // Nothing takes the cursor: the click mustn't put it on the page after the tree has it.
+    if (click === 'nothing') event.preventDefault()
+    onclose(click === 'nothing')
   }
 </script>
+
+<svelte:window onpointerdown={pointerdown} />
 
 <div
   class="layer"
@@ -186,7 +185,7 @@
               {/snippet}
             </Field>
             {#if offerOf(missed).length > 0}
-              <Button onclick={() => useOffer(line)} disabled={saving}
+              <Button onclick={() => useOffer(line, missed)} disabled={saving}
                 >{copy.reports.fetch.use}</Button
               >
             {/if}
