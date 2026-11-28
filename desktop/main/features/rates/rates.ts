@@ -196,7 +196,7 @@ export async function fetchRates(
   return outcomeOf(applied, { ids: docs.map((doc) => doc.id), missed })
 }
 
-/** What a currency with a missed day falls back to: a refusal, or its last day and the rate on it. */
+/** What a currency with a missed day falls back to: a refusal, or its last day and its rate. */
 type Fallback = {
   /** The last day the service published, or null. */
   end: string | null
