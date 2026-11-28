@@ -43,6 +43,8 @@
   let error = $state<{ key: string; words: string } | null>(null)
   let saving = $state(false)
   let allow = $state<Button>()
+  /** Whether this computer's switch lets a fetch look rates up: off until main says it is on. */
+  let lookUp = $state(false)
   /** Every day a fetch missed, each once, or null before one has answered. */
   let left = $state<Missed[] | null>(null)
   let layer: HTMLElement | undefined
@@ -55,11 +57,21 @@
   /** The borrowed lines' rates, as typed rates: what the button writes, in one go. */
   const nearest = $derived(nearestOf(shown))
 
-  // The first field takes the cursor, so Enter writes without a click.
-  onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
+  // The first field takes the cursor, so Enter writes without a click; then whether a fetch may ask.
+  onMount(() => {
+    layer?.querySelector<HTMLInputElement>('input')?.focus()
+    void askLookUp()
+  })
   onDestroy(() => {
     gone = true
   })
+
+  /** Asks main whether this computer looks rates up; until it answers the Fold shows, never a fetch. */
+  async function askLookUp(): Promise<void> {
+    const asked = await window.haveFish.invoke('settings.rates.get', {})
+    if (gone) return
+    lookUp = asked.ok && asked.value.on
+  }
 
   /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
   async function send<T>(
@@ -173,12 +185,18 @@
         {#if nearest.length > 0}
           <Button onclick={useNearest}>{copy.reports.guesses.nearest}</Button>
         {/if}
-        <Fold summary={copy.reports.fetch.open}>
-          <p>{copy.reports.fetch.sends}</p>
+        {#if lookUp}
           <Button bind:this={allow} onclick={fetchOnce} disabled={saving}
-            >{copy.reports.fetch.once}</Button
+            >{copy.reports.fetch.open}</Button
           >
-        </Fold>
+        {:else}
+          <Fold summary={copy.reports.fetch.open}>
+            <p>{copy.reports.fetch.sends}</p>
+            <Button bind:this={allow} onclick={fetchOnce} disabled={saving}
+              >{copy.reports.fetch.once}</Button
+            >
+          </Fold>
+        {/if}
       </div>
     </div>
   </Popover>
