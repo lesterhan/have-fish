@@ -119,7 +119,7 @@ describe('a ledger whose writer is killed mid-write', () => {
     expect(killed).toHaveLength(KILLS)
     for (const { signal, told, walBytes } of killed) {
       expect(signal).toBe('SIGKILL')
-      expect(told).not.toEqual([])
+      expect(told.length).toBeGreaterThan(1)
       expect(walBytes).toBeGreaterThan(0)
     }
   })
