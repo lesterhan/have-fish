@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest'
+import { settingsInputs } from '../../../shared/commands'
 import type { ThemeChoice } from '../../../shared/theme/theme'
 import { runCommand } from '../../commands/run'
 import { contextFor } from '../../context'
 import { NOW, tempLedger } from '../../ledger/fixtures'
 import { forgetful } from '../../machine'
+import { getLookUp, setLookUp } from './settings'
 
 function setup() {
   const shown: ThemeChoice[] = []
@@ -101,4 +103,42 @@ describe('settings.density.set', () => {
       expect(machine.density()).toBe('regular')
     },
   )
+})
+
+describe('settings.rates.get', () => {
+  test('getLookUp says off on a fresh machine', () => {
+    const { ctx } = setup()
+
+    expect(getLookUp(ctx)).toEqual({ ok: true, value: { on: false } })
+  })
+})
+
+describe('settings.rates.set', () => {
+  test('setLookUp on answers on', () => {
+    const { ctx } = setup()
+
+    expect(setLookUp(ctx, { on: true })).toEqual({ ok: true, value: { on: true } })
+  })
+
+  test('setLookUp on leaves the machine looking rates up', () => {
+    const { ctx, machine } = setup()
+
+    setLookUp(ctx, { on: true })
+
+    expect(machine.lookUpRates()).toBe(true)
+  })
+
+  test('a rates set touches nothing in the ledger, and is not a step to undo', () => {
+    const { ctx, ledger, announced } = setup()
+    const versions = () => ledger.db.prepare('SELECT count(*) AS n FROM outbox').get()
+    const before = versions()
+
+    setLookUp(ctx, { on: true })
+
+    expect([versions(), announced, ctx.history.nextUndo()]).toEqual([before, [], undefined])
+  })
+
+  test('the schema refuses an on that is no boolean', () => {
+    expect(settingsInputs['settings.rates.set'].safeParse({ on: 'yes' }).success).toBe(false)
+  })
 })

@@ -13,6 +13,8 @@ const SAMPLES: { [N in CommandName]?: InputOf<N> } = {
   'settings.theme.set': { theme: 'system' },
   'settings.density.get': {},
   'settings.density.set': { density: 'large' },
+  'settings.rates.get': {},
+  'settings.rates.set': { on: true },
   'clipboard.copy': { text: 'Groceries 12.50' },
 }
 

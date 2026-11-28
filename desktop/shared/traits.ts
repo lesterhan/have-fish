@@ -55,6 +55,8 @@ const TRAITS = {
   'settings.theme.set': { writes: false, reads: [] },
   'settings.density.get': { writes: false, reads: [] },
   'settings.density.set': { writes: false, reads: [] },
+  'settings.rates.get': { writes: false, reads: [] },
+  'settings.rates.set': { writes: false, reads: [] },
 
   'clipboard.copy': { writes: false, reads: [] },
 } satisfies TraitsTable
