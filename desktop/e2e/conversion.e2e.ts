@@ -17,6 +17,7 @@ import {
   chip,
   convertedLine,
   daysAgo,
+  focusedId,
   focusedIn,
   focusedLabel,
   focusedName,
@@ -248,27 +249,52 @@ async function aBorrowedWeek(
   return page
 }
 
-/** frankfurter.dev's stand-in: `rate` CAD for one of any currency each day asked, or `status`. */
-async function aRateService(rate = '0.0091', status = 200) {
+/** What the stand-in answers for a currency: a failed status, or the last day it published. */
+type Answers = Record<string, { status?: number; end?: string | null }>
+
+/**
+ * frankfurter.dev's stand-in: `rate` CAD for one of any currency each day asked, or `status`.
+ * `by` names, per asked base, a failed `status` or the `end` of what it published; its coverage
+ * answers that end, or 422 for none.
+ */
+async function aRateService(rate = '0.0091', status = 200, by: Answers = {}) {
   let asked = 0
+  let answers = by
+  const askedBases: string[] = []
   const server = createServer((request, response) => {
     asked += 1
     const at = new URL(request.url ?? '', 'http://127.0.0.1')
-    if (status !== 200) {
+    const base = at.searchParams.get('base') ?? ''
+    const quotes = at.searchParams.get('quotes') ?? ''
+    const one = answers[base]
+    const failed = one?.status ?? status
+    if (failed !== 200) {
       // A failed request answers after a moment, as a network's failure does: the app's wait shows.
       setTimeout(() => {
         if (response.destroyed) return
-        response.writeHead(status)
+        response.writeHead(failed)
         response.end()
       }, 150)
       return
     }
-    const base = at.searchParams.get('base') ?? ''
-    const quotes = at.searchParams.get('quotes') ?? ''
+    const end = one?.end
+    if (at.pathname.endsWith('/coverage')) {
+      if (end === undefined || end === null) {
+        response.writeHead(422)
+        response.end()
+        return
+      }
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(`{"end_date":"${end}"}`)
+      return
+    }
+    askedBases.push(base)
     const from = at.searchParams.get('from') ?? ''
     const to = at.searchParams.get('to') ?? ''
+    // A currency in `by` with an end publishes only days up to it; the rest cover every day asked.
+    const last = end === undefined ? to : end
     const rates = []
-    for (let day = from; day <= to; day = addDays(day, 1)) {
+    for (let day = from; last !== null && day <= last; day = addDays(day, 1)) {
       rates.push(`{"date":"${day}","base":"${base}","quote":"${quotes}","rate":${rate}}`)
     }
     response.writeHead(200, { 'content-type': 'application/json' })
@@ -284,7 +310,16 @@ async function aRateService(rate = '0.0091', status = 200) {
       }),
   )
   const { port } = server.address() as AddressInfo
-  return { env: { HAVE_FISH_RATES_URL: `http://127.0.0.1:${port}/v2/rates` }, asked: () => asked }
+  return {
+    env: { HAVE_FISH_RATES_URL: `http://127.0.0.1:${port}/v2/rates` },
+    asked: () => asked,
+    /** Each rates ask's base, in the order asked; a coverage ask names none. */
+    bases: () => askedBases,
+    /** What it answers from now on, for every request after it. */
+    answer: (next: Answers) => {
+      answers = next
+    },
+  }
 }
 
 describe('a yen spend my CAD card paid', () => {
@@ -1212,6 +1247,24 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
   const guessedIn = (page: Page, cell: string) =>
     treeRow(page, 'Unsorted').locator(`[data-cell=${cell}] [data-guessed]`)
 
+  /** A week of yen and euros today: the yen borrows last week's rate, the euros have none. */
+  const aYenAndEuroWeek = (env: Record<string, string>) => aBorrowedWeek('0.0091', [today()], env)
+
+  /**
+   * The service started with `by`, the shown figure opened and Allow clicked: the page, the popover
+   * it left for the tests to poll, and the service, so a test can read `bases` and call `answer`.
+   */
+  async function missedAfterAllow(
+    by: Answers,
+    week: (env: Record<string, string>) => Promise<Page> = aYenWeek,
+  ) {
+    const service = await aRateService('0.0091', 200, by)
+    const page = await week(service.env)
+    const popover = await openFigure(page, 'shown')
+    await allowOnce(popover)
+    return { page, popover, service }
+  }
+
   test('a guessed figure offers Fetch rates', async () => {
     const page = await aYenWeek()
 
@@ -1364,19 +1417,7 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
     await expect.poll(() => guessedIn(page, 'shown').count()).toBe(1)
   })
 
-  test('a service that fails says so under the first field', async () => {
-    const service = await aRateService('0.0091', 500)
-    const page = await aYenWeek(service.env)
-    const popover = await openFigure(page, 'shown')
-
-    await allowOnce(popover)
-
-    await expect
-      .poll(() => popover.getByRole('alert').innerText())
-      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
-  })
-
-  test('and the popover stays', async () => {
+  test('a service that fails leaves the popover open', async () => {
     const service = await aRateService('0.0091', 500)
     const page = await aYenWeek(service.env)
     const popover = await openFigure(page, 'shown')
@@ -1388,18 +1429,231 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
     await expect.poll(() => popover.count()).toBe(1)
   })
 
-  test('Escape closes it after a refusal, with Allow’s cursor back', async () => {
-    const service = await aRateService('0.0091', 500)
-    const page = await aYenWeek(service.env)
-    const popover = await openFigure(page, 'shown')
-    await allowOnce(popover)
+  test('a fetch that missed one currency leaves only its line asking', async () => {
+    const { popover } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+    await expect
+      .poll(() =>
+        popover
+          .getByRole('textbox', { name: copy.reports.guesses.missing('EUR'), exact: true })
+          .count(),
+      )
+      .toBe(1)
+  })
+
+  test('and its reason is the service it couldn’t reach', async () => {
+    const { popover } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+
     await expect
       .poll(() => popover.getByRole('alert').innerText())
       .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+  })
 
-    await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} BUTTON`)
+  test('the cursor is in the line left asking', async () => {
+    const { page, popover } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+
+    await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} INPUT`)
+  })
+
+  test('the currency that came is written, and its line goes for good', async () => {
+    const { page, popover } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+    await page.keyboard.press('Escape')
+
+    await expect
+      .poll(async () => {
+        const again = await openFigure(page, 'shown')
+        const fields = await again.getByRole('textbox').count()
+        const euros = await again
+          .getByRole('textbox', { name: copy.reports.guesses.missing('EUR'), exact: true })
+          .count()
+        await page.keyboard.press('Escape')
+        return [fields, euros]
+      })
+      .toEqual([1, 1])
+  })
+
+  test('a fetch that reached nothing leaves every line with its reason', async () => {
+    const { popover } = await missedAfterAllow(
+      { JPY: { status: 500 }, EUR: { status: 500 } },
+      aYenAndEuroWeek,
+    )
+
+    await expect.poll(() => popover.getByRole('alert').count()).toBe(2)
+    await expect
+      .poll(async () => (await popover.getByRole('alert').allInnerTexts()).sort())
+      .toEqual([copy.errors.codes.RATES_NOT_FETCHED, copy.errors.codes.RATES_NOT_FETCHED])
+  })
+
+  test('a try again asks only for what missed', async () => {
+    const { popover, service } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+    const already = service.bases().length
+
+    service.answer({})
+    await allowButton(popover).click()
+
+    await expect.poll(() => service.bases().slice(already)).toEqual(['EUR'])
+  })
+
+  test('and it closes once nothing is left asking', async () => {
+    const { popover, service } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+
+    service.answer({})
+    await allowButton(popover).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('a day with nothing published in its week offers the last rate before it', async () => {
+    const service = await aRateService('0.0091', 200, { JPY: { end: '2022-02-28' } })
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await allowOnce(popover)
+
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.reports.fetch.older('JPY', [shownDay(today())], 'Mon 28 Feb 2022', '0.0091'))
+  })
+
+  test('and a Use it button under it', async () => {
+    const { popover } = await missedAfterAllow({ JPY: { end: '2022-02-28' } })
+
+    await expect
+      .poll(() => popover.getByRole('button', { name: copy.reports.fetch.use }).count())
+      .toBe(1)
+  })
+
+  test('Use it writes the older rate and closes', async () => {
+    const { popover } = await missedAfterAllow({ JPY: { end: '2022-02-28' } })
+    await expect
+      .poll(() => popover.getByRole('button', { name: copy.reports.fetch.use }).count())
+      .toBe(1)
+
+    await popover.getByRole('button', { name: copy.reports.fetch.use }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('and the figure it wrote is dashed', async () => {
+    const { page, popover } = await missedAfterAllow({ JPY: { end: '2022-02-28' } })
+    await expect
+      .poll(() => popover.getByRole('button', { name: copy.reports.fetch.use }).count())
+      .toBe(1)
+
+    await popover.getByRole('button', { name: copy.reports.fetch.use }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+    await expectDashed(page, treeRow(page, 'Unsorted').locator('[data-cell=shown] [data-look]'))
+  })
+
+  test('Use it leaves the lines it didn’t write, with the cursor in the first', async () => {
+    const { page, popover } = await missedAfterAllow(
+      { JPY: { end: '2022-02-28' }, EUR: { status: 500 } },
+      aYenAndEuroWeek,
+    )
+    await expect.poll(() => popover.getByRole('alert').count()).toBe(2)
+
+    await popover.getByRole('button', { name: copy.reports.fetch.use }).click()
+
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+    await expect
+      .poll(() =>
+        popover
+          .getByRole('textbox', { name: copy.reports.guesses.missing('EUR'), exact: true })
+          .count(),
+      )
+      .toBe(1)
+    await expect.poll(() => focusedIn(page)).toBe(`${copy.reports.guesses.label} INPUT`)
+  })
+
+  test('a currency with no rate on or before the day has none to offer', async () => {
+    const { popover } = await missedAfterAllow({ JPY: { end: null } })
+
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.reports.fetch.none('JPY', [shownDay(today())]))
+  })
+
+  test('and no Use it button', async () => {
+    const { popover } = await missedAfterAllow({ JPY: { end: null } })
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.reports.fetch.none('JPY', [shownDay(today())]))
+
+    await expect
+      .poll(() => popover.getByRole('button', { name: copy.reports.fetch.use }).count())
+      .toBe(0)
+  })
+
+  test('a fetch that missed everything leaves the cursor in its first field, and Escape closes', async () => {
+    const { page, popover } = await missedAfterAllow(
+      { JPY: { status: 500 }, EUR: { status: 500 } },
+      aYenAndEuroWeek,
+    )
+    await expect.poll(() => popover.getByRole('alert').count()).toBe(2)
+    await expect.poll(() => focusedId(page)).toBe(`guess-${today()}-EUR`)
+
     await page.keyboard.press('Escape')
 
     await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('a currency that came leaves no nearest rates to use', async () => {
+    const { popover } = await missedAfterAllow({ EUR: { status: 500 } }, aYenAndEuroWeek)
+    await expect.poll(() => popover.getByRole('textbox').count()).toBe(1)
+
+    await expect
+      .poll(() => popover.getByRole('button', { name: copy.reports.guesses.nearest }).count())
+      .toBe(0)
+  })
+
+  test('a refused rate’s words give way to a fetch that missed', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    const field = popover.getByRole('textbox')
+    await field.fill('1.7x')
+    await field.press('Enter')
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATE_INVALID)
+
+    await allowOnce(popover)
+
+    await expect
+      .poll(() => popover.getByRole('alert').innerText())
+      .toBe(copy.errors.codes.RATES_NOT_FETCHED)
+  })
+
+  test('a click on another control while a fetch waits closes it', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+    await allowButton(popover).click()
+
+    // The failed ask answers after 150 ms: this click lands while it is still on its way.
+    await page.getByRole('button', { name: copy.reports.week.before }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+  })
+
+  test('a click on nothing while a fetch waits gives the tree the cursor', async () => {
+    const service = await aRateService('0.0091', 500)
+    const page = await aYenWeek(service.env)
+    const popover = await openFigure(page, 'shown')
+    await fetchSummary(popover).click()
+    await allowButton(popover).click()
+
+    // The total is no control: the click gives the tree the cursor, as main's click away does.
+    await page.getByText(copy.reports.tree.total, { exact: true }).click()
+
+    await expect.poll(() => popover.count()).toBe(0)
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
+    await expect.poll(() => focusedLabel(page)).toBe(copy.reports.tree.label)
   })
 })

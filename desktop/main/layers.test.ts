@@ -202,8 +202,13 @@ function domTouchesIn(source: string): string[] {
   return [...svelte, ...globalsIn(source)]
 }
 
-/** The window's modules that must touch the DOM: the density, the entry, and the floating box. */
-const TOUCH_DOM = ['renderer/density.ts', 'renderer/main.ts', 'renderer/parts/floating.ts']
+/** The window's modules that must touch the DOM: the density, the entry, and two actions. */
+const TOUCH_DOM = [
+  'renderer/density.ts',
+  'renderer/main.ts',
+  'renderer/parts/floating.ts',
+  'renderer/places/reports/dismiss.ts',
+]
 
 describe('the boundaries', () => {
   it('hold for every import in desktop today', () => {

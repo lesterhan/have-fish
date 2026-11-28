@@ -1,18 +1,22 @@
 import type { Mark } from '@have-fish/core/rate-for'
 import type { Spent } from '@have-fish/core/spending'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../../../copy'
 import type {
   Bridge,
   CommandName,
   ListedTransaction,
+  Missed,
   ReportedSpend,
   Values,
   Wire,
 } from '../../../shared/commands'
 import { type Ask, query } from '../../ledger/query'
 import {
+  askingLines,
   changeMarkOf,
   changeOf,
+  daysToAsk,
   figureOf,
   fixingFor,
   guessed,
@@ -20,9 +24,15 @@ import {
   guessKey,
   guessLabel,
   idsWanted,
+  leftAfterOffer,
+  lineDays,
   lineLabel,
   lookOf,
+  missedOn,
+  missedWords,
   nearestOf,
+  offerOf,
+  rateOf,
   spendsBehind,
   spentOf,
   sumText,
@@ -550,6 +560,193 @@ describe('nearestOf', () => {
         { date: '2026-11-26', currency: 'JPY', from: null },
       ]),
     ).toEqual([])
+  })
+})
+
+/** One day a fetch wrote nothing for, with its offer when the service had an older rate. */
+const missed = (
+  currency: string,
+  date: string,
+  why: Missed['why'] = 'none',
+  offer: Missed['offer'] = null,
+): Missed => ({ date, currency, why, offer })
+
+const OFFER = { date: '2022-02-28', rate: '0.0091' }
+
+const askedDays = [
+  { date: '2026-11-03', currency: 'JPY' },
+  { date: '2026-11-04', currency: 'GBP' },
+  { date: '2026-11-05', currency: 'JPY' },
+]
+
+describe('lineDays', () => {
+  test('a missing currency stands for every day of it', () => {
+    expect(lineDays({ date: '2026-11-05', currency: 'JPY', from: null }, askedDays)).toEqual([
+      { date: '2026-11-03', currency: 'JPY' },
+      { date: '2026-11-05', currency: 'JPY' },
+    ])
+  })
+
+  test('a borrowed line stands for its own day', () => {
+    const borrowed = { date: '2026-11-05', currency: 'JPY', from: { ...OFFER } }
+
+    expect(lineDays(borrowed, askedDays)).toEqual([{ date: '2026-11-05', currency: 'JPY' }])
+  })
+})
+
+describe('missedWords', () => {
+  const TODAY = '2026-11-27'
+
+  test.each(['RATES_NOT_FETCHED', 'RATES_UNREADABLE'] as const)(
+    'a day the service couldn’t answer says its code, %s',
+    (why) => {
+      expect(missedWords([missed('JPY', '2026-11-05', why)], TODAY)).toBe(copy.errors.codes[why])
+    },
+  )
+
+  test('a day with no rate at all says so, once', () => {
+    expect(missedWords([missed('JPY', '2026-11-05')], TODAY)).toBe(
+      'The service has no JPY rate for this day. Type it.',
+    )
+  })
+
+  test('several days with no rate at all name each of them', () => {
+    expect(missedWords([missed('JPY', '2026-11-03'), missed('JPY', '2026-11-05')], TODAY)).toBe(
+      'The service has no JPY rate for Tue 3 Nov or Thu 5 Nov. Type them.',
+    )
+  })
+
+  test('an older rate is named with its day and figure', () => {
+    expect(missedWords([missed('JPY', '2026-11-05', 'none', { ...OFFER })], TODAY)).toBe(
+      'The service has no JPY rate within a week of Thu 5 Nov. Its last, from Mon 28 Feb 2022, is 0.0091.',
+    )
+  })
+
+  test('three days with an older rate name all three', () => {
+    const days = ['2026-11-02', '2026-11-03', '2026-11-05'].map((date) =>
+      missed('JPY', date, 'none', { ...OFFER }),
+    )
+
+    expect(missedWords(days, TODAY)).toBe(
+      'The service has no JPY rate within a week of Mon 2 Nov, Tue 3 Nov or Thu 5 Nov. Its last, from Mon 28 Feb 2022, is 0.0091.',
+    )
+  })
+
+  test('a code on any day wins over an offer on another', () => {
+    const days = [
+      missed('JPY', '2026-11-03', 'RATES_NOT_FETCHED'),
+      missed('JPY', '2026-11-05', 'none', { ...OFFER }),
+    ]
+
+    expect(missedWords(days, TODAY)).toBe(copy.errors.codes.RATES_NOT_FETCHED)
+  })
+
+  test('an offer on one day wins over none on another, naming the day it has', () => {
+    const days = [missed('JPY', '2026-11-03'), missed('JPY', '2026-11-05', 'none', { ...OFFER })]
+
+    expect(missedWords(days, TODAY)).toBe(
+      'The service has no JPY rate within a week of Thu 5 Nov. Its last, from Mon 28 Feb 2022, is 0.0091.',
+    )
+  })
+})
+
+describe('offerOf', () => {
+  test('the missed days with an older rate, and no other', () => {
+    const days = [missed('JPY', '2026-11-03', 'none', { ...OFFER }), missed('JPY', '2026-11-05')]
+
+    expect(offerOf(days)).toEqual([{ date: '2026-11-03', currency: 'JPY' }])
+  })
+
+  test('two days with the same offer are both offered', () => {
+    const days = [
+      missed('JPY', '2026-11-03', 'none', { ...OFFER }),
+      missed('JPY', '2026-11-05', 'none', { ...OFFER }),
+    ]
+
+    expect(offerOf(days)).toEqual([
+      { date: '2026-11-03', currency: 'JPY' },
+      { date: '2026-11-05', currency: 'JPY' },
+    ])
+  })
+})
+
+describe('missedOn', () => {
+  const JPY_MISSED = missed('JPY', '2026-11-05')
+  const EUR_MISSED = missed('EUR', '2026-11-05')
+
+  test('a line takes only its own currency’s days', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: null }
+
+    expect(missedOn(line, [JPY_MISSED, EUR_MISSED], askedDays)).toEqual([JPY_MISSED])
+  })
+
+  test('a borrowed line takes its own day, with nothing missed elsewhere', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: { ...OFFER } }
+
+    expect(missedOn(line, [EUR_MISSED], askedDays)).toEqual([])
+  })
+
+  test('before a fetch it takes nothing', () => {
+    const line = { date: '2026-11-05', currency: 'JPY', from: null }
+
+    expect(missedOn(line, null, askedDays)).toEqual([])
+  })
+})
+
+describe('daysToAsk', () => {
+  test('before a fetch, every day behind the figure', () => {
+    expect(daysToAsk(null, askedDays)).toEqual(askedDays)
+  })
+
+  test('after one, only the days it missed', () => {
+    const left = [missed('JPY', '2026-11-05'), missed('GBP', '2026-11-04')]
+
+    expect(daysToAsk(left, askedDays)).toEqual([
+      { date: '2026-11-05', currency: 'JPY' },
+      { date: '2026-11-04', currency: 'GBP' },
+    ])
+  })
+})
+
+describe('askingLines', () => {
+  const JPY = { date: '2026-11-03', currency: 'JPY', from: null }
+  const GBP = { date: '2026-11-04', currency: 'GBP', from: { ...OFFER } }
+
+  test('before a fetch, every line', () => {
+    expect(askingLines([JPY, GBP], null, askedDays)).toEqual([JPY, GBP])
+  })
+
+  test('after one, only the lines it missed', () => {
+    expect(askingLines([JPY, GBP], [missed('JPY', '2026-11-03')], askedDays)).toEqual([JPY])
+  })
+})
+
+describe('rateOf', () => {
+  test('the line’s day and currency, with the rate I typed', () => {
+    expect(rateOf({ date: '2026-11-05', currency: 'JPY', from: null }, '0.0091')).toEqual({
+      date: '2026-11-05',
+      currency: 'JPY',
+      rate: '0.0091',
+    })
+  })
+})
+
+describe('leftAfterOffer', () => {
+  const JPY_MISSED = missed('JPY', '2026-11-05', 'none', { ...OFFER })
+  const EUR_MISSED = missed('EUR', '2026-11-05', 'RATES_NOT_FETCHED')
+
+  test('takes the days it wrote out, and keeps the rest', () => {
+    expect(
+      leftAfterOffer([JPY_MISSED, EUR_MISSED], [{ date: '2026-11-05', currency: 'JPY' }], []),
+    ).toEqual([EUR_MISSED])
+  })
+
+  test('adds what its answer missed, after what it had', () => {
+    const again = missed('JPY', '2026-11-06', 'RATES_UNREADABLE')
+
+    expect(
+      leftAfterOffer([JPY_MISSED], [{ date: '2026-11-05', currency: 'JPY' }], [again]),
+    ).toEqual([again])
   })
 })
 

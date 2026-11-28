@@ -19,8 +19,20 @@ export const rateInputs = {
   'rate.write': aRate,
   /** Several rates I typed, written as one step: each day and currency once. */
   'rate.writeAll': z.strictObject({ rates: z.array(aRate).min(1).max(100).refine(eachOnce) }),
-  /** Every published rate for each day and currency, fetched as one step: each day once. */
-  'rate.fetch': z.strictObject({ days: z.array(aDay).min(1).max(200).refine(eachOnce) }),
+  /** Each day's published rate, as one step; last: a day with none in its week takes the last. */
+  'rate.fetch': z.strictObject({
+    days: z.array(aDay).min(1).max(200).refine(eachOnce),
+    last: z.literal(true).optional(),
+  }),
+}
+
+/** A day a fetch wrote nothing for: its currency's refusal, or none published in its week. */
+export type Missed = {
+  date: string
+  currency: string
+  why: 'RATES_NOT_FETCHED' | 'RATES_UNREADABLE' | 'none'
+  /** With none, the service's last rate before the day, which Use it fetches; else null. */
+  offer: { date: string; rate: string } | null
 }
 
 export interface RateValues {
@@ -28,8 +40,8 @@ export interface RateValues {
   'rate.write': { id: string }
   /** Each rate document, in the order the rates were given. */
   'rate.writeAll': { ids: string[] }
-  /** Each rate document fetched, in the order its days came; a day with none published has none. */
-  'rate.fetch': { ids: string[] }
+  /** Each rate fetched, then each day that got none, both in the order the days came. */
+  'rate.fetch': { ids: string[]; missed: Missed[] }
 }
 
 /** What an undo step of a rate is called. */

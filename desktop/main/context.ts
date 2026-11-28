@@ -55,8 +55,10 @@ export type ContextParts = {
   rateSource?: RateSource
 }
 
-/** A source that sends nothing and rejects: a context's when it is given none. */
-const sendsNothing: RateSource = () => Promise.reject(new Error('this context fetches no rates'))
+/** A context given no rate source sends nothing and rejects: this, for both of its asks. */
+const rejected = () => Promise.reject(new Error('this context fetches no rates'))
+
+const sendsNothing: RateSource = { rates: rejected, lastDay: rejected }
 
 export function contextFor({
   ledger,

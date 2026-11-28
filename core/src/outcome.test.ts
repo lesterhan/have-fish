@@ -57,6 +57,7 @@ test('every code takes the detail the table gives it', () => {
   failure('RATE_PUBLISHED_TYPED', { published: '2026-11-04' })
   failure('RATE_PUBLISHED_MISSING', { date: '2026-11-05' })
   failure('RATES_NOT_FETCHED')
+  failure('RATES_UNREADABLE')
 })
 
 test('a code with detail refuses to compile without it', () => {

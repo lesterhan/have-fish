@@ -3,8 +3,8 @@
 import { addDays, isCalendarDate } from '@have-fish/core/calendar-date'
 import { isValidCurrency } from '@have-fish/core/currencies'
 import type { RateDoc } from '@have-fish/core/documents'
-import { failure, type Outcome } from '@have-fish/core/outcome'
-import type { InputOf } from '../../../shared/commands'
+import { type FailureCode, failure, type Outcome } from '@have-fish/core/outcome'
+import type { InputOf, Missed } from '../../../shared/commands'
 import { HOME_CURRENCY } from '../../../shared/currency'
 import { idOf, outcomeOf } from '../../commands/applied'
 import type { Context } from '../../context'
@@ -65,14 +65,11 @@ export function writeAllRates(
   return outcomeOf(applied, { ids: docs.map((doc) => doc.id) })
 }
 
-/**
- * The published rate for each day and currency asked, into the home currency, as one step. A
- * day the service published nothing on or before gets none; any answer refused refuses all.
- */
+/** Each day's published rate, as one step: a day that got none says why in missed. */
 export async function fetchRates(
   ctx: Context,
   input: InputOf<'rate.fetch'>,
-): Promise<Outcome<{ ids: string[] }>> {
+): Promise<Outcome<{ ids: string[]; missed: Missed[] }>> {
   // Checked before anything is sent: each day and code goes into the request.
   for (const day of input.days) {
     if (!isCalendarDate(day.date)) return failure('DATE_INVALID', { date: day.date })
@@ -97,7 +94,7 @@ export async function fetchRates(
   const answers = await Promise.all(
     [...spans.entries()].map(async ([code, span]) => ({
       code,
-      answer: await ctx.rateSource({
+      answer: await ctx.rateSource.rates({
         from: code,
         to: HOME_CURRENCY,
         start: addDays(span.first, -7),
@@ -107,31 +104,122 @@ export async function fetchRates(
   )
 
   const published = new Map<string, readonly PublishedRate[]>()
+  const refused = new Map<string, Missed['why']>()
   for (const { code, answer } of answers) {
-    if (!answer.ok) return { ok: false, failure: answer.failure }
-    published.set(code, answer.value)
+    if (answer.ok) published.set(code, answer.value)
+    else refused.set(code, whyOf(answer.failure.code))
   }
+
+  // The rate each day takes from the week before it, and every day that came with none, in order.
+  const taken = new Map<string, PublishedRate>()
+  const none: { date: string; currency: string }[] = []
+  for (const day of input.days) {
+    const rate = latestOn(published.get(day.currency) ?? [], day.date, addDays(day.date, -7))
+    if (rate !== undefined) taken.set(`${day.date} ${day.currency}`, rate)
+    else if (published.has(day.currency)) none.push(day)
+  }
+
+  // What each currency with a missed day falls back to: one ask, after every rates ask.
+  const asking = [...new Set(none.map((day) => day.currency))]
+  const fallback = new Map<string, Fallback>()
+  await Promise.all(
+    asking.map(async (code) => {
+      const missed = none.filter((day) => day.currency === code)
+      fallback.set(code, await fallbackOf(ctx, code, missed))
+    }),
+  )
 
   // Read and written after the last wait, so another command can't announce half-way.
   const now = ctx.now()
   const docs: RateDoc[] = []
+  const missed: Missed[] = []
   for (const day of input.days) {
-    const found = latestOn(published.get(day.currency) ?? [], day.date)
-    if (found === undefined) continue
-    const line = { date: day.date, currency: day.currency, rate: found.rate }
-    docs.push(rateDocOf(ctx, line, now, found.date))
+    const rate = taken.get(`${day.date} ${day.currency}`)
+    if (rate !== undefined) {
+      const line = { date: day.date, currency: day.currency, rate: rate.rate }
+      docs.push(rateDocOf(ctx, line, now, rate.date))
+      continue
+    }
+    const why = refused.get(day.currency)
+    if (why !== undefined) {
+      missed.push({ date: day.date, currency: day.currency, why, offer: null })
+      continue
+    }
+    const back = fallback.get(day.currency) ?? NOTHING
+    const besideEnd = back.end !== null && back.end < addDays(day.date, -7)
+    if (input.last === true && besideEnd && back.offer !== null) {
+      const line = { date: day.date, currency: day.currency, rate: back.offer.rate }
+      docs.push(rateDocOf(ctx, line, now, back.offer.date))
+      continue
+    }
+    missed.push({
+      date: day.date,
+      currency: day.currency,
+      why: besideEnd && back.offerWhy !== null ? back.offerWhy : back.why,
+      offer: besideEnd ? back.offer : null,
+    })
   }
-  if (docs.length === 0) return { ok: true, value: { ids: [] } }
+  if (docs.length === 0) return { ok: true, value: { ids: [], missed } }
   const { applied, changes } = applyKeeping(ctx, docs, now, docs)
   record(ctx, { action: 'fetchRates', count: docs.length }, changes)
-  return outcomeOf(applied, { ids: docs.map((doc) => doc.id) })
+  return outcomeOf(applied, { ids: docs.map((doc) => doc.id), missed })
 }
 
-/** The latest of `rates` published on or before `date`, whatever order they came in. */
-function latestOn(rates: readonly PublishedRate[], date: string): PublishedRate | undefined {
+/** What a currency with a missed day falls back to: a refusal, or its last day and its rate. */
+type Fallback = {
+  /** The last day the service published, or null. */
+  end: string | null
+  /** Why there is no last day, or 'none' when there is one. */
+  why: Missed['why']
+  /** The rate on the last day, where the ask for it found one. */
+  offer: { date: string; rate: string } | null
+  /** Why the ask for the last day's rate gave none, where it refused. */
+  offerWhy: Missed['why'] | null
+}
+
+/** What a currency with no missed day falls back to: nothing published, and nothing to say. */
+const NOTHING: Fallback = { end: null, why: 'none', offer: null, offerWhy: null }
+
+/**
+ * What a currency with a missed day falls back to: the last day it published, asked once, and the
+ * rate on it where that day is before one of the missed days' week.
+ */
+async function fallbackOf(
+  ctx: Context,
+  code: string,
+  missed: readonly { date: string; currency: string }[],
+): Promise<Fallback> {
+  const last = await ctx.rateSource.lastDay({ from: code, to: HOME_CURRENCY })
+  if (!last.ok) {
+    return { end: null, why: whyOf(last.failure.code), offer: null, offerWhy: null }
+  }
+  const end = last.value
+  if (end === null) return NOTHING
+  if (!missed.some((day) => end < addDays(day.date, -7))) {
+    return { end, why: 'none', offer: null, offerWhy: null }
+  }
+  const answer = await ctx.rateSource.rates({ from: code, to: HOME_CURRENCY, start: end, end })
+  if (!answer.ok) {
+    return { end, why: 'none', offer: null, offerWhy: whyOf(answer.failure.code) }
+  }
+  const onEnd = answer.value.find((one) => one.date === end)
+  const offer = onEnd === undefined ? null : { date: end, rate: onEnd.rate }
+  return { end, why: 'none', offer, offerWhy: null }
+}
+
+/** The code a day records when the service didn't answer it: the two a source gives. */
+const whyOf = (code: FailureCode): Missed['why'] =>
+  code === 'RATES_UNREADABLE' ? 'RATES_UNREADABLE' : 'RATES_NOT_FETCHED'
+
+/** The latest of `rates` published from `from` to `date`, whatever order they came in. */
+function latestOn(
+  rates: readonly PublishedRate[],
+  date: string,
+  from: string,
+): PublishedRate | undefined {
   let latest: PublishedRate | undefined
   for (const entry of rates) {
-    if (entry.date > date) continue
+    if (entry.date > date || entry.date < from) continue
     if (latest === undefined || entry.date > latest.date) latest = entry
   }
   return latest
