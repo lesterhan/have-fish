@@ -1649,7 +1649,7 @@ describe.skipIf(process.env.E2E_APP)('fetching the rates a figure guessed', () =
     await fetchSummary(popover).click()
     await allowButton(popover).click()
 
-    // The total is no control: a click there gives the tree the cursor, as a click away does on main.
+    // The total is no control: the click gives the tree the cursor, as main's click away does.
     await page.getByText(copy.reports.tree.total, { exact: true }).click()
 
     await expect.poll(() => popover.count()).toBe(0)

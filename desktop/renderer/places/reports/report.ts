@@ -191,7 +191,7 @@ export function clickOf(target: EventTarget | null, layer: Node | null): Click {
   return control === null || control === false ? 'nothing' : 'control'
 }
 
-/** What a blur out of the popover means: stay open, close back to the tree, or close where it went. */
+/** What a blur out of the popover means: stay, close back to the tree, or close where it went. */
 export type Leaving = 'stay' | 'back' | 'away'
 
 /**

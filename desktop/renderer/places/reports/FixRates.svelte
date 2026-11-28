@@ -59,7 +59,9 @@
   // The first field takes the cursor, so Enter writes without a click.
   onMount(() => layer?.querySelector<HTMLInputElement>('input')?.focus())
   onDestroy(() => { gone = true })
-  /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */  async function send<T>(
+
+  /** Sends one call; a fetch's `rest` is what it leaves, and the popover closes at nothing. */
+  async function send<T>(
     key: string,
     call: () => Promise<Wire<T>>,
     rest?: (value: T) => Missed[],
