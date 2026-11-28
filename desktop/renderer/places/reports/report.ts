@@ -8,6 +8,7 @@ import {
   type ComparedLine,
   comparedAt,
   isIn,
+  netOf,
   type Spent,
   type Uncounted,
 } from '@have-fish/core/spending'
@@ -319,6 +320,28 @@ export function changeOf(cents: number | null, before: number | null): Change {
   const [now, then] = [cents ?? 0, before ?? 0]
   const way = now > then ? 'more' : now < then ? 'less' : 'same'
   return { cents: Math.abs(now - then), way }
+}
+
+/** How a change reads: what moved counted, then each currency it couldn't, netted and signed. */
+export type ChangeFigure = {
+  counted: Change | null
+  uncounted: { money: Money; sign: 'plus' | 'minus' }[]
+}
+
+/** A change and both weeks' uncounted: no `same` when only what it couldn't count moved. */
+export function changeFigureOf(
+  moved: Change,
+  uncounted: readonly Uncounted[],
+  beforeUncounted: readonly Uncounted[],
+): ChangeFigure {
+  const net = netOf(uncounted, beforeUncounted)
+  return {
+    counted: moved.cents === 0 && net.length > 0 ? null : moved,
+    uncounted: net.map((one) => ({
+      money: moneyOf(Math.abs(one.cents), one.currency),
+      sign: one.cents < 0 ? 'minus' : 'plus',
+    })),
+  }
 }
 
 /** A tree's columns, in the order they read. */
